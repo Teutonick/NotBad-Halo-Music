@@ -4,7 +4,7 @@ These instructions apply to every change in this repository, including work perf
 
 ## Product definition
 
-HALO is an **interactive ambient music instrument**, not a DAW, game, particle demo, or screensaver. The user creates and influences a musical ecosystem of **eight simultaneous voices**. The experience should be effortless, sophisticated, visually immersive, and aurally calm.
+HALO is an **unobtrusive relaxation constructor**: users shape a calm soundscape through **eight simultaneous voices**, without needing musical expertise or learning a professional instrument. The experience should be effortless, visually immersive, and aurally calm.
 
 **Product promise:** *Complex to look at. Simple to touch. Harmonious to hear.*
 
@@ -22,14 +22,16 @@ Treat the repository's actual code as the source of truth for what is implemente
 8. **Progressive enhancement.** Audio must function without WebGL2. Prefer Canvas 2D fallback, device-appropriate quality scaling, and reduced-motion support.
 9. **Privacy and simplicity by default.** No account, analytics, tracking, API keys, or backend. Do not add runtime dependencies or CDNs without a concrete documented need.
 10. **Do not overbuild.** Prefer small, testable changes that preserve the zero-build static deployment path wherever possible.
+11. **GitHub Pages is mandatory.** Every feature must work as a static project site under `/<repository>/`, without a backend, mandatory build step, runtime CDN, secrets, or server rewrites. Use relative asset/module/sample paths and locally hosted assets. Verify deployment compatibility when changing paths or loading behavior.
+12. **Sound provenance is mandatory.** Use original procedural synthesis or external sounds with verified CC0/public-domain status only. Reject paid permissions, required attribution, non-commercial restrictions, and redistribution restrictions. Free or royalty-free alone is insufficient. Record each imported sound's source URL, author, rights evidence, and local filename before inclusion; never copy proprietary OP-Z sounds.
 
-## Existing baseline (v0.1)
+## Current implementation (2026-10-12)
 
-- `index.html` currently contains all markup, styles, audio code, procedural WebGL2 shader, Canvas 2D rendering, and interaction handlers.
-- Instruments are eight track objects with four available timbre types: Bell, Pad, Bass, Pluck.
+- `index.html` contains markup/styles, transport, state, visuals and UI. `src/sounds.js` owns patch banks/harmonic rules; `src/audio.js` owns synthesis and audio routing. Classic local scripts preserve direct file opening and GitHub Pages.
+- Eight track objects have dedicated roles with three original procedural patches each, plus character/duration/space tuning. External sample banks are not implemented.
 - Musical scheduling uses a 16-step-per-bar grid and four repeating chords: Dm7, Bbmaj7, Fmaj7, Cadd9.
 - Three visual modes exist: Orbit, Bloom, Current; different visual velocities do **not** yet constitute true musical polymeter.
-- No persistence, recording, direct orbit note editor, PWA, or modular source tree is implemented.
+- Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. No persistence, recording, direct orbit note editor or PWA is implemented.
 
 Do not introduce a framework or bundler merely to refactor. ES modules and a minimal local static server are enough for the first extraction; GitHub Pages must continue to work.
 
@@ -65,7 +67,7 @@ Keep render, transport, composition, and audio synthesis independently testable.
 5. **Test where possible.** Add pure-function unit tests for musical timing, note selection, seeds, and serialization. Manually test actual audible output when automated audio verification is unavailable.
 6. **Check desktop and mobile.** Validate Chrome/Chromium and, when available, Safari/iOS. Verify startup by user gesture, resizing, pause/resume, and WebGL fallback.
 7. **Report clearly.** Summarize changed files, behavior, validation performed, limitations, and next recommended step. Do not claim to have listened to audio or tested a device unless you actually did.
-8. **Update docs.** Adjust `README.md` for user-visible features and `PROJECT_MAP.md` for milestones, architecture, and newly known limitations.
+8. **Update docs in the same change.** Every major or consequential change to behavior, audio, controls, architecture, dependencies, sound assets, compatibility, or deployment must update `PROJECT_MAP.md` with the resulting state, decisions, and known limitations; update `README.md` when user-facing features or instructions change. Add a short dated entry to `CHANGELOG.md` describing what changed and its impact. Distinguish planned, implemented, and verified behavior; a major product change does not automatically imply a major version release.
 
 ## Definition of done (for each feature)
 
@@ -76,7 +78,10 @@ Keep render, transport, composition, and audio synthesis independently testable.
 - Functional keyboard, pointer, and touch interactions for relevant controls.
 - Mobile layout and fallback behavior are considered.
 - Documentation accurately reflects what was shipped.
+- Significant changes are recorded in project documentation and the short changelog; GitHub Pages compatibility and imported sound provenance are accounted for.
 
-## Suggested first Codex task
+## Earlier refactor recommendation
 
 **Refactor v0.1 into small ES modules without changing the musical results or the visual composition.** Extract app state, scheduler, harmony/composition, synth, worlds, and UI handlers. Preserve an easy static run/deploy path; document any requirement for serving ES modules over HTTP. Add pure unit tests for deterministic harmony and step scheduling. Do not add new sound engines, frameworks, or visual effects in this first task.
+
+This is an optional prerequisite, not a requirement to delay the approved sound-bank direction in `PROJECT_MAP.md`. Keep extraction and audio feature patches focused and independently reviewable. Do not commit changes unless the user explicitly authorizes it.

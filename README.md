@@ -2,7 +2,7 @@
 
 **Compose worlds, not timelines.**
 
-HALO is an open-source, browser-based ambient music playground. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. You shape a soundscape by interacting with the universe—not by operating a traditional digital audio workstation.
+HALO is an open-source, browser-based relaxation constructor. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. Choose and shape a calm soundscape without musical expertise or the demands of a professional instrument.
 
 ![HALO desktop preview](screenshot.png)
 
@@ -12,9 +12,9 @@ HALO is an open-source, browser-based ambient music playground. Eight musical vo
 - **Eight voices, one clock:** inspired by the immediacy of compact grooveboxes such as the OP-Z, without reproducing their interface.
 - **Visual complexity, musical clarity:** trajectories, phases, trails, and particles obscure the obvious repetition without making the audio chaotic.
 - **Play before configuration:** direct interaction first; technical parameters stay secondary.
-- **A living instrument:** create an evolving environment, not just an animation that plays music.
+- **Relax through construction:** gently shape an evolving environment with simple interactions.
 
-## Try v0.1
+## Try HALO
 
 Open `index.html` in a modern desktop or mobile browser, or deploy the repository using **GitHub Pages**. No installation, build, backend, account, API key, or CDN is required.
 
@@ -26,7 +26,8 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | --- | --- |
 | Play / Space | Start or pause sound |
 | Tap a track / press 1–8 | Mute or unmute one voice |
-| Right-click a track / long-press on touch | Edit voice type, density, and level |
+| Right-click a track / long-press on touch | Choose a bank sound; tune character, duration, space, density, and presence |
+| Shift+Enter on a focused track / Escape | Open / close its sound editor |
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
 | Evolve | Change the deterministic melodic variation |
@@ -35,19 +36,26 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 ## What works today
 
 - Eight independent track settings; **five active by default**.
-- Four synthesized sound families: **Bell, Pad, Bass, Pluck** (shared across the eight voices).
+- Eight dedicated sound banks, **three original procedural sounds each** (24 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
+- Per-track sound selection, character (filter brightness), duration (future note envelopes), and space (reverb send). Environmental sounds are synthesized textures, not field recordings or realistic instrument samples.
 - One Web Audio clock with 16th-note scheduling and a four-bar harmonic loop: **Dm7 → Bbmaj7 → Fmaj7 → Cadd9**.
 - Three closed-trajectory visual modes, drawn using Canvas 2D over an optional WebGL2 nebula.
-- Reverb, compression, individual voice levels, density, mute/unmute, and mobile layout.
+- Reverb, compression, smoothly ramped track levels/mutes, density, and a scrollable editor for small screens.
+- Four sustained events per track with a short release for stolen events, bounded envelopes, shared noise buffers, and source cleanup.
 - No external requests, tracking, or downloadable assets.
 
-**Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, orbit-based note editing, save/share, and sophisticated sound design are future work, not existing features.
+**Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, orbit-based note editing, save/share, and external sample playback are future work, not existing features.
 
 ## Project files
 
-- `index.html` — the entire runnable v0.1 prototype (HTML, CSS, JS, shaders).
+- `index.html` — static entry, inline UI/transport and visual scenes.
+- `src/sounds.js` — eight patch banks and deterministic harmonic/event rules.
+- `src/audio.js` — procedural synthesis, audio routing, effects and voice cleanup.
+- `tests/` — Node tests for sound rules, audio contracts and app wiring.
+- `.nojekyll` — serve repository assets directly on GitHub Pages.
 - `AGENTS.md` — engineering and product guardrails for coding agents.
 - `PROJECT_MAP.md` — current architecture, target structure, roadmap, and acceptance criteria.
+- `CHANGELOG.md` — short dated record of significant changes.
 - `screenshot.png`, `screenshot-mobile.png` — visual references.
 - `LICENSE` — MIT.
 
@@ -55,11 +63,19 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 
 **Today:** zero-dependency HTML/CSS/JavaScript, Web Audio API, Canvas 2D, optional WebGL2.
 
-**Next:** separate transport/scheduler, composition/harmony, synthesis, visuals, UI, and preset serialization into small modules. Keep the app deployable as a static site. Consider AudioWorklet, better patches, or WebGPU only when a demonstrated need justifies them.
+**Current extraction:** sound banks/composition and synthesis live in small dependency-free scripts; transport/UI/visuals remain inline. Classic scripts preserve direct file opening as well as static HTTP hosting.
+
+**Next:** extract remaining transport, visuals, UI, and versioned serialization as needed. Keep the app deployable as a static site. Consider AudioWorklet, better patches, or WebGPU only when a demonstrated need justifies them.
 
 Audio events must be scheduled from `AudioContext.currentTime`, **never from the animation frame rate**. Visual scenes are alternative representations of the same composition, not separate audio engines.
 
 ## Development roadmap
+
+The first sound-bank stage is implemented: eight roles, three procedural sounds per role, and character/duration/space tuning in the object editor. Existing slot order, colors and worlds remain. External CC0 sample banks and their loading/failure handling remain planned. See [PROJECT_MAP.md](PROJECT_MAP.md#approved-sound-bank-direction-2026-10-12).
+
+External sounds must have verified **CC0/public-domain** status, with source evidence recorded per file. Free downloads and royalty-free labels are insufficient; sounds requiring payment, attribution, or restricted redistribution are excluded. Original procedural synthesis remains available without sample downloads. See [CC0 terms](https://creativecommons.org/publicdomain/zero/1.0/) and [Freesound's rights guidance](https://freesound.org/help/faq/).
+
+Longer-term milestones:
 
 1. Stabilize the prototype and separate its core modules without changing behavior.
 2. Save, load, and share reproducible eight-track universes.
@@ -72,11 +88,37 @@ See [PROJECT_MAP.md](PROJECT_MAP.md) for detailed milestones.
 
 ## Publishing on GitHub Pages
 
-Push the files to a repository, then enable **Settings → Pages → Deploy from a branch → main → /(root)**. The site uses relative paths and requires no server-side component.
+**Required deployment target:** HALO must continue to run directly on GitHub Pages, including project URLs under `/<repository>/`. No backend, mandatory build, secrets, runtime CDN, or server rewrites. HTML, JavaScript, and any future sound files are served from the repository using relative paths.
+
+### Первая публикация
+
+1. Создайте репозиторий на GitHub или откройте существующий. Для бесплатного аккаунта используйте публичный репозиторий. Нужны права на настройку Pages.
+2. Загрузите файлы проекта через **Add file → Upload files** либо GitHub Desktop. `index.html` должен находиться в корне выбранной ветки, обычно `main`, а не во вложенной папке. При появлении модулей и звуков загружайте их папки с сохранением структуры и регистра имён.
+3. В **Settings → Pages → Build and deployment** выберите **Source: Deploy from a branch**, ветку `main` (либо вашу ветку публикации) и **/(root)**, затем **Save**.
+4. Дождитесь успешного **pages build and deployment** во вкладке **Actions**. Откройте адрес из **Settings → Pages**; обычно это `https://<user>.github.io/<repository>/`.
+5. Нажмите **Play**: звук запускается после действия пользователя. Проверьте паузу/возобновление, восемь дорожек, редактор, три сцены и страницу на телефоне.
+
+### Обновление сайта
+
+1. Проверьте изменения локально. До публикации обновите описание возможностей в README, состояние проекта в PROJECT_MAP и короткую запись в CHANGELOG для значимых изменений.
+2. Через GitHub Desktop или загрузку файлов на GitHub отправьте проверенные изменения в ту же ветку и папку, которые выбраны в Pages. Публикация запускается автоматически; повторно включать Pages не требуется. Это действия владельца репозитория — агент не коммитит и не публикует без отдельного разрешения.
+3. Дождитесь успешного deployment в **Actions**, затем откройте прежний адрес сайта. Если видна старая версия, выполните жёсткое обновление (`Ctrl+Shift+R`) или проверьте в приватном окне.
+4. Повторите проверку Play, паузы, дорожек и сцен. При добавлении ресурсов проверьте отсутствие ошибок загрузки в Network/Console. Пути вида `/assets/...` ведут в корень домена; для проектного сайта используйте `./assets/...` или URL относительно модуля.
+5. Если deployment завершился ошибкой, изучите его журнал в Actions. Для отката восстановите предыдущие рабочие файлы в ветке публикации и отправьте обновление; дождитесь нового успешного deployment.
+
+Official instructions: [configure the publishing source](https://docs.github.com/en/pages/getting-started-with-github-pages/configuring-a-publishing-source-for-your-github-pages-site), [create a Pages site](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site).
+
+## Development checks
+
+Run `node --test tests/sounds.test.cjs tests/app.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
+
+These checks do not establish audible quality, mobile/browser rendering, ten-minute stability, or actual Pages deployment. Before publishing, listen to all eight voices, try all banks and parameter extremes, check keyboard/touch, and test Chrome plus Safari/iOS when available.
 
 ## Contributing
 
 Design, audio, graphics, interaction, accessibility, and performance contributions are welcome. Please read [AGENTS.md](AGENTS.md) before changing the audio scheduler or visual architecture. Protect the core feeling: **calm to hear, fascinating to watch, immediate to play**.
+
+Major or consequential changes must update project documentation and add a concise dated entry to [CHANGELOG.md](CHANGELOG.md) in the same patch. Document actual behavior, compatibility impact, and known limits; keep roadmap proposals separate from shipped features.
 
 ## License
 
