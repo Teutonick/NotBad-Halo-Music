@@ -4,12 +4,13 @@ const { banks, chords, soundFor, notesFor, shouldTrigger } = require('../src/sou
 const Audio = require('../src/audio.js');
 const track = name => ({ name, sound: banks[name].sounds[0].id, character: 50, duration: 50, space: 55, level: 65, density: 100, on: true, pattern: [0, 4, 8, 12] });
 
-test('eight distinct roles, 24 local patches, safe unknown patch fallback', () => {
+test('eight distinct roles, 30 local patches, safe unknown patch fallback', () => {
   assert.equal(Object.keys(banks).length, 8);
+  assert.equal(Object.values(banks).reduce((n,b)=>n+b.sounds.length,0),30);
   assert.equal(new Set(Object.values(banks).map(b => b.role)).size, 8);
   for (const [name, bank] of Object.entries(banks)) {
-    assert.equal(bank.sounds.length, 3);
-    assert.equal(new Set(bank.sounds.map(s => s.id)).size, 3);
+    assert.ok(bank.sounds.length >= 3);
+    assert.equal(new Set(bank.sounds.map(s => s.id)).size, bank.sounds.length);
     assert.equal(soundFor({ name, sound: 'missing' }), bank.sounds[0]);
   }
 });
@@ -20,7 +21,7 @@ test('all pitched patches stay in the current chord; noises and percussion have 
       const t = { ...track(name), sound: patch.id };
       const notes = notesFor(t, index, bar, local, 3);
       assert.deepEqual(notes, notesFor(t, index, bar, local, 3));
-      if (['noise', 'kick', 'drop'].includes(patch.engine)) assert.deepEqual(notes, []);
+      if (['noise', 'kick', 'drop', 'snare', 'clap'].includes(patch.engine)) assert.deepEqual(notes, []);
       else {
         assert.ok(notes.length > 0 && notes.length <= 3);
         for (const n of notes) assert.ok(chords[bar % 4].some(c => (n - c) % 12 === 0));

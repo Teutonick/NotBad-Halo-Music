@@ -25,6 +25,7 @@ function app() {
     addEventListener(){}, AudioContext:function(){return ctx} };
   sandbox.window=sandbox;
   sandbox.HaloSounds=require('../src/sounds.js');
+  sandbox.HaloMotion=require('../src/motion.js');
   sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,update:i=>calls.push(['update',i]),
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
   vm.createContext(sandbox);
@@ -33,12 +34,12 @@ function app() {
   vm.runInContext(code,sandbox);
   return { document, elements, events, calls, timers, ctx };
 }
-test('static entry references local scripts, all eight tiles and three-sound editors work',()=>{
+test('static entry references local scripts, all eight tiles and role-specific editors work',()=>{
   const a=app(), tiles=a.document.getElementById('tracks');
   assert.equal(tiles.children.length,8);
   tiles.children[4].oncontextmenu({preventDefault(){}});
   const buttons=a.document.getElementById('types').children;
-  assert.equal(buttons.length,3); assert.equal(buttons[0].textContent,'Shaker');
+  assert.equal(buttons.length,6); assert.equal(buttons[0].textContent,'Shaker');
   buttons[2].click(); assert.equal(a.document.getElementById('typeLabel').textContent,'Drops');
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   for(const match of html.matchAll(/<script src="([^"]+)"/g)) {
@@ -49,6 +50,10 @@ test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed schedu
   const a=app(), $=id=>a.document.getElementById(id);
   await $('play').onclick(); assert.ok(a.calls.some(c=>c[0]==='play'));
   const before=a.calls.filter(c=>c[0]==='play').length;
+  $('motion').onclick(); assert.equal($('motion').textContent,'IN TIME');
+  assert.equal($('motion')['aria-pressed'],'true');
+  $('motion').onclick(); assert.equal($('motion').textContent,'DRIFT');
+  assert.equal(a.calls.filter(c=>c[0]==='play').length,before);
   $('scene').onclick(); assert.equal($('sceneText').textContent,'BLOOM');
   $('scene').onclick(); assert.equal($('sceneText').textContent,'CURRENT');
   $('scene').onclick(); assert.equal($('sceneText').textContent,'ORBIT');

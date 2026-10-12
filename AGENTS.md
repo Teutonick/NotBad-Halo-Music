@@ -28,7 +28,8 @@ Treat the repository's actual code as the source of truth for what is implemente
 ## Current implementation (2026-10-12)
 
 - `index.html` contains markup/styles, transport, state, visuals and UI. `src/sounds.js` owns patch banks/harmonic rules; `src/audio.js` owns synthesis and audio routing. Classic local scripts preserve direct file opening and GitHub Pages.
-- Eight track objects have dedicated roles with three original procedural patches each, plus character/duration/space tuning. External sample banks are not implemented.
+- Eight track objects have dedicated roles with 30 original procedural patches across the banks, plus character/duration/space tuning. External sample banks are not implemented.
+- DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
 - Musical scheduling uses a 16-step-per-bar grid and four repeating chords: Dm7, Bbmaj7, Fmaj7, Cadd9.
 - Three visual modes exist: Orbit, Bloom, Current; different visual velocities do **not** yet constitute true musical polymeter.
 - Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. No persistence, recording, direct orbit note editor or PWA is implemented.
@@ -66,6 +67,7 @@ Keep render, transport, composition, and audio synthesis independently testable.
 4. **Preserve a playable build.** Every completed change must leave Play, transport, eight tracks, and the three scenes functional.
 5. **Test where possible.** Add pure-function unit tests for musical timing, note selection, seeds, and serialization. Manually test actual audible output when automated audio verification is unavailable.
 6. **Check desktop and mobile.** Validate Chrome/Chromium and, when available, Safari/iOS. Verify startup by user gesture, resizing, pause/resume, and WebGL fallback.
+   For local browser checks, run `./scripts/preview.ps1` and use `http://127.0.0.1:8766/`. If Windows sandbox blocks sockets, request the standard execution escalation for the loopback preview server. Prefer the supported current browser API when a legacy adapter fails; do not bypass browser URL policy or security controls. Reload after edits; record console results and actual viewport/device coverage.
 7. **Report clearly.** Summarize changed files, behavior, validation performed, limitations, and next recommended step. Do not claim to have listened to audio or tested a device unless you actually did.
 8. **Update docs in the same change.** Every major or consequential change to behavior, audio, controls, architecture, dependencies, sound assets, compatibility, or deployment must update `PROJECT_MAP.md` with the resulting state, decisions, and known limitations; update `README.md` when user-facing features or instructions change. Add a short dated entry to `CHANGELOG.md` describing what changed and its impact. Distinguish planned, implemented, and verified behavior; a major product change does not automatically imply a major version release.
 

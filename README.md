@@ -30,13 +30,14 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | Shift+Enter on a focused track / Escape | Open / close its sound editor |
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
+| DRIFT / IN TIME | Keep free trajectories or align voices to a shared right-hand axis at their musical steps |
 | Evolve | Change the deterministic melodic variation |
 | Tempo | Cycle between 60, 72, and 84 BPM |
 
 ## What works today
 
 - Eight independent track settings; **five active by default**.
-- Eight dedicated sound banks, **three original procedural sounds each** (24 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
+- Eight dedicated sound banks, **original procedural sounds** (30 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
 - Per-track sound selection, character (filter brightness), duration (future note envelopes), and space (reverb send). Environmental sounds are synthesized textures, not field recordings or realistic instrument samples.
 - One Web Audio clock with 16th-note scheduling and a four-bar harmonic loop: **Dm7 → Bbmaj7 → Fmaj7 → Cadd9**.
 - Three closed-trajectory visual modes, drawn using Canvas 2D over an optional WebGL2 nebula.
@@ -46,11 +47,18 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 
 **Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, orbit-based note editing, save/share, and external sample playback are future work, not existing features.
 
+### Seeing and building a beat
+
+**DRIFT** preserves the original free trajectories. **IN TIME** uses regular aligned orbits: each voice completes a revolution between its pattern steps and crosses the common horizontal axis on a potential note/strike. The axis shows the bar and beat. Light accents appear when a scheduled audio event reaches the audio clock, rather than during lookahead. Density can skip a note; a silent crossing is not a trigger. Switching motion modes never changes sound or transport. Orbit/Bloom/Current remain separate scene choices; in IN TIME their voice paths use the same aligned geometry.
+
+For a stronger beat, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
+
 ## Project files
 
 - `index.html` — static entry, inline UI/transport and visual scenes.
 - `src/sounds.js` — eight patch banks and deterministic harmonic/event rules.
 - `src/audio.js` — procedural synthesis, audio routing, effects and voice cleanup.
+- `src/motion.js` — pure musical-step-to-orbit phase mapping.
 - `tests/` — Node tests for sound rules, audio contracts and app wiring.
 - `.nojekyll` — serve repository assets directly on GitHub Pages.
 - `AGENTS.md` — engineering and product guardrails for coding agents.
@@ -71,7 +79,7 @@ Audio events must be scheduled from `AudioContext.currentTime`, **never from the
 
 ## Development roadmap
 
-The first sound-bank stage is implemented: eight roles, three procedural sounds per role, and character/duration/space tuning in the object editor. Existing slot order, colors and worlds remain. External CC0 sample banks and their loading/failure handling remain planned. See [PROJECT_MAP.md](PROJECT_MAP.md#approved-sound-bank-direction-2026-10-12).
+The first sound-bank stage is implemented: eight roles with procedural sound banks, and character/duration/space tuning in the object editor. Existing slot order, colors and worlds remain. External CC0 sample banks and their loading/failure handling remain planned. See [PROJECT_MAP.md](PROJECT_MAP.md#approved-sound-bank-direction-2026-10-12).
 
 External sounds must have verified **CC0/public-domain** status, with source evidence recorded per file. Free downloads and royalty-free labels are insufficient; sounds requiring payment, attribution, or restricted redistribution are excluded. Original procedural synthesis remains available without sample downloads. See [CC0 terms](https://creativecommons.org/publicdomain/zero/1.0/) and [Freesound's rights guidance](https://freesound.org/help/faq/).
 
@@ -110,7 +118,15 @@ Official instructions: [configure the publishing source](https://docs.github.com
 
 ## Development checks
 
-Run `node --test tests/sounds.test.cjs tests/app.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
+### Локальный предпросмотр и проверка в Codex
+
+Из корня проекта в PowerShell запустите `./scripts/preview.ps1` (нужен Python 3), затем откройте `http://127.0.0.1:8766/` во встроенном браузере Codex. Для другого порта: `./scripts/preview.ps1 -Port 8770`. Остановить сервер: `Ctrl+C`. Сервер слушает только `127.0.0.1`; он нужен для разработки, а GitHub Pages продолжает работать без Python и backend.
+
+Для автоматической браузерной проверки используйте HTTP-предпросмотр: браузерный инструмент может запрещать `file://`, даже если вручную файл открывается в Chrome. В Windows sandbox локальные сокеты могут быть запрещены; при ошибке доступа к сокету запустите только сервер предпросмотра вне sandbox через штатное разрешение на выполнение. Не отключайте ограничения безопасности браузера. Если старый браузерный адаптер сообщает `native pipe bridge is not available`, используйте доступный текущий Browser/Computer Use API для того же встроенного браузера; ошибка адаптера сама по себе не доказывает недоступность браузера.
+
+После правок перезагрузите вкладку. Проверьте Play/паузу/возобновление, все восемь редакторов, выбор звуков, ползунки, клавиатуру, три сцены и Console. Для проверки мобильной раскладки используйте узкий viewport; это не заменяет Safari/iOS или реальный телефон.
+
+Run `node --test tests/sounds.test.cjs tests/app.test.cjs tests/motion.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
 
 These checks do not establish audible quality, mobile/browser rendering, ten-minute stability, or actual Pages deployment. Before publishing, listen to all eight voices, try all banks and parameter extremes, check keyboard/touch, and test Chrome plus Safari/iOS when available.
 

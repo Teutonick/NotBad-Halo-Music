@@ -52,8 +52,8 @@
       filter.frequency.value = cutoff(t, patch); gain.gain.value = .00001;
       gain.connect(filter); filter.connect(trackGains[index]);
       const duration = Math.min(8, Math.max(.08, patch.decay * (.35 + t.duration / 100 * 1.3)));
-      const attack = patch.engine === 'pad' || patch.ambient ? .35 : .012;
-      const peak = velocity * (patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
+      const attack = patch.engine === 'pad' || patch.ambient ? .35 : patch.punch ? .003 : .012;
+      const peak = velocity * (patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
       gain.gain.setValueAtTime(.00001, time);
       gain.gain.exponentialRampToValueAtTime(peak, time + attack);
       gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
@@ -83,10 +83,20 @@
         start(o, amplitude);
       }
       active.add(voice);
-      if (patch.engine === 'noise') {
+      if (['noise','snare','clap'].includes(patch.engine)) {
         const source = ctx.createBufferSource(); source.buffer = noiseBuffer; source.loop = true; start(source, 1);
+        if (patch.engine === 'snare') tone(185, 'triangle', .3);
+        if (patch.engine === 'clap') {
+          // Three fast attacks create a clap transient, then a short noise tail.
+          for (const offset of [.018,.036]) {
+            gain.gain.exponentialRampToValueAtTime(peak * .12, time + offset - .004);
+            gain.gain.exponentialRampToValueAtTime(peak, time + offset);
+          }
+          gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
+        }
       } else if (patch.engine === 'kick' || patch.engine === 'drop') {
-        tone(patch.engine === 'kick' ? 115 : 950, 'sine', 1, 0, true);
+        tone(patch.engine === 'kick' ? (patch.startHz || (patch.punch ? 165 : 115)) : 950, 'sine', 1, 0, true);
+        if (patch.punch) tone(1100, 'sine', .07, 0, true);
       } else {
         const pitches = notes.slice(0, 3);
         pitches.forEach(n => {
