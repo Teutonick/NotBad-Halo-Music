@@ -54,8 +54,8 @@
     const bank = banks[track.name];
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function notesFor(track, index, bar, local, seed) {
-    const s = soundFor(track), chord = chords[((bar % 4) + 4) % 4];
+  function notesFor(track, index, bar, local, seed, transpose=0) {
+    const s = soundFor(track), chord = chords[((bar % 4) + 4) % 4].map(n=>n+transpose);
     if (['noise','kick','drop','snare','clap'].includes(s.engine)) return [];
     if (track.name === 'ROOT') return [chord[0] - 12];
     if (track.name === 'TIDAL' || track.name === 'VEIL')
@@ -64,12 +64,19 @@
     return [chord[pick] + (track.name === 'MOSS' ? 0 : 12)];
   }
   function shouldTrigger(track, index, step, seed) {
+    if(track.manualSteps)return track.on&&track.manualSteps.includes(step%(track.manualBars*16));
     const bar = Math.floor(step / 16);
     return track.on && track.density > 0 && patternFor(track).includes(step % 16) &&
       !((track.name === 'VEIL' || track.name === 'AURA') && bar % 2 === 1) &&
       random01(index * 97 + step * 31 + seed * 191) <= track.density / 100;
   }
-  function patternFor(track) { return soundFor(track).pattern || track.pattern; }
+  function patternFor(track) {
+    const base=soundFor(track).pattern||track.pattern;
+    if(!track.variation||track.variation===1)return base;
+    const identity=Object.keys(banks).indexOf(track.name),division=['kick','snare','clap'].includes(soundFor(track).engine)?4:1;
+    const shift=Math.floor(random01(track.variation*53+identity*17)* (16/division))*division;
+    return base.map(step=>(step+shift)%16).sort((a,b)=>a-b);
+  }
   const api = { banks, chords, random01, soundFor, notesFor, shouldTrigger, patternFor };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;

@@ -18,7 +18,7 @@ test('phrase markers agree with actual seeded notes, skips and alternate silent 
       for(const start of [0,64,128]){
         const events=phraseSteps(t,index,start,3,Sounds);
         assert.equal(events.length,64);
-        events.forEach(e=>assert.equal(e.fires,shouldTrigger(t,index,start+e.step,3)));
+        events.forEach(e=>assert.equal(e.fires,shouldTrigger(t,index,e.step,3)));
         assert.deepEqual(phraseSteps({...t,on:false},index,start,3,Sounds),events);
       }
     }

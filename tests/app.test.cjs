@@ -27,6 +27,8 @@ function app() {
   sandbox.HaloSounds=require('../src/sounds.js');
   sandbox.HaloMotion=require('../src/motion.js');
   sandbox.HaloEffects=require('../src/effects.js');
+  sandbox.HaloComposition=require('../src/composition.js');
+  sandbox.localStorage={getItem(){return null},setItem(){}};
   sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,update:i=>calls.push(['update',i]),
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
   vm.createContext(sandbox);
