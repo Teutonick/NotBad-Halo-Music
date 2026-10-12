@@ -26,6 +26,7 @@ function app() {
   sandbox.window=sandbox;
   sandbox.HaloSounds=require('../src/sounds.js');
   sandbox.HaloMotion=require('../src/motion.js');
+  sandbox.HaloEffects=require('../src/effects.js');
   sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,update:i=>calls.push(['update',i]),
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
   vm.createContext(sandbox);
@@ -50,6 +51,9 @@ test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed schedu
   const a=app(), $=id=>a.document.getElementById(id);
   await $('play').onclick(); assert.ok(a.calls.some(c=>c[0]==='play'));
   const before=a.calls.filter(c=>c[0]==='play').length;
+  $('effects').onclick(); assert.equal($('effects').textContent,'COSMIC');
+  $('effects').onclick(); assert.equal($('effects').textContent,'CLASSIC');
+  assert.equal(a.calls.filter(c=>c[0]==='play').length,before);
   $('motion').onclick(); assert.equal($('motion').textContent,'IN TIME');
   assert.equal($('motion')['aria-pressed'],'true');
   $('motion').onclick(); assert.equal($('motion').textContent,'PHRASE');

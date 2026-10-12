@@ -30,6 +30,7 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | Shift+Enter on a focused track / Escape | Open / close its sound editor |
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
+| CLASSIC / COSMIC | Original graphics or individual comet trails and richer nebula glow |
 | DRIFT / IN TIME / PHRASE | Free trajectories, event-aligned orbits, or a four-bar phrase loop with note markers |
 | Evolve | Change the deterministic melodic variation |
 | Tempo | Cycle between 60, 72, and 84 BPM |
@@ -55,11 +56,18 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 
 For a stronger beat, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
 
+### Cosmic graphics
+
+**CLASSIC** is the default and restores the previous tails and background. **COSMIC** adds eight original visual signatures: GLASS prism shards, TIDAL layered wave ribbons, ROOT pressure rings, EMBER sparks, RAIN silver droplets, VEIL silk threads, MOSS spores, and AURA a double helix. An extra WebGL2 nebula layer adds soft flowing light; all comet effects also work through Canvas 2D without WebGL2.
+
+Graphics selection is independent of scene, motion mode and audio. Trails use bounded procedural geometry without accumulating particle objects. Desktop uses up to 44 samples and 18 decorations per trail; narrow screens use 22/9. Reduced-motion preference lowers this to 12/4, removes time-driven ornament motion and extra pulse rings, and disables the extra shader layer. This does not yet stop the original universe's decorative motion. Device performance varies; CLASSIC is always available. No libraries, CDNs or downloaded assets are required.
+
 ## Project files
 
 - `index.html` — static entry, inline UI/transport and visual scenes.
 - `src/sounds.js` — eight patch banks and deterministic harmonic/event rules.
 - `src/audio.js` — procedural synthesis, audio routing, effects and voice cleanup.
+- `src/effects.js` — bounded individual Canvas comet effects.
 - `src/motion.js` — pure musical-step-to-orbit phase mapping.
 - `tests/` — Node tests for sound rules, audio contracts and app wiring.
 - `.nojekyll` — serve repository assets directly on GitHub Pages.
@@ -128,7 +136,7 @@ Official instructions: [configure the publishing source](https://docs.github.com
 
 После правок перезагрузите вкладку. Проверьте Play/паузу/возобновление, все восемь редакторов, выбор звуков, ползунки, клавиатуру, три сцены и Console. Для проверки мобильной раскладки используйте узкий viewport; это не заменяет Safari/iOS или реальный телефон.
 
-Run `node --test tests/sounds.test.cjs tests/app.test.cjs tests/motion.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
+Run `node --test tests/sounds.test.cjs tests/app.test.cjs tests/motion.test.cjs tests/effects.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
 
 These checks do not establish audible quality, mobile/browser rendering, ten-minute stability, or actual Pages deployment. Before publishing, listen to all eight voices, try all banks and parameter extremes, check keyboard/touch, and test Chrome plus Safari/iOS when available.
 

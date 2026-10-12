@@ -32,6 +32,7 @@ Treat the repository's actual code as the source of truth for what is implemente
 - DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits; PHRASE maps a four-bar/64-step cycle to one revolution and previews seeded note/skip markers via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
 - Musical scheduling uses a 16-step-per-bar grid and four repeating chords: Dm7, Bbmaj7, Fmaj7, Cadd9.
 - Three visual modes exist: Orbit, Bloom, Current; different visual velocities do **not** yet constitute true musical polymeter.
+- Optional COSMIC adds eight bounded procedural comet signatures in `src/effects.js` and a WebGL nebula enhancement. CLASSIC preserves the prior graphics; effects must remain audio-independent, bounded, and available with Canvas fallback.
 - Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. No persistence, recording, direct orbit note editor or PWA is implemented.
 
 Do not introduce a framework or bundler merely to refactor. ES modules and a minimal local static server are enough for the first extraction; GitHub Pages must continue to work.

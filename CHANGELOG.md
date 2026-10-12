@@ -39,3 +39,10 @@ Keep entries short and dated. Record significant changes and their impact in the
 - Added note, skipped-step and subdivision markers using the audio trigger rules; muted voices retain a dim preview.
 - Existing playback, seeds and immediate quantized mute/unmute remain; no queued phrase-launch behavior was added.
 - Twelve automated checks pass; browser viewport/console checks performed. Listening and physical-device timing remain unverified.
+
+## 2026-10-12 — Optional cosmic comet effects
+
+- Added CLASSIC/COSMIC with eight individual trails, additive glow, subtle pulse rings and optional richer WebGL nebula light; CLASSIC restores the prior graphics.
+- Added bounded desktop/mobile/reduced-motion tiers without new audio behavior, dependencies or retained particles.
+- Adjusted phone header to keep graphics, motion and scene controls usable.
+- Fourteen tests pass; live browser rollback/scene/motion and desktop/mobile viewport checks returned no console errors. Sustained performance and physical devices remain unverified.
