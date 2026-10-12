@@ -29,7 +29,7 @@ Treat the repository's actual code as the source of truth for what is implemente
 
 - `index.html` contains markup/styles, transport, state, visuals and UI. `src/sounds.js` owns patch banks/harmonic rules; `src/audio.js` owns synthesis and audio routing. Classic local scripts preserve direct file opening and GitHub Pages.
 - Eight track objects have dedicated roles with 30 original procedural patches across the banks, plus character/duration/space tuning. External sample banks are not implemented.
-- DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
+- DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits; PHRASE maps a four-bar/64-step cycle to one revolution and previews seeded note/skip markers via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
 - Musical scheduling uses a 16-step-per-bar grid and four repeating chords: Dm7, Bbmaj7, Fmaj7, Cadd9.
 - Three visual modes exist: Orbit, Bloom, Current; different visual velocities do **not** yet constitute true musical polymeter.
 - Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. No persistence, recording, direct orbit note editor or PWA is implemented.

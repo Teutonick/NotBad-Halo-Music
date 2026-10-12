@@ -30,7 +30,7 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | Shift+Enter on a focused track / Escape | Open / close its sound editor |
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
-| DRIFT / IN TIME | Keep free trajectories or align voices to a shared right-hand axis at their musical steps |
+| DRIFT / IN TIME / PHRASE | Free trajectories, event-aligned orbits, or a four-bar phrase loop with note markers |
 | Evolve | Change the deterministic melodic variation |
 | Tempo | Cycle between 60, 72, and 84 BPM |
 
@@ -50,6 +50,8 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 ### Seeing and building a beat
 
 **DRIFT** preserves the original free trajectories. **IN TIME** uses regular aligned orbits: each voice completes a revolution between its pattern steps and crosses the common horizontal axis on a potential note/strike. The axis shows the bar and beat. Light accents appear when a scheduled audio event reaches the audio clock, rather than during lookahead. Density can skip a note; a silent crossing is not a trigger. Switching motion modes never changes sound or transport. Orbit/Bloom/Current remain separate scene choices; in IN TIME their voice paths use the same aligned geometry.
+
+**PHRASE** makes one full revolution equal **four bars / 64 sixteenth-note steps**, matching the current Dm7 → Bbmaj7 → Fmaj7 → Cadd9 phrase. All voices follow the same rotating playhead. The four cardinal points mark bars 1–4; filled markers show scheduled notes, hollow markers show candidate steps skipped by density or phrasing, and small dots show subdivisions. The header displays phrase number, current bar and beat. Muted rings remain dimly visible so you can see what will play when enabled. Switching on a voice follows the existing quantized scheduler; it does not restart the phrase or queue a next-phrase launch. Preview updates with sound, density and Evolve; the next phrase can have a different seeded pattern. Existing lookahead means the most recent setting change may take up to about 160 ms to affect already planned events.
 
 For a stronger beat, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
 

@@ -52,7 +52,10 @@ test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed schedu
   const before=a.calls.filter(c=>c[0]==='play').length;
   $('motion').onclick(); assert.equal($('motion').textContent,'IN TIME');
   assert.equal($('motion')['aria-pressed'],'true');
+  $('motion').onclick(); assert.equal($('motion').textContent,'PHRASE');
+  assert.equal($('phraseGuide').hidden,false);
   $('motion').onclick(); assert.equal($('motion').textContent,'DRIFT');
+  assert.equal($('phraseGuide').hidden,true);
   assert.equal(a.calls.filter(c=>c[0]==='play').length,before);
   $('scene').onclick(); assert.equal($('sceneText').textContent,'BLOOM');
   $('scene').onclick(); assert.equal($('sceneText').textContent,'CURRENT');

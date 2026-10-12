@@ -32,3 +32,10 @@ Keep entries short and dated. Record significant changes and their impact in the
 - Added Punch kick to ROOT, snare/clap/hat to RAIN, and hat/tom to MOSS: 30 procedural patches across the same eight tracks.
 - Drum patches have their own kick/backbeat/offbeat patterns; ROOT/RAIN/MOSS can form a simultaneous kit without replacing the original melodic patterns.
 - Ten automated checks pass; browser UI checks performed. Actual listening, physical devices and output-latency alignment remain unverified.
+
+## 2026-10-12 — Four-bar phrase visualization
+
+- Added PHRASE alongside DRIFT and IN TIME: one revolution = four bars / 64 steps, with shared playhead and phrase/bar/beat counter.
+- Added note, skipped-step and subdivision markers using the audio trigger rules; muted voices retain a dim preview.
+- Existing playback, seeds and immediate quantized mute/unmute remain; no queued phrase-launch behavior was added.
+- Twelve automated checks pass; browser viewport/console checks performed. Listening and physical-device timing remain unverified.
