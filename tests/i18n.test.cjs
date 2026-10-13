@@ -40,6 +40,6 @@ test('fixed roles and cycle controls localize in both directions',()=>{
 test('all instrument setting hints are localized titles on labels without extra icons',()=>{
  const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  const hints=[...html.matchAll(/<span class="setting-name" tabindex="0" title="([^"]+)">([^<]+)<\/span>/g)];
- assert.equal(hints.length,12);
+ assert.equal(hints.length,16);
  for(const [,text] of hints){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
 });

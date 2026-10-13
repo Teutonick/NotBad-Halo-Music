@@ -50,7 +50,8 @@ Right-click, hold or Shift+Enter opens sound and cycle controls. Cycle length is
 | --- | --- |
 | Play / Space | Start or pause sound |
 | Tap a track / press 1–8 | Mute or unmute one voice |
-| Right-click a track / long-press on touch | Choose a bank sound; tune character, duration, space, density, and presence |
+| Right-click a track / long-press on touch | Open sound editor to choose sounds and tune character, duration, space, density, and presence |
+| SOUND / FX tabs in instrument editor | Toggle between core timbre controls (character, duration, space, density, presence) and shared FX sends (Reverb, BPM-synced Delay with 1/16, 1/8, 1/8D, 1/4 taps, and stereo Chorus) |
 | Shift+Enter on a focused track / Escape | Open / close its sound editor |
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
@@ -102,7 +103,7 @@ The nebula shares the orbit center and scale. Its flowing noise uses continuous 
 - Per-track sound selection, character (filter brightness), duration (future note envelopes), and space (reverb send). Environmental sounds are synthesized textures, not field recordings or realistic instrument samples.
 - One Web Audio clock with 16th-note scheduling, shared transposable minor-key ensemble harmony and original 4/8-bar motifs. The second four bars develop the first; old generator-1 files retain their original harmonic rules.
 - Three closed-trajectory visual modes, drawn using Canvas 2D over an optional WebGL2 nebula.
-- Reverb, compression, smoothly ramped track levels/mutes, density, and a scrollable editor for small screens.
+- Three shared FX buses (stereo Reverb, BPM-synced Delay with 4 rhythmic taps, and wide stereo Chorus) with per-instrument send levels, master compression, smoothly ramped track levels/mutes, density, and a scrollable editor for small screens.
 - Four sustained events per track with a short release for stolen events, bounded envelopes, shared noise buffers, and source cleanup.
 - No runtime requests to third-party services or tracking. REACTOR downloads only its local CC0 packs on demand.
 

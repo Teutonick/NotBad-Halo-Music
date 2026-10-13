@@ -318,3 +318,69 @@ test('SHARE button generates compact hash link, and opening or hashchange restor
  assert.equal(b.document.getElementById('tracks').children[0]['aria-pressed'],'false');
  assert.equal(get('transportTitle').textContent,'UNIVERSE PAUSED');
 });
+
+test('editor mode switch toggles between SOUND and FX panes, and FX controls update audio and sync reverb',async()=>{
+ const a=app(), $=id=>a.document.getElementById(id);
+ await $('play').onclick();
+ $('tracks').children[0].oncontextmenu({preventDefault(){}});
+ assert.equal($('modeSound')['aria-selected'],'true');
+ assert.equal($('paneSound').hidden,false);
+ assert.equal($('paneFx').hidden,true);
+
+ $('modeFx').onclick();
+ assert.equal($('modeSound')['aria-selected'],'false');
+ assert.equal($('modeFx')['aria-selected'],'true');
+ assert.equal($('paneSound').hidden,true);
+ assert.equal($('paneFx').hidden,false);
+
+ $('fxReverb').oninput({target:{value:'75'}});
+ assert.equal($('fxReverbLabel').textContent,'75%');
+ assert.equal($('space').value,'75');
+ assert.equal($('spaceLabel').textContent,'75%');
+ assert.ok(a.calls.some(c=>c[0]==='update'&&c[1]===0));
+
+ $('space').oninput({target:{value:'40'}});
+ assert.equal($('spaceLabel').textContent,'40%');
+ assert.equal($('fxReverb').value,'40');
+ assert.equal($('fxReverbLabel').textContent,'40%');
+
+ $('fxDelay').oninput({target:{value:'55'}});
+ assert.equal($('fxDelayLabel').textContent,'55%');
+
+ $('fxChorus').oninput({target:{value:'35'}});
+ assert.equal($('fxChorusLabel').textContent,'35%');
+
+ $('modeSound').onclick();
+ assert.equal($('paneSound').hidden,false);
+ assert.equal($('paneFx').hidden,true);
+});
+
+test('HaloAudio builds shared Delay (4 sync taps) and Chorus buses when createDelay is provided',()=>{
+ const HaloAudio=require('../src/audio.js');
+ const param=()=>({value:0,calls:[],setTargetAtTime(v,t,tau){this.calls.push([v,t,tau])}});
+ const node=()=>({connect(){},disconnect(){},gain:param(),delayTime:param(),pan:param(),frequency:param(),Q:param()});
+ const ctx={
+   currentTime:0,sampleRate:44100,destination:node(),
+   createGain:node,createDynamicsCompressor:()=>({threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connect(){}}),
+   createStereoPanner:node,createConvolver:()=>({connect(){},buffer:null}),
+   createBiquadFilter:node,createBuffer:(ch,len)=>({duration:len/44100,getChannelData:()=>new Float32Array(len)}),
+   createDelay:()=>node(),createOscillator:()=>({frequency:param(),connect(){},start(){},stop(){}})
+ };
+ const tracks=[{name:'GLASS',sound:'glass-1',on:true,level:60,space:40,delay:50,delayTime:'1/8',chorus:30,character:50,duration:50}];
+ const audio=HaloAudio.create(ctx,tracks,50,{},{low:0,mid:0,high:0,width:35},72);
+ assert.ok(audio.delayTaps);
+ assert.ok(audio.delayTaps['1/16']);
+ assert.ok(audio.delayTaps['1/8']);
+ assert.ok(audio.delayTaps['1/8d']);
+ assert.ok(audio.delayTaps['1/4']);
+ assert.equal(audio.delaySends.length,1);
+ assert.equal(audio.chorusSends.length,1);
+ assert.ok(Math.abs(audio.delayTaps['1/8'].delayTime.value - (60/72*0.5)) < 0.001);
+ assert.ok(Math.abs(audio.delayTaps['1/16'].delayTime.value - (60/72*0.25)) < 0.001);
+ assert.ok(Math.abs(audio.delayTaps['1/8d'].delayTime.value - (60/72*0.75)) < 0.001);
+ assert.ok(Math.abs(audio.delayTaps['1/4'].delayTime.value - (60/72*1.0)) < 0.001);
+
+ audio.setTempo(120, 1.0);
+ assert.ok(audio.delayTaps['1/8'].delayTime.calls.length > 0);
+ assert.ok(Math.abs(audio.delayTaps['1/8'].delayTime.calls.at(-1)[0] - (60/120*0.5)) < 0.001);
+});

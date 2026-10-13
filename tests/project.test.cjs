@@ -54,3 +54,24 @@ test('shareable token encodes and decodes project roundtrip within compact URL b
  await assert.rejects(async()=>P.decodeShare('invalid!!!',S));
  await assert.rejects(async()=>P.decodeShare('x'.repeat(70000),S));
 });
+
+test('track FX settings (delay, delayTime, chorus) roundtrip, default safely, and validate bounds',()=>{
+ const fxTracks=tracks.map((t,i)=>({...t,delay:i*10,delayTime:['1/16','1/8','1/8d','1/4'][i%4],chorus:i*12}));
+ const project=P.capture(fxTracks,4,80,1,0,S,M);
+ const parsed=P.parse(JSON.stringify(project),S);
+ fxTracks.forEach((t,i)=>{
+  assert.equal(parsed.tracks[i].delay,t.delay);
+  assert.equal(parsed.tracks[i].delayTime,t.delayTime);
+  assert.equal(parsed.tracks[i].chorus,t.chorus);
+ });
+ const legacyTracks=tracks.map(t=>{const copy={...t};delete copy.delay;delete copy.delayTime;delete copy.chorus;return copy});
+ const legacyProj=P.capture(legacyTracks,4,80,1,0,S,M);
+ legacyProj.tracks.forEach(t=>{
+  assert.equal(t.delay,0);
+  assert.equal(t.delayTime,'1/8');
+  assert.equal(t.chorus,0);
+ });
+ assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,delay:101})},S));
+ assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,chorus:-1})},S));
+ assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,delay:'50'})},S));
+});

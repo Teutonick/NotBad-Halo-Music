@@ -5,7 +5,7 @@
   const ctx=new OfflineAudioContext(2,length*2,rate);
   const samples=project.setup==='reactor'?await HaloSamples.prepare(ctx):{};
   const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:project.bars}:{})}));HaloSounds.arrange(tracks);
-  const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix);
+  const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix,project.tempo);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   for(let step=0;step<project.bars*32;step++){
    const absolute=(project.startStep||0)+step-project.bars*16,local=((absolute%(project.bars*16))+project.bars*16)%(project.bars*16),time=step*60/project.tempo/4;

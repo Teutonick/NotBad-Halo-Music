@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-13 — Shared FX buses (Reverb, Delay, Chorus) with instrument sends
+
+- Added three shared FX effect return buses in Web Audio routing with individual send levels for each of the eight instruments:
+  - Reverb (Пространство): stereo convolver with subtle highpass (140 Hz) and damping lowpass (7500 Hz) filters on wet return (~0.20 gain) for lush spatial depth without low-end mud; unified bidirectionally with the existing per-instrument `space` parameter.
+  - Delay (Музыкальное эхо): BPM-synced delay bus with 4 selectable rhythmic taps (`1/16`, `1/8`, `1/8 dotted`, `1/4`), bounded feedback gain (0.36) through a 3400 Hz damping lowpass filter into a master wet return (0.52 gain). Per-instrument send level (0–100%) and delay time division selector.
+  - Chorus (Объём и движение): dual modulated delay lines (Left 18ms, Right 24ms) modulated by dual quadrature sine LFOs (0.65 Hz / 0.82 Hz, ~2.4ms depth) with wide stereo panning (-0.7 / +0.7) and gentle wet return (0.50 gain) for rich shimmer and stereo width. Per-instrument send level (0–100%).
+- Updated instrument settings editor with a tabbed mode switcher (`SOUND` / `FX`):
+  - In `SOUND` mode, existing character, duration, space, density, and presence controls are displayed.
+  - In `FX` mode, Reverb send, Delay send, Delay time division selector (`1/16`, `1/8`, `1/8D`, `1/4`), and Chorus send controls are displayed.
+  - Smooth live parameter adjustment via pointer scrubbing and standard slider interaction.
+  - Reverb send and Sound Space sliders stay in sync bidirectionally.
+- Audio transport synchronization: `HaloAudio.setTempo` smoothly ramps delay tap times when BPM changes; offline WAV/MP3 rendering passes tempo into `HaloAudio.create` for sample-accurate tempo-synced delay in export.
+- Project persistence and share compatibility: `HaloProject` serializes, validates, encodes and decodes `delay`, `delayTime`, and `chorus` per track, maintaining backward compatibility with legacy projects and autosaves (defaults to 0 / '1/8' / 0).
+- Full RU/EN localization: `FX`, `REVERB` / `РЕВЕРБЕРАЦИЯ`, `DELAY` / `ДИЛЭЙ`, `DELAY TIME` / `ВРЕМЯ ЭХА`, `CHORUS` / `ХОРУС`, plus descriptions and tooltips in both languages.
+- Unit and integration tests in `tests/app.test.cjs`, `tests/project.test.cjs`, and `tests/i18n.test.cjs`. All 106 tests pass.
+
 ## 2026-10-13 — Client-side static URL loop sharing via SHARE button
 
 - Added a `SHARE` button to the end of the `PROJECT` controls button group in the UI.

@@ -3,7 +3,13 @@
   'use strict';
   const selectSample=typeof module!=='undefined'&&module.exports?require('./samples.js').select:root.HaloSamples.select;
   const roles=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;
-  function create(ctx, tracks,volume=50,sampleBank={},mix={low:0,mid:0,high:0,width:35}) {
+  const DELAY_DIVISIONS = { '1/16': 0.25, '1/8': 0.5, '1/8d': 0.75, '1/4': 1.0 };
+  function calcDelayTime(div, bpm) {
+    const mult = DELAY_DIVISIONS[div] || 0.5;
+    const safeBpm = Math.max(30, Math.min(200, Number(bpm) || 72));
+    return (60 / safeBpm) * mult;
+  }
+  function create(ctx, tracks,volume=50,sampleBank={},mix={low:0,mid:0,high:0,width:35},tempo=72) {
     const master = ctx.createGain(), compressor = ctx.createDynamicsCompressor();
     master.gain.value = Math.max(0,Math.min(100,volume))/100;
     // Peak protection, not a continuously pumping full-band compressor.
@@ -12,8 +18,17 @@
     const eq=['lowshelf','peaking','highshelf'].map((type,i)=>{const n=ctx.createBiquadFilter();n.type=type;n.frequency.value=[120,1000,6000][i];n.Q.value=.7;return n}),headroom=ctx.createGain();
     master.connect(headroom);headroom.connect(eq[0]);eq[0].connect(eq[1]);eq[1].connect(eq[2]);eq[2].connect(compressor);compressor.connect(ctx.destination);
     const reverb = ctx.createConvolver(), wet = ctx.createGain();
-    wet.gain.value = .18; reverb.connect(wet); wet.connect(master);
-    const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 2.6), ctx.sampleRate);
+    wet.gain.value = .20;
+    if (ctx.createBiquadFilter) {
+      const revHp = ctx.createBiquadFilter(), revLp = ctx.createBiquadFilter();
+      revHp.type = 'highpass'; revHp.frequency.value = 140;
+      revLp.type = 'lowpass'; revLp.frequency.value = 7500;
+      reverb.connect(revHp); revHp.connect(revLp); revLp.connect(wet);
+    } else {
+      reverb.connect(wet);
+    }
+    wet.connect(master);
+    const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 2.8), ctx.sampleRate);
     let seed = 147;
     const noise = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 2147483648 - 1; };
     for (let ch = 0; ch < 2; ch++) {
@@ -25,13 +40,88 @@
     const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let n = 0; n < data.length; n++) data[n] = noise() * .65;
-    const sends = [], panners=[], voices = tracks.map(() => new Set());
+
+    let delayTaps = null, delayWet = null, currentDelayTaps = [];
+    let chorusIn = null, chorusWet = null, chorusLfos = [];
+    if (ctx.createDelay) {
+      delayTaps = {};
+      delayWet = ctx.createGain();
+      delayWet.gain.value = 0.52;
+      delayWet.connect(master);
+      for (const div of ['1/16', '1/8', '1/8d', '1/4']) {
+        const tap = ctx.createDelay(4.0);
+        tap.delayTime.value = calcDelayTime(div, tempo);
+        const fb = ctx.createGain();
+        fb.gain.value = 0.36;
+        if (ctx.createBiquadFilter) {
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.value = 3400;
+          tap.connect(filter);
+          filter.connect(fb);
+        } else {
+          tap.connect(fb);
+        }
+        fb.connect(tap);
+        tap.connect(delayWet);
+        delayTaps[div] = tap;
+      }
+
+      chorusIn = ctx.createGain();
+      chorusWet = ctx.createGain();
+      chorusWet.gain.value = 0.50;
+      chorusWet.connect(master);
+      const chorusDelayL = ctx.createDelay(0.1), chorusDelayR = ctx.createDelay(0.1);
+      chorusDelayL.delayTime.value = 0.018;
+      chorusDelayR.delayTime.value = 0.024;
+      chorusIn.connect(chorusDelayL);
+      chorusIn.connect(chorusDelayR);
+      if (ctx.createOscillator) {
+        const lfoL = ctx.createOscillator(), lfoGainL = ctx.createGain();
+        lfoL.frequency.value = 0.65; lfoGainL.gain.value = 0.0022;
+        lfoL.connect(lfoGainL); lfoGainL.connect(chorusDelayL.delayTime);
+        lfoL.start(0);
+        const lfoR = ctx.createOscillator(), lfoGainR = ctx.createGain();
+        lfoR.frequency.value = 0.82; lfoGainR.gain.value = 0.0025;
+        lfoR.connect(lfoGainR); lfoGainR.connect(chorusDelayR.delayTime);
+        lfoR.start(0);
+        chorusLfos.push(lfoL, lfoR);
+      }
+      if (ctx.createStereoPanner) {
+        const panL = ctx.createStereoPanner(), panR = ctx.createStereoPanner();
+        panL.pan.value = -0.7; panR.pan.value = 0.7;
+        chorusDelayL.connect(panL); panL.connect(chorusWet);
+        chorusDelayR.connect(panR); panR.connect(chorusWet);
+      } else {
+        chorusDelayL.connect(chorusWet);
+        chorusDelayR.connect(chorusWet);
+      }
+    }
+
+    const sends = [], delaySends = [], chorusSends = [], panners=[], voices = tracks.map(() => new Set());
     const trackGains = tracks.map((t,i) => {
       const gain = ctx.createGain(), send = ctx.createGain();
       gain.gain.value = t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0;
-      send.gain.value = t.space / 100 * .8;
+      send.gain.value = (t.space || 0) / 100 * .8;
       if(ctx.createStereoPanner){const pan=ctx.createStereoPanner();gain.connect(pan);pan.connect(master);panners[i]=pan}else gain.connect(master);
       gain.connect(send); send.connect(reverb); sends.push(send);
+
+      if (delayTaps) {
+        const dSend = ctx.createGain();
+        dSend.gain.value = ((t.delay || 0) / 100) * 0.7;
+        gain.connect(dSend);
+        const tapDiv = DELAY_DIVISIONS[t.delayTime] ? t.delayTime : '1/8';
+        dSend.connect(delayTaps[tapDiv]);
+        currentDelayTaps[i] = tapDiv;
+        delaySends.push(dSend);
+      }
+      if (chorusIn) {
+        const cSend = ctx.createGain();
+        cSend.gain.value = ((t.chorus || 0) / 100) * 0.75;
+        gain.connect(cSend);
+        cSend.connect(chorusIn);
+        chorusSends.push(cSend);
+      }
       return gain;
     });
     let sceneWidth=0;
@@ -49,9 +139,30 @@
       const t = tracks[index], now = at;
       panners[index]?.pan.setTargetAtTime(panFor(index)*sceneWidth,now,.05);
       trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0, now, .04);
-      sends[index].gain.setTargetAtTime(t.space / 100 * .8, now, .06);
+      sends[index].gain.setTargetAtTime((t.space || 0) / 100 * .8, now, .06);
+      if (delaySends[index]) {
+        delaySends[index].gain.setTargetAtTime(((t.delay || 0) / 100) * 0.7, now, .05);
+        const tapDiv = DELAY_DIVISIONS[t.delayTime] ? t.delayTime : '1/8';
+        if (currentDelayTaps[index] !== tapDiv && delayTaps) {
+          try { delaySends[index].disconnect(); } catch (_) {}
+          delaySends[index].connect(delayTaps[tapDiv]);
+          currentDelayTaps[index] = tapDiv;
+        }
+      }
+      if (chorusSends[index]) {
+        chorusSends[index].gain.setTargetAtTime(((t.chorus || 0) / 100) * 0.75, now, .05);
+      }
       for (const voice of voices[index]) {
         voice.filter.frequency.setTargetAtTime(cutoff(t, voice.patch), now, .06);
+      }
+    }
+    function setTempo(bpm, at=ctx.currentTime) {
+      if (!delayTaps) return;
+      const now = at;
+      for (const div of Object.keys(DELAY_DIVISIONS)) {
+        if (delayTaps[div]) {
+          delayTaps[div].delayTime.setTargetAtTime(calcDelayTime(div, bpm), now, .05);
+        }
       }
     }
     function cutoff(t, patch) {
@@ -152,7 +263,7 @@
         if (!pitches.length) cleanup();
       }
     }
-    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value} };
+    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value},setTempo,delayTaps,delaySends,chorusSends,reverbSends:sends };
   }
   const api = { create };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -2,7 +2,31 @@
 
 **Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-13. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
 
-### Latest implemented update — 2026-10-13: client-side static URL loop sharing via SHARE button
+### Latest implemented update — 2026-10-13: shared FX buses (Reverb, Delay, Chorus) and instrument FX editor
+
+- **Shared FX buses architecture (`src/audio.js`):**
+  - Implemented three shared FX send/return buses in Web Audio graph with per-instrument send levels across all eight voices:
+    - **Reverb (Пространство):** Shared stereo convolver tail with gentle highpass (140 Hz) and lowpass damping (7500 Hz) filters on wet return (~0.20 gain) to prevent low-end mud. Bidirectionally synchronized with the per-instrument `space` parameter.
+    - **Delay (Музыкальное эхо):** BPM-synced delay bus with 4 discrete tap lines (`1/16`, `1/8`, `1/8 dotted`, `1/4`) calculated as `(60 / tempo) * mult`. Each tap feeds a 3400 Hz damping lowpass filter and bounded feedback gain (0.36) back into its delay line, returning through `delayWet` (0.52 gain) to master. Per-instrument send gain and dynamic tap routing based on `delayTime`.
+    - **Chorus (Объём и движение):** Dual modulated delay lines (Left 18ms, Right 24ms) driven by quadrature sine LFOs (0.65 Hz / 0.82 Hz, ~2.4ms depth) with stereo panners (-0.7 / +0.7) and `chorusWet` return (0.50 gain) into master. Per-instrument send gain.
+  - Delay taps and LFOs are guarded by `if (ctx.createDelay)` for testing resilience and progressive enhancement.
+  - Added `HaloAudio.setTempo(bpm, at)` to smoothly ramp delay tap delay times on tempo changes.
+  - Offline export in `src/export.js` passes project tempo into `HaloAudio.create` for sample-accurate delay synchronization.
+- **Instrument settings editor UI (`index.html`):**
+  - Added a `.editor-modes` tab bar with `SOUND` and `FX` mode toggle buttons (`#modeSound`, `#modeFx`).
+  - Pane switcher toggles between `#paneSound` (character, duration, space, density, presence) and `#paneFx` (Reverb send, Delay send, Delay time division selector `1/16` / `1/8` / `1/8D` / `1/4`, Chorus send).
+  - Bidirectional synchronization between `fxReverb` and `space` sliders and labels.
+  - Supported relative pointer scrubbing via `HaloControls.install` on all FX sliders.
+- **Persistence & serialization (`src/project.js`):**
+  - Serializes, validates, and roundtrips `delay` (0–100, default 0), `delayTime` (`['1/16', '1/8', '1/8d', '1/4']`, default `'1/8'`), and `chorus` (0–100, default 0) per track.
+  - Seamlessly handles legacy project files and autosaves with safe defaults.
+  - Encodes and decodes within client-side URL share tokens (`#loop=...`).
+- **Full RU/EN localization (`src/i18n.js`):**
+  - Localized tab names (`SOUND` / `ЗВУК`, `FX` / `FX`), labels (`REVERB` / `РЕВЕРБЕРАЦИЯ`, `DELAY` / `ДИЛЭЙ`, `DELAY TIME` / `ВРЕМЯ ЭХА`, `CHORUS` / `ХОРУС`), setting hints, and descriptions.
+- **Validation:**
+  - 106 Node tests passing across `tests/app.test.cjs`, `tests/project.test.cjs`, `tests/i18n.test.cjs`, `tests/roles.test.cjs`, and `tests/sounds.test.cjs`.
+
+### Previous implemented update — 2026-10-13: client-side static URL loop sharing via SHARE button
 
 - Added a `SHARE` button to the PROJECT controls group (`SAVE`, `LOAD`, `MP3`, `WAV`, `SHARE`).
 - Enables sharing loops directly via URL hash fragments (`#loop=<token>`) without any backend or external server, preserving zero-build static GitHub Pages hosting under `/<repository>/`.

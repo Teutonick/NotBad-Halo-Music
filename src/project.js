@@ -18,6 +18,9 @@
    seen.add(t.name);const clean={name:t.name,instrument,generator,sound:t.sound,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
    if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(t,banks[instrument].sounds.find(s=>s.id===t.sound)))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
+   clean.delay=number(t.delay??0,0,100);
+   clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';
+   clean.chorus=number(t.chorus??0,0,100);
    result.tracks.push(clean);
   }
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
