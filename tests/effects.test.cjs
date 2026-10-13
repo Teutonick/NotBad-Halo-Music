@@ -1,6 +1,6 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
-const {styles,draw}=require('../src/effects.js');
+const {styles,reactorStyles,draw}=require('../src/effects.js');
 function canvas(){
   const calls=[];let balance=0;
   const ctx={save(){balance++},restore(){balance--},calls,get balance(){return balance}};
@@ -10,6 +10,13 @@ function canvas(){
   return ctx;
 }
 const position=a=>({x:700+200*Math.cos(a),y:430+150*Math.sin(a)});
+test('reactor signatures remain bounded with Canvas fallback and reduced motion',()=>{
+ assert.equal(new Set(reactorStyles.map(s=>s.name)).size,8);
+ for(let i=0;i<8;i++)for(const small of [true,false]){
+  const ctx=canvas(),later=canvas();draw(ctx,i,position,1,0,.8,'#ff7046',1,small,true,'reactor');draw(later,i,position,1,99,.8,'#ff7046',1,small,true,'reactor');
+  assert.equal(ctx.balance,0);assert.ok(ctx.calls.length<900);assert.deepEqual(ctx.calls,later.calls);
+ }
+});
 test('eight distinct signatures render finite, bounded paths with balanced Canvas state',()=>{
   assert.equal(new Set(styles.map(s=>s.name)).size,8);
   for(let i=0;i<8;i++)for(const small of [false,true])for(const reduced of [false,true]){

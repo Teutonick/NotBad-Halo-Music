@@ -22,7 +22,19 @@ Open `index.html` in a modern desktop or mobile browser, or deploy the repositor
 
 Press **Play** to enable audio (browsers require user interaction before sound can start). Headphones are recommended.
 
-### Controls
+### Two musical setups
+
+The large button to the right of the orbits switches **AMBIENT ↔ REACTOR**. AMBIENT retains its original 30 procedural patches. REACTOR has **32 sample-backed presets** across kick, snare, cymbals, toms, electric bass, rhythm guitar, lead guitar and keyboards. The local bank contains **130 CC0 recordings** from Karoryfer Big Rusty Drums and FreePats: actual drums, electric guitar/bass and upright piano, plus recorded synth timbres. KEYS offers Attack piano, Dark piano, Analog arpeggio and Cutting synth. Presets may share recordings with different envelopes, EQ and amp processing; they are not 32 separately sampled instrument models. The rock world starts at 100 BPM with a shared syncopated bass/guitar riff, minor power-chord harmony, backbeat snares, occasional tom fills and lead answers.
+
+Recordings load on demand only from the local site when REACTOR is selected, played or exported (about 24 MiB of classic-script WAV packs). First playback waits for decoding; failure shows a retryable message and never substitutes procedural instruments. This also works with direct file opening and GitHub Pages, without a build, account, API key, runtime CDN or third-party dependency. [Sound provenance, rights evidence and limitations](assets/reactor/README.md) document every imported recording. All selected sources are CC0/public domain, without payment or mandatory attribution; listening and physical-device acceptance remain required.
+
+During playback, switching is queued to the next audio-scheduled bar; a second click cancels the pending switch. Paused switching is immediate. Each setup retains its own tempo, key, seed, sounds, levels, mutes, tuning, manual steps, auto settings and edit draft in browser storage. Master volume, locale, scene, motion and editor placement remain shared. Orbits keep their geometry and movement; REACTOR changes colors, a graphite/ember background and bounded electric trails. Classic graphics and Canvas fallback remain available. A project file/WAV exports the active setup; older project files without a setup field load as AMBIENT.
+
+**Русский:** большая кнопка справа от орбит переключает AMBIENT и REACTOR. В рок-мире восемь голосов по четыре звука: бочка, малый, тарелки, томы, бас, ритм-гитара, соло-гитара и клавиши. Клавишные варианты — ударное пианино, тёмное фортепиано, аналоговое арпеджио и резкий синтезатор. Во время воспроизведения смена происходит в начале следующего запланированного такта; повторное нажатие отменяет ожидание. На паузе смена немедленная. Музыкальные настройки и черновики миров сохраняются отдельно; громкость, язык, геометрия, режим движения и положения окон общие. Эмбиент остаётся процедурным; REACTOR использует 130 локальных CC0-записей. Банки занимают около 24 МБ и загружаются при выборе, воспроизведении или экспорте рок-мира. При ошибке записи не заменяются синтезом. Качество общего микса требует прослушивания.
+
+The compact file group is **PROJECT**, with **SAVE**, **LOAD**, **MP3** and **WAV**. In Russian: **ПРОЕКТ**, **СОХРАНИТЬ**, **ЗАГРУЗИТЬ**; audio format names stay unchanged.
+
+### Existing controls
 
 | Action | Result |
 | --- | --- |
@@ -42,7 +54,7 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | PHRASE panel grip / arrow keys on its focused header | Move the floating phrase controls; Shift+arrows moves farther. Position persists locally |
 | EDIT → SAVE PATTERN | Set exact sixteenth-note events for all eight voices and save locally |
 | BPM field | Enter 30–200 BPM (up to two decimal places), then Enter or leave the field |
-| SAVE PROJECT / LOAD PROJECT | Export/import a versioned 4/8-bar JSON project, without audio or samples |
+| SAVE / LOAD | Export/import a versioned 4/8-bar JSON project, without audio or samples |
 | WAV / MP3 | Render the selected loop locally; MP3 requires native browser codec support |
 | RU / EN in the visual panel | Switch language; first visit uses the primary browser language, Russian for `ru`, English otherwise |
 | Master volume | Adjust the whole loop from 0–100%, initially 50%; saved projects and offline exports retain it |
@@ -75,13 +87,13 @@ The nebula shares the orbit center and scale. Its flowing noise uses continuous 
 ## What works today
 
 - Eight independent track settings; **five active by default**.
-- Eight dedicated sound banks, **original procedural sounds** (30 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
+- Eight dedicated AMBIENT sound banks, **original procedural sounds** (30 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
 - Per-track sound selection, character (filter brightness), duration (future note envelopes), and space (reverb send). Environmental sounds are synthesized textures, not field recordings or realistic instrument samples.
 - One Web Audio clock with 16th-note scheduling and a transposable four-bar harmonic progression: **Dm7 → Bbmaj7 → Fmaj7 → Cadd9** by default. An eight-bar phrase runs that progression twice.
 - Three closed-trajectory visual modes, drawn using Canvas 2D over an optional WebGL2 nebula.
 - Reverb, compression, smoothly ramped track levels/mutes, density, and a scrollable editor for small screens.
 - Four sustained events per track with a short release for stolen events, bounded envelopes, shared noise buffers, and source cleanup.
-- No external requests, tracking, or downloadable assets.
+- No runtime requests to third-party services or tracking. REACTOR downloads only its local CC0 packs on demand.
 
 **Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, direct orbit editing, cloud sharing, and external sample playback are future work, not existing features.
 
@@ -99,11 +111,11 @@ By default the generated melody, probability decisions, rhythm and velocities re
 
 In PHRASE, choose 4/8 BARS, then **EDIT**. Select one of eight voices and toggle the 16 sixteenth-note buttons in each bar. Labels like `3.9` mean bar 3, step 9; accessible labels also specify beat and subdivision. Switch voices to edit the rest. Changes remain a draft until **SAVE PATTERN**; **CANCEL** discards the draft. On a phone, swipe the grid sideways and scroll vertically for later bars.
 
-SAVE PATTERN writes a validated version-1 record to this browser's local storage, then applies exact steps to all eight voices and switches **AUTO PATTERN OFF**. AUTO KEY retains its independent setting. Exact edited events bypass density and generated alternate-bar rests; muted voices still produce no sound. Saved records contain phrase length, steps, sound selections, seed and current key. They restore on reload on the same site/origin; levels, effects, mute states and automatic-mode preferences are not saved. Storage failure leaves the draft available instead of claiming success. There is no account or cloud sync. Use SAVE PROJECT / LOAD PROJECT for portable project files. This is note-timing editing, not pitch-per-step editing or queued clip launching.
+SAVE PATTERN writes a validated version-1 record to this browser's local storage, then applies exact steps to all eight voices and switches **AUTO PATTERN OFF**. AUTO KEY retains its independent setting. Exact edited events bypass density and generated alternate-bar rests; muted voices still produce no sound. Saved records contain phrase length, steps, sound selections, seed and current key. They restore on reload on the same site/origin; levels, effects, mute states and automatic-mode preferences are not saved. Storage failure leaves the draft available instead of claiming success. There is no account or cloud sync. Use SAVE / LOAD for portable project files. This is note-timing editing, not pitch-per-step editing or queued clip launching.
 
 Audio is still scheduled ahead: manual changes can take about 160 ms to affect already planned events. Automatic changes are assigned to the next phrase's events by the scheduler; no animation frame triggers sound.
 
-For a stronger beat, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
+For a stronger beat in AMBIENT, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
 
 ### Cosmic graphics
 
@@ -113,7 +125,7 @@ Graphics selection is independent of scene, motion mode and audio. Trails use bo
 
 ### Portable projects and audio export
 
-**SAVE PROJECT** downloads `notbad-halo-project.json`: a version-1 settings/events document for 4 or 8 bars. It includes BPM, seed, key, selected sounds, enabled voices, levels and tuning, and exact note-step arrays. It contains no audio, samples, URLs or executable code. **LOAD PROJECT** validates the complete document before changing state and leaves playback paused. Imports are capped at 64 KiB, eight unique known voices, 128 unique steps per voice, bounded numeric settings and recognized sound IDs. Unknown fields are ignored rather than copied into application state. Automatic generation is off after import so the imported loop remains reproducible.
+**SAVE** downloads `notbad-halo-project.json`: a version-1 settings/events document for 4 or 8 bars. It includes BPM, seed, key, selected sounds, enabled voices, levels and tuning, and exact note-step arrays. It contains no audio, samples, URLs or executable code. **LOAD** validates the complete document before changing state and leaves playback paused. Imports are capped at 64 KiB, eight unique known voices, 128 unique steps per voice, bounded numeric settings and recognized sound IDs. Unknown fields are ignored rather than copied into application state. Automatic generation is off after import so the imported loop remains reproducible.
 
 **WAV** renders one exact loop using the same synthesis in an OfflineAudioContext, entirely in the browser. One prior loop warms up the effects; the exported duration is exactly 4/8 bars at the selected BPM. **MP3** works only if the browser provides a native WebCodecs MP3 encoder; it checks support before rendering and otherwise explicitly offers WAV. The tested in-app Chromium browser has no native MP3 encoder. No audio is uploaded, no backend/CDN/encoder dependency is introduced, and no WAV file is mislabeled as MP3. This implementation does not supply a third-party encoder, in line with the restriction on introducing license obligations.
 
@@ -127,7 +139,7 @@ The universe targets 1.5× its former scale where space permits, with conservati
 
 ### Automatic local state and compact controls
 
-The menu is grouped into **PATTERN** (GENERATE, AUTO RANDOM), **KEY** (previous/current/next key, independent AUTO RANDOM), and **SAVE** (SAVE PROJECT, LOAD PROJECT, MP3, WAV). Scene selection (Orbit/Bloom/Current) is visible and affects representation only in DRIFT; IN TIME and PHRASE retain their synchronized geometry and neutral background. The stored DRIFT scene returns when you switch back.
+The menu is grouped into **PATTERN** (GENERATE, AUTO RANDOM), **KEY** (previous/current/next key, independent AUTO RANDOM), and **PROJECT** (SAVE, LOAD, MP3, WAV). Scene selection (Orbit/Bloom/Current) is visible and affects representation only in DRIFT; IN TIME and PHRASE retain their synchronized geometry and neutral background. The stored DRIFT scene returns when you switch back.
 
 State is automatically saved, coalesced over about 250 ms, to `notbad-halo-autosave-v1` in **localStorage**, not cookies. It retains sounds, enabled voices, tuning/levels, generated seed, exact manual steps, 4/8 bars, BPM/key, both auto flags, visual modes/scene, open voice selection, EDIT draft/tab and dragged window positions. Records are size-limited and validated before restore. Playback returns paused rather than unexpectedly starting sound. Blocked/full storage is reported in the information window; current in-memory work remains usable and project-file export remains available.
 
@@ -225,3 +237,18 @@ Major or consequential changes must update project documentation and add a conci
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+REACTOR: GENERATE rebuilds rhythmic steps for every voice. METAL/TOMS can play in each bar; density and mute still control actual hits. RIFF/LEAD ring with the recording's natural decay until a new note replaces them smoothly; the duration control does not truncate guitars. Longer guitar recordings increase the local sample-bank download to about 65.47 MiB. / REACTOR: СОЗДАТЬ меняет ритм всех восьми голосов. METAL/TOMS доступны в каждом такте, с учётом плотности и выключения. RIFF/LEAD затухают естественно и плавно сменяются новой нотой; регулятор длительности не обрезает гитары. Размер локального банка — около 65,47 МиБ.
+
+REACTOR generation rebuilds note positions, hit groups and rests rather than rotating the previous rhythm. The generated loop stays repeatable until GENERATE or AUTO PATTERN changes it. / Генерация REACTOR заново выбирает позиции нот, группы ударов и паузы вместо поворота старого рисунка. Новый цикл повторяется до следующего СОЗДАТЬ или изменения через АВТО.
+
+BASS and RIFF in REACTOR generate independent rhythmic patterns while sharing harmony and tempo. Existing exact saved steps change only after GENERATE. / BASS и RIFF в REACTOR получают независимые ритмические рисунки при общей гармонии и темпе. Ранее сохранённые точные шаги изменятся после СОЗДАТЬ.
+
+### Master sound controls / Мастер-звук
+The transport card contains Play/Pause, volume, BPM, three-band EQ (120 Hz / 1 kHz / 6 kHz, ±9 dB) and stereo width. The curve previews the band settings. EQ defaults to flat; width defaults to 35%. Each voice has a fixed stereo position; width 0 centers the direct instruments while reverb retains its stereo space. Positive EQ boosts reserve output headroom, so tonal emphasis can reduce overall level. Master settings persist locally and travel with project files and WAV/MP3 exports. REACTOR drums have stronger event gains. Listening and device acceptance remain separate from tests.
+
+Плашка транспорта объединяет Play/Pause, громкость, BPM, три полосы EQ (120 Гц / 1 кГц / 6 кГц, ±9 дБ) и ширину сцены. Кривая показывает настройки полос. По умолчанию EQ нейтрален, ширина — 35%. Голоса имеют разные позиции в стерео; 0% ставит прямой звук в центр, реверберация сохраняет объём. При усилении полос оставляется запас по уровню, поэтому общая громкость может уменьшиться. Настройки сохраняются локально, в проектах и экспорте. Ударные REACTOR получили более сильный уровень атаки.
+
+GENERATE now selects another sound for each voice and randomizes character, duration, density, level and space within 20–100%. Muted tracks stay muted; master controls, tempo and key are preserved. AUTO PATTERN still changes only the generated pattern. / СОЗДАТЬ выбирает новый звук каждого голоса и меняет характер, длительность, плотность, уровень и пространство в пределах 20–100%. Выключенные дорожки остаются выключенными; мастер-настройки, темп и тональность сохраняются. АВТО рисунка по-прежнему меняет только рисунок.
+
+Internal voice gain is calibrated ×2: at the same composition and EQ, master 50% feeds the previous master-100% level into master processing. The master card uses compact LOW/MID/HIGH/STAGE captions. The upper-right miniature orbit switches musical worlds; its label names the destination. / Внутренний уровень голосов поднят вдвое: при тех же настройках мастер 50% подаёт прежний сигнал 100% в мастер-обработку. Подписи плашки — НИЗ/СЕРЕДИНА/ВЕРХ/СЦЕНА. Мини-орбита справа сверху переключает музыкальные миры; подпись указывает мир назначения.

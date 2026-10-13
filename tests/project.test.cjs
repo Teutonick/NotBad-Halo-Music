@@ -1,6 +1,28 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js');
 const tracks=Object.keys(S.banks).map(name=>({name,sound:S.banks[name].sounds[0].id,on:true,level:65,density:70,character:50,duration:50,space:55,pattern:[0,4,8,12]}));
+
+test('project mix settings roundtrip, old neutral defaults and strict bounds',()=>{
+ const project=P.capture(tracks,4,100,2,0,S,M,50,{low:6,mid:-3,high:2,width:90});
+ assert.deepEqual(P.parse(JSON.stringify(project),S).mix,project.mix);
+ delete project.mix;assert.deepEqual(P.validate(project,S).mix,{low:0,mid:0,high:0,width:35});
+ for(const mix of [null,[],{low:10},{mid:-10},{high:Infinity},{width:101},{width:'50'}])assert.throws(()=>P.validate({...project,mix},S));
+ assert.deepEqual(P.mixSettings({low:0,mid:0,high:0,width:0,secret:'discard'}),{low:0,mid:0,high:0,width:0});
+});
+
+test('offline export passes the same master EQ and scene width to the audio engine',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs');let settings;
+ const project=P.capture(tracks,4,100,2,0,S,M,50,{low:4,mid:-2,high:1,width:70});
+ const sandbox={HaloSounds:S,HaloComposition:require('../src/composition.js'),HaloAudio:{create(ctx,tracks,volume,samples,mix){settings=mix;return {play(){}}}},OfflineAudioContext:function(ch,length,rate){this.startRendering=async()=>({getChannelData:()=>new Float32Array(length)})}};
+ vm.createContext(sandbox);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../src/export.js'),'utf8'),sandbox);
+ await sandbox.HaloExport.render(project);assert.deepEqual(settings,project.mix);
+});
+test('reactor project roundtrip preserves setup and rejects mixed or unknown banks; older files stay ambient',()=>{
+ const rock=tracks.map(t=>({...t,setup:'reactor',sound:S.reactorBanks[t.name].sounds[0].id})),project=P.capture(rock,4,100,2,0,S,M);
+ assert.equal(P.parse(JSON.stringify(project),S).setup,'reactor');
+ assert.throws(()=>P.validate({...project,setup:'unknown'},S));assert.throws(()=>P.validate({...project,setup:'ambient'},S));
+ const old=P.capture(tracks,4,72,1,0,S,M);delete old.setup;assert.equal(P.validate(old,S).setup,'ambient');
+});
 test('bounded BPM rejects overflows, scientific notation, nonnumbers and out-of-range input',()=>{
  for(const value of ['30','200','72.25'])assert.equal(P.bpm(value),Number(value));
  for(const value of ['29','201','Infinity','NaN','1e200','10000000','-60','99.999','<script>'])assert.throws(()=>P.bpm(value));

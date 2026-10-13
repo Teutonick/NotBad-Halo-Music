@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- function validate(value,project,sounds){
+ function validate(value,project,sounds,nested=false){
   if(!value||value.version!==1)throw Error('Unsupported autosave');
   const clean={version:1,project:project.validate(value.project,sounds),ui:{},manual:[],draft:null};
   for(const field of ['scene','motionMode']){const n=value.ui?.[field];if(!Number.isInteger(n)||n<0||n>2)throw Error('Invalid view');clean.ui[field]=n}
@@ -15,6 +15,14 @@
   clean.editTrack=Number.isInteger(value.editTrack)&&value.editTrack>=0&&value.editTrack<8?value.editTrack:0;
   clean.selected=Number.isInteger(value.selected)&&value.selected>=0&&value.selected<8?value.selected:-1;
   clean.windows=Array.isArray(value.windows)?value.windows.slice(0,4).map(w=>({id:['editor','patternEditor','storageInfo','phraseGuide'].includes(w.id)?w.id:'editor',left:Math.max(0,Math.min(10000,Number(w.left)||0)),top:Math.max(0,Math.min(10000,Number(w.top)||0))})):[];
+  if(!nested&&value.worlds){
+   clean.worlds={};
+   for(const setup of ['ambient','reactor'])if(value.worlds[setup]){
+    const saved=validate(value.worlds[setup],project,sounds,true);
+    if(saved.project.setup!==setup)throw Error('Invalid setup state');
+    clean.worlds[setup]=saved;
+   }
+  }
   return clean;
  }
  function parse(text,project,sounds){if(typeof text!=='string'||new TextEncoder().encode(text).length>65536)throw Error('Autosave exceeds limit');return validate(JSON.parse(text),project,sounds)}

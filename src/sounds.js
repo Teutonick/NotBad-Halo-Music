@@ -1,4 +1,4 @@
-/* Original procedural patches. No samples or third-party audio assets. */
+/* AMBIENT: original synthesis. REACTOR: local CC0 samples, assets/reactor/manifest.json. */
 (function (root) {
   'use strict';
   const patch = (id, name, engine, tone, decay, extra = {}) =>
@@ -50,11 +50,82 @@
   Object.freeze(banks);
   const chords = Object.freeze([[50,53,57,60],[46,50,53,57],[53,57,60,64],[48,52,55,60]].map(Object.freeze));
   const random01 = n => { const x = Math.sin(n * 127.1 + 34.233) * 43758.5453; return x - Math.floor(x); };
+  // Stable slot identities retain old project compatibility; each world owns its patches.
+  const sampleBanks={
+    'dry-kick':'kick-damped','arena-kick':'kick-open','attack-kick':'kick-damped','machine-kick':'kick-open',
+    'dry-snare':'snare-center','steel-snare':'snare-edge','heavy-snare':'snare-rim','arena-snare':'snare-layer',
+    'tight-hat':'hat-tight','open-hat':'hat-open','ride':'ride','crash':'crash',
+    'floor-tom':'tom-floor','mid-tom':'tom-mid','high-tom':'tom-high','war-tom':'tom-war',
+    'pick-bass':'bass-pick','tube-bass':'bass-finger','fuzz-bass':'bass-pick','muted-bass':'bass-finger',
+    'palm-guitar':'guitar-direct','power-guitar':'guitar-dist','crunch-guitar':'guitar-direct','gain-guitar':'guitar-dist',
+    'singing-lead':'guitar-dist','octave-lead':'guitar-dist','picked-lead':'guitar-direct','feedback-lead':'guitar-dist',
+    'attack-piano':'piano','dark-piano':'piano','analog-arp':'synth-arp','cut-synth':'synth-cut'
+  };
+  const rock = (id,name,engine,tone,decay,pattern,extra={}) => patch('reactor-'+id,name,engine,engine==='metal'?14000:tone,decay,{pattern,punch:true,...extra,filter:'lowpass',sampleBank:sampleBanks[id],drive:sampleBanks[id]==='guitar-dist'?0:extra.drive});
+  const reactorBanks = {
+    GLASS:{label:'KICK',role:'Rock kick',sounds:[
+      rock('dry-kick','Dry rock kick','kick',3500,.22,[0,6,8,10],{startHz:180}),
+      rock('arena-kick','Arena kick','kick',2800,.38,[0,6,8],{startHz:145}),
+      rock('attack-kick','Attack kick','kick',5200,.18,[0,3,6,8,10],{startHz:210}),
+      rock('machine-kick','Machine kick','kick',4100,.25,[0,6,8,14],{startHz:160,drive:3})]},
+    TIDAL:{label:'SNARE',role:'Rock snare',sounds:[
+      rock('dry-snare','Crack snare','snare',7200,.16,[4,12],{bodyHz:190}),
+      rock('steel-snare','Edge snare','snare',9000,.23,[4,12],{bodyHz:240}),
+      rock('heavy-snare','Heavy snare','snare',4800,.28,[4,12],{bodyHz:150}),
+      rock('arena-snare','Layered snare','snare',6500,.36,[4,12],{bodyHz:180})]},
+    ROOT:{label:'METAL',role:'Cymbals and hats',sounds:[
+      rock('tight-hat','Tight hat','metal',9500,.055,[0,2,4,6,8,10,12,14],{filter:'highpass'}),
+      rock('open-hat','Open rock hat','metal',7500,.32,[2,6,10,14],{filter:'highpass'}),
+      rock('ride','Ride bell','metal',5200,.45,[0,2,4,6,8,10,12,14],{filter:'highpass',metalHz:310}),
+      rock('crash','Crash cymbal','metal',6200,1.3,[0],{filter:'highpass',sparse:true})]},
+    EMBER:{label:'TOMS',role:'Tom fills',sounds:[
+      rock('floor-tom','Floor tom','tom',2200,.46,[10,14,15],{startHz:100}),
+      rock('mid-tom','Mid tom','tom',3000,.32,[10,12,14],{startHz:145}),
+      rock('high-tom','High tom','tom',4200,.24,[11,14,15],{startHz:205}),
+      rock('war-tom','War tom','tom',1800,.65,[8,10,12,14],{startHz:80,drive:2})]},
+    RAIN:{label:'BASS',role:'Electric bass riff',sounds:[
+      rock('pick-bass','Pick bass','rockbass',2200,.3,[0,3,6,8,10,14],{drive:1.4}),
+      rock('tube-bass','Tube bass','rockbass',1600,.4,[0,3,6,8,10,14],{drive:2.8}),
+      rock('fuzz-bass','Fuzz bass','rockbass',2700,.32,[0,3,6,8,10,14],{drive:5}),
+      rock('muted-bass','Muted bass','rockbass',1300,.17,[0,3,6,8,10,14],{drive:1.8})]},
+    VEIL:{label:'RIFF',role:'Rhythm guitar',sounds:[
+      rock('palm-guitar','Palm mute','guitar',3200,.16,[0,3,6,8,10,14],{drive:5,damping:.965}),
+      rock('power-guitar','Open power chords','guitar',4000,.65,[0,6,8,14],{drive:4,damping:.995}),
+      rock('crunch-guitar','Dry crunch','guitar',4500,.27,[0,3,6,8,10,14],{drive:2.5,damping:.982}),
+      rock('gain-guitar','High gain','guitar',3500,.42,[0,3,6,8,10,14],{drive:7,damping:.99})]},
+    MOSS:{label:'LEAD',role:'Lead guitar',sounds:[
+      rock('singing-lead','Singing lead','guitar',4200,1.2,[2,7,11],{drive:3,damping:.997,lead:true}),
+      rock('octave-lead','Octave lead','guitar',5200,.5,[2,7,11],{drive:4,damping:.99,lead:true,octave:true}),
+      rock('picked-lead','Picked lead','guitar',5800,.25,[2,7,11,15],{drive:2,damping:.982,lead:true}),
+      rock('feedback-lead','Sustained lead','guitar',3000,1.7,[2,11],{drive:6,damping:.998,lead:true})]},
+    AURA:{label:'KEYS',role:'Piano and synthesizers',sounds:[
+      rock('attack-piano','Attack piano','piano',6000,.8,[0,4,8,12]),
+      rock('dark-piano','Dark piano','piano',2600,1.3,[0,8],{dark:true}),
+      rock('analog-arp','Analog arpeggio','rocksynth',3800,.19,[0,2,4,6,8,10,12,14],{arp:true,drive:1.2}),
+      rock('cut-synth','Cutting synth','rocksynth',5200,.45,[0,6,8,14],{drive:2.2})]}
+  };
+  for(const bank of Object.values(reactorBanks)){for(const s of bank.sounds)Object.freeze(s.pattern);Object.freeze(bank.sounds);Object.freeze(bank)}
+  Object.freeze(reactorBanks);
+  function banksFor(setup){return setup==='reactor'?reactorBanks:banks}
+  function bankFor(track){return banksFor(track.setup)[track.name]}
   function soundFor(track) {
-    const bank = banks[track.name];
+    const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
   function notesFor(track, index, bar, local, seed, transpose=0) {
+    if(track.setup==='reactor'){
+      const s=soundFor(track),root=[38,38,34,36][((bar%4)+4)%4]+transpose;
+      if(['kick','snare','metal','tom'].includes(s.engine))return [];
+      const riff=[0,0,0,7,0,0,0,10,0,0,7,0,0,0,10,7];
+      const offset=riff[(local+(seed%3)*2)%16];
+      // Keep the riff within both recorded bass articulations' 26–45 range.
+      if(s.engine==='rockbass')return [root+offset>45?root+offset-12:root+offset];
+      if(s.engine==='guitar'&&!s.lead)return [root+12+offset,root+19+offset];
+      const minor=[0,3,7,10];
+      if(s.lead)return [root+24+minor[(Math.floor(local/2)+bar+seed)%4],...(s.octave?[root+36+minor[(Math.floor(local/2)+bar+seed)%4]]:[])];
+      if(s.arp)return [root+24+minor[(Math.floor(local/2)+seed)%4]];
+      return [root+12,root+15,root+19];
+    }
     const s = soundFor(track), chord = chords[((bar % 4) + 4) % 4].map(n=>n+transpose);
     if (['noise','kick','drop','snare','clap'].includes(s.engine)) return [];
     if (track.name === 'ROOT') return [chord[0] - 12];
@@ -66,18 +137,49 @@
   function shouldTrigger(track, index, step, seed) {
     if(track.manualSteps)return track.on&&track.manualSteps.includes(step%(track.manualBars*16));
     const bar = Math.floor(step / 16);
+    if(track.setup==='reactor'){
+      return track.on&&track.density>0&&patternFor({...track,variation:seed}).includes(step%16)&&
+        random01(index*97+step*31+seed*191)<=track.density/100;
+    }
     return track.on && track.density > 0 && patternFor(track).includes(step % 16) &&
       !((track.name === 'VEIL' || track.name === 'AURA') && bar % 2 === 1) &&
       random01(index * 97 + step * 31 + seed * 191) <= track.density / 100;
   }
+  const rhythmCache=new Map();
   function patternFor(track) {
     const base=soundFor(track).pattern||track.pattern;
+    if(track.setup==='reactor'){
+      const variation=track.variation||1,s=soundFor(track);
+      const cacheKey=track.name+':'+s.id+':'+variation;
+      if(rhythmCache.has(cacheKey))return rhythmCache.get(cacheKey);
+      // Rebuild hit groups, never rotate a preset. Keep only musical anchors.
+      // Each slot has its own rhythm; harmony still follows the shared clock.
+      const lane=Object.keys(reactorBanks).indexOf(track.name);
+      const anchors=s.engine==='snare'?[4,12]:s.engine==='kick'?[0]:[];
+      const count=Math.min(11,Math.max(s.engine==='snare'?3:2,base.length)+(variation%2===0?1:0)+(lane===5?1:0));
+      const ranked=Array.from({length:16},(_,step)=>step).filter(step=>!anchors.includes(step));
+      const salt=base.reduce((sum,n)=>sum+n,0)*17;
+      const score=step=>random01(variation*7919+lane*193+step*101+salt);
+      ranked.sort((a,b)=>score(a)-score(b)||a-b);
+      const generated=Object.freeze([...anchors,...ranked.slice(0,count-anchors.length)].sort((a,b)=>a-b));
+      if(rhythmCache.size>=256)rhythmCache.delete(rhythmCache.keys().next().value);
+      rhythmCache.set(cacheKey,generated);return generated;
+    }
     if(!track.variation||track.variation===1)return base;
     const identity=Object.keys(banks).indexOf(track.name),division=['kick','snare','clap'].includes(soundFor(track).engine)?4:1;
     const shift=Math.floor(random01(track.variation*53+identity*17)* (16/division))*division;
     return base.map(step=>(step+shift)%16).sort((a,b)=>a-b);
   }
-  const api = { banks, chords, random01, soundFor, notesFor, shouldTrigger, patternFor };
+  function randomizeTrack(track,index,seed){
+    const sounds=bankFor(track).sounds.filter(sound=>sound.id!==soundFor(track).id);
+    const result={sound:sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)].id,variation:seed};
+    ['character','duration','density','level','space'].forEach((key,i)=>{
+      const values=Array.from({length:81},(_,n)=>n+20).filter(n=>n!==track[key]);
+      result[key]=values[Math.floor(random01(seed*3571+index*193+i*71)*values.length)];
+    });
+    return result;
+  }
+  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

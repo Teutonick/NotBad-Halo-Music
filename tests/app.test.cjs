@@ -18,13 +18,14 @@ function app(storage) {
   }
   const document = { getElementById(id) { if(!elements.has(id)) elements.set(id,element(id)); return elements.get(id); },
     createElement: () => element(''), addEventListener(k,v) { events[k] = v; } };
-  const ctx = { currentTime: 0, resume: async()=>{}, suspend:async()=>{} };
-  const sandbox = { document, console, Math, Float32Array, performance:{now:()=>0},
+  const ctx = { currentTime: 0, resume: async()=>{}, suspend:async()=>{},close:async()=>{} };
+  const sandbox = { document, console, Math, Float32Array, TextEncoder, performance:{now:()=>0},
     innerWidth:1200,innerHeight:800,devicePixelRatio:1, requestAnimationFrame() {},
     setInterval(fn) { timers.push(fn); return timers.length; }, clearInterval() {}, setTimeout(fn,ms) {timeouts.push({fn,ms});return timeouts.length}, clearTimeout() {},
     addEventListener(){}, AudioContext:function(){return ctx} };
   sandbox.window=sandbox;sandbox.confirm=()=>false;sandbox.location={reload(){calls.push(['reload'])}};
   sandbox.HaloSounds=require('../src/sounds.js');
+  sandbox.HaloSamples={load:async()=>{},prepare:async()=>({})};
   sandbox.HaloMotion=require('../src/motion.js');
   sandbox.HaloEffects=require('../src/effects.js');
   sandbox.HaloComposition=require('../src/composition.js');
@@ -33,7 +34,7 @@ function app(storage) {
   sandbox.HaloProducts=[{name:'test',en:'description',ru:'описание',url:'https://example.com'}];
   sandbox.HaloPreferences=require('../src/preferences.js');
   sandbox.localStorage=storage||{getItem(){return null},setItem(){}};
-  sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,update:i=>calls.push(['update',i]),
+  sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,setSamples(){},update:i=>calls.push(['update',i]),
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
   vm.createContext(sandbox);
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
@@ -41,6 +42,92 @@ function app(storage) {
   vm.runInContext(code,sandbox);
   return { document, elements, events, calls, timers, ctx, sandbox, timeouts };
 }
+
+test('musical worlds preserve sounds, generated/manual identity and drafts across switches and reload',()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const a=app(storage),$=id=>a.document.getElementById(id);
+ $('motion').onclick();$('motion').onclick();$('editPattern').onclick();$('stepGrid').children[1].click();
+ $('setupSwitch').onclick();assert.equal($('bpmInput').value,'100');
+ $('tracks').children[7].oncontextmenu({preventDefault(){}});assert.equal($('types').children.length,4);$('types').children[2].click();
+ $('bpmInput').onchange({target:{value:'112'}});$('editPattern').onclick();$('stepGrid').children[3].click();
+ $('setupSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.equal($('patternEditor').hidden,false);
+ $('setupSwitch').onclick();assert.equal($('bpmInput').value,'112');assert.equal($('typeLabel').textContent,'Analog arpeggio');assert.equal($('patternEditor').hidden,false);
+ a.timeouts.find(t=>t.ms===250).fn();const saved=JSON.parse(data.get('notbad-halo-autosave-v1'));
+ assert.equal(saved.project.setup,'reactor');assert.equal(saved.worlds.ambient.project.setup,'ambient');assert.equal(saved.manual.every(t=>t===null),true);
+ const b=app(storage),get=id=>b.document.getElementById(id);assert.equal(get('bpmInput').value,'112');get('setupSwitch').onclick();assert.equal(get('bpmInput').value,'72');assert.equal(get('patternEditor').hidden,false);
+});
+
+test('reactor GENERATE clears all manual tracks and replaces every displayed phrase rhythm',()=>{
+ const data=new Map(),a=app({getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)}),$=id=>a.document.getElementById(id);
+ $('setupSwitch').onclick();
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project;};
+ $('motion').onclick();$('motion').onclick();$('editPattern').onclick();$('savePattern').onclick();
+ const before=read();$('regen').onclick();const after=read();
+ assert.ok(JSON.parse(data.get('notbad-halo-autosave-v1')).manual.every(t=>t===null));
+ assert.equal(after.seed,before.seed+1);
+ for(let i=0;i<8;i++)assert.notDeepEqual(after.tracks[i].steps,before.tracks[i].steps);
+});
+
+test('EQ and stereo width persist and survive switching musical worlds',()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
+ for(const [id,value] of [['eqLow',5],['eqMid',-2],['eqHigh',3],['stereoWidth',80]])$(id).oninput({target:{value:String(value)}});
+ $('setupSwitch').onclick();assert.equal($('stereoWidth').value,'80');
+ a.timeouts.filter(t=>t.ms===250).at(-1).fn();
+ const project=JSON.parse(data.get('notbad-halo-autosave-v1')).project;assert.deepEqual(project.mix,{low:5,mid:-2,high:3,width:80});
+ const b=app(storage);assert.equal(b.document.getElementById('eqLow').value,'5');assert.equal(b.document.getElementById('stereoWidth').value,'80');
+ assert.ok($('eqCurve').d.includes('14'));
+ $('eqLow').oninput({target:{value:'100'}});assert.equal($('eqLow').value,'5');
+});
+
+test('GENERATE randomizes all slot sounds and tuning, preserves mute and master settings and restores results',()=>{
+ for(const reactor of [false,true]){
+  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
+  if(reactor)$('setupSwitch').onclick();
+  $('tracks').children[0].onclick();$('eqLow').oninput({target:{value:'4'}});$('masterVolume').oninput({target:{value:'35'}});
+  const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project;};
+  const before=read();$('regen').onclick();const after=read();
+  assert.deepEqual(after.mix,before.mix);assert.equal(after.tempo,before.tempo);assert.equal(after.key,before.key);assert.equal(after.masterVolume,35);
+  for(let i=0;i<8;i++){
+   assert.equal(after.tracks[i].on,before.tracks[i].on);assert.notEqual(after.tracks[i].sound,before.tracks[i].sound);
+   for(const field of ['character','duration','density','level','space'])assert.ok(after.tracks[i][field]>=20&&after.tracks[i][field]<=100);
+  }
+  const b=app(storage);b.timeouts.filter(t=>t.ms===250).at(-1)?.fn();
+  b.document.getElementById('tracks').children[1].oncontextmenu({preventDefault(){}});
+  assert.equal(b.document.getElementById('typeLabel').textContent,a.sandbox.HaloSounds.soundFor({...after.tracks[1],setup:after.setup}).name);
+  assert.equal(b.document.getElementById('level').value,after.tracks[1].level);
+ }
+});
+
+test('playing setup switches wait for an audio-clock bar and pause/resume remain functional',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id);await $('play').onclick();await $('setupSwitch').onclick();
+ assert.equal($('bpmInput').value,'72');assert.equal($('setupSwitch')['aria-busy'],'true');
+ for(let now=.1;now<3.5;now+=.05){a.ctx.currentTime=now;a.timers[1]()}
+ assert.equal($('bpmInput').value,'100');assert.ok(a.calls.some(c=>c[0]==='play'&&c[4].startsWith('reactor-')));
+ const rock=a.calls.filter(c=>c[0]==='play'&&c[4].startsWith('reactor-'));assert.ok(Math.abs(rock[0][3]-(.08+60/72*4))<.0001);
+ $('setupSwitch').onclick();await $('play').onclick();assert.equal($('bpmInput').value,'72');await $('play').onclick();assert.equal($('transportTitle').textContent,'YOUR UNIVERSE IS ALIVE');
+});
+
+test('reactor project import selects its bank and preserves the previous ambient workspace',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id),S=a.sandbox.HaloSounds,P=a.sandbox.HaloProject,M=a.sandbox.HaloMotion;
+ const tracks=Object.keys(S.banks).map(name=>({name,setup:'reactor',sound:S.reactorBanks[name].sounds[3].id,on:true,level:60,density:100,character:50,duration:40,space:15,pattern:[]}));
+ const project=P.capture(tracks,8,110,2,1,S,M,25),file={size:5000,text:async()=>JSON.stringify(project)};
+ await $('projectFile').onchange({target:{files:[file]}});assert.equal($('bpmInput').value,'110');assert.equal($('masterVolume').value,'25');
+ $('tracks').children[7].oncontextmenu({preventDefault(){}});assert.equal($('typeLabel').textContent,'Cutting synth');assert.equal($('density').disabled,true);
+ $('setupSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.equal($('masterVolume').value,'25');
+ $('setupSwitch').onclick();assert.equal($('bpmInput').value,'110');assert.equal($('typeLabel').textContent,'Cutting synth');
+});
+test('loading a live sample switch can be cancelled; a failure preserves ambient playback',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id);await $('play').onclick();let resolve;
+ a.sandbox.HaloSamples.prepare=()=>new Promise(done=>resolve=done);
+ const pending=$('setupSwitch').onclick();assert.equal($('setupSwitch')['aria-busy'],'true');await $('setupSwitch').onclick();resolve({});await pending;
+ a.ctx.currentTime=3.5;a.timers[1]();assert.equal($('bpmInput').value,'72');assert.ok(a.calls.filter(c=>c[0]==='play').every(c=>!c[4].startsWith('reactor-')));
+ a.sandbox.HaloSamples.prepare=async()=>{throw Error('Sample pack could not load')};await $('setupSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.equal($('setupSwitch')['aria-busy'],'false');assert.equal($('toast').textContent,'Sample pack could not load');
+});
+test('sample start failure stays paused and retry does not introduce a synthesis substitute',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id);$('setupSwitch').onclick();a.sandbox.console={...console,error(){}};
+ a.sandbox.HaloSamples.prepare=async()=>{throw Error('Sample audio could not decode')};await $('play').onclick();assert.equal(a.calls.filter(c=>c[0]==='play').length,0);assert.equal($('play').classList.contains('is-playing'),false);
+ a.sandbox.HaloSamples.prepare=async()=>({});await $('play').onclick();assert.ok(a.calls.some(c=>c[0]==='play'&&c[4].startsWith('reactor-')));
+});
 test('static entry references local scripts, all eight tiles and role-specific editors work',()=>{
   const a=app(), tiles=a.document.getElementById('tracks');
   assert.equal(tiles.children.length,8);
@@ -50,7 +137,7 @@ test('static entry references local scripts, all eight tiles and role-specific e
   buttons[2].click(); assert.equal(a.document.getElementById('typeLabel').textContent,'Drops');
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   for(const match of html.matchAll(/<script src="([^"]+)"/g)) {
-    assert.ok(match[1].startsWith('./')); assert.ok(fs.existsSync(path.join(__dirname,'..',match[1])));
+    assert.ok(match[1].startsWith('./')); assert.ok(fs.existsSync(path.join(__dirname,'..',match[1].split('?')[0])));
   }
 });
 test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed scheduler integrate',async()=>{

@@ -1,12 +1,14 @@
 /* Web Audio only: events arrive from the shared lookahead scheduler. */
 (function (root) {
   'use strict';
-  function create(ctx, tracks,volume=50) {
+  const selectSample=typeof module!=='undefined'&&module.exports?require('./samples.js').select:root.HaloSamples.select;
+  function create(ctx, tracks,volume=50,sampleBank={},mix={low:0,mid:0,high:0,width:35}) {
     const master = ctx.createGain(), compressor = ctx.createDynamicsCompressor();
     master.gain.value = Math.max(0,Math.min(100,volume))/100;
     compressor.threshold.value = -20; compressor.knee.value = 20;
     compressor.ratio.value = 4; compressor.attack.value = .008; compressor.release.value = .3;
-    master.connect(compressor); compressor.connect(ctx.destination);
+    const eq=['lowshelf','peaking','highshelf'].map((type,i)=>{const n=ctx.createBiquadFilter();n.type=type;n.frequency.value=[120,1000,6000][i];n.Q.value=.7;return n}),headroom=ctx.createGain();
+    master.connect(headroom);headroom.connect(eq[0]);eq[0].connect(eq[1]);eq[1].connect(eq[2]);eq[2].connect(compressor);compressor.connect(ctx.destination);
     const reverb = ctx.createConvolver(), wet = ctx.createGain();
     wet.gain.value = .18; reverb.connect(wet); wet.connect(master);
     const impulse = ctx.createBuffer(2, Math.floor(ctx.sampleRate * 2.6), ctx.sampleRate);
@@ -21,17 +23,26 @@
     const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const data = noiseBuffer.getChannelData(0);
     for (let n = 0; n < data.length; n++) data[n] = noise() * .65;
-    const sends = [], voices = tracks.map(() => new Set());
-    const trackGains = tracks.map(t => {
+    const sends = [], panners=[], voices = tracks.map(() => new Set());
+    const trackGains = tracks.map((t,i) => {
       const gain = ctx.createGain(), send = ctx.createGain();
-      gain.gain.value = t.on ? t.level / 100 : 0;
+      gain.gain.value = t.on ? t.level / 100 * 2 : 0;
       send.gain.value = t.space / 100 * .8;
-      gain.connect(master); gain.connect(send); send.connect(reverb); sends.push(send);
+      if(ctx.createStereoPanner){const pan=ctx.createStereoPanner();gain.connect(pan);pan.connect(master);panners[i]=pan}else gain.connect(master);
+      gain.connect(send); send.connect(reverb); sends.push(send);
       return gain;
     });
-    function update(index) {
-      const t = tracks[index], now = ctx.currentTime;
-      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 : 0, now, .04);
+    function setMix(value,at=ctx.currentTime){
+      const gains=['low','mid','high'].map(key=>Math.max(-9,Math.min(9,Number(value[key])||0)));
+      eq.forEach((node,i)=>node.gain.setTargetAtTime(gains[i],at,.05));
+      headroom.gain.setTargetAtTime(Math.pow(10,-Math.max(0,...gains)/20),at,.05);
+      const width=Math.max(0,Math.min(100,Number(value.width)||0))/100;
+      panners.forEach((node,i)=>node.pan.setTargetAtTime([-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]*width,at,.05));
+    }
+    setMix(mix);
+    function update(index, at=ctx.currentTime) {
+      const t = tracks[index], now = at;
+      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 2 : 0, now, .04);
       sends[index].gain.setTargetAtTime(t.space / 100 * .8, now, .06);
       for (const voice of voices[index]) {
         voice.filter.frequency.setTargetAtTime(cutoff(t, voice.patch), now, .06);
@@ -41,8 +52,11 @@
       return Math.min(ctx.sampleRate * .42, Math.max(100, patch.tone * Math.pow(2, (t.character - 50) / 45)));
     }
     function play(index, notes, time, velocity, patch) {
+      if(patch.sampleBank&&!sampleBank[patch.sampleBank]?.length)throw Error('Sample bank is not ready');
       const t = tracks[index], active = voices[index];
+      const ringingGuitar = !!patch.sampleBank && patch.engine === 'guitar';
       for(const voice of active)if(voice.end<=time)active.delete(voice);
+      if(ringingGuitar)for(const voice of [...active]){voice.release(time);active.delete(voice);}
       // Four sustained events per track; stolen events finish a short release.
       if (active.size >= 4) {
         const oldest = active.values().next().value;
@@ -51,31 +65,41 @@
       const filter = ctx.createBiquadFilter(), gain = ctx.createGain();
       filter.type = patch.filter || 'lowpass'; filter.Q.value = .65;
       filter.frequency.value = cutoff(t, patch); gain.gain.value = .00001;
-      gain.connect(filter); filter.connect(trackGains[index]);
+      const processing=[];
+      if(patch.drive){
+        const shaper=ctx.createWaveShaper(),dc=ctx.createBiquadFilter(),cabinet=ctx.createBiquadFilter();
+        const curve=new Float32Array(1024),drive=patch.drive;
+        for(let j=0;j<curve.length;j++){const x=j*2/(curve.length-1)-1;curve[j]=Math.tanh(x*drive)/Math.tanh(drive)}
+        shaper.curve=curve;shaper.oversample='2x';dc.type='highpass';dc.frequency.value=35;
+        cabinet.type='lowpass';cabinet.frequency.value=Math.min(ctx.sampleRate*.42,patch.engine==='rockbass'?3200:5500);cabinet.Q.value=.5;
+        filter.connect(shaper);shaper.connect(dc);dc.connect(cabinet);cabinet.connect(gain);gain.connect(trackGains[index]);processing.push(shaper,dc,cabinet);
+      }else {gain.connect(filter);filter.connect(trackGains[index]);}
       const duration = Math.min(8, Math.max(.08, patch.decay * (.35 + t.duration / 100 * 1.3)));
-      const attack = patch.engine === 'pad' || patch.ambient ? .35 : patch.punch ? .003 : .012;
-      const peak = velocity * (patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
+      const rockDrum=patch.sampleBank&&['kick','snare','tom'].includes(patch.engine);
+      const attack = patch.engine === 'pad' || patch.ambient ? .35 : patch.punch || rockDrum ? .003 : .012;
+      const peak = velocity * (rockDrum ? (patch.engine==='kick'?.14:.11) : patch.id.startsWith('reactor-') ? .065 : patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
       gain.gain.setValueAtTime(.00001, time);
       gain.gain.exponentialRampToValueAtTime(peak, time + attack);
-      gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
+      if(patch.sampleBank&&!ringingGuitar)gain.gain.exponentialRampToValueAtTime(peak*.8,time+attack+duration*.65);
+      if(!ringingGuitar)gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
       const end = time + attack + duration + .06, sources = [];
       let remaining = 0, released = false;
       const voice = { filter, patch, end, release(at=ctx.currentTime) {
         if (released) return; released = true;
         const now = at;
         if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now);
-        else { gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(.00001, now); }
+        else { gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(peak, now); }
         gain.gain.setTargetAtTime(.00001, now, .012);
         sources.forEach(source => source.stop(now + .06));
       } };
       const cleanup = () => {
-        active.delete(voice); gain.disconnect(); filter.disconnect();
+        active.delete(voice); gain.disconnect(); filter.disconnect();processing.forEach(node=>node.disconnect());
       };
       function start(source, amplitude) {
         const level = ctx.createGain(); level.gain.value = amplitude;
-        source.connect(level); level.connect(gain); sources.push(source); remaining++;
+        source.connect(level); level.connect(patch.drive?filter:gain); sources.push(source); remaining++;
         source.onended = () => { source.disconnect(); level.disconnect(); if (--remaining === 0) cleanup(); };
-        source.start(time); source.stop(end);
+        source.start(time); source.stop(ringingGuitar ? time + source.buffer.duration / source.playbackRate.value : end);
       }
       function tone(hz, wave, amplitude, detune = 0, sweep = false) {
         const o = ctx.createOscillator(); o.type = wave; o.detune.value = detune;
@@ -84,9 +108,20 @@
         start(o, amplitude);
       }
       active.add(voice);
-      if (['noise','snare','clap'].includes(patch.engine)) {
+      if(patch.sampleBank){
+        const pitches=notes.length?notes.slice(0,3):[0];
+        const regions=sampleBank[patch.sampleBank];
+        pitches.forEach(note=>{
+          const region=selectSample(regions,note,velocity);
+          const source=ctx.createBufferSource();source.buffer=region.buffer;
+          const rate=Math.pow(2,(note-region.root)/12);
+          source.playbackRate.value=rate;source.playbackRate.setValueAtTime(rate,time);
+          if(ringingGuitar)voice.end=Math.max(voice.end,time+region.buffer.duration/rate);
+          start(source,1/pitches.length);
+        });
+      } else if (['noise','snare','clap'].includes(patch.engine)) {
         const source = ctx.createBufferSource(); source.buffer = noiseBuffer; source.loop = true; start(source, 1);
-        if (patch.engine === 'snare') tone(185, 'triangle', .3);
+        if (patch.engine === 'snare') tone(patch.bodyHz||185, 'triangle', .3);
         if (patch.engine === 'clap') {
           // Three fast attacks create a clap transient, then a short noise tail.
           for (const offset of [.018,.036]) {
@@ -109,7 +144,7 @@
         if (!pitches.length) cleanup();
       }
     }
-    return { ctx, master, trackGains, update, play, voices };
+    return { ctx, master, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value} };
   }
   const api = { create };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13 — CC0 recordings and compact PROJECT menu
+
+- Replaced REACTOR procedural instruments with 130 local CC0 recordings covering its 32 presets; actual drums, electric guitar/bass, upright piano and sampled synth timbres. Preserved preset IDs and documented source authors, pinned downloads, rights evidence and checksums. Some presets share recordings with different processing.
+- Lazy classic-script PCM packs preserve direct file opening and GitHub Pages. Playback/export wait for sample decoding; failed loading is explicit and retryable, without a synthesis substitute. Bass octave folds stay in the recorded range while keeping the riff pitch classes.
+- Renamed the file group to PROJECT and its buttons to SAVE/LOAD; MP3/WAV are unchanged. RU/EN labels and loading states are covered. No commit or publication.
+
+## 2026-10-13 — REACTOR rock and keyboards world
+
+- Added a second musical setup: 32 original procedural patches across eight dedicated rock/keyboard roles, aligned bass/guitar riffs, sparse fills and lead answers; two piano and two synth variants replace the secondary guitar layer.
+- Right-side world switch changes the background, colors and electric trails while preserving orbit geometry. Playback switches at a bar boundary; both worlds retain separate musical settings and drafts. Project files and local audio export identify the active setup; older files remain ambient-compatible. RU/EN and relative, versioned local scripts are included.
+- Automated and Chromium checks plus a real non-clipping WAV render establish technical behavior. Realistic sound/listening acceptance and physical Safari/iOS testing remain pending. No commit or publication.
+
 ## 2026-10-13 — Visuals-only mode
 
 - Added upper-right maximize-style button to hide UI and labels while visuals/music continue.
@@ -100,3 +112,15 @@ Keep entries short and dated. Record significant changes and their impact in the
 - Defaulted first visits to COSMIC + DRIFT; hid scene control outside DRIFT.
 - Compacted menu into PATTERN / KEY / SAVE with independent AUTO RANDOM controls and centered key label.
 - 27 tests pass; live reload restored settings/draft, and phone-size layout checked without console errors. No cookies, tracking, backend or commit.
+
+- 2026-10-13: Fixed REACTOR GENERATE rhythms and all-bar METAL/TOMS coverage; RIFF/LEAD retain original recorded tails and release smoothly on retrigger. Added regressions; larger CC0 guitar bank (~65.47 MiB total packs).
+
+- 2026-10-13: Replaced REACTOR pattern rotation with seeded rhythmic reconstruction; tests reject rotated copies for every preset while preserving backbeats and bass/riff alignment.
+
+- 2026-10-13: Decoupled REACTOR BASS/RIFF rhythmic generation, including initial patterns. Added all-preset, 128-seed independence regression; harmony remains shared.
+
+- 2026-10-13: Added responsive master transport card with three-band EQ, settings curve and stereo width. EQ/width persist in projects/autosaves and offline exports; strengthened REACTOR kick/snare/tom event gains. Added routing, persistence, export and localization tests.
+
+- 2026-10-13: GENERATE now randomizes every slot's patch and five tuning controls in 20–100%, preserving mutes and master settings. Added deterministic bank/bounds and two-world persistence regressions; RU/EN tooltip/message updated.
+
+- 2026-10-13: Doubled internal track gain for half-master parity with the previous full-master signal. Shortened EQ/stage captions and replaced the setup card with an upper-right SVG mini-orbit; added gain/mute and localization checks.
