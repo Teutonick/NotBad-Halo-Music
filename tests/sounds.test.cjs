@@ -85,3 +85,8 @@ test('dense retriggers steal old events with bounded release times', () => {
   ctx.sources.forEach(s=>s.onended());
   assert.equal(audio.voices[0].size,0);
 });
+test('master gain defaults to half volume and includes complete silence',()=>{
+ const tracks=Object.keys(banks).map(track);
+ assert.equal(Audio.create(context(),tracks).master.gain.value,.5);
+ for(const volume of [0,25,100])assert.equal(Audio.create(context(),tracks,volume).master.gain.value,volume/100);
+});

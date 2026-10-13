@@ -16,6 +16,8 @@ NotBad Halo Music Constructor is an open-source, browser-based relaxation constr
 
 ## Try HALO
 
+Live site: [NotBad Halo](https://teutonick.github.io/NotBad-Halo-Music/) · [GitHub source](https://github.com/Teutonick/NotBad-Halo-Music) · [Other projects](https://tnick.cc).
+
 Open `index.html` in a modern desktop or mobile browser, or deploy the repository using **GitHub Pages**. No installation, build, backend, account, API key, or CDN is required.
 
 Press **Play** to enable audio (browsers require user interaction before sound can start). Headphones are recommended.
@@ -37,10 +39,38 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | ◀ / key ▶ | Previous/next minor key on the circle of fifths |
 | AUTO KEY | Independently choose another key after each phrase; off by default |
 | 4 BARS / 8 BARS in PHRASE | Select phrase length |
+| PHRASE panel grip / arrow keys on its focused header | Move the floating phrase controls; Shift+arrows moves farther. Position persists locally |
 | EDIT → SAVE PATTERN | Set exact sixteenth-note events for all eight voices and save locally |
 | BPM field | Enter 30–200 BPM (up to two decimal places), then Enter or leave the field |
 | SAVE PROJECT / LOAD PROJECT | Export/import a versioned 4/8-bar JSON project, without audio or samples |
 | WAV / MP3 | Render the selected loop locally; MP3 requires native browser codec support |
+| RU / EN in the visual panel | Switch language; first visit uses the primary browser language, Russian for `ru`, English otherwise |
+| Master volume | Adjust the whole loop from 0–100%, initially 50%; saved projects and offline exports retain it |
+| Maximize-style icon in the upper right | Visuals only: hide all controls and labels; click/tap anywhere or press Escape to restore them. Music and open editor state remain intact; the mode is saved locally |
+
+The small card below the introductory text rotates Privacy Detector Agent, Video Wallpaper, Filexa and AI360 every 15 seconds. On narrow screens, or short windows where the introductory text is hidden, it folds beyond the left edge, leaving a vertical product title and an expand arrow. Expanded cards collapse after 8 seconds (Escape also closes them). Folded titles continue rotating; hovering or focusing an open card pauses rotation, as does hiding the page. Descriptions are available in Russian and English. Cards use local text, with no external media or requests before opening a link.
+
+**Reset workspace**, beside the local autosave hint, asks for confirmation, clears all localStorage at the current site origin, and reloads the default workspace. Export a project first to keep your composition. Playback remains paused; language is detected from the browser again. Other applications sharing the same origin may also use that storage.
+
+**Русский:** на широком экране карточка находится под вводным текстом; на узком или низком окне остаются вертикальное название продукта и стрелка раскрытия слева. Через 8 секунд карточка сворачивается; Escape также закрывает её, а названия продолжают меняться. «Сбросить рабочую область» рядом с подсказкой об автосохранении запрашивает подтверждение, очищает весь localStorage текущего адреса сайта и возвращает начальные настройки. Сначала экспортируйте проект, если хотите сохранить композицию. Данные других приложений на том же origin также могут быть удалены.
+
+**Русский:** язык определяется по основному языку браузера: RU для русского, иначе EN. Кнопка справа переключает язык. Общая громкость лупа — 0–100%, по умолчанию 50%; она сохраняется в проекте и применяется к экспорту. Небольшая карточка других продуктов меняется раз в 15 секунд, задерживается при наведении, фокусе или скрытии страницы; стрелка переключает её вручную.
+
+All current and future user configuration must persist in validated localStorage, including language, master volume, sounds, patterns, drafts, visual modes and window positions. Playback starts only after a user gesture. Storage belongs to the browser profile and site origin, not an account. Future features, descriptions, messages and accessible labels must support RU and EN.
+
+Use original assets created for this project or verified freely redistributable assets only. Do not add fonts, images, media or third-party libraries requiring paid, restrictive or separately acquired licensing. Document provenance and redistribution conditions before adding any third-party asset. This update adds no external font, image, media or library.
+
+**Русский:** все текущие и будущие пользовательские настройки должны сохраняться в проверяемом localStorage. Все функции, описания, сообщения и подписи доступности поддерживают RU/EN. Допустимы собственные ресурсы или проверенные свободно распространяемые материалы; запрещены шрифты, изображения, медиа и библиотеки с платным, ограничительным или отдельно приобретаемым лицензированием. Происхождение и условия распространения документируются заранее.
+
+The PHRASE panel starts above the bottom transport, keeping the central visualization clear. Drag its dotted grip or focus its header and use arrow keys; its position and stacking order are saved. The Play button keeps its circular shape during responsive resizing. A local SVG favicon reproduces the original header emblem. Canonical, description, Open Graph, Twitter card and WebApplication metadata describe the public GitHub Pages site; descriptions switch with RU/EN. Search indexing and social preview refresh depend on crawlers and deployment.
+
+The nebula shares the orbit center and scale. Its flowing noise uses continuous coordinates to avoid the angular background seam; cloud brightness fades outside the sphere. The CSS fallback glow uses the same center when WebGL2 is unavailable.
+
+**Русский:** кнопка с символом максимизации справа сверху включает режим «Только визуализация»: исчезают элементы интерфейса и надписи, музыка продолжает играть. Клик или касание в любом месте либо Escape возвращает интерфейс, сохраняя открытые окна. Возвращающий клик не переключает голос. Режим сохраняется в localStorage; он скрывает интерфейс без перехода в системный полноэкранный режим.
+
+**Русский:** туманность привязана к центру и масштабу орбит. Непрерывные координаты текстуры устраняют угловой шов, а яркость облаков плавно снижается за пределами сферы. Без WebGL2 фоновое CSS-свечение использует тот же центр.
+
+**Русский:** плашка ФРАЗА изначально находится над нижней панелью. Её можно перетаскивать за точечный захват или двигать стрелками при фокусе на заголовке; позиция и порядок окон сохраняются. Кнопка воспроизведения остаётся круглой при изменении ширины окна. Добавлены собственный SVG favicon по эмблеме из шапки и метаданные публичного сайта, включая описание, canonical, Open Graph, Twitter и WebApplication. Описания поддерживают RU/EN; фактическая индексация и обновление превью зависят от публикации и поисковых роботов.
 
 ## What works today
 

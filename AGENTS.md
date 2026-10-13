@@ -93,3 +93,15 @@ This is an optional prerequisite, not a requirement to delay the approved sound-
 ## Current local preferences
 
 Default to COSMIC + DRIFT on first use, but restore validated existing preferences. Scene selection is exclusive to DRIFT. Keep PATTERN and KEY auto-random settings independent. Coalesce full state autosaves in localStorage; retain edit drafts and manual timing, validate size/schema before restore, and fail without losing in-memory work when storage is unavailable. Explain localStorage honestly in the footer information window; do not claim cookies, account identity, cloud sync or legal-compliance certification. Playback remains user-gesture gated after reload.
+
+All current and new user configurations must be persisted in localStorage, including locale and master volume. Every new feature, description, message and accessible label must support both RU and EN; primary browser Russian selects RU, unsupported/unknown language selects EN, and explicit saved choice takes priority. Master volume defaults to 50%, with smooth live gain changes and parity in project files/offline export.
+
+Keep the full header/link area clear of the control menu. Product promotion belongs below the introductory text on wide screens and behind a vertical disclosure at the left edge when that text is hidden. Disclosure is temporary, not a persisted composition setting. Workspace reset requires the app's localized confirmation, clears origin localStorage and reloads defaults; prevent autosave from restoring the discarded state during unload. Test reset using isolated/fake storage, not the user's live composition.
+
+PHRASE controls are a floating window above the bottom transport by default; preserve saved manual placement and support pointer/keyboard movement. Keep the Play button circular across viewport changes. Maintain local original favicon and accurate public-site/search/social metadata without promising crawler indexing or adding remote media.
+
+Decorative backgrounds must share the world center and scale across viewport changes. Avoid nonperiodic texture sampling from raw polar angle, which introduces a ±π seam. Keep shader and CSS fallback centers aligned without affecting audio transport.
+
+Visual-only mode hides UI and drawn labels without changing music, geometry or editor state. Persist it, provide click/tap-anywhere and Escape recovery, and consume the restoring pointer event so it cannot toggle a voice or hidden control.
+
+Do not introduce fonts, images, media or third-party libraries that require paid, restrictive or separately acquired licensing. Use original resources or verified freely redistributable resources, documenting provenance and terms. Product promotion must stay unobtrusive, localized, text-only and free of tracking or unsolicited external resource loading.

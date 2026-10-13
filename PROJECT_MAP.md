@@ -1,6 +1,24 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-**Status:** prototype with procedural sound banks, 2026-10-12. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
+**Status:** prototype with procedural sound banks, localized UI and persisted preferences, 2026-10-13. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
+
+### Implemented update — 2026-10-13
+
+- Upper-right maximize-style button enables persisted visual-only mode: CSS hides interface, overlays and promotion while Canvas skips bar/beat text. Audio/world geometry/composition and editor visibility state are preserved. Captured pointer interaction restores UI without muting a voice; Escape restores focus to the button. Music shortcuts are ignored while hidden. This is interface immersion, not a browser Fullscreen API request. RU/EN covers accessible button/tooltip; older saves show UI by default.
+- Nebula shader now receives orbit `origin` and `worldScale` from the Canvas world, with the WebGL Y-axis conversion and device-size-independent scale. Continuous rotated Cartesian noise replaces direct `atan` angle sampling, eliminating its ±π branch-cut seam. Angular sine decorations remain periodic. Cloud brightness fades near the world bounds, while CSS fallback glow/vignette share world center variables. Visual changes do not alter transport, notes or saved composition.
+- Local `favicon.svg` recreates the original header orbit emblem. Static head metadata includes canonical public URL, search description, Open Graph/Twitter preview using the existing original screenshot, and WebApplication JSON-LD; descriptions and OG locale follow RU/EN. No external assets are introduced; crawler/indexing results are not claimed.
+- PHRASE guide is now a fourth floating window, with a grip and focusable keyboard movement header. Default placement is 14px above bottom transport; dragged/restored positions take priority, clamp on resize and persist in localStorage together with window order. Older three-window preferences remain compatible. Hidden windows retain their positions until reopened. Play has a nonshrinking square footprint through responsive changes.
+- Responsive control layout measures the header and menu, retaining a 14px gap below the complete brand/link area and placing the phrase guide below the menu. Wide-window promotions follow the introductory text; narrow/short-window promotions fold beyond the left edge with rotating vertical titles, an accessible disclosure button and an 8-second collapse timer.
+- Workspace reset asks for confirmation, cancels pending autosaves, clears localStorage for the current origin, and reloads defaults. Cancellation/storage failure keeps the current workspace; reset must not re-save old state during page unload. RU/EN covers the button, prompt and failure message. Live saved user data is not deleted during browser QA; reset behavior is tested against fake storage.
+- `src/i18n.js`: RU/EN interface, dynamic transport/editor/status labels and accessibility text. Primary browser language selects Russian for `ru`, English otherwise; the visual panel switch and saved locale take priority on subsequent visits. Track/product brand names and standard audio formats retain their names.
+- `src/products.js`: four local text cards linking Privacy Detector Agent, Video Wallpaper, Filexa and AI360. Rotation is 15 seconds, paused on hover, focus or hidden page; manual next button and current card are saved. No remote media or analytics.
+- Master volume 0–100%, default 50%, controls the complete master output with a gain ramp. Stored in autosave and project JSON, applied to offline export; older files without this field load at 50%.
+- Header links the [public site](https://teutonick.github.io/NotBad-Halo-Music/), [source repository](https://github.com/Teutonick/NotBad-Halo-Music) and [other projects](https://tnick.cc).
+- All current and future configurations must persist in bounded, validated localStorage. Every new feature and description must support RU/EN. Fonts, pictures, media and third-party libraries must be original or verified freely redistributable, with documented provenance; paid, restrictive or separately acquired licensing is prohibited.
+
+Promotion reference: [Wallpaper AuthorProjects.cs](https://github.com/Teutonick/NotBad-Video-Wallpaper/blob/main/windows/src/AuthorProjects.cs), its `MainWindow.xaml.cs` timer behavior, [Privacy AuthorProjects.cs](https://github.com/Teutonick/NotBad-Privacy-Detector-Agent/blob/main/src/PrivacyAudit/Services/AuthorProjects.cs), and the Privacy README for its scanner description. Text is adapted into both locales; no proprietary visuals or sounds are copied.
+
+Validation: Node tests cover locale fallback, dynamic labels, volume bounds, older project compatibility and preference roundtrip. Chromium in-app browser checks both locales, editor text, product links, volume/language restoration and desktop/mobile layout. Native MP3 remains browser-dependent; no physical Safari/iOS or listening validation is claimed.
 
 ## 1. North star
 
@@ -17,6 +35,9 @@ HALO is an **unobtrusive relaxation constructor**. Eight voices orbit, intersect
 | `index.html` | Static entry, inline UI/transport/visuals and embedded GLSL shader |
 | `src/sounds.js` | Eight procedural patch banks, harmony and trigger rules |
 | `src/audio.js` | Web Audio synthesis, track routing, effects and bounded event lifecycle |
+| `src/i18n.js` | Browser locale selection and RU/EN text/accessibility translation |
+| `src/products.js` | Localized author product descriptions and fixed external links |
+| `src/preferences.js` / `src/project.js` | Validated local preferences and portable project schema |
 | `tests/` | Node pure-rule, audio-contract and fake-DOM integration tests |
 | `.nojekyll` | Direct GitHub Pages static asset publishing |
 | `README.md` | Public introduction, setup, controls, current features |

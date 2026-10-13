@@ -9,3 +9,15 @@ test('autosave rejects malformed modes, overlong files and unsafe draft steps',(
  const value=snapshot();for(const broken of [{...value,ui:{...value.ui,scene:99}},{...value,draft:[[999]]},{...value,manual:[]},{...value,version:2}])assert.throws(()=>Prefs.validate(broken,P,S));
  assert.throws(()=>Prefs.parse(' '.repeat(65537),P,S));
 });
+test('locale, product card and master volume persist while old preferences remain compatible',()=>{
+ const value=snapshot();value.ui.language='ru';value.ui.promoIndex=3;value.project.masterVolume=25;
+ const saved=Prefs.parse(JSON.stringify(value),P,S);assert.equal(saved.ui.language,'ru');assert.equal(saved.ui.promoIndex,3);assert.equal(saved.project.masterVolume,25);
+ assert.equal(Prefs.validate(snapshot(),P,S).ui.language,null);
+});
+test('phrase panel position and stacking survive a validated preference roundtrip',()=>{
+ const value=snapshot();value.ui.windowOrder=['editor','patternEditor','storageInfo','phraseGuide'];value.windows.push({id:'phraseGuide',left:120,top:480});
+ const saved=Prefs.parse(JSON.stringify(value),P,S);assert.equal(saved.ui.windowOrder[3],'phraseGuide');assert.deepEqual(saved.windows[1],{id:'phraseGuide',left:120,top:480});
+});
+test('visual-only preference persists and older autosaves default to visible controls',()=>{
+ const value=snapshot();value.ui.visualOnly=true;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.visualOnly,true);assert.equal(Prefs.validate(snapshot(),P,S).ui.visualOnly,false);
+});

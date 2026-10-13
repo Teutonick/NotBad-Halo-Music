@@ -16,3 +16,8 @@ test('WAV produces actual PCM headers and safely clamps nonfinite samples',()=>{
  assert.equal(new TextDecoder().decode(new Uint8Array(bytes,0,4)),'RIFF');assert.equal(bytes.byteLength,50);
  assert.equal(view.getInt16(44,true),32767);assert.equal(view.getInt16(46,true),-32768);assert.equal(view.getInt16(48,true),0);
 });
+test('master volume is bounded and old projects retain the 50 percent default',()=>{
+ const project=P.capture(tracks,4,72,2,3,S,M,25);assert.equal(P.parse(JSON.stringify(project),S).masterVolume,25);
+ const old={...project};delete old.masterVolume;assert.equal(P.validate(old,S).masterVolume,50);
+ for(const volume of [-1,101,Infinity,'50'])assert.throws(()=>P.validate({...project,masterVolume:volume},S));
+});

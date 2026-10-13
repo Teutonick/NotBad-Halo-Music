@@ -1,9 +1,9 @@
 /* Web Audio only: events arrive from the shared lookahead scheduler. */
 (function (root) {
   'use strict';
-  function create(ctx, tracks) {
+  function create(ctx, tracks,volume=50) {
     const master = ctx.createGain(), compressor = ctx.createDynamicsCompressor();
-    master.gain.value = .52;
+    master.gain.value = Math.max(0,Math.min(100,volume))/100;
     compressor.threshold.value = -20; compressor.knee.value = 20;
     compressor.ratio.value = 4; compressor.attack.value = .008; compressor.release.value = .3;
     master.connect(compressor); compressor.connect(ctx.destination);

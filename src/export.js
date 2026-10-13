@@ -3,7 +3,7 @@
  async function render(project){
   const rate=44100,seconds=project.bars*4*60/project.tempo,length=Math.round(seconds*rate);
   const ctx=new OfflineAudioContext(2,length*2,rate);
-  const tracks=project.tracks.map(t=>({...t,manualSteps:t.steps,manualBars:project.bars})),engine=HaloAudio.create(ctx,tracks);
+  const tracks=project.tracks.map(t=>({...t,manualSteps:t.steps,manualBars:project.bars})),engine=HaloAudio.create(ctx,tracks,project.masterVolume);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   for(let step=0;step<project.bars*32;step++){
    const local=step%(project.bars*16),time=step*60/project.tempo/4;

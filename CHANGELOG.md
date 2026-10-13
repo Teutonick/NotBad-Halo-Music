@@ -1,6 +1,37 @@
 # Changelog
 
+## 2026-10-13 — Visuals-only mode
+
+- Added upper-right maximize-style button to hide UI and labels while visuals/music continue.
+- Click/tap anywhere or Escape restores controls without changing voices or open editors; preference persists locally and supports RU/EN.
+
+## 2026-10-13 — Seamless centered background
+
+- Removed the nebula's angular noise seam with continuous texture coordinates.
+- Aligned shader center/scale and CSS fallback glow with the orbit world; softened clouds outside the sphere.
+- Preserved musical timing and composition.
+
+## 2026-10-13 — Floating phrase guide and site metadata
+
+- Moved PHRASE controls above the bottom transport; added pointer/keyboard movement, window stacking and persisted position.
+- Prevented Play from shrinking into an oval at narrow widths and reserved footer space.
+- Added original SVG favicon, canonical/search/social metadata and WebApplication JSON-LD with RU/EN descriptions.
+
+## 2026-10-13 — Responsive promotion and workspace reset
+
+- Fixed header/menu overlap with measured spacing; phrase controls follow menu height.
+- Moved wide-screen promotion below the introductory text; narrow/short screens show rotating vertical titles at the left edge, with temporary expansion for 8 seconds.
+- Added localized workspace reset beside autosave help: confirmation, full origin localStorage clearing and default reload, with guarded autosaves and safe failure behavior.
+
 Keep entries short and dated. Record significant changes and their impact in the same patch; mark plans separately from implemented behavior. Link detailed decisions and limitations in [PROJECT_MAP.md](PROJECT_MAP.md).
+
+## 2026-10-13 — Localization, volume and other projects
+
+- Added browser-selected RU/EN and a saved manual language switch, including editors, messages and accessibility labels.
+- Added master volume, default 50%, persisted in autosave/project files and applied to offline export.
+- Added discreet localized product cards with 15-second rotation and hover/focus pause, plus homepage, GitHub and author links.
+- Required localStorage persistence and RU/EN for all future settings/features; reinforced original/free-resource licensing policy.
+- Kept zero-build GitHub Pages deployment; no external assets or runtime libraries added.
 
 ## 2026-10-12 — Product direction and documentation
 
