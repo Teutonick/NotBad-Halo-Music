@@ -22,7 +22,7 @@
   }
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
  }
- function parse(text,sounds){if(typeof text!=='string'||new TextEncoder().encode(text).length>MAX_BYTES)throw Error('Project file exceeds 64 KiB');let data;try{data=JSON.parse(text)}catch{throw Error('Invalid JSON file')}return validate(data,sounds)}
+ function parse(text,sounds){if(typeof text!=='string'||text.length>MAX_BYTES||new TextEncoder().encode(text).length>MAX_BYTES)throw Error('Project file exceeds 64 KiB');let data;try{data=JSON.parse(text)}catch{throw Error('Invalid JSON file')}return validate(data,sounds)}
  function capture(tracks,bars,tempo,seed,key,sounds,motion,masterVolume=50,mix,startStep=0){sounds.arrange(tracks);return validate({format:'notbad-halo-project',version:1,setup:tracks[0]?.setup||'ambient',bars,startStep,tempo,masterVolume,mix,seed,key,tracks:tracks.map((t,i)=>({...t,exact:!!t.manualSteps,steps:motion.phraseSteps({...t,variation:seed},i,startStep,seed,sounds,bars).filter(e=>e.fires).map(e=>e.step)}))},sounds)}
  function wav(buffer){
   const length=buffer.length,channels=buffer.numberOfChannels,bytes=new ArrayBuffer(44+length*channels*2),v=new DataView(bytes);

@@ -36,3 +36,10 @@ test('fixed roles and cycle controls localize in both directions',()=>{
  const labels=[...R.roles.flatMap(r=>[r.label.toUpperCase(),r.label,r.description]),'COMPATIBLE SOUNDS','Compatible sound family','Transport and eight musical roles','CYCLE','STEP','OFFSET','Track cycle length, 4 to 32 steps','Track step duration','Track cycle offset','Saved steps override the cycle','Invalid track cycle','Invalid track role','Invalid phrase position','Sound is incompatible with track role'];
  for(const text of labels){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
 });
+
+test('all instrument setting hints are localized titles on labels without extra icons',()=>{
+ const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const hints=[...html.matchAll(/<span class="setting-name" tabindex="0" title="([^"]+)">([^<]+)<\/span>/g)];
+ assert.equal(hints.length,12);
+ for(const [,text] of hints){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
+});

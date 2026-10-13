@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13 — Input bounds, pointer adjustment and EQ correction
+
+- Added bounded mouse adjustment of numeric fields, strict range/step validation and early oversized project/autosave rejection. Kept native keyboard/touch and saved settings.
+- Instrument buttons wrap into two columns; cycle/BPM controls have more room. Added twelve localized delayed caption tooltips.
+- Removed EQ boost compensation that attenuated the whole mix. Retuned master compression to near-peak protection, shared by playback and export. 100 Node tests pass; fresh browser/audio acceptance is limited by localhost timeout.
+
 ## 2026-10-13 — Universal roles and polymetric cycles
 
 - Added eight fixed musical roles and a shared transport/instrument panel for AMBIENT and REACTOR. Sound compatibility governs manual selection; role/world affinity governs GENERATE. Native defaults retain the existing 62 presets.

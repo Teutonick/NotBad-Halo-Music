@@ -30,6 +30,7 @@ function app(storage) {
   sandbox.HaloEffects=require('../src/effects.js');
   sandbox.HaloComposition=require('../src/composition.js');
   sandbox.HaloProject=require('../src/project.js');
+  sandbox.HaloControls=require('../src/controls.js');
   sandbox.HaloI18n=require('../src/i18n.js');
   sandbox.HaloProducts=[{name:'test',en:'description',ru:'описание',url:'https://example.com'}];
   sandbox.HaloPreferences=require('../src/preferences.js');
@@ -264,4 +265,20 @@ test('fixed role cycles survive generation, world switching and reload with comp
  $('setupSwitch').onclick();$('setupSwitch').onclick();assert.equal($('cycleLength').value,'7');read();
  const b=app(storage);b.document.getElementById('tracks').children[6].oncontextmenu({preventDefault(){}});
  assert.equal(b.document.getElementById('cycleLength').value,'7');assert.equal(b.document.getElementById('stepLength').value,'2');assert.equal(b.document.getElementById('cycleOffset').value,'3');
+});
+
+test('all numeric UI handlers reject malformed, overflow and off-grid values without changing saved music',()=>{
+ const data=new Map(),a=app({getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)}),$=id=>a.document.getElementById(id);
+ $('tracks').children[6].oncontextmenu({preventDefault(){}});
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project};
+ a.events.change();const before=read();
+ for(const id of ['density','level','character','duration','space','masterVolume','eqLow','eqMid','eqHigh','stereoWidth','cycleLength','cycleOffset','stepLength','bpmInput']){
+  const el=$(id),handler=el.oninput||el.onchange;
+  for(const bad of ['','NaN','Infinity','1e99','<script>','9'.repeat(1000),'1.333','-999','999']){el.value=bad;handler({target:el});}
+ }
+ assert.deepEqual(read(),before);
+ $('cycleOffset').value='3';$('cycleOffset').dispatchEvent=()=>{$('cycleOffset').onchange({target:$('cycleOffset')});a.events.change();};
+ const event=(x,y)=>({button:0,pointerType:'mouse',pointerId:7,clientX:x,clientY:y,preventDefault(){},stopPropagation(){}});
+ $('cycleOffset').pointerdown(event(20,20));$('cycleOffset').pointermove(event(44,20));$('cycleOffset').pointerup(event(44,20));
+ assert.equal(read().tracks[6].sequence.offset,6);
 });

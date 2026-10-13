@@ -113,12 +113,13 @@ test('new 50 percent master matches previous 100 percent instrument feed and mut
  });
 });
 
-test('master EQ ramps safely with boost headroom and independent bounded stereo positions',()=>{
+test('master EQ ramps without suppressing other bands and independent bounded stereo positions',()=>{
  const ctx=context(),audio=Audio.create(ctx,Object.keys(banks).map(track));
  assert.deepEqual(audio.eq.map(n=>n.type),['lowshelf','peaking','highshelf']);
  audio.setMix({low:6,mid:-3,high:2,width:100},2);
  assert.deepEqual(audio.eq.map(n=>n.gain.calls.at(-1)),[[6,2],[-3,2],[2,2]]);
- assert.ok(Math.abs(audio.headroom.gain.calls.at(-1)[0]-Math.pow(10,-6/20))<1e-8);
+ assert.equal(audio.headroom.gain.calls.at(-1)[0],1);
+ assert.equal(audio.compressor.threshold.value,-1);assert.equal(audio.compressor.knee.value,0);
  const pans=audio.panners.map(n=>n.pan.calls.at(-1)[0]);
  assert.equal(new Set(pans).size,8);assert.ok(pans.every(n=>Math.abs(n)<=.7));assert.ok(Math.abs(pans[0])<.1);
  audio.setMix({low:0,mid:0,high:0,width:0},3);
@@ -224,5 +225,16 @@ test('RIFF and LEAD ring for the recording duration and release only on a new ev
   assert.equal(audio.voices[0].size,1);
   assert.ok(envelope.gain.calls.some(([value,time])=>value===.00001&&time===2));
   ctx.sources.forEach(s=>s.onended());assert.equal(audio.voices[0].size,0);
+ }
+});
+
+test('boosting only bass keeps other master bands and broadband gain unchanged at every EQ step',()=>{
+ const audio=Audio.create(context(),Object.keys(banks).map(track));
+ for(let low=-9;low<=9;low++){
+  audio.setMix({low,mid:0,high:0,width:35},1);
+  assert.equal(audio.eq[0].gain.calls.at(-1)[0],low);
+  assert.equal(audio.eq[1].gain.calls.at(-1)[0],0);assert.equal(audio.eq[2].gain.calls.at(-1)[0],0);
+  assert.equal(audio.headroom.gain.calls.at(-1)[0],1);
+  assert.equal(audio.compressor.threshold.value,-1);assert.equal(audio.compressor.knee.value,0);
  }
 });

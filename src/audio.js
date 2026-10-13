@@ -6,8 +6,9 @@
   function create(ctx, tracks,volume=50,sampleBank={},mix={low:0,mid:0,high:0,width:35}) {
     const master = ctx.createGain(), compressor = ctx.createDynamicsCompressor();
     master.gain.value = Math.max(0,Math.min(100,volume))/100;
-    compressor.threshold.value = -20; compressor.knee.value = 20;
-    compressor.ratio.value = 4; compressor.attack.value = .008; compressor.release.value = .3;
+    // Peak protection, not a continuously pumping full-band compressor.
+    compressor.threshold.value = -1; compressor.knee.value = 0;
+    compressor.ratio.value = 20; compressor.attack.value = .002; compressor.release.value = .08;
     const eq=['lowshelf','peaking','highshelf'].map((type,i)=>{const n=ctx.createBiquadFilter();n.type=type;n.frequency.value=[120,1000,6000][i];n.Q.value=.7;return n}),headroom=ctx.createGain();
     master.connect(headroom);headroom.connect(eq[0]);eq[0].connect(eq[1]);eq[1].connect(eq[2]);eq[2].connect(compressor);compressor.connect(ctx.destination);
     const reverb = ctx.createConvolver(), wet = ctx.createGain();
@@ -38,7 +39,8 @@
     function setMix(value,at=ctx.currentTime){
       const gains=['low','mid','high'].map(key=>Math.max(-9,Math.min(9,Number(value[key])||0)));
       eq.forEach((node,i)=>node.gain.setTargetAtTime(gains[i],at,.05));
-      headroom.gain.setTargetAtTime(Math.pow(10,-Math.max(0,...gains)/20),at,.05);
+      // A shelf boost must not attenuate all the other frequency bands.
+      headroom.gain.setTargetAtTime(1,at,.05);
       sceneWidth=Math.max(0,Math.min(100,Number(value.width)||0))/100;
       panners.forEach((node,i)=>node.pan.setTargetAtTime(panFor(i)*sceneWidth,at,.05));
     }
@@ -150,7 +152,7 @@
         if (!pitches.length) cleanup();
       }
     }
-    return { ctx, master, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value} };
+    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value} };
   }
   const api = { create };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

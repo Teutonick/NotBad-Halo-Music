@@ -1,6 +1,19 @@
 (function(root){
  'use strict';
  const pairs=[
+ ["The preset supplies the timbre; the track role controls how it plays.", "Тембр задаёт пресет; роль дорожки определяет, как он звучит."],
+ ["Sound families that this track role can play. Generate uses the current world’s preferred sounds.", "Семейства звуков, совместимые с ролью. Создать выбирает предпочтительные звуки текущей орбиты."],
+ ["The shared arrangement and harmony used by all eight tracks.", "Общая аранжировка и гармония для всех восьми дорожек."],
+ ["The motif family used to generate this track’s notes and rhythm.", "Семейство мотивов для генерации нот и ритма этой дорожки."],
+ ["Local steps per bar of this track’s phrase. Unequal lengths create evolving combinations.", "Число локальных шагов в такте фразы. Разная длина циклов меняет сочетание дорожек."],
+ ["Time between local steps: a sixteenth, eighth or quarter note.", "Время между локальными шагами: шестнадцатая, восьмая или четверть."],
+ ["Advances the pattern by this many local steps.", "Сдвигает рисунок вперёд на заданное число локальных шагов."],
+ ["Changes the brightness and tonal character of the sound.", "Меняет яркость и характер тембра."],
+ ["Changes note length. Natural guitar tails and track role limits still apply.", "Меняет длину нот. Естественные хвосты гитар и ограничения роли сохраняются."],
+ ["How much of this instrument is sent to the shared reverb.", "Количество звука этого инструмента в общей реверберации."],
+ ["How many generated notes are played. Saved manual steps bypass this setting.", "Количество сыгранных сгенерированных нот. Ручной рисунок не зависит от плотности."],
+ ["The instrument’s volume before the master volume.", "Громкость инструмента до общей громкости."],
+
  ['PULSE','ПУЛЬС'],['ACCENT','АКЦЕНТ'],['PERCUSSION','ПЕРКУССИЯ'],['TEXTURE','ТЕКСТУРА'],['BASS','БАС'],['MELODY','МЕЛОДИЯ'],['ARPEGGIO','АРПЕДЖИО'],['HARMONY','ГАРМОНИЯ'],
  ['Pulse','Пульс'],['Accent','Акцент'],['Percussion','Перкуссия'],['Texture','Текстура'],['Bass','Бас'],['Melody','Мелодия'],['Arpeggio','Арпеджио'],['Harmony','Гармония'],
  ['Short low impulses','Короткие низкие импульсы'],['Short accents','Короткие акценты'],['Rhythmic details','Ритмические детали'],['Atmospheric layers','Атмосферные слои'],['One note at a time','Одна нота за раз'],['Melodic phrases','Мелодические фразы'],['One arpeggiated note at a time','Арпеджио по одной ноте'],['Four-note harmony','Гармония до четырёх нот'],
