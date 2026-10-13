@@ -1,4 +1,4 @@
-# AGENTS.md — HALO development instructions
+# AGENTS.md — NotBad Halo Music Constructor development instructions
 
 These instructions apply to every change in this repository, including work performed by Codex or another coding agent.
 
@@ -20,7 +20,7 @@ Treat the repository's actual code as the source of truth for what is implemente
 6. **Exactly eight track slots in the core concept.** Keep mute/solo, sound identity, pattern, level, and visual identity per track separable. Do not confuse eight tracks with eight unique synthesis engines.
 7. **Visual worlds must preserve the composition.** Switching Orbit/Bloom/Current changes representation, not transport phase, notes, tempo, mute state, or instrument parameters.
 8. **Progressive enhancement.** Audio must function without WebGL2. Prefer Canvas 2D fallback, device-appropriate quality scaling, and reduced-motion support.
-9. **Privacy and simplicity by default.** No account, analytics, tracking, API keys, or backend. Do not add runtime dependencies or CDNs without a concrete documented need.
+9. **Privacy and simplicity by default.** Project inputs must be bounded and allowlisted; BPM is 30–200. No account, analytics, tracking, API keys, or backend. Do not add runtime dependencies or CDNs without a concrete documented need.
 10. **Do not overbuild.** Prefer small, testable changes that preserve the zero-build static deployment path wherever possible.
 11. **GitHub Pages is mandatory.** Every feature must work as a static project site under `/<repository>/`, without a backend, mandatory build step, runtime CDN, secrets, or server rewrites. Use relative asset/module/sample paths and locally hosted assets. Verify deployment compatibility when changing paths or loading behavior.
 12. **Sound provenance is mandatory.** Use original procedural synthesis or external sounds with verified CC0/public-domain status only. Reject paid permissions, required attribution, non-commercial restrictions, and redistribution restrictions. Free or royalty-free alone is insufficient. Record each imported sound's source URL, author, rights evidence, and local filename before inclusion; never copy proprietary OP-Z sounds.
@@ -29,11 +29,12 @@ Treat the repository's actual code as the source of truth for what is implemente
 
 - `index.html` contains markup/styles, transport, state, visuals and UI. `src/sounds.js` owns patch banks/harmonic rules; `src/audio.js` owns synthesis and audio routing. Classic local scripts preserve direct file opening and GitHub Pages.
 - Eight track objects have dedicated roles with 30 original procedural patches across the banks, plus character/duration/space tuning. External sample banks are not implemented.
-- DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits; PHRASE maps a four-bar/64-step cycle to one revolution and previews seeded note/skip markers via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
+- DRIFT keeps original trajectories; IN TIME maps musical steps to aligned orbits; PHRASE maps a 4/8-bar (64/128-step) cycle to one revolution and previews seeded note/skip markers via `src/motion.js`. Visual accents consume scheduled audio timestamps; render code never triggers notes.
+- `src/composition.js` owns independent pattern/key boundary decisions and version-1 local pattern validation. Generated choices repeat per 4/8-bar loop by default; only explicit generation or enabled AUTO PATTERN changes them. AUTO KEY is separate. Saved exact steps disable AUTO PATTERN and bypass density; mute remains authoritative.
 - Musical scheduling uses a 16-step-per-bar grid and four repeating chords: Dm7, Bbmaj7, Fmaj7, Cadd9.
 - Three visual modes exist: Orbit, Bloom, Current; different visual velocities do **not** yet constitute true musical polymeter.
 - Optional COSMIC adds eight bounded procedural comet signatures in `src/effects.js` and a WebGL nebula enhancement. CLASSIC preserves the prior graphics; effects must remain audio-independent, bounded, and available with Canvas fallback.
-- Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. No persistence, recording, direct orbit note editor or PWA is implemented.
+- Node tests cover sound rules, audio contracts and app wiring using fakes; audible and real-device acceptance remains required. Versioned local phrase-step saving and PHRASE grid editing are implemented; portable version-1 project import/export and local WAV rendering exist; MP3 is native-codec-conditional. Cloud sharing, direct orbit editing and PWA remain absent.
 
 Do not introduce a framework or bundler merely to refactor. ES modules and a minimal local static server are enough for the first extraction; GitHub Pages must continue to work.
 
@@ -88,3 +89,7 @@ Keep render, transport, composition, and audio synthesis independently testable.
 **Refactor v0.1 into small ES modules without changing the musical results or the visual composition.** Extract app state, scheduler, harmony/composition, synth, worlds, and UI handlers. Preserve an easy static run/deploy path; document any requirement for serving ES modules over HTTP. Add pure unit tests for deterministic harmony and step scheduling. Do not add new sound engines, frameworks, or visual effects in this first task.
 
 This is an optional prerequisite, not a requirement to delay the approved sound-bank direction in `PROJECT_MAP.md`. Keep extraction and audio feature patches focused and independently reviewable. Do not commit changes unless the user explicitly authorizes it.
+
+## Current local preferences
+
+Default to COSMIC + DRIFT on first use, but restore validated existing preferences. Scene selection is exclusive to DRIFT. Keep PATTERN and KEY auto-random settings independent. Coalesce full state autosaves in localStorage; retain edit drafts and manual timing, validate size/schema before restore, and fail without losing in-memory work when storage is unavailable. Explain localStorage honestly in the footer information window; do not claim cookies, account identity, cloud sync or legal-compliance certification. Playback remains user-gesture gated after reload.

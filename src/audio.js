@@ -42,10 +42,11 @@
     }
     function play(index, notes, time, velocity, patch) {
       const t = tracks[index], active = voices[index];
+      for(const voice of active)if(voice.end<=time)active.delete(voice);
       // Four sustained events per track; stolen events finish a short release.
       if (active.size >= 4) {
         const oldest = active.values().next().value;
-        oldest.release(); active.delete(oldest);
+        oldest.release(time); active.delete(oldest);
       }
       const filter = ctx.createBiquadFilter(), gain = ctx.createGain();
       filter.type = patch.filter || 'lowpass'; filter.Q.value = .65;
@@ -59,9 +60,9 @@
       gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
       const end = time + attack + duration + .06, sources = [];
       let remaining = 0, released = false;
-      const voice = { filter, patch, release() {
+      const voice = { filter, patch, end, release(at=ctx.currentTime) {
         if (released) return; released = true;
-        const now = ctx.currentTime;
+        const now = at;
         if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now);
         else { gain.gain.cancelScheduledValues(now); gain.gain.setValueAtTime(.00001, now); }
         gain.gain.setTargetAtTime(.00001, now, .012);

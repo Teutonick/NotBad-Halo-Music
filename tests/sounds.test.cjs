@@ -81,7 +81,7 @@ test('dense retriggers steal old events with bounded release times', () => {
   const t = track('TIDAL'), ctx = context(), audio = Audio.create(ctx,[t]);
   for (let i=0; i<40; i++) audio.play(0,[50,53,57], .1,.8,soundFor(t));
   assert.equal(audio.voices[0].size,4);
-  assert.ok(ctx.sources.some(s => s.stopped === .06));
+  assert.ok(ctx.sources.some(s => Math.abs(s.stopped-.16)<.000001));
   ctx.sources.forEach(s=>s.onended());
   assert.equal(audio.voices[0].size,0);
 });

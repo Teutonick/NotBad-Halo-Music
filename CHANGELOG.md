@@ -46,3 +46,26 @@ Keep entries short and dated. Record significant changes and their impact in the
 - Added bounded desktop/mobile/reduced-motion tiers without new audio behavior, dependencies or retained particles.
 - Adjusted phone header to keep graphics, motion and scene controls usable.
 - Fourteen tests pass; live browser rollback/scene/motion and desktop/mobile viewport checks returned no console errors. Sustained performance and physical devices remain unverified.
+
+## 2026-10-13 — Fixed loops, key controls and phrase editing
+
+- Made generated 4/8-bar loops repeat by default; added explicit NEW PATTERN and independent AUTO PATTERN/AUTO KEY switches.
+- Added circle-of-fifths minor-key controls and eight-bar phrase visualization.
+- Added per-voice sixteenth-note EDIT with local schema-v1 save/reload; saving disables AUTO PATTERN and preserves the separate AUTO KEY setting.
+- Verified persistence and automation controls in the browser; exact timings override generated density/rests. Full composition export, physical devices and listening remain unverified.
+- Validation: 22 tests and diff check pass; eight-bar automatic playback, reload restoration and phone-size editor checked without returned console warnings/errors.
+
+## 2026-10-13 — NotBad projects, exports and floating editors
+
+- Rebranded to NotBad Halo Music Constructor; added validated settings-only JSON SAVE FILE / LOAD FILE for 4/8-bar projects.
+- Added browser-only WAV export and native-codec-conditional MP3; the tested browser needs WAV. No backend or third-party codec added.
+- Added bounded manual BPM 30–200; hardened numeric, schema and file-size inputs.
+- Enlarged world with viewport caps; added editor grips, dragging, focus stacking and NEW PATTERN draft refresh.
+- Verified actual JSON roundtrip, nonempty stereo WAV, grid refresh and window movement; listening, physical devices and full security audit remain unverified.
+
+## 2026-10-13 — Full autosave and grouped controls
+
+- Added validated browser-profile localStorage autosave/restore, including settings, modes, manual steps, editor drafts and window positions; footer ? explains usage and continued-use agreement.
+- Defaulted first visits to COSMIC + DRIFT; hid scene control outside DRIFT.
+- Compacted menu into PATTERN / KEY / SAVE with independent AUTO RANDOM controls and centered key label.
+- 27 tests pass; live reload restored settings/draft, and phone-size layout checked without console errors. No cookies, tracking, backend or commit.

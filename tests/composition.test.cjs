@@ -7,6 +7,11 @@ test('default loops stay identical; auto pattern and auto harmony are independen
   c.setAutoKey(false);assert.deepEqual(c.at(22),next);
   assert.equal(c.generate().seed,3);assert.equal(c.nextKey().key,(next.key+1)%12);
 });
+test('lookahead retains prior loop decisions; automatic keys do not depend on melody evolution',()=>{
+  const a=C.create(),b=C.create();a.setAutoKey(true);b.setAutoKey(true);b.setAutoEvolve(true);
+  const first=b.at(0);b.at(1);assert.deepEqual(b.at(0),first);assert.deepEqual(b.view(0),first);
+  for(let loop=0;loop<12;loop++)assert.equal(a.at(loop).key,b.at(loop).key);
+});
 test('4/8-bar phrase clocks wrap independently of tempo; transposition preserves chord intervals',()=>{
   assert.equal(M.phraseAt(16,8).bar,5);assert.equal(M.phraseAt(32,8).number,2);assert.equal(M.phraseAt(32,8).phase,0);
   assert.equal(M.phraseSteps({name:'ROOT',sound:'punch',on:true,density:100,pattern:[0]},2,0,1,S,8).length,128);

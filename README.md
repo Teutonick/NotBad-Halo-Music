@@ -1,8 +1,8 @@
-# HALO — Interactive Sound Universe
+# NotBad Halo Music Constructor — Interactive Sound Universe
 
 **Compose worlds, not timelines.**
 
-HALO is an open-source, browser-based relaxation constructor. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. Choose and shape a calm soundscape without musical expertise or the demands of a professional instrument.
+NotBad Halo Music Constructor is an open-source, browser-based relaxation constructor. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. Choose and shape a calm soundscape without musical expertise or the demands of a professional instrument.
 
 ![HALO desktop preview](screenshot.png)
 
@@ -31,42 +31,88 @@ Press **Play** to enable audio (browsers require user interaction before sound c
 | Tap a moving light | Toggle its voice in the scene |
 | Orbit / Bloom / Current | Change the visual universe without changing the music |
 | CLASSIC / COSMIC | Original graphics or individual comet trails and richer nebula glow |
-| DRIFT / IN TIME / PHRASE | Free trajectories, event-aligned orbits, or a four-bar phrase loop with note markers |
-| Evolve | Change the deterministic melodic variation |
-| Tempo | Cycle between 60, 72, and 84 BPM |
+| DRIFT / IN TIME / PHRASE | Free trajectories, event-aligned orbits, or a 4/8-bar phrase loop with note markers |
+| NEW PATTERN | Generate a new seeded melody/rhythm once |
+| AUTO PATTERN | Generate again at each completed 4/8-bar phrase; off by default |
+| ◀ / key ▶ | Previous/next minor key on the circle of fifths |
+| AUTO KEY | Independently choose another key after each phrase; off by default |
+| 4 BARS / 8 BARS in PHRASE | Select phrase length |
+| EDIT → SAVE PATTERN | Set exact sixteenth-note events for all eight voices and save locally |
+| BPM field | Enter 30–200 BPM (up to two decimal places), then Enter or leave the field |
+| SAVE PROJECT / LOAD PROJECT | Export/import a versioned 4/8-bar JSON project, without audio or samples |
+| WAV / MP3 | Render the selected loop locally; MP3 requires native browser codec support |
 
 ## What works today
 
 - Eight independent track settings; **five active by default**.
 - Eight dedicated sound banks, **original procedural sounds** (30 patches): ringing accents, harmonic bed, low foundation, plucks, light rhythm, sustained textures, wooden percussion, and environment.
 - Per-track sound selection, character (filter brightness), duration (future note envelopes), and space (reverb send). Environmental sounds are synthesized textures, not field recordings or realistic instrument samples.
-- One Web Audio clock with 16th-note scheduling and a four-bar harmonic loop: **Dm7 → Bbmaj7 → Fmaj7 → Cadd9**.
+- One Web Audio clock with 16th-note scheduling and a transposable four-bar harmonic progression: **Dm7 → Bbmaj7 → Fmaj7 → Cadd9** by default. An eight-bar phrase runs that progression twice.
 - Three closed-trajectory visual modes, drawn using Canvas 2D over an optional WebGL2 nebula.
 - Reverb, compression, smoothly ramped track levels/mutes, density, and a scrollable editor for small screens.
 - Four sustained events per track with a short release for stolen events, bounded envelopes, shared noise buffers, and source cleanup.
 - No external requests, tracking, or downloadable assets.
 
-**Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, orbit-based note editing, save/share, and external sample playback are future work, not existing features.
+**Important limitation:** track patterns currently share the same 16-step grid. Different orbit speeds are visual; independent musical polymeters, direct orbit editing, cloud sharing, and external sample playback are future work, not existing features.
 
 ### Seeing and building a beat
 
 **DRIFT** preserves the original free trajectories. **IN TIME** uses regular aligned orbits: each voice completes a revolution between its pattern steps and crosses the common horizontal axis on a potential note/strike. The axis shows the bar and beat. Light accents appear when a scheduled audio event reaches the audio clock, rather than during lookahead. Density can skip a note; a silent crossing is not a trigger. Switching motion modes never changes sound or transport. Orbit/Bloom/Current remain separate scene choices; in IN TIME their voice paths use the same aligned geometry.
 
-**PHRASE** makes one full revolution equal **four bars / 64 sixteenth-note steps**, matching the current Dm7 → Bbmaj7 → Fmaj7 → Cadd9 phrase. All voices follow the same rotating playhead. The four cardinal points mark bars 1–4; filled markers show scheduled notes, hollow markers show candidate steps skipped by density or phrasing, and small dots show subdivisions. The header displays phrase number, current bar and beat. Muted rings remain dimly visible so you can see what will play when enabled. Switching on a voice follows the existing quantized scheduler; it does not restart the phrase or queue a next-phrase launch. Preview updates with sound, density and Evolve; the next phrase can have a different seeded pattern. Existing lookahead means the most recent setting change may take up to about 160 ms to affect already planned events.
+**PHRASE** supports **4 BARS (64 steps)** or **8 BARS (128 steps)** per revolution. All voices share one rotating playhead; bar labels divide the orbit accordingly. Filled markers show notes, hollow markers show generated skips, and small dots show subdivisions. Muted rings retain their enabled preview. Switching length preserves the musical clock but changes loop grouping immediately; an existing four-bar edited pattern repeats twice in eight bars, while four-bar view uses only the first half of an eight-bar pattern (the stored eight-bar data is retained).
+
+### Fixed loops, generation and harmony
+
+By default the generated melody, probability decisions, rhythm and velocities repeat within the selected 4/8-bar loop. **GENERATE** explicitly changes the seed and rebuilds generated rhythmic positions and melodic choices. **PATTERN → AUTO RANDOM** does this at each loop boundary; it starts off. **KEY → AUTO RANDOM** is independent and selects a different minor key at the same boundary; it also starts off. Use **◀ / key ▶** to move manually through the circle of fifths (D → A → E → B → F♯ → C♯ → G♯ → D♯ → A♯ → F → C → G). All pitched voices transpose together; drums remain unpitched. Re-enabling generation discards manual timing in the current session; the last saved browser pattern remains available after reload until replaced by another save.
+
+### Edit and save phrase steps
+
+In PHRASE, choose 4/8 BARS, then **EDIT**. Select one of eight voices and toggle the 16 sixteenth-note buttons in each bar. Labels like `3.9` mean bar 3, step 9; accessible labels also specify beat and subdivision. Switch voices to edit the rest. Changes remain a draft until **SAVE PATTERN**; **CANCEL** discards the draft. On a phone, swipe the grid sideways and scroll vertically for later bars.
+
+SAVE PATTERN writes a validated version-1 record to this browser's local storage, then applies exact steps to all eight voices and switches **AUTO PATTERN OFF**. AUTO KEY retains its independent setting. Exact edited events bypass density and generated alternate-bar rests; muted voices still produce no sound. Saved records contain phrase length, steps, sound selections, seed and current key. They restore on reload on the same site/origin; levels, effects, mute states and automatic-mode preferences are not saved. Storage failure leaves the draft available instead of claiming success. There is no account or cloud sync. Use SAVE PROJECT / LOAD PROJECT for portable project files. This is note-timing editing, not pitch-per-step editing or queued clip launching.
+
+Audio is still scheduled ahead: manual changes can take about 160 ms to affect already planned events. Automatic changes are assigned to the next phrase's events by the scheduler; no animation frame triggers sound.
 
 For a stronger beat, open **ROOT → Punch kick**, **RAIN → Dry snare** (or Clap), and **MOSS → Closed hat**. Enable MOSS. Set density to 100% for regular hits: kick uses steps 0/4/8/12, snare/clap 4/12, hats 2/6/10/14. MOSS also has Low tom (6/14); RAIN also offers Closed hat. Lower space for a drier beat and adjust presence to taste. Each track plays one selected sound; three tracks allow simultaneous kick/snare/hat. Returning to a melodic patch restores that track's original pattern. These are original procedural drums, not imported recordings.
 
 ### Cosmic graphics
 
-**CLASSIC** is the default and restores the previous tails and background. **COSMIC** adds eight original visual signatures: GLASS prism shards, TIDAL layered wave ribbons, ROOT pressure rings, EMBER sparks, RAIN silver droplets, VEIL silk threads, MOSS spores, and AURA a double helix. An extra WebGL2 nebula layer adds soft flowing light; all comet effects also work through Canvas 2D without WebGL2.
+**COSMIC + DRIFT** is the first-visit default; restored preferences take priority. CLASSIC restores the previous tails and background. **COSMIC** adds eight original visual signatures: GLASS prism shards, TIDAL layered wave ribbons, ROOT pressure rings, EMBER sparks, RAIN silver droplets, VEIL silk threads, MOSS spores, and AURA a double helix. An extra WebGL2 nebula layer adds soft flowing light; all comet effects also work through Canvas 2D without WebGL2.
 
 Graphics selection is independent of scene, motion mode and audio. Trails use bounded procedural geometry without accumulating particle objects. Desktop uses up to 44 samples and 18 decorations per trail; narrow screens use 22/9. Reduced-motion preference lowers this to 12/4, removes time-driven ornament motion and extra pulse rings, and disables the extra shader layer. This does not yet stop the original universe's decorative motion. Device performance varies; CLASSIC is always available. No libraries, CDNs or downloaded assets are required.
+
+### Portable projects and audio export
+
+**SAVE PROJECT** downloads `notbad-halo-project.json`: a version-1 settings/events document for 4 or 8 bars. It includes BPM, seed, key, selected sounds, enabled voices, levels and tuning, and exact note-step arrays. It contains no audio, samples, URLs or executable code. **LOAD PROJECT** validates the complete document before changing state and leaves playback paused. Imports are capped at 64 KiB, eight unique known voices, 128 unique steps per voice, bounded numeric settings and recognized sound IDs. Unknown fields are ignored rather than copied into application state. Automatic generation is off after import so the imported loop remains reproducible.
+
+**WAV** renders one exact loop using the same synthesis in an OfflineAudioContext, entirely in the browser. One prior loop warms up the effects; the exported duration is exactly 4/8 bars at the selected BPM. **MP3** works only if the browser provides a native WebCodecs MP3 encoder; it checks support before rendering and otherwise explicitly offers WAV. The tested in-app Chromium browser has no native MP3 encoder. No audio is uploaded, no backend/CDN/encoder dependency is introduced, and no WAV file is mislabeled as MP3. This implementation does not supply a third-party encoder, in line with the restriction on introducing license obligations.
+
+BPM accepts only decimal values from 30 to 200, with at most two fractional digits and seven input characters; invalid values leave the previous tempo intact. Tuning values are finite and bounded to 0–100. Project files are parsed as data, never evaluated or inserted as HTML. These checks are input hardening, not a claim of a complete security audit.
+
+### Floating editors and larger universe
+
+The voice editor and PHRASE EDIT are independent floating windows. The **⠿ grip** in each heading identifies the drag area; clicking a window brings it forward, and opening one places it above the other. Dragging is constrained to the viewport, and moved windows are clamped after resizing. On phones the editors keep internal scrolling.
+
+The universe targets 1.5× its former scale where space permits, with conservative viewport bounds and smaller scaling on narrow/short windows. GENERATE also rebuilds an open PHRASE EDIT draft so its grid follows the newly generated pattern; use SAVE PATTERN to keep the new draft.
+
+### Automatic local state and compact controls
+
+The menu is grouped into **PATTERN** (GENERATE, AUTO RANDOM), **KEY** (previous/current/next key, independent AUTO RANDOM), and **SAVE** (SAVE PROJECT, LOAD PROJECT, MP3, WAV). Scene selection (Orbit/Bloom/Current) is visible and affects representation only in DRIFT; IN TIME and PHRASE retain their synchronized geometry and neutral background. The stored DRIFT scene returns when you switch back.
+
+State is automatically saved, coalesced over about 250 ms, to `notbad-halo-autosave-v1` in **localStorage**, not cookies. It retains sounds, enabled voices, tuning/levels, generated seed, exact manual steps, 4/8 bars, BPM/key, both auto flags, visual modes/scene, open voice selection, EDIT draft/tab and dragged window positions. Records are size-limited and validated before restore. Playback returns paused rather than unexpectedly starting sound. Blocked/full storage is reported in the information window; current in-memory work remains usable and project-file export remains available.
+
+This storage belongs to the current site origin and browser profile, not an authenticated person. It does not synchronize across devices; people sharing a browser profile share its saved state. The **? · Local autosave** footer opens a draggable explanation of what is stored, that nothing is sent for analytics/tracking, how to clear site data, and the continued-use agreement. No audio, samples, login or tracking cookies are stored.
 
 ## Project files
 
 - `index.html` — static entry, inline UI/transport and visual scenes.
 - `src/sounds.js` — eight patch banks and deterministic harmonic/event rules.
 - `src/audio.js` — procedural synthesis, audio routing, effects and voice cleanup.
+- `src/preferences.js` — bounded complete local-autosave validation.
+- `src/project.js` — bounded project/BPM validation and PCM WAV serialization.
+- `src/export.js` — offline loop rendering and conditional native MP3 encoding.
+- `src/windows.js` — draggable editor stacking and viewport constraints.
+- `src/composition.js` — loop-boundary generation/key decisions and validated pattern serialization.
 - `src/effects.js` — bounded individual Canvas comet effects.
 - `src/motion.js` — pure musical-step-to-orbit phase mapping.
 - `tests/` — Node tests for sound rules, audio contracts and app wiring.
@@ -136,7 +182,7 @@ Official instructions: [configure the publishing source](https://docs.github.com
 
 После правок перезагрузите вкладку. Проверьте Play/паузу/возобновление, все восемь редакторов, выбор звуков, ползунки, клавиатуру, три сцены и Console. Для проверки мобильной раскладки используйте узкий viewport; это не заменяет Safari/iOS или реальный телефон.
 
-Run `node --test tests/sounds.test.cjs tests/app.test.cjs tests/motion.test.cjs tests/effects.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
+Run `node --test tests/sounds.test.cjs tests/app.test.cjs tests/motion.test.cjs tests/effects.test.cjs tests/composition.test.cjs tests/project.test.cjs tests/preferences.test.cjs` with Node.js (development only; no runtime dependency or installation is needed for playback). Tests cover chord membership, deterministic triggers, all patch audio contracts, event limits/cleanup, editor wiring, shared scene-independent scheduling, pause/resume, and late-tick recovery with fake DOM/Web Audio objects.
 
 These checks do not establish audible quality, mobile/browser rendering, ten-minute stability, or actual Pages deployment. Before publishing, listen to all eight voices, try all banks and parameter extremes, check keyboard/touch, and test Chrome plus Safari/iOS when available.
 
