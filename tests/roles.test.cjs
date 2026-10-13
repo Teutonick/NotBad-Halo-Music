@@ -114,3 +114,14 @@ test('exported selected phrase matches live polymetric notes and velocities at i
   assert.equal(actual.length,expected.length);actual.forEach((a,i)=>{assert.equal(a.index,expected[i].index);assert.deepEqual(a.notes,expected[i].notes);assert.equal(a.velocity,expected[i].velocity);assert.ok(Math.abs(a.time-expected[i].time)<1e-8)});
  }
 });
+
+test('every role provides a distinct schematic SVG glyph with minimal geometry',()=>{
+ for(const role of R.roles){
+  const svg=R.glyph(role.id);
+  assert.ok(svg.startsWith('<svg ')&&svg.endsWith('</svg>'),role.id);
+  assert.equal(R.glyph({name:role.slot}),svg);
+ }
+ const unique=new Set(R.roles.map(r=>R.glyph(r.id)));
+ assert.equal(unique.size,8);
+ assert.equal(R.glyph('unknown'),R.glyph('pulse'));
+});

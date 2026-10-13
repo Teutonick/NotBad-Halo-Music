@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-10-13 — Schematic role glyphs on instrument cards
+
+- Replaced abstract concentric circles on the eight instrument cards with light, schematic vector drawings matching each role's musical theme:
+  - Pulse: audio impulse response / heartbeat transient waveform with accent dot.
+  - Accent: 4-pointed dynamic accent burst star with core and spark dots.
+  - Percussion: hi-hat cymbal pair with center rod and side rhythmic ticks.
+  - Texture: undulating atmospheric drift layers with ambient particle accents.
+  - Bass: deep sub-frequency sine wave with sub-harmonic contour and baseline.
+  - Melody: beamed eighth notes with tilted heads and soaring melodic line.
+  - Arpeggio: stepped staircase sequence ladder with note markers on each step.
+  - Harmony: four-note chord stack united by a musical chord brace and resonance ray.
+- Vector graphics use light `1.4px` line weights, inherit track tone colors via `currentColor`, and scale down cleanly on mobile screens (`26px`/`24px`).
+- Exported `HaloRoles.glyphs` and `HaloRoles.glyph(track)` helper; added pure unit tests in `tests/roles.test.cjs`. All 78 tests pass.
+
 ## 2026-10-13 — Input bounds, pointer adjustment and EQ correction
 
 - Added bounded mouse adjustment of numeric fields, strict range/step validation and early oversized project/autosave rejection. Kept native keyboard/touch and saved settings.

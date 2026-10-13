@@ -2,7 +2,21 @@
 
 **Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-13. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
 
-### Latest implemented update — 2026-10-13: bounded controls and independent EQ boosts
+### Latest implemented update — 2026-10-13: schematic instrument role glyphs
+
+- Replaced abstract concentric circles on each of the eight instrument cards with theme-matching schematic vector drawings:
+  - 01 Pulse: audio transient impulse response with dynamic peak and rhythmic accent dot.
+  - 02 Accent: 4-pointed geometric accent spark with core and fine corner sparks.
+  - 03 Percussion: hi-hat cymbal pair with center rod and side rhythmic acoustic ticks.
+  - 04 Texture: floating horizontal atmospheric drift stream lines with ambient particle dots.
+  - 05 Bass: deep low-frequency sine wave with sub-harmonic contour and axis guide.
+  - 06 Melody: beamed eighth notes with angled note heads and melodic contour.
+  - 07 Arpeggio: ascending stepped sequence staircase ladder with note heads and grid guides.
+  - 08 Harmony: four-note chord stack embraced by a musical brace with resonance ray.
+- Minimal graphic execution: light 1.4px stroke weights, currentColor inheritance from track's `--tone`, responsive downscaling to 24-26px on mobile.
+- `src/roles.js` exports `glyphs` and `glyph(roleOrTrack)`. Tests in `tests/roles.test.cjs` verify distinct SVGs across all roles. 78 Node tests pass.
+
+### Previous implemented update — 2026-10-13: bounded controls and independent EQ boosts
 
 - `src/controls.js` centralizes strict short decimal parsing, step checks, bounded snapping and pointer scrubbing for numeric controls and the numeric grid selector. All five instrument sliders, master volume, EQ, stage width, BPM, cycle length/offset/grid validate before changing state. Rejects empty/nonfinite/exponential/hex/injected/oversized/off-grid text; invalid edits restore the prior UI value. Dynamic offset limits follow cycle length. File and autosave parsing now rejects excessive character length before allocating UTF-8 buffers, while preserving 64 KiB byte limits and schema allowlists.
 - Mouse drag right/up increases, left/down decreases. Pointer capture, cancellation, dead zone and click suppression isolate gestures. Sliders retain absolute click selection and touch/native keyboard operation. BPM drag uses 1 BPM increments, typed input 0.01. Exact/manual disabled fields stay disabled. Sound-bank/file selectors retain their standard interactions.

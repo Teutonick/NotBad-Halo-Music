@@ -36,7 +36,9 @@ Drag numeric controls right/up to increase or left/down to decrease, within thei
 
 ### Roles, motifs and compatible instruments
 
-Both worlds share one transport/instrument panel with eight fixed roles: **Pulse, Accent, Percussion, Texture, Bass, Melody, Arpeggio, Harmony**. Each world starts with suitable instruments. The editor offers compatible sound families; GENERATE uses a narrower world/role affinity pool and keeps mute, master settings and cycle configuration. Tuning remains within 20–100%.
+Both worlds share one transport/instrument panel with eight fixed roles: **Pulse, Accent, Percussion, Texture, Bass, Melody, Arpeggio, Harmony**. Each world starts with suitable instruments. The editor offers compatible sound families; GENERATE uses a narrower world/role affinity pool and keeps mute, master settings and cycle configuration. Tuning remains within 20–100%. Each card displays a light schematic drawing matching its musical theme: audio impulse for Pulse, dynamic spark for Accent, hi-hat cymbals for Percussion, flowing atmospheric layers for Texture, deep sub sine wave for Bass, beamed notes for Melody, stepped sequence ladder for Arpeggio, and a braced chord stack for Harmony.
+
+Каждая карточка инструмента отображает лёгкий схематичный рисунок своей роли: звуковой импульс для Пульса, динамическая искра для Акцента, тарелки хэта для Перкуссии, плавные атмосферные волны для Текстуры, глубокая синусоида для Баса, ноты для Мелодии, ступенчатая лестница для Арпеджио и аккордовый стэк со скобкой для Гармонии.
 
 The existing original motif library and ten ensembles per world remain the basis of the local generator. Generator 3 adapts their patterns and notes to the track role: mono bass/arpeggio, up to three simultaneous melodic notes and four harmony notes. No model, service or download is required. Old generator-1/2 projects retain their prior behavior until explicit generation or a compatible sound/cycle change.
 

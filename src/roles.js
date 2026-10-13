@@ -95,6 +95,22 @@
   const role=forTrack(track),short=['pulse','accent','percussion'].includes(role.id);
   return {maxNotes:role.maxNotes,voices:role.voices,short,attack:short?.003:role.id==='arpeggio'?.008:role.id==='bass'?.012:null,maxDuration:short?(role.id==='percussion'?.35:.8):role.id==='arpeggio'?.65:8,naturalGuitar:!short&&role.id!=='arpeggio'&&sound.engine==='guitar'};
  }
- const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,velocity,voicePolicy,mod};
+ const glyphs=Object.freeze({
+  pulse:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 3 16 H 10 L 13 20 L 16 6 L 19 25 L 22 16 H 29"/><circle cx="16" cy="6" r="1.5" fill="currentColor"/></svg>',
+  accent:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 16 4 Q 16 16 28 16 Q 16 16 16 28 Q 16 16 4 16 Q 16 16 16 4 Z"/><circle cx="16" cy="16" r="2" fill="currentColor"/><circle cx="8" cy="8" r="1" fill="currentColor"/><circle cx="24" cy="8" r="1" fill="currentColor"/><circle cx="8" cy="24" r="1" fill="currentColor"/><circle cx="24" cy="24" r="1" fill="currentColor"/></svg>',
+  percussion:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 6 13 C 10 9, 22 9, 26 13"/><path d="M 7 17 C 11 20, 21 20, 25 17"/><path d="M 16 5 V 27"/><circle cx="16" cy="5" r="1.5" fill="currentColor"/><path d="M 3 15 H 1 M 31 15 H 29 M 5 10 L 3 8 M 27 10 L 29 8"/></svg>',
+  texture:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 5 9 C 11 6, 17 12, 23 9 C 25.5 7.5, 27.5 8, 29 9"/><path d="M 3 16 C 9 13, 15 19, 21 16 C 24.5 14.5, 27 15, 29 16"/><path d="M 6 23 C 12 20, 18 26, 24 23 C 26 22, 27.5 22, 29 23"/><circle cx="10" cy="12" r="1" fill="currentColor"/><circle cx="25" cy="13" r="1" fill="currentColor"/><circle cx="8" cy="19" r="1" fill="currentColor"/></svg>',
+  bass:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 2 16 H 30" stroke-dasharray="1 3" opacity="0.35"/><path d="M 3 16 C 7 6, 12 6, 16 16 C 20 26, 25 26, 29 16" stroke-width="1.8"/><path d="M 5 19 C 8 11, 12 11, 16 19 C 20 27, 24 27, 27 19" stroke-dasharray="2 2" opacity="0.55"/></svg>',
+  melody:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="9" cy="22" rx="3.2" ry="2.4" transform="rotate(-20 9 22)" fill="currentColor"/><ellipse cx="23" cy="18" rx="3.2" ry="2.4" transform="rotate(-20 23 18)" fill="currentColor"/><path d="M 12 21 V 8"/><path d="M 26 17 V 4"/><path d="M 11.5 8 L 26.5 4" stroke-width="2.6"/></svg>',
+  arpeggio:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M 4 25 H 9 V 19 H 15 V 13 H 21 V 7 H 28"/><circle cx="9" cy="19" r="2" fill="currentColor"/><circle cx="15" cy="13" r="2" fill="currentColor"/><circle cx="21" cy="7" r="2" fill="currentColor"/><path d="M 9 23 V 26 M 15 17 V 26 M 21 11 V 26" stroke-dasharray="1 2" opacity="0.35"/></svg>',
+  harmony:'<svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="7" r="2" fill="currentColor"/><circle cx="9" cy="13" r="2" fill="currentColor"/><circle cx="9" cy="19" r="2" fill="currentColor"/><circle cx="9" cy="25" r="2" fill="currentColor"/><path d="M 15 5 C 18 5, 18 14.5, 16 16 C 18 17.5, 18 27, 15 27"/><path d="M 19 16 H 28"/><circle cx="28" cy="16" r="1.5" fill="currentColor"/></svg>'
+ });
+ function glyph(roleOrTrack){
+  if(!roleOrTrack)return glyphs.pulse;
+  if(typeof roleOrTrack==='string')return glyphs[roleOrTrack]||glyphs.pulse;
+  const spec=forTrack(roleOrTrack);
+  return (spec&&glyphs[spec.id])||glyphs.pulse;
+ }
+ const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,velocity,voicePolicy,mod,glyphs,glyph};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloRoles=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
