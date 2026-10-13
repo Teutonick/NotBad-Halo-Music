@@ -65,6 +65,7 @@ Right-click, hold or Shift+Enter opens sound and cycle controls. Cycle length is
 | EDIT → SAVE PATTERN | Set exact sixteenth-note events for all eight voices and save locally |
 | BPM field | Enter 30–200 BPM (up to two decimal places), then Enter or leave the field |
 | SAVE / LOAD | Export/import a versioned 4/8-bar JSON project, without audio or samples |
+| SHARE | Generate and copy a shareable link encoding the current loop into a compact URL hash (`#loop=...`), restoring the exact setup on GitHub Pages without a backend |
 | WAV / MP3 | Render the selected loop locally; MP3 requires native browser codec support |
 | RU / EN in the visual panel | Switch language; first visit uses the primary browser language, Russian for `ru`, English otherwise |
 | Master volume | Adjust the whole loop from 0–100%, initially 50%; saved projects and offline exports retain it |

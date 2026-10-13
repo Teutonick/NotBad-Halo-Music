@@ -31,5 +31,46 @@
   const data=Array.from({length:channels},(_,i)=>buffer.getChannelData(i));let at=44;
   for(let n=0;n<length;n++)for(let ch=0;ch<channels;ch++){const sample=Number.isFinite(data[ch][n])?Math.max(-1,Math.min(1,data[ch][n])):0;v.setInt16(at,sample<0?sample*32768:sample*32767,true);at+=2}return bytes;
  }
- const api={MAX_BYTES,bpm,validate,parse,capture,wav,mixSettings};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
+ function bytesToBase64Url(bytes){
+  let bin='';
+  for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  if(typeof btoa==='function')return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  return Buffer.from(bytes).toString('base64url');
+ }
+ function base64UrlToBytes(str){
+  let b=str.replace(/-/g,'+').replace(/_/g,'/');
+  while(b.length%4)b+='=';
+  if(typeof atob==='function'){
+   const bin=atob(b),bytes=new Uint8Array(bin.length);
+   for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+   return bytes;
+  }
+  return new Uint8Array(Buffer.from(b,'base64'));
+ }
+ async function encodeShare(project){
+  const text=JSON.stringify(project);
+  if(typeof CompressionStream==='function'){
+   const stream=new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+   const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
+   return bytesToBase64Url(compressed);
+  }
+  return bytesToBase64Url(new TextEncoder().encode(text));
+ }
+ async function decodeShare(token,sounds){
+  if(typeof token!=='string'||!token||token.length>MAX_BYTES)throw Error('Invalid share token');
+  const bytes=base64UrlToBytes(token);
+  let text='';
+  if(typeof DecompressionStream==='function'){
+   try{
+    const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    text=await new Response(stream).text();
+   }catch{
+    text=new TextDecoder().decode(bytes);
+   }
+  }else{
+   text=new TextDecoder().decode(bytes);
+  }
+  return parse(text,sounds);
+ }
+ const api={MAX_BYTES,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 const path = require('node:path');
 
-function app(storage) {
+function app(storage, options = {}) {
   const elements = new Map(), events = {}, calls = [], timers = [], timeouts = [];
   function element(id) {
     const classes = new Set(), children = [];
@@ -19,11 +19,17 @@ function app(storage) {
   const document = { getElementById(id) { if(!elements.has(id)) elements.set(id,element(id)); return elements.get(id); },
     createElement: () => element(''), addEventListener(k,v) { events[k] = v; } };
   const ctx = { currentTime: 0, resume: async()=>{}, suspend:async()=>{},close:async()=>{} };
-  const sandbox = { document, console, Math, Float32Array, TextEncoder, performance:{now:()=>0},
+  const sandbox = { document, console, Math, Float32Array, TextEncoder, TextDecoder: globalThis.TextDecoder,
+    CompressionStream: globalThis.CompressionStream, DecompressionStream: globalThis.DecompressionStream, URL: globalThis.URL,
+    performance:{now:()=>0},
     innerWidth:1200,innerHeight:800,devicePixelRatio:1, requestAnimationFrame() {},
     setInterval(fn) { timers.push(fn); return timers.length; }, clearInterval() {}, setTimeout(fn,ms) {timeouts.push({fn,ms});return timeouts.length}, clearTimeout() {},
-    addEventListener(){}, AudioContext:function(){return ctx} };
-  sandbox.window=sandbox;sandbox.confirm=()=>false;sandbox.location={reload(){calls.push(['reload'])}};
+    addEventListener(k,v) { events[k] = v; }, AudioContext:function(){return ctx} };
+  const initialHash = options.hash || (storage && storage.initialHash) || '';
+  sandbox.window=sandbox;sandbox.confirm=()=>false;
+  sandbox.location={reload(){calls.push(['reload'])},hash:initialHash,href:'https://teutonick.github.io/NotBad-Halo-Music/'+initialHash,origin:'https://teutonick.github.io',pathname:'/NotBad-Halo-Music/',search:''};
+  sandbox.history={replaceState(st,ti,u){sandbox.location.href=u;const m=u.match(/#.*/);sandbox.location.hash=m?m[0]:'';calls.push(['replaceState',u]);}};
+  sandbox.navigator={clipboard:{writeText:async text=>calls.push(['clipboard',text])}};
   sandbox.HaloSounds=require('../src/sounds.js');
   sandbox.HaloSamples={load:async()=>{},prepare:async()=>({})};
   sandbox.HaloMotion=require('../src/motion.js');
@@ -281,4 +287,34 @@ test('all numeric UI handlers reject malformed, overflow and off-grid values wit
  const event=(x,y)=>({button:0,pointerType:'mouse',pointerId:7,clientX:x,clientY:y,preventDefault(){},stopPropagation(){}});
  $('cycleOffset').pointerdown(event(20,20));$('cycleOffset').pointermove(event(44,20));$('cycleOffset').pointerup(event(44,20));
  assert.equal(read().tracks[6].sequence.offset,6);
+});
+
+test('SHARE button generates compact hash link, and opening or hashchange restores full loop paused',async()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const a=app(storage),$=id=>a.document.getElementById(id);
+ $('setupSwitch').onclick();
+ $('bpmInput').onchange({target:{value:'115'}});
+ $('masterVolume').oninput({target:{value:'42'}});
+ $('tracks').children[0].onclick();
+ assert.ok($('shareProject'));
+
+ await $('shareProject').onclick();
+ const clip=a.calls.find(c=>c[0]==='clipboard');
+ assert.ok(clip,'copied link to clipboard');
+ assert.ok(clip[1].includes('#loop='),'link contains #loop= hash');
+ const token=clip[1].split('#loop=')[1];
+ assert.ok(token.length>50&&token.length<1500,'token is within compact bounds');
+
+ const b=app(storage,{hash:'#loop='+token});
+ await new Promise(r=>setTimeout(r,50));
+ const get=id=>b.document.getElementById(id);
+ assert.equal(get('bpmInput').value,'115');
+ assert.equal(get('masterVolume').value,'42');
+ b.timeouts.filter(t=>t.ms===250).at(-1)?.fn();
+ const saved=JSON.parse(data.get('notbad-halo-autosave-v1'));
+ assert.equal(saved.project.setup,'reactor');
+ assert.equal(saved.project.tempo,115);
+ assert.equal(saved.project.masterVolume,42);
+ assert.equal(b.document.getElementById('tracks').children[0]['aria-pressed'],'false');
+ assert.equal(get('transportTitle').textContent,'UNIVERSE PAUSED');
 });

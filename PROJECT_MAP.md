@@ -2,7 +2,18 @@
 
 **Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-13. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
 
-### Latest implemented update — 2026-10-13: schematic instrument role glyphs
+### Latest implemented update — 2026-10-13: client-side static URL loop sharing via SHARE button
+
+- Added a `SHARE` button to the PROJECT controls group (`SAVE`, `LOAD`, `MP3`, `WAV`, `SHARE`).
+- Enables sharing loops directly via URL hash fragments (`#loop=<token>`) without any backend or external server, preserving zero-build static GitHub Pages hosting under `/<repository>/`.
+- `HaloProject.encodeShare(project)` compresses the full composition snapshot using native Web Streams `CompressionStream('deflate-raw')` and URL-safe base64 encoding into a compact token (~780 characters).
+- `HaloProject.decodeShare(token, sounds)` decompresses via `DecompressionStream('deflate-raw')` and validates through `HaloProject.validate()`.
+- On clicking `SHARE`, the link is copied to the clipboard with toast feedback and fallback prompt; address bar hash is updated via `history.replaceState`.
+- On loading the site with `#loop=` or on hash change, the shared project state is restored automatically while playback remains strictly paused awaiting user gesture.
+- Localized in Russian (`ПОДЕЛИТЬСЯ`) and English (`SHARE`).
+- Pure unit tests in `tests/project.test.cjs` and integration test in `tests/app.test.cjs`. 80 Node tests pass.
+
+### Previous implemented update — 2026-10-13: schematic instrument role glyphs
 
 - Replaced abstract concentric circles on each of the eight instrument cards with theme-matching schematic vector drawings:
   - 01 Pulse: audio transient impulse response with dynamic peak and rhythmic accent dot.

@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13 — Client-side static URL loop sharing via SHARE button
+
+- Added a `SHARE` button to the end of the `PROJECT` controls button group in the UI.
+- Implemented client-side project encoding and decoding without a backend, fully compatible with static GitHub Pages hosting:
+  - Generates a compact URL hash fragment (`#loop=<token>`) using standard browser `CompressionStream('deflate-raw')` / `DecompressionStream('deflate-raw')` and URL-safe base64.
+  - The token is ~780 characters, fitting comfortably within URL and browser limits.
+  - Clicking `SHARE` copies the shareable URL to the clipboard and shows a localized toast notification.
+  - Opening the link or navigating hashes dynamically decodes and applies the exact loop configuration (tempo, key, seed, setup, world, tracks, mutes, mix, master volume, and manual/generated step sequences).
+  - Playback remains strictly paused on load until explicit user gesture, adhering to audio context security standards.
+- Full RU/EN localization: `SHARE` / `ПОДЕЛИТЬСЯ`, tooltips and status toasts.
+- Added pure unit tests in `tests/project.test.cjs` and integration test in `tests/app.test.cjs`. All 80 tests pass.
+
 ## 2026-10-13 — Schematic role glyphs on instrument cards
 
 - Replaced abstract concentric circles on the eight instrument cards with light, schematic vector drawings matching each role's musical theme:

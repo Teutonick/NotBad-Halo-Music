@@ -43,3 +43,14 @@ test('master volume is bounded and old projects retain the 50 percent default',(
  const old={...project};delete old.masterVolume;assert.equal(P.validate(old,S).masterVolume,50);
  for(const volume of [-1,101,Infinity,'50'])assert.throws(()=>P.validate({...project,masterVolume:volume},S));
 });
+
+test('shareable token encodes and decodes project roundtrip within compact URL bounds',async()=>{
+ const project=P.capture(tracks,4,115.5,5,7,S,M,60,{low:3,mid:-1,high:2,width:45});
+ const token=await P.encodeShare(project);
+ assert.ok(typeof token==='string'&&token.length>50&&token.length<1500);
+ assert.ok(!/[+/=]/.test(token));
+ const decoded=await P.decodeShare(token,S);
+ assert.deepEqual(decoded,project);
+ await assert.rejects(async()=>P.decodeShare('invalid!!!',S));
+ await assert.rejects(async()=>P.decodeShare('x'.repeat(70000),S));
+});
