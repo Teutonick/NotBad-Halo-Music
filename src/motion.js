@@ -27,8 +27,8 @@
   function phraseSteps(track, index, start, seed, sounds,bars=4) {
     const pattern = sounds.patternFor({...track,variation:seed},bars), enabled = { ...track, on: true };
     return Array.from({length: bars*16}, (_,step) => ({ step,
-      candidate: track.manualSteps?track.manualSteps.includes(step%(track.manualBars*16)):pattern.includes(track.generator===2?step:step % 16),
-      fires: sounds.shouldTrigger(enabled,index,step,seed,bars) }));
+      candidate: track.manualSteps?track.manualSteps.includes(track.generator===3?sounds.roles.mod(start+step,track.manualBars*16):step%(track.manualBars*16)):pattern.includes(track.generator===3?sounds.roles.mod(start+step,sounds.cycleLength(track,bars)):track.generator===2?step:step % 16),
+      fires: sounds.shouldTrigger(enabled,index,track.generator===3?start+step:step,seed,bars) }));
   }
   const api = { phaseAt, phraseAt, phraseSteps, PHRASE_BARS, PHRASE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

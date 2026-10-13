@@ -79,19 +79,19 @@ test('EQ and stereo width persist and survive switching musical worlds',()=>{
  $('eqLow').oninput({target:{value:'100'}});assert.equal($('eqLow').value,'5');
 });
 
-test('any same-world instrument can move to any orbit and mappings survive autosave and world switching',()=>{
+test('compatible instruments can move between orbits and mappings survive autosave and world switching',()=>{
  for(const reactor of [false,true]){
   const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
   if(reactor)$('setupSwitch').onclick();
   $('tracks').children[0].oncontextmenu({preventDefault(){}});
-  assert.equal($('instrumentBank').children.length,8);
+  assert.ok($('instrumentBank').children.length>0);
   $('instrumentBank').onchange({target:{value:reactor?'VEIL':'ROOT'}});
   assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
   assert.equal($('typeLabel').textContent,reactor?'Palm mute':'Round bass');
   assert.notEqual($('ensembleName').textContent,'Legacy phrase');
   $('instrumentBank').onchange({target:{value:'unknown'}});assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
   a.timeouts.filter(t=>t.ms===250).at(-1).fn();const saved=JSON.parse(data.get('notbad-halo-autosave-v1'));
-  assert.equal(saved.project.tracks[0].instrument,reactor?'VEIL':'ROOT');assert.equal(saved.project.tracks[0].generator,2);
+  assert.equal(saved.project.tracks[0].instrument,reactor?'VEIL':'ROOT');assert.equal(saved.project.tracks[0].generator,3);
   assert.equal(new Set(saved.project.tracks.map(t=>t.name)).size,8);
   const b=app(storage);b.document.getElementById('tracks').children[0].oncontextmenu({preventDefault(){}});
   assert.equal(b.document.getElementById('instrumentBank').value,reactor?'VEIL':'ROOT');
@@ -169,8 +169,8 @@ test('static entry references local scripts, all eight tiles and role-specific e
   assert.equal(tiles.children.length,8);
   tiles.children[4].oncontextmenu({preventDefault(){}});
   const buttons=a.document.getElementById('types').children;
-  assert.equal(buttons.length,6); assert.equal(buttons[0].textContent,'Shaker');
-  buttons[2].click(); assert.equal(a.document.getElementById('typeLabel').textContent,'Drops');
+  assert.equal(buttons.length,2); assert.equal(buttons[0].textContent,'Round bass');
+  buttons[1].click(); assert.equal(a.document.getElementById('typeLabel').textContent,'Deep tone');
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   for(const match of html.matchAll(/<script src="([^"]+)"/g)) {
     assert.ok(match[1].startsWith('./')); assert.ok(fs.existsSync(path.join(__dirname,'..',match[1].split('?')[0])));
@@ -250,4 +250,18 @@ test('visual-only mode suppresses music shortcuts and Escape restores controls w
  button.click();assert.equal(button['aria-pressed'],'true');const before=a.document.getElementById('tracks').children[0]['aria-pressed'];
  a.events.keydown({key:'1',target:{tagName:'BODY'}});assert.equal(a.document.getElementById('tracks').children[0]['aria-pressed'],before);
  a.events.keydown({key:'Escape',target:{tagName:'BODY'},preventDefault(){}});assert.equal(button['aria-pressed'],'false');assert.equal(a.document.getElementById('patternEditor').hidden,false);
+});
+
+test('fixed role cycles survive generation, world switching and reload with compatible affinity sounds',()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const a=app(storage),$=id=>a.document.getElementById(id);
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project};
+ $('tracks').children[6].oncontextmenu({preventDefault(){}});
+ $('cycleLength').onchange({target:{value:'7'}});$('stepLength').onchange({target:{value:'2'}});$('cycleOffset').onchange({target:{value:'3'}});
+ let saved=read();assert.deepEqual(saved.tracks[6].sequence,{length:7,stepLength:2,offset:3});
+ $('regen').onclick();saved=read();assert.deepEqual(saved.tracks[6].sequence,{length:7,stepLength:2,offset:3});
+ for(const t of saved.tracks){assert.equal(t.generator,3);const sound=a.sandbox.HaloSounds.soundFor(t);assert.ok(sound.playback.affinityRoles.includes(t.role))}
+ $('setupSwitch').onclick();$('setupSwitch').onclick();assert.equal($('cycleLength').value,'7');read();
+ const b=app(storage);b.document.getElementById('tracks').children[6].oncontextmenu({preventDefault(){}});
+ assert.equal(b.document.getElementById('cycleLength').value,'7');assert.equal(b.document.getElementById('stepLength').value,'2');assert.equal(b.document.getElementById('cycleOffset').value,'3');
 });

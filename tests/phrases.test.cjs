@@ -8,7 +8,7 @@ test('classic scripts initialize without CommonJS and resolve under a GitHub Pag
  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8'),scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]);
  assert.ok(scripts.findIndex(s=>s.includes('/phrases.js'))<scripts.findIndex(s=>s.includes('/sounds.js')));
  const sandbox={};vm.createContext(sandbox);
- for(const file of ['phrases.js','sounds.js','motion.js','composition.js','project.js']){
+ for(const file of ['phrases.js','roles.js','sounds.js','motion.js','composition.js','project.js']){
   const relative=scripts.find(s=>s.startsWith('./src/'+file));assert.ok(relative);
   assert.ok(new URL(relative,'https://example.invalid/NotBad-Halo-Music/').pathname.startsWith('/NotBad-Halo-Music/src/'));
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),sandbox);
@@ -119,7 +119,7 @@ test('new project mappings and generator versions restore exact steps and pitche
   const project=P.capture(tracks,8,100,13,4,S,M,50),restored=P.parse(JSON.stringify(project),S).tracks.map(t=>({...t,setup,manualSteps:t.steps,manualBars:8}));S.arrange(restored);
   for(let i=0;i<8;i++)assert.deepEqual(events(restored[i],i,13,8,4),events(tracks[i],i,13,8,4));
   assert.equal(project.tracks[0].instrument,'AURA');assert.equal(project.tracks[0].generator,2);
-  for(const patch of [{instrument:'unknown'},{generator:3},{instrument:'ROOT',sound:'unknown'}])assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,...patch})},S));
+  for(const patch of [{instrument:'unknown'},{generator:4},{instrument:'ROOT',sound:'unknown'}])assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,...patch})},S));
   const old=ensemble(setup).map(t=>({...t,generator:1})),oldProject=P.capture(old,4,100,5,0,S,M);
   oldProject.tracks.forEach(t=>{delete t.generator;delete t.instrument});const validated=P.validate(oldProject,S);
   assert.ok(validated.tracks.every(t=>t.generator===1&&t.instrument===t.name));

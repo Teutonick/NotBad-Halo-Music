@@ -4,13 +4,13 @@ const { banks, chords, soundFor, notesFor, shouldTrigger } = require('../src/sou
 const Audio = require('../src/audio.js');
 const track = name => ({ name, sound: banks[name].sounds[0].id, character: 50, duration: 50, space: 55, level: 65, density: 100, on: true, pattern: [0, 4, 8, 12] });
 
-test('full randomization selects another sound within the slot and bounds every tuning value to 20–100',()=>{
+test('full randomization selects another affinity sound for the fixed role and bounds tuning to 20–100',()=>{
  const S=require('../src/sounds.js');
  for(const setup of ['ambient','reactor'])for(const [index,name] of Object.keys(banks).entries()){
   let t={...track(name),setup,on:false};
   for(let seed=2;seed<=128;seed++){
    const result=S.randomizeTrack(t,index,seed);assert.deepEqual(result,S.randomizeTrack(t,index,seed));
-   assert.ok(S.bankFor(t).sounds.some(s=>s.id===result.sound));assert.notEqual(result.sound,t.sound);
+   assert.ok(S.roles.pool(t,S.banksFor(setup),true).some(c=>c.sound.id===result.sound&&c.instrument===result.instrument));assert.notEqual(result.sound,t.sound);
    for(const field of ['character','duration','density','level','space']){assert.ok(Number.isInteger(result[field])&&result[field]>=20&&result[field]<=100);assert.notEqual(result[field],t[field])}
    assert.equal(result.on,undefined);t={...t,...result};assert.equal(t.on,false);
   }

@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const selectSample=typeof module!=='undefined'&&module.exports?require('./samples.js').select:root.HaloSamples.select;
+  const roles=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;
   function create(ctx, tracks,volume=50,sampleBank={},mix={low:0,mid:0,high:0,width:35}) {
     const master = ctx.createGain(), compressor = ctx.createDynamicsCompressor();
     master.gain.value = Math.max(0,Math.min(100,volume))/100;
@@ -33,7 +34,7 @@
       return gain;
     });
     let sceneWidth=0;
-    function panFor(i){return ['kick','bass'].includes(tracks[i].arrangement?.role)?(i%2?.06:-.06):[-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]}
+    function panFor(i){return ['pulse','kick','bass'].includes(tracks[i].arrangement?.role)?(i%2?.06:-.06):[-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]}
     function setMix(value,at=ctx.currentTime){
       const gains=['low','mid','high'].map(key=>Math.max(-9,Math.min(9,Number(value[key])||0)));
       eq.forEach((node,i)=>node.gain.setTargetAtTime(gains[i],at,.05));
@@ -57,11 +58,14 @@
     function play(index, notes, time, velocity, patch) {
       if(patch.sampleBank&&!sampleBank[patch.sampleBank]?.length)throw Error('Sample bank is not ready');
       const t = tracks[index], active = voices[index];
-      const ringingGuitar = !!patch.sampleBank && patch.engine === 'guitar';
+      if(t.generator===3&&!roles.compatible(t,patch))throw Error('Sound is incompatible with track role');
+      const policy=t.generator===3?roles.voicePolicy(t,patch):null;
+      const pitches=notes.slice(0,policy?.maxNotes||3),noteCount=Math.max(1,pitches.length);
+      const ringingGuitar = !!patch.sampleBank && patch.engine === 'guitar' && (!policy||policy.naturalGuitar);
       for(const voice of active)if(voice.end<=time)active.delete(voice);
-      if(ringingGuitar)for(const voice of [...active]){voice.release(time);active.delete(voice);}
+      if(ringingGuitar&&!policy)for(const voice of [...active]){voice.release(time);active.delete(voice);}
       // Four sustained events per track; stolen events finish a short release.
-      if (active.size >= 4) {
+      while(policy?[...active].reduce((n,v)=>n+v.noteCount,0)+noteCount>policy.voices:active.size>=4){
         const oldest = active.values().next().value;
         oldest.release(time); active.delete(oldest);
       }
@@ -77,9 +81,9 @@
         cabinet.type='lowpass';cabinet.frequency.value=Math.min(ctx.sampleRate*.42,patch.engine==='rockbass'?3200:5500);cabinet.Q.value=.5;
         filter.connect(shaper);shaper.connect(dc);dc.connect(cabinet);cabinet.connect(gain);gain.connect(trackGains[index]);processing.push(shaper,dc,cabinet);
       }else {gain.connect(filter);filter.connect(trackGains[index]);}
-      const duration = Math.min(8, Math.max(.08, patch.decay * (.35 + t.duration / 100 * 1.3)));
+      const duration = Math.min(policy?.maxDuration||8, Math.max(.08, patch.decay * (.35 + t.duration / 100 * 1.3)));
       const rockDrum=patch.sampleBank&&['kick','snare','tom'].includes(patch.engine);
-      const attack = patch.engine === 'pad' || patch.ambient ? .35 : patch.punch || rockDrum ? .003 : .012;
+      const attack = policy?.attack ?? (patch.engine === 'pad' || patch.ambient ? .35 : patch.punch || rockDrum ? .003 : .012);
       const peak = velocity * (rockDrum ? (patch.engine==='kick'?.14:.11) : patch.id.startsWith('reactor-') ? .065 : patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
       gain.gain.setValueAtTime(.00001, time);
       gain.gain.exponentialRampToValueAtTime(peak, time + attack);
@@ -87,7 +91,7 @@
       if(!ringingGuitar)gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
       const end = time + attack + duration + .06, sources = [];
       let remaining = 0, released = false;
-      const voice = { filter, patch, end, release(at=ctx.currentTime) {
+      const voice = { filter, patch, end,noteCount, release(at=ctx.currentTime) {
         if (released) return; released = true;
         const now = at;
         if (gain.gain.cancelAndHoldAtTime) gain.gain.cancelAndHoldAtTime(now);
@@ -112,15 +116,15 @@
       }
       active.add(voice);
       if(patch.sampleBank){
-        const pitches=notes.length?notes.slice(0,3):[0];
+        const samplePitches=pitches.length?pitches:[0];
         const regions=sampleBank[patch.sampleBank];
-        pitches.forEach(note=>{
+        samplePitches.forEach(note=>{
           const region=selectSample(regions,note,velocity);
           const source=ctx.createBufferSource();source.buffer=region.buffer;
           const rate=Math.pow(2,(note-region.root)/12);
           source.playbackRate.value=rate;source.playbackRate.setValueAtTime(rate,time);
           if(ringingGuitar)voice.end=Math.max(voice.end,time+region.buffer.duration/rate);
-          start(source,1/pitches.length);
+          start(source,1/samplePitches.length);
         });
       } else if (['noise','snare','clap'].includes(patch.engine)) {
         const source = ctx.createBufferSource(); source.buffer = noiseBuffer; source.loop = true; start(source, 1);
@@ -137,7 +141,6 @@
         tone(patch.engine === 'kick' ? (patch.startHz || (patch.punch ? 165 : 115)) : 950, 'sine', 1, 0, true);
         if (patch.punch) tone(1100, 'sine', .07, 0, true);
       } else {
-        const pitches = notes.slice(0, 3);
         pitches.forEach(n => {
           const hz = 440 * Math.pow(2, (n - 69) / 12), weight = 1 / pitches.length;
           tone(hz, patch.wave || (patch.engine === 'pluck' ? 'triangle' : 'sine'), weight * .78);

@@ -30,3 +30,9 @@ test('static and dynamic interface labels localize without swallowing layout spa
  assert.equal(I.translate('Общая громкость','en'),'Master volume');
  assert.equal(I.translate('Load failed: Invalid JSON file','ru'),'Ошибка загрузки: Некорректный файл JSON');
 });
+
+test('fixed roles and cycle controls localize in both directions',()=>{
+ const R=require('../src/roles.js');
+ const labels=[...R.roles.flatMap(r=>[r.label.toUpperCase(),r.label,r.description]),'COMPATIBLE SOUNDS','Compatible sound family','Transport and eight musical roles','CYCLE','STEP','OFFSET','Track cycle length, 4 to 32 steps','Track step duration','Track cycle offset','Saved steps override the cycle','Invalid track cycle','Invalid track role','Invalid phrase position','Sound is incompatible with track role'];
+ for(const text of labels){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
+});

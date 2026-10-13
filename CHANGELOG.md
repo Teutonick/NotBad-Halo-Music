@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13 — Universal roles and polymetric cycles
+
+- Added eight fixed musical roles and a shared transport/instrument panel for AMBIENT and REACTOR. Sound compatibility governs manual selection; role/world affinity governs GENERATE. Native defaults retain the existing 62 presets.
+- Generator 3 preserves the motif/ensemble library while enforcing role registers and mono/three/four-note voice limits. Optional independent cycle lengths, grid speed and offsets share the audio clock and harmony.
+- Saved role/cycle/exact-mode metadata and absolute phrase position; preserved generator 1/2 restoration. Preview and offline export follow the same phase. Added 9 role regressions; 93 total Node tests pass. Fresh browser/audio acceptance remains outstanding.
+
 ## 2026-10-13 — Local phrases, ensembles and free instrument assignment
 
 - Added generator 2 with ten original motif families for each of 14 musical roles and ten ensembles per AMBIENT/REACTOR world. Generates coherent 4/8-bar note/rhythm development locally without a neural service, model download, new sound assets or dependencies.

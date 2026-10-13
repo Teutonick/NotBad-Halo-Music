@@ -1,6 +1,8 @@
 # Local phrase library / Локальная библиотека фраз
 
-Implemented generator version **2**, 2026-10-13. Source: `src/phrases.js`; patch resolution and integration: `src/sounds.js`. This is an original rule-based musical generator, not a trained neural model. It requires no account, API, model download, runtime dependency, CDN or backend. Classic relative scripts work with the existing zero-build GitHub Pages deployment.
+Historical generator version **2**, 2026-10-13. Source: `src/phrases.js`; patch resolution and integration: `src/sounds.js`. This is an original rule-based musical generator, not a trained neural model. It requires no account, API, model download, runtime dependency, CDN or backend. Classic relative scripts work with the existing zero-build GitHub Pages deployment.
+
+Generator **3** now wraps this unchanged library with fixed track roles, compatibility/affinity filters and optional cycles. The unrestricted assignment matrix below describes generator 2 and remains supported for legacy projects; current selection follows [track roles](track-roles.md).
 
 ## What is generated / Что генерируется
 

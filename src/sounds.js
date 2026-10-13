@@ -2,8 +2,8 @@
 (function (root) {
   'use strict';
   const phrases=typeof module!=='undefined'&&module.exports?require('./phrases.js'):root.HaloPhrases;
-  const patch = (id, name, engine, tone, decay, extra = {}) =>
-    Object.freeze({ id, name, engine, tone, decay, ...extra });
+  const roles=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;
+  const patch = (id,name,engine,tone,decay,extra={}) => {const s={id,name,engine,tone,decay,...extra};return Object.freeze({...s,playback:roles.describe(s)})};
   const banks = {
     GLASS: { role: 'Ringing accents', sounds: [
       patch('bell', 'Soft bell', 'bell', 4200, 2.7),
@@ -113,7 +113,8 @@
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4){
+  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=bar*16+local){
+    if(track.generator===3)return roles.notes(track,soundFor(track),bar,local,seed,transpose,bars,absoluteStep);
     return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose);
   }
   function legacyNotesFor(track, index, bar, local, seed, transpose=0) {
@@ -140,7 +141,7 @@
   }
   const densityCache=new WeakMap();
   function generatedSteps(track,index,seed,bars){
-    const p=phrases.plan(track,soundFor(track),seed,bars),key=index+':'+track.density;
+    const p=track.generator===3?roles.plan(track,soundFor(track),seed,bars):phrases.plan(track,soundFor(track),seed,bars),key=index+':'+track.density;
     let cache=densityCache.get(p);if(!cache){cache=new Map();densityCache.set(p,cache)}
     if(cache.has(key))return cache.get(key);
     const steps=track.density>0?p.steps.filter(step=>random01(index*97+step*31+seed*191)<=track.density/100):[];
@@ -149,7 +150,8 @@
     if(cache.size>=32)cache.delete(cache.keys().next().value);cache.set(key,steps);return steps;
   }
   function shouldTrigger(track, index, step, seed,bars=track.phraseBars||4) {
-    if(track.manualSteps)return track.on&&track.manualSteps.includes(step%(track.manualBars*16));
+    if(track.manualSteps)return track.on&&track.manualSteps.includes(track.generator===3?roles.mod(step,track.manualBars*16):step%(track.manualBars*16));
+    if(track.generator===3)return track.on&&generatedSteps(track,index,seed,bars).includes(roles.mod(step,roles.plan(track,soundFor(track),seed,bars).period));
     if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars).includes(step%(bars*16));
     const bar = Math.floor(step / 16);
     if(track.setup==='reactor'){
@@ -162,6 +164,7 @@
   }
   const rhythmCache=new Map();
   function patternFor(track,bars=track.phraseBars||4) {
+    if(track.generator===3)return roles.plan(track,soundFor(track),track.variation||1,bars).steps;
     if(track.generator===2)return phrases.plan(track,soundFor(track),track.variation||1,bars).steps;
     const base=soundFor(track).pattern||track.pattern;
     if(track.setup==='reactor'){
@@ -187,17 +190,21 @@
     return base.map(step=>(step+shift)%16).sort((a,b)=>a-b);
   }
   function randomizeTrack(track,index,seed){
-    const sounds=bankFor(track).sounds.filter(sound=>sound.id!==soundFor(track).id);
-    const result={sound:sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)].id,variation:seed,generator:2};
+    const sounds=roles.pool(track,banksFor(track.setup),true).filter(choice=>choice.sound.id!==track.sound);
+    const choice=sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)];
+    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roles.forTrack(track).id,sequence:roles.sequence(track.sequence)};
     ['character','duration','density','level','space'].forEach((key,i)=>{
       const values=Array.from({length:81},(_,n)=>n+20).filter(n=>n!==track[key]);
       result[key]=values[Math.floor(random01(seed*3571+index*193+i*71)*values.length)];
     });
     return result;
   }
-  function arrange(tracks){const assignments=phrases.assignments(tracks,{soundFor});tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator===2?1/Math.sqrt(assignments[i].count):1});return assignments}
-  function velocityFor(track,index,step,seed,bars=4){return track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
-  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,arrange,velocityFor,phrases };
+  function arrange(tracks){const types=tracks.map(t=>t.generator===3?roles.forTrack(t).id:phrases.roleFor(t,soundFor(t))),assignments=types.map((role,i)=>({role,count:types.filter(r=>r===role).length,ordinal:types.slice(0,i).filter(r=>r===role).length}));tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator>=2?1/Math.sqrt(assignments[i].count):1});return assignments}
+  function velocityFor(track,index,step,seed,bars=4){return track.generator===3?roles.velocity(track,soundFor(track),step,seed,bars):track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
+  function cycleLength(track,bars=4){return track.manualSteps?track.manualBars*16:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars).period:track.generator===2?bars*16:16}
+  function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
+  function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
+  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
