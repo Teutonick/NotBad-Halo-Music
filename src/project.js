@@ -12,15 +12,16 @@
   if(!Number.isInteger(result.seed)||!Number.isInteger(result.key)||!Array.isArray(data.tracks)||data.tracks.length!==8)throw Error('Invalid project state');
   const names=Object.keys(banks),seen=new Set();
   for(const t of data.tracks){
-   if(!t||!names.includes(t.name)||seen.has(t.name)||typeof t.on!=='boolean'||!banks[t.name].sounds.some(s=>s.id===t.sound)||!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=data.bars*16)||new Set(t.steps).size!==t.steps.length)throw Error('Invalid track');
-   seen.add(t.name);const clean={name:t.name,sound:t.sound,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
+   const instrument=t?.instrument??t?.name,generator=t?.generator??1;
+   if(!t||!names.includes(t.name)||!names.includes(instrument)||![1,2].includes(generator)||seen.has(t.name)||typeof t.on!=='boolean'||!banks[instrument].sounds.some(s=>s.id===t.sound)||!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=data.bars*16)||new Set(t.steps).size!==t.steps.length)throw Error('Invalid track');
+   seen.add(t.name);const clean={name:t.name,instrument,generator,sound:t.sound,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
    result.tracks.push(clean);
   }
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
  }
  function parse(text,sounds){if(typeof text!=='string'||new TextEncoder().encode(text).length>MAX_BYTES)throw Error('Project file exceeds 64 KiB');let data;try{data=JSON.parse(text)}catch{throw Error('Invalid JSON file')}return validate(data,sounds)}
- function capture(tracks,bars,tempo,seed,key,sounds,motion,masterVolume=50,mix){return validate({format:'notbad-halo-project',version:1,setup:tracks[0]?.setup||'ambient',bars,tempo,masterVolume,mix,seed,key,tracks:tracks.map((t,i)=>({...t,steps:motion.phraseSteps({...t,variation:seed},i,0,seed,sounds,bars).filter(e=>e.fires).map(e=>e.step)}))},sounds)}
+ function capture(tracks,bars,tempo,seed,key,sounds,motion,masterVolume=50,mix){sounds.arrange(tracks);return validate({format:'notbad-halo-project',version:1,setup:tracks[0]?.setup||'ambient',bars,tempo,masterVolume,mix,seed,key,tracks:tracks.map((t,i)=>({...t,steps:motion.phraseSteps({...t,variation:seed},i,0,seed,sounds,bars).filter(e=>e.fires).map(e=>e.step)}))},sounds)}
  function wav(buffer){
   const length=buffer.length,channels=buffer.numberOfChannels,bytes=new ArrayBuffer(44+length*channels*2),v=new DataView(bytes);
   const text=(at,s)=>{for(let i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i))};

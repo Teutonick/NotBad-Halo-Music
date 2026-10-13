@@ -4,11 +4,12 @@
   const rate=44100,seconds=project.bars*4*60/project.tempo,length=Math.round(seconds*rate);
   const ctx=new OfflineAudioContext(2,length*2,rate);
   const samples=project.setup==='reactor'?await HaloSamples.prepare(ctx):{};
-  const tracks=project.tracks.map(t=>({...t,setup:project.setup,manualSteps:t.steps,manualBars:project.bars})),engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix);
+  const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,manualSteps:t.steps,manualBars:project.bars}));HaloSounds.arrange(tracks);
+  const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   for(let step=0;step<project.bars*32;step++){
    const local=step%(project.bars*16),time=step*60/project.tempo/4;
-   tracks.forEach((t,i)=>{if(!HaloSounds.shouldTrigger(t,i,local,project.seed))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(local/16),local%16,project.seed,HaloComposition.offsets[project.key]),time,.67+HaloSounds.random01(local*19+i*41+project.seed*11)*.15,HaloSounds.soundFor(t))});
+   tracks.forEach((t,i)=>{if(!HaloSounds.shouldTrigger(t,i,local,project.seed,project.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(local/16),local%16,project.seed,HaloComposition.offsets[project.key],project.bars),time,HaloSounds.velocityFor(t,i,local,project.seed,project.bars),HaloSounds.soundFor(t))});
   }
   const full=await ctx.startRendering();
   return {length,numberOfChannels:2,sampleRate:rate,getChannelData(ch){return full.getChannelData(ch).subarray(length,length*2)}};

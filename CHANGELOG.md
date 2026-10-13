@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-13 — Local phrases, ensembles and free instrument assignment
+
+- Added generator 2 with ten original motif families for each of 14 musical roles and ten ensembles per AMBIENT/REACTOR world. Generates coherent 4/8-bar note/rhythm development locally without a neural service, model download, new sound assets or dependencies.
+- Separated instrument bank from the eight stable orbit IDs. The editor now allows any same-world bank on any orbit and shows the current ensemble/motif. Compatibility matrices permit duplicates with shared activity/headroom; relocated bass/kick stay near center.
+- Persisted allowlisted instrument/generator identifiers across project files, autosaves and phrase-step saves. Old projects retain legacy music until explicit regeneration; live scheduling, preview and export share the new phrases. Added catalog, note-range, matrix, persistence, scheduling, export and RU/EN regressions. Listening/browser/device acceptance remains separate.
+
 ## 2026-10-13 — CC0 recordings and compact PROJECT menu
 
 - Replaced REACTOR procedural instruments with 130 local CC0 recordings covering its 32 presets; actual drums, electric guitar/bass, upright piano and sampled synth timbres. Preserved preset IDs and documented source authors, pinned downloads, rights evidence and checksums. Some presets share recordings with different processing.

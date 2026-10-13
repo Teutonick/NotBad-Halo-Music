@@ -25,10 +25,10 @@
   // Preview uses the same seeded trigger rules as audio, including skipped bars.
   // Muted voices show what WOULD play when enabled, without scheduling anything.
   function phraseSteps(track, index, start, seed, sounds,bars=4) {
-    const pattern = sounds.patternFor(track), enabled = { ...track, on: true };
+    const pattern = sounds.patternFor({...track,variation:seed},bars), enabled = { ...track, on: true };
     return Array.from({length: bars*16}, (_,step) => ({ step,
-      candidate: track.manualSteps?track.manualSteps.includes(step%(track.manualBars*16)):pattern.includes(step % 16),
-      fires: sounds.shouldTrigger(enabled,index,step,seed) }));
+      candidate: track.manualSteps?track.manualSteps.includes(step%(track.manualBars*16)):pattern.includes(track.generator===2?step:step % 16),
+      fires: sounds.shouldTrigger(enabled,index,step,seed,bars) }));
   }
   const api = { phaseAt, phraseAt, phraseSteps, PHRASE_BARS, PHRASE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

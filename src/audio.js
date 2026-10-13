@@ -26,23 +26,26 @@
     const sends = [], panners=[], voices = tracks.map(() => new Set());
     const trackGains = tracks.map((t,i) => {
       const gain = ctx.createGain(), send = ctx.createGain();
-      gain.gain.value = t.on ? t.level / 100 * 2 : 0;
+      gain.gain.value = t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0;
       send.gain.value = t.space / 100 * .8;
       if(ctx.createStereoPanner){const pan=ctx.createStereoPanner();gain.connect(pan);pan.connect(master);panners[i]=pan}else gain.connect(master);
       gain.connect(send); send.connect(reverb); sends.push(send);
       return gain;
     });
+    let sceneWidth=0;
+    function panFor(i){return ['kick','bass'].includes(tracks[i].arrangement?.role)?(i%2?.06:-.06):[-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]}
     function setMix(value,at=ctx.currentTime){
       const gains=['low','mid','high'].map(key=>Math.max(-9,Math.min(9,Number(value[key])||0)));
       eq.forEach((node,i)=>node.gain.setTargetAtTime(gains[i],at,.05));
       headroom.gain.setTargetAtTime(Math.pow(10,-Math.max(0,...gains)/20),at,.05);
-      const width=Math.max(0,Math.min(100,Number(value.width)||0))/100;
-      panners.forEach((node,i)=>node.pan.setTargetAtTime([-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]*width,at,.05));
+      sceneWidth=Math.max(0,Math.min(100,Number(value.width)||0))/100;
+      panners.forEach((node,i)=>node.pan.setTargetAtTime(panFor(i)*sceneWidth,at,.05));
     }
     setMix(mix);
     function update(index, at=ctx.currentTime) {
       const t = tracks[index], now = at;
-      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 2 : 0, now, .04);
+      panners[index]?.pan.setTargetAtTime(panFor(index)*sceneWidth,now,.05);
+      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0, now, .04);
       sends[index].gain.setTargetAtTime(t.space / 100 * .8, now, .06);
       for (const voice of voices[index]) {
         voice.filter.frequency.setTargetAtTime(cutoff(t, voice.patch), now, .06);

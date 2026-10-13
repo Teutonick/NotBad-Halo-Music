@@ -79,6 +79,42 @@ test('EQ and stereo width persist and survive switching musical worlds',()=>{
  $('eqLow').oninput({target:{value:'100'}});assert.equal($('eqLow').value,'5');
 });
 
+test('any same-world instrument can move to any orbit and mappings survive autosave and world switching',()=>{
+ for(const reactor of [false,true]){
+  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
+  if(reactor)$('setupSwitch').onclick();
+  $('tracks').children[0].oncontextmenu({preventDefault(){}});
+  assert.equal($('instrumentBank').children.length,8);
+  $('instrumentBank').onchange({target:{value:reactor?'VEIL':'ROOT'}});
+  assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
+  assert.equal($('typeLabel').textContent,reactor?'Palm mute':'Round bass');
+  assert.notEqual($('ensembleName').textContent,'Legacy phrase');
+  $('instrumentBank').onchange({target:{value:'unknown'}});assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
+  a.timeouts.filter(t=>t.ms===250).at(-1).fn();const saved=JSON.parse(data.get('notbad-halo-autosave-v1'));
+  assert.equal(saved.project.tracks[0].instrument,reactor?'VEIL':'ROOT');assert.equal(saved.project.tracks[0].generator,2);
+  assert.equal(new Set(saved.project.tracks.map(t=>t.name)).size,8);
+  const b=app(storage);b.document.getElementById('tracks').children[0].oncontextmenu({preventDefault(){}});
+  assert.equal(b.document.getElementById('instrumentBank').value,reactor?'VEIL':'ROOT');
+  $('setupSwitch').onclick();$('setupSwitch').onclick();assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
+ }
+});
+
+test('new phrases drive the live scheduler on eight bars and retain old projects until explicit regeneration',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id),S=a.sandbox.HaloSounds;
+ $('setupSwitch').onclick();$('bars').onclick();$('tracks').children[0].oncontextmenu({preventDefault(){}});$('instrumentBank').onchange({target:{value:'MOSS'}});
+ await $('play').onclick();
+ for(let now=.1;now<19.1;now+=.04){a.ctx.currentTime=now;a.timers[1]()}
+ const lead=a.calls.filter(c=>c[0]==='play'&&c[1]===0);assert.ok(lead.length>4);assert.ok(lead.every(c=>c[4]==='reactor-singing-lead'));
+ const steps=lead.map(c=>Math.round((c[3]-.08)/.15));assert.ok(steps.some(step=>step>=64&&step<128));
+ const legacy={name:'GLASS',sound:'reactor-palm-guitar',instrument:'VEIL',generator:1,setup:'reactor',on:true,level:60,density:100,character:50,duration:50,space:20};
+ const tracks=Object.keys(S.banks).map(name=>({...legacy,name,instrument:name,sound:S.reactorBanks[name].sounds[0].id}));
+ const project=a.sandbox.HaloProject.capture(tracks,4,100,4,0,S,a.sandbox.HaloMotion);
+ project.tracks.forEach(t=>{delete t.generator;delete t.instrument});
+ await $('projectFile').onchange({target:{files:[{size:5000,text:async()=>JSON.stringify(project)}]}});
+ $('tracks').children[0].oncontextmenu({preventDefault(){}});assert.equal($('ensembleName').textContent,'Legacy phrase');
+ $('regen').onclick();assert.notEqual($('ensembleName').textContent,'Legacy phrase');
+});
+
 test('GENERATE randomizes all slot sounds and tuning, preserves mute and master settings and restores results',()=>{
  for(const reactor of [false,true]){
   const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);

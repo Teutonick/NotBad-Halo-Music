@@ -1,6 +1,11 @@
 const test=require('node:test'),assert=require('node:assert/strict');
 const I=require('../src/i18n.js');
 
+test('all original ensemble/family names and orbit assignment labels localize in RU and EN',()=>{
+ const F=require('../src/phrases.js');
+ for(const text of ['INSTRUMENT ON THIS ORBIT','Instrument on this orbit','ENSEMBLE','Legacy phrase',...Object.values(F.profiles).flat().map(p=>p[1]),...Object.values(F.catalog).flat().map(m=>m.en)]){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
+});
+
 test('master EQ and stereo controls localize in both directions',()=>{
  for(const [en,ru] of [['LOW','НИЗ'],['MID','СЕРЕДИНА'],['HIGH','ВЕРХ'],['STAGE','СЦЕНА']]){assert.equal(I.translate(en,'ru'),ru);assert.equal(I.translate(ru,'en'),en)}
  for(const text of ['Master equalizer','Equalizer settings preview','LOW · 120 Hz','MID · 1 kHz','HIGH · 6 kHz','STEREO WIDTH','Low frequencies','Mid frequencies','High frequencies','Stereo width','Invalid mix settings']){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}

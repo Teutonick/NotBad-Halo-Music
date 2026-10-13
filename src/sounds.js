@@ -1,6 +1,7 @@
 /* AMBIENT: original synthesis. REACTOR: local CC0 samples, assets/reactor/manifest.json. */
 (function (root) {
   'use strict';
+  const phrases=typeof module!=='undefined'&&module.exports?require('./phrases.js'):root.HaloPhrases;
   const patch = (id, name, engine, tone, decay, extra = {}) =>
     Object.freeze({ id, name, engine, tone, decay, ...extra });
   const banks = {
@@ -107,12 +108,15 @@
   for(const bank of Object.values(reactorBanks)){for(const s of bank.sounds)Object.freeze(s.pattern);Object.freeze(bank.sounds);Object.freeze(bank)}
   Object.freeze(reactorBanks);
   function banksFor(setup){return setup==='reactor'?reactorBanks:banks}
-  function bankFor(track){return banksFor(track.setup)[track.name]}
+  function bankFor(track){return banksFor(track.setup)[track.instrument||track.name]}
   function soundFor(track) {
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function notesFor(track, index, bar, local, seed, transpose=0) {
+  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4){
+    return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose);
+  }
+  function legacyNotesFor(track, index, bar, local, seed, transpose=0) {
     if(track.setup==='reactor'){
       const s=soundFor(track),root=[38,38,34,36][((bar%4)+4)%4]+transpose;
       if(['kick','snare','metal','tom'].includes(s.engine))return [];
@@ -134,19 +138,31 @@
     const pick = ((Math.floor(local * 1.73 + bar * .87 + index * 1.69 + seed * 1.11) % 4) + 4) % 4;
     return [chord[pick] + (track.name === 'MOSS' ? 0 : 12)];
   }
-  function shouldTrigger(track, index, step, seed) {
+  const densityCache=new WeakMap();
+  function generatedSteps(track,index,seed,bars){
+    const p=phrases.plan(track,soundFor(track),seed,bars),key=index+':'+track.density;
+    let cache=densityCache.get(p);if(!cache){cache=new Map();densityCache.set(p,cache)}
+    if(cache.has(key))return cache.get(key);
+    const steps=track.density>0?p.steps.filter(step=>random01(index*97+step*31+seed*191)<=track.density/100):[];
+    // Low density leaves space but never silently disables an enabled instrument.
+    if(track.density>0&&!steps.length&&p.steps.length){const loudest=Math.max(...p.accents);steps.push(p.steps[p.accents.indexOf(loudest)])}
+    if(cache.size>=32)cache.delete(cache.keys().next().value);cache.set(key,steps);return steps;
+  }
+  function shouldTrigger(track, index, step, seed,bars=track.phraseBars||4) {
     if(track.manualSteps)return track.on&&track.manualSteps.includes(step%(track.manualBars*16));
+    if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars).includes(step%(bars*16));
     const bar = Math.floor(step / 16);
     if(track.setup==='reactor'){
       return track.on&&track.density>0&&patternFor({...track,variation:seed}).includes(step%16)&&
         random01(index*97+step*31+seed*191)<=track.density/100;
     }
     return track.on && track.density > 0 && patternFor(track).includes(step % 16) &&
-      !((track.name === 'VEIL' || track.name === 'AURA') && bar % 2 === 1) &&
+      !(((track.instrument||track.name) === 'VEIL' || (track.instrument||track.name) === 'AURA') && bar % 2 === 1) &&
       random01(index * 97 + step * 31 + seed * 191) <= track.density / 100;
   }
   const rhythmCache=new Map();
-  function patternFor(track) {
+  function patternFor(track,bars=track.phraseBars||4) {
+    if(track.generator===2)return phrases.plan(track,soundFor(track),track.variation||1,bars).steps;
     const base=soundFor(track).pattern||track.pattern;
     if(track.setup==='reactor'){
       const variation=track.variation||1,s=soundFor(track);
@@ -172,14 +188,16 @@
   }
   function randomizeTrack(track,index,seed){
     const sounds=bankFor(track).sounds.filter(sound=>sound.id!==soundFor(track).id);
-    const result={sound:sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)].id,variation:seed};
+    const result={sound:sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)].id,variation:seed,generator:2};
     ['character','duration','density','level','space'].forEach((key,i)=>{
       const values=Array.from({length:81},(_,n)=>n+20).filter(n=>n!==track[key]);
       result[key]=values[Math.floor(random01(seed*3571+index*193+i*71)*values.length)];
     });
     return result;
   }
-  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack };
+  function arrange(tracks){const assignments=phrases.assignments(tracks,{soundFor});tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator===2?1/Math.sqrt(assignments[i].count):1});return assignments}
+  function velocityFor(track,index,step,seed,bars=4){return track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
+  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,arrange,velocityFor,phrases };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

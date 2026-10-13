@@ -127,6 +127,18 @@ test('master EQ ramps safely with boost headroom and independent bounded stereo 
  const fallback=context();delete fallback.createStereoPanner;assert.doesNotThrow(()=>Audio.create(fallback,Object.keys(banks).map(track)).setMix({width:100}));
 });
 
+test('relocated bass/kick stay near stereo center and layered roles receive ramped headroom',()=>{
+ const S=require('../src/sounds.js'),tracks=Object.keys(banks).map(name=>({...track(name),setup:'reactor',instrument:name,generator:2,sound:S.reactorBanks[name].sounds[0].id}));
+ tracks[7].instrument='GLASS';tracks[7].sound='reactor-dry-kick';S.arrange(tracks);
+ const ctx=context(),audio=Audio.create(ctx,tracks,50,{}, {low:0,mid:0,high:0,width:100});
+ assert.ok(Math.abs(audio.panners[7].pan.calls.at(-1)[0])<=.06);
+ assert.ok(Math.abs(audio.panners[4].pan.calls.at(-1)[0])<=.06);
+ assert.equal(audio.trackGains[7].gain.value,tracks[7].level/100*2/Math.sqrt(2));
+ tracks[7].instrument='MOSS';tracks[7].sound='reactor-singing-lead';S.arrange(tracks);audio.update(7,2);
+ assert.equal(audio.panners[7].pan.calls.at(-1)[0],.7);
+ assert.equal(audio.trackGains[7].gain.calls.at(-1)[0],tracks[7].level/100*2/Math.sqrt(2));
+});
+
 test('reactor drum transients use a fast attack and stronger event gain than guitar',()=>{
  const S=require('../src/sounds.js');
  for(const [name,expected] of [['GLASS',.14],['TIDAL',.11],['EMBER',.11],['VEIL',.065]]){

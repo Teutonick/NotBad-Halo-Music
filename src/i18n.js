@@ -1,6 +1,10 @@
 (function(root){
  'use strict';
  const pairs=[
+ ['INSTRUMENT ON THIS ORBIT','ИНСТРУМЕНТ НА ЭТОЙ ОРБИТЕ'],['Instrument on this orbit','Инструмент на этой орбите'],['ENSEMBLE','АНСАМБЛЬ'],['Legacy phrase','Прежняя фраза'],
+ ['Still water','Тихая вода'],['Open sky','Открытое небо'],['Slow tide','Медленный прилив'],['Glass garden','Стеклянный сад'],['Warm current','Тёплое течение'],['Woodland','Лес'],['Night air','Ночной воздух'],['Distant lights','Далёкие огни'],['Soft pulse','Мягкий пульс'],['Floating room','Парящая комната'],
+ ['Arena pulse','Пульс арены'],['Half time','Половинный ритм'],['Driving eighths','Напористые восьмые'],['Piano engine','Фортепианный двигатель'],['Broken groove','Ломаный грув'],['Octave motor','Октавный мотор'],['Rising room','Нарастание'],['Sparse heavy','Тяжёлые паузы'],['Melodic drive','Мелодичный драйв'],['Final answer','Финальный ответ'],
+ ['Ground','Опора'],['Answer','Ответ'],['Broken','Ломаная'],['Climb','Подъём'],['Return','Возврат'],['Pendulum','Маятник'],['Steps','Ступени'],['Echo','Эхо'],['Space','Пространство'],['Turn','Поворот'],
  ['LOW','НИЗ'],['MID','СЕРЕДИНА'],['HIGH','ВЕРХ'],['STAGE','СЦЕНА'],
  ['Randomize pattern, sounds and instrument settings','Создать новый рисунок, выбрать звуки и настройки инструментов'],
  ['New pattern and sounds generated; loops now repeat','Новый рисунок и звуки созданы; круги повторяются'],

@@ -27,7 +27,7 @@
       get autoEvolve(){return autoEvolve},get autoKey(){return autoKey},
       resetBoundary(){epoch=-1;snapshots.clear()},get seed(){return seed},get key(){return key}};
   }
-  function encode(tracks,bars,seed=1,key=0){return JSON.stringify({version:1,bars,seed,key,tracks:tracks.map(t=>({name:t.name,sound:t.sound,steps:[...(t.manualSteps||[])],bars:t.manualBars||bars}))});}
+  function encode(tracks,bars,seed=1,key=0){return JSON.stringify({version:1,bars,seed,key,tracks:tracks.map(t=>({name:t.name,instrument:t.instrument||t.name,generator:t.generator||1,sound:t.sound,steps:[...(t.manualSteps||[])],bars:t.manualBars||bars}))});}
   function decode(text,names){
     if(typeof text!=='string'||text.length>65536)throw Error('Pattern exceeds size limit');const data=JSON.parse(text);
     if(data.version!==1||![4,8].includes(data.bars)||!Array.isArray(data.tracks)||data.tracks.length!==8)throw Error('Invalid pattern format');
@@ -35,6 +35,7 @@
     if(data.key!==undefined&&(!Number.isInteger(data.key)||data.key<0||data.key>=12))throw Error('Invalid key');
     const seen=new Set();
     for(const t of data.tracks){
+      if(t.instrument!==undefined&&!names.includes(t.instrument)||t.generator!==undefined&&![1,2].includes(t.generator))throw Error('Invalid track pattern');
       if(!names.includes(t.name)||seen.has(t.name)||![4,8].includes(t.bars)||!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=t.bars*16)||new Set(t.steps).size!==t.steps.length)throw Error('Invalid track pattern');
       seen.add(t.name);
     }
