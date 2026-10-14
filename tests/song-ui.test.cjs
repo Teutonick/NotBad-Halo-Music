@@ -12,7 +12,7 @@ function app(){
  sandbox.window=sandbox;sandbox.addEventListener=(k,f)=>events[k]=f;vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/song-ui.js','utf8'),sandbox);const ui=sandbox.HaloSongUI.install(env);
  const dock=get('bottom').children[0],blocks=dock.children[1].children[0];
  const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
- return {ui,env,blocks,target:i=>dropTarget=blocks.children[i],click:async(label,i)=>{const parent=i===undefined?get('bottom'):blocks.children[i],b=descendants(parent).find(x=>x['aria-label']?.startsWith(label));assert.ok(b,'Missing action '+label);await b.onclick()},select:async i=>blocks.children[i].onclick(),move:async(i,dir)=>blocks.children[i].children[0].onkeydown({altKey:true,key:dir,preventDefault(){}}),instruments:async()=>dock.children[0].children[0].onclick(),composition:async()=>dock.children[0].children[1].onclick(),saved:()=>JSON.parse(storage.get('halo-composition-v1')),current:()=>current,events,messages,name:(i,value)=>{const input=blocks.children[i].children.find(c=>c.className==='song-name-input');input.value=value;input.onkeydown({key:'Enter',stopPropagation(){},preventDefault(){}})},reset:()=>reset=true};
+ return {ui,env,blocks,target:i=>dropTarget=blocks.children[i],click:async(label,i)=>{const parent=i===undefined?get('bottom'):blocks.children[i],b=descendants(parent).find(x=>x['aria-label']===label)||descendants(parent).find(x=>x['aria-label']?.startsWith(label));assert.ok(b,'Missing action '+label);await b.onclick()},select:async i=>blocks.children[i].onclick(),move:async(i,dir)=>blocks.children[i].children[0].onkeydown({altKey:true,key:dir,preventDefault(){}}),instruments:async()=>dock.children[0].children[0].onclick(),composition:async()=>dock.children[0].children[1].onclick(),saved:()=>JSON.parse(storage.get('halo-composition-v1')),current:()=>current,events,messages,name:(i,value)=>{const input=blocks.children[i].children.find(c=>c.className==='song-name-input');input.value=value;input.onkeydown({key:'Enter',stopPropagation(){},preventDefault(){}})},reset:()=>reset=true};
 }
 test('UI assembly keeps intro sparse; repeat and variation preserve reference semantics',async()=>{
  const a=app();await a.click('Build composition');assert.ok(a.current().tracks.filter(t=>t.on).length<8);assert.equal(a.saved().song.sections.length,8);
@@ -76,9 +76,49 @@ test('panel switches preserve playback and phrase phase without loading or finis
  await a.instruments();assert.equal(a.saved().mode,false);assert.equal(l.calls.loads,0);assert.equal(a.ui.tick(1,81,l.audio),false);assert.equal(a.ui.phraseStep(81)%64,17);assert.equal(a.ui.phraseStep(145),a.ui.phraseStep(81));
  a.current().tracks[0].level=37;await a.composition();a.ui.tick(2,82,l.audio);assert.equal(a.saved().mode,true);assert.equal(l.calls.loads,0);assert.equal(l.calls.finishes,0);assert.equal(l.states.at(-1).tracks[0].level,37);assert.equal(a.saved().index,1);
 });
-test('whole composition repeat wraps on audio clock and persists in portable JSON',async()=>{
+ test('whole composition repeat wraps on audio clock and persists in portable JSON',async()=>{
  const a=app();await a.click('Build composition');await a.composition();await a.click('Repeat entire composition');const l=live(a),total=Song.bars(a.saved().song)*16;
  a.ui.tick(1,total-1,l.audio);a.ui.tick(2,total,l.audio);assert.equal(l.calls.finishes,0);assert.equal(a.saved().index,0);assert.equal(a.ui.portable().repeat,true);assert.equal(Song.parse(JSON.stringify(a.ui.portable()),P,S).repeat,true);
+});
+
+test('repeat button toggles phrase repeat in instruments mode and composition repeat in composition mode with independent states',async()=>{
+ const a=app();
+ assert.equal(a.ui.isPhraseRepeat(),true);
+ await a.click('Build composition');
+ assert.equal(a.ui.isCompositionRepeat(),false);
+
+ await a.click('Repeat phrase');
+ assert.equal(a.ui.isPhraseRepeat(),false);
+ assert.equal(a.ui.isCompositionRepeat(),false);
+
+ const l=live(a);
+ a.ui.beforePlay();
+ for(let s=0;s<64;s++){
+  assert.equal(a.ui.tick(0.1*s,s,l.audio),false);
+ }
+ assert.equal(l.calls.finishes,0);
+ assert.equal(a.ui.tick(6.4,64,l.audio),true);
+ assert.equal(l.calls.finishes,1);
+
+ await a.click('Repeat phrase');
+ assert.equal(a.ui.isPhraseRepeat(),true);
+ a.ui.beforePlay();
+ for(let s=0;s<65;s++){
+  assert.equal(a.ui.tick(0.1*s,s,l.audio),false);
+ }
+ assert.equal(l.calls.finishes,1);
+
+ await a.composition();
+ assert.equal(a.ui.isCompositionRepeat(),false);
+ assert.equal(a.ui.isPhraseRepeat(),true);
+
+ await a.click('Repeat entire composition');
+ assert.equal(a.ui.isCompositionRepeat(),true);
+ assert.equal(a.ui.isPhraseRepeat(),true);
+
+ await a.instruments();
+ assert.equal(a.ui.isPhraseRepeat(),true);
+ assert.equal(a.ui.isCompositionRepeat(),true);
 });
 
 

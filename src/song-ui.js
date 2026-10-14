@@ -3,6 +3,8 @@
  root.HaloSongUI={install(env){
   const S=root.HaloSong,$=id=>document.getElementById(id),key='halo-composition-v1';
   let song=null,index=0,mode=false,preview=false,lastSection=-1,timer=null,ended=false,queued=null,stepOffset=0,lastScheduledStep=-1,phraseOffset=0,resetGain=false;
+  let phraseRepeat=typeof env.phraseRepeat==='boolean'?env.phraseRepeat:(typeof env.phraseRepeat==='function'?env.phraseRepeat():true),phrasePlaySteps=0;
+  try{const pr=localStorage.getItem('halo-phrase-repeat');if(pr!==null)phraseRepeat=pr==='true';}catch{}
   const tr=(ru,en)=>env.language()==='ru'?ru:en;
   const barLabel=n=>n+(env.language()==='ru'?' '+(n%100>=11&&n%100<=14?'тактов':n%10===1?'такт':n%10>=2&&n%10<=4?'такта':'тактов'):' bars');
   const names={intro:['Вступление','Intro'],verse:['Куплет','Verse'],verse2:['Куплет 2','Verse 2'],chorus:['Припев','Chorus'],bridge:['Бридж','Bridge'],outro:['Финал','Outro'],phrase:['Фраза','Phrase']};
@@ -14,6 +16,44 @@
   const blocks=document.createElement('div');blocks.className='song-blocks';panel.append(blocks);
   const status=document.createElement('small');status.className='song-status';panel.append(status);
   const phraseCaption=element('span','current-phrase');document.querySelector('.transport-text')?.append(phraseCaption);
+  let repeatButton=$('transportRepeat');
+  if(!repeatButton){
+   repeatButton=element('button','transport-repeat');
+   bottom.append(repeatButton);
+  }else if(!repeatButton.parentNode&&!repeatButton.parent){
+   bottom.append(repeatButton);
+  }
+  function updateRepeatButton(){
+   if(!repeatButton)return;
+   const isComp=mode;
+   const active=isComp?!!(song&&song.repeat):phraseRepeat;
+   const titleText=isComp
+    ?tr('Повтор всей композиции','Repeat entire composition')+' · '+(active?tr('ВКЛ','ON'):tr('ВЫКЛ','OFF'))
+    :tr('Повтор фразы','Repeat phrase')+' · '+(active?tr('ВКЛ','ON'):tr('ВЫКЛ','OFF'));
+   const labelText=isComp
+    ?tr('Повтор всей композиции','Repeat entire composition')
+    :tr('Повтор фразы','Repeat phrase');
+   repeatButton.setAttribute('aria-pressed',String(active));
+   repeatButton.setAttribute('aria-label',labelText);
+   repeatButton.title=titleText;
+   repeatButton.classList?.toggle('active',active);
+  }
+  repeatButton.onclick=e=>{
+   e?.stopPropagation();
+   if(mode){
+    if(song){
+     song.repeat=!song.repeat;
+     persist();
+     render();
+    }
+   }else{
+    phraseRepeat=!phraseRepeat;
+    phrasePlaySteps=0;
+    try{localStorage.setItem('halo-phrase-repeat',String(phraseRepeat));}catch{}
+    env.onPhraseRepeatChange?.(phraseRepeat);
+    render();
+   }
+  };
   let drag=null;
   function labelFor(i){const section=song.sections[i],p=song.phrases.find(p=>p.id===section.phrase);return p.label||(section.name==='phrase'?tr('Фраза','Phrase')+p.id:names[section.name][env.language()==='ru'?0:1])}
   function showPhrase(){phraseCaption.textContent=tr('Фраза: ','Phrase: ')+(song?labelFor(index):tr('Фраза','Phrase')+'1');phraseCaption.title=tr('Редактируемая фраза','Phrase being edited')}
@@ -78,7 +118,7 @@
    tracks.hidden=mode;panel.hidden=!mode;bottom.classList.toggle('composition-view',mode);document.body?.classList.toggle('song-view',mode);
    for(const [b,label,active] of [[instrumentsButton,tr('Инструменты','Instruments'),!mode],[compositionButton,tr('Композиция','Composition'),mode]]){b.setAttribute('aria-label',label);b.title=label;b.setAttribute('aria-pressed',String(active))}
    instrumentsButton.textContent='‹ ≋';compositionButton.textContent='▤ ›';
-   blocks.replaceChildren();panel.querySelector?.('.song-loop')?.remove();
+   blocks.replaceChildren();panel.querySelector?.('.song-loop')?.remove();updateRepeatButton();
    if(song){song.sections.forEach((section,i)=>{
     const p=S.phrase(song,i),label=labelFor(i),card=element('article','song-block');card.dataset.section=String(i);card.style.setProperty('--section-tone',({intro:'#80baca',verse:'#b29dcf',chorus:'#dcac78',bridge:'#83b9a9',outro:'#80baca',phrase:'#abc8d9'})[section.name]);card.setAttribute('aria-label',tr('Выбрать фразу','Select phrase')+' · '+label);card.tabIndex=0;card.onkeydown=e=>{if(e.target===card&&e.key==='Enter'){e.preventDefault();choose(i).catch(fail)}};card.setAttribute('data-selected',String(i===index));card.setAttribute('data-queued',String(i===queued?.index));card.setAttribute('aria-current',String(i===lastSection));if(i===queued?.index)card.title=tr('Следующая фраза после текущей','Next phrase after the current one');
     const active=p.tracks.reduce((n,t)=>n+(t.on?t.steps.length/(p.bars*16):0),0);card.style.setProperty('--full',Math.round(active/8*100)+'%');
@@ -104,7 +144,6 @@
    const addCard=element('div','song-add-card'+(!song?' song-empty':''));blocks.append(addCard);
    action(addCard,'song-add','+',tr('Добавить текущую фразу','Add current phrase'),add);
    const buildButton=action(addCard,'song-build'+(song?' song-rebuild':''),song?'✧':tr('Собрать композицию','Build composition'),tr('Собрать композицию из текущей фразы','Build composition from current phrase'),build);
-   if(song){const repeat=action(panel,'song-loop','↻ REPEAT',tr('Повтор всей композиции','Repeat entire composition'),()=>{song.repeat=!song.repeat;persist();render()});repeat.setAttribute('aria-pressed',String(song.repeat===true));}
    if(queued)status.textContent+=' · '+tr('Далее: ','Next: ')+labelFor(queued.index);
    const hint=document.querySelector('.bottom .hint');if(hint)hint.hidden=mode;
   }
@@ -123,8 +162,22 @@
   async function checkSharedSong(){const hash=location.hash;try{const shared=root.HaloProject.shareHash(hash);if(!shared||shared.kind!=='song')return;const value=await root.HaloProject.decodeShare(shared.token,root.HaloSounds);if(location.hash!==hash)return;const next=S.validate(value,root.HaloProject,root.HaloSounds);await env.load(snapshotPhrase(0,next));song=next;index=0;mode=true;preview=false;window.history?.replaceState(null,'',location.href.split('#')[0]);render();persist()}catch(e){env.toast(root.HaloI18n?.translate(e.message,env.language())||e.message)}}
   window.addEventListener('hashchange',checkSharedSong);checkSharedSong();
   render();
-  return {phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),length=p.bars*16;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,tick(time,step,audio){
-   if(!mode||!song){lastScheduledStep=step;if(resetGain){audio.master?.gain.setTargetAtTime(settings().masterVolume/100,time,.05);resetGain=false;}return false;}
+  return {phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),length=p.bars*16;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
+   if(!mode||!song){
+    lastScheduledStep=step;
+    if(resetGain){audio.master?.gain.setTargetAtTime(settings().masterVolume/100,time,.05);resetGain=false;}
+    if(!phraseRepeat&&(env.isPlaying?env.isPlaying():true)){
+     const bars=song?S.phrase(song,index).bars:(env.phraseBars?.()||4);
+     const length=bars*16;
+     const local=((step+phraseOffset)%length+length)%length;
+     if(phrasePlaySteps>0&&(local===0||phrasePlaySteps>=length)){
+      if(!ended){ended=true;env.finish(time);}
+      return true;
+     }
+     phrasePlaySteps++;
+    }
+    return false;
+   }
    if(!preview){commit();preview=true;lastSection=-1}
    lastScheduledStep=step;
    if(queued&&step>=queued.step){stepOffset=sectionStart(queued.index)-queued.step;index=queued.index;queued=null;lastSection=-1;render();persist()}

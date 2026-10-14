@@ -1,6 +1,16 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-### Latest implemented update — 2026-10-14: dedicated phrase rename icon, unified confirm dialog, and strict Spacebar play/pause
+### Latest implemented update — 2026-10-14: transport repeat button and dual-mode phrase/composition looping
+
+- **Relocated repeat button:** moved from the bottom of the screen into the transport control bar right next to the BPM input (`#transportRepeat`) with a clean loop arrow SVG glyph and active state glow styling.
+- **Dual-mode loop control:**
+  - **Instruments panel:** toggles phrase looping (`phraseRepeat`). Enabled by default (`true`). When disabled, playback plays through the phrase cycle (e.g. 64 or 128 steps) and stops gracefully at the phrase boundary on the audio clock via `env.finish(time)`.
+  - **Composition panel:** toggles whole composition repeat (`song.repeat`). Disabled by default (`false`). When enabled, wraps back to section 0 upon reaching the end of the composition.
+- **Separate state persistence:** phrase repeat is stored independently in `localStorage['halo-phrase-repeat']` and autosave preference snapshot (`clean.ui.phraseRepeat`), while composition repeat is stored in `song.repeat` within `halo-composition-v1` and portable JSON. Toggling one mode never alters the state of the other.
+- **Bilingual RU/EN accessibility:** active aria-label, title tooltips (`Repeat phrase · ON/OFF` / `Повтор фразы · ВКЛ/ВЫКЛ`), and `.active` visual classes adapt dynamically when switching between Instruments and Composition tabs.
+- **Verification:** 141 passing Node tests across the test suite, including new unit tests for independent state toggling in Instruments and Composition modes, boundary audio-clock stopping when phrase repeat is disabled, and markup/style verification. GitHub Pages static zero-build compatibility preserved.
+
+### Previous implemented update — 2026-10-14: dedicated phrase rename icon, unified confirm dialog, and strict Spacebar play/pause
 
 - **Phrase title edit click area:** clicking anywhere on the phrase card or phrase title now selects/cues the phrase during playback or in pause. Inline renaming is exclusively initiated by a dedicated pencil icon button (`✎` / `Rename phrase`), eliminating accidental inline rename triggers when clicking cards to switch or drag phrases.
 - **Unified custom confirm dialog (`#confirmModal`):** replaced native browser `window.confirm` for both phrase deletion from composition and workspace reset with a custom translucent modal dialog matching the app's visual style. Features bilingual RU/EN titles and descriptions, distinct danger button styling for destructive actions, keyboard focus trapping, Escape key cancellation, and backdrop click dismiss.

@@ -6,6 +6,7 @@
   for(const field of ['scene','motionMode']){const n=value.ui?.[field];if(!Number.isInteger(n)||n<0||n>2)throw Error('Invalid view');clean.ui[field]=n}
   for(const field of ['richEffects','autoEvolve','autoKey']){if(typeof value.ui?.[field]!=='boolean')throw Error('Invalid preference');clean.ui[field]=value.ui[field]}
   clean.ui.visualOnly=value.ui.visualOnly===true;
+  clean.ui.phraseRepeat=value.ui?.phraseRepeat!==false;
   clean.ui.language=['ru','en'].includes(value.ui.language)?value.ui.language:null;clean.ui.promoIndex=Number.isInteger(value.ui.promoIndex)&&value.ui.promoIndex>=0&&value.ui.promoIndex<4?value.ui.promoIndex:0;
   clean.ui.windowOrder=Array.isArray(value.ui.windowOrder)?value.ui.windowOrder.filter(id=>['editor','patternEditor','storageInfo','phraseGuide'].includes(id)).slice(0,4):[];
   if(!Array.isArray(value.manual)||value.manual.length!==8)throw Error('Invalid manual patterns');

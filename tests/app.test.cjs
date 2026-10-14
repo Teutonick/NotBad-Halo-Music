@@ -467,3 +467,11 @@ test('custom confirm dialog displays styled modal and resolves user choice',asyn
  assert.equal(modal.hidden,true);
 });
 
+test('transport repeat button is present in markup next to BPM with loop icon and active default',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ assert.match(html,/<label[^>]*for="bpmInput"[^>]*>[\s\S]*?<\/label>\s*<button id="transportRepeat"/);
+ assert.match(html,/class="transport-repeat active"/);
+ assert.match(html,/aria-label="Repeat phrase/);
+ assert.match(html,/repeat-svg/);
+});
+

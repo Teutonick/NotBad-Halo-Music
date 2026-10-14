@@ -4,7 +4,7 @@ Click the pencil icon (✎) on a phrase to rename it in place (Enter saves, Esca
 
 Shared URL fragments and imported JSON are bounded and allowlisted. Tokens accept only base64url, one recognized fragment parameter, and at most 24,000 characters; decompression stops above 512 KiB. Numeric controls reject nonfinite/out-of-range/off-grid input. Query parameters do not configure music. These checks reduce injection/resource abuse; they are not a security certification.
 
-First use opens PHRASE view; validated saved views still restore. Instruments loops and edits the current phrase; switching to Composition continues the ordered sections without stopping playback. Optional REPEAT loops the entire composition and persists locally and in JSON. / При первом запуске открыт экран ФРАЗА; сохранённый вид восстанавливается. Инструменты зацикливают текущую фразу, Композиция продолжает секции без остановки. REPEAT повторяет всю композицию.
+First use opens PHRASE view; validated saved views still restore. Instruments loops and edits the current phrase; switching to Composition continues the ordered sections without stopping playback. The transport repeat button next to BPM features dual-mode looping with independent states: loops phrase playback in Instruments (default: ON) or loops the whole composition in Composition (default: OFF). / При первом запуске открыт экран ФРАЗА; сохранённый вид восстанавливается. Инструменты воспроизводят текущую фразу, Композиция продолжает секции без остановки. Кнопка повтора на панели рядом с BPM поддерживает два режима с независимым сохранением состояния: зацикливает фразу на панели Инструментов (по умолчанию: ВКЛ) или всю композицию на панели Композиции (по умолчанию: ВЫКЛ).
 
 **Compose worlds, not timelines.**
 

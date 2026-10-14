@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-14 — Relocate REPEAT to transport panel with dual-mode phrase/composition looping
+
+- Moved the REPEAT button from the bottom of the screen to the transport panel directly adjacent to BPM as a stylish icon button with an intuitive loop symbol.
+- Implemented independent dual-mode repeat behavior:
+  - In Instruments mode (`mode === false`): controls phrase repeat (`phraseRepeat`), looping the current phrase (default: ON / `true`). When disabled, playback plays through the phrase cycle and gracefully finishes at the phrase boundary on the audio clock.
+  - In Composition mode (`mode === true`): controls full composition repeat (`song.repeat`), looping through all sections continuously (default: OFF / `false`).
+- Maintained completely independent persistence: phrase repeat persists in `halo-phrase-repeat` and autosave UI preferences, while composition repeat persists in `halo-composition-v1` and portable composition JSON.
+- Added full bilingual RU/EN labels and tooltips (`Повтор фразы` / `Repeat phrase`, `Повтор всей композиции` / `Repeat entire composition`, with `· ВКЛ/ВЫКЛ` / `· ON/OFF` status).
+
 ## 2026-10-14 — Dedicated phrase rename icon, unified confirm dialog, and strict Spacebar play/pause
 
 - Reduced the click area for renaming phrases: clicking phrase cards or titles now reliably selects/cues phrases without accidental inline rename triggers; renaming is activated via a dedicated pencil icon (✎).
