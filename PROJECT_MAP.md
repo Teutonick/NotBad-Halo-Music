@@ -1,5 +1,11 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+### Latest documentation update — 2026-10-14: bilingual product showcase
+
+- README is now a concise English product showcase with a matching `README.ru.md`, prominent live-demo link, six implemented differentiators and focused run/privacy guidance. Detailed engineering material remains in the existing documentation package.
+- Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
+- Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
+
 ### Latest implemented update — 2026-10-14: cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
 
 - **Cycle and Step Randomization in GENERATE ("СОЗДАТЬ"):**

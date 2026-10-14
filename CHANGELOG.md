@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-14 — Bilingual product README and live orbital preview
+
+- Replaced the long README with a focused English showcase and matching Russian edition, highlighting existing musical roles, sonic worlds, local generation, arrangement and export.
+- Added a real-app looping orbital GIF and refreshed the desktop screenshot. No engine, controls, dependencies or project format changes.
+
+
 ## 2026-10-14 — Cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
 
 - **Cycle and Step Randomization in GENERATE ("СОЗДАТЬ"):**
