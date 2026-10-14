@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-14 — Compact BPM input, cleaner transport phrase caption, and muted brand prefix
+
+- Compacted the BPM input box by approximately 2x (to 40px width with centered text) so that 3 digits fit neatly and compactly without excessive empty space.
+- Removed the redundant "Фраза: " / "Phrase: " label prefix from the transport caption under the Play button, displaying simply the clean phrase name (e.g. "Фраза1", "Куплет", or custom user name).
+- Styled the "NotBad" prefix in the topbar brand header with `var(--muted)` to match the color and tone of the subtitle ("Конструктор музыки" / "MUSIC CONSTRUCTOR") below it, accentuating "HALO" as the primary title.
+
 ## 2026-10-14 — Musical loop generation: protected anchors, role corridors, register tiering and organic surprise
 
 - **Protected anchors & accent-weighted density:**

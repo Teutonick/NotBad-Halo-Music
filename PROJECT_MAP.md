@@ -1,6 +1,13 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-### Latest implemented update — 2026-10-14: musical loop generation, protected anchors, role corridors, register tiering and organic surprise
+### Latest implemented update — 2026-10-14: compact BPM input, cleaner transport phrase caption, and muted brand prefix
+
+- **Compact BPM input:** resized the BPM input field by ~2x (width 40px, centered text, snug padding) so that 3 digits (e.g. 100, 200, 72) fit cleanly and comfortably without excessive empty space across both desktop and mobile viewports.
+- **Cleaner transport phrase caption:** removed the redundant "Фраза: " / "Phrase: " prefix under the Play button, cleanly showing the phrase label directly (e.g. "Фраза1", "Куплет", or custom user name).
+- **Muted brand prefix styling:** styled the "NotBad" prefix in the topbar brand link with `var(--muted)` (`#8c9bb8`), visually matching the subtitle ("Конструктор музыки" / "MUSIC CONSTRUCTOR") below it and giving visual prominence to "HALO".
+- **Verification:** 141 passing Node tests across the test suite, preserving all layout, responsive styling, and zero-build static GitHub Pages deployment.
+
+### Previous implemented update — 2026-10-14: musical loop generation, protected anchors, role corridors, register tiering and organic surprise
 
 - **Protected anchors & accent-weighted density:**
   - Preserved downbeat step 0 for foundation rhythm roles (`pulse`, `bass`, `kick`) whenever `density > 0`, eliminating hollow, broken bar openings.

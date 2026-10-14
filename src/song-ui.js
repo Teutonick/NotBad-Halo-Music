@@ -56,7 +56,7 @@
   };
   let drag=null;
   function labelFor(i){const section=song.sections[i],p=song.phrases.find(p=>p.id===section.phrase);return p.label||(section.name==='phrase'?tr('Фраза','Phrase')+p.id:names[section.name][env.language()==='ru'?0:1])}
-  function showPhrase(){phraseCaption.textContent=tr('Фраза: ','Phrase: ')+(song?labelFor(index):tr('Фраза','Phrase')+'1');phraseCaption.title=tr('Редактируемая фраза','Phrase being edited')}
+  function showPhrase(){phraseCaption.textContent=song?labelFor(index):(tr('Фраза','Phrase')+'1');phraseCaption.title=tr('Редактируемая фраза','Phrase being edited')}
   function rename(i){
    const id=song.sections[i].phrase,record=song.phrases.find(p=>p.id===id),card=blocks.children[i];if(!card||card.querySelector?.('.song-name-input'))return;
    const head=card.querySelector?.('.song-block-head')||Array.from(card.children).find(c=>c.className==='song-open');
