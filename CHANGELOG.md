@@ -1,6 +1,24 @@
 # Changelog
 
-## 2026-10-14 — Bilingual product README and live orbital preview
+## 2026-10-14 — Third orbit visualization mode (HYPER) with 8 distinct dynamic comet signatures
+
+- **Third Orbit Visualization Mode (HYPER / "ГИПЕР"):**
+  - Added a third visual comet trail mode cycling alongside `CLASSIC` and `COSMIC`: `CLASSIC` → `COSMIC` → `HYPER` → `CLASSIC`.
+  - Created 8 radically distinct, bright, and hyper-dynamic procedural special effect signatures for each of the 8 track slots in `src/effects.js`:
+    - **Track 0 (GLASS / Pulse):** *Plasma Lightning Bolt* — high-frequency jagged electric discharge arcs, Tesla coil branches, blinding white-hot core, and radial electric nova blast on audio pulse.
+    - **Track 1 (TIDAL / Accent):** *Chromatic Vortex Ribbons* — 3D braided counter-rotating undulating wave ribbons, iridescent ladder cross-struts, and chromatic rippling wave crests.
+    - **Track 2 (ROOT / Percussion):** *Seismic Shock Diamonds* — supersonic Mach shock diamonds, heavy compression barrier contours, cross-braces, and sonic boom blast cones.
+    - **Track 3 (EMBER / Texture):** *Solar Flare Firestorm* — swirling coronal magnetic loops, convective fire plumes, incandescent ember sparks, and CME solar flare eruptions.
+    - **Track 4 (RAIN / Bass):** *Cyberpunk Laser Grid* — quantized digital oscilloscope waveform, holographic directional chevrons, and digital targeting matrix sweeps.
+    - **Track 5 (VEIL / Melody):** *Celestial Mandala Spiral* — logarithmic rotating spiral galaxy arms, sacred constellation node web, and 8-pointed starbursts.
+    - **Track 6 (MOSS / Arpeggio):** *Prismatic Crystal Shards* — tumbling 3D faceted geometric crystals with specular highlights, rainbow dispersion rays, and crystal detonation bursts.
+    - **Track 7 (AURA / Harmony):** *Hyperspace Warp Tunnel* — 3D-perspective receding warp rings, tachyon hyper-speed streaks, billowing dimensional sails, and warp singularity jump flashes.
+  - Refined comet trails with a narrower, sleek tapered background bloom (`0.72x`), smooth tip dissolve to zero width/alpha (`Math.pow(1 - f, 1.3..1.6)`), and an organic serpentine traveling wave along the orbit (`snake`) anchored to the comet head without jitter.
+  - Enhanced WebGL2 fragment shader with hyper-nebula cosmic shimmer and warp rays when `richness > 1.5`.
+  - Maintained full Canvas 2D fallback, mobile quality tier scaling (`small`), and strict reduced-motion invariance (no strobe/jitter, zero wall-clock dependency).
+  - Persisted `effectMode` in localStorage preferences (0, 1, 2) with 100% backward compatibility for legacy `richEffects` boolean.
+  - Added bilingual RU/EN localization (`HYPER` / `ГИПЕР`, toasts, button titles) and synchronized in-app User Manual (`index.html`), `docs/engine-capabilities.md`, and `docs/agent-api-specification.md`.
+
 
 - Replaced the long README with a focused English showcase and matching Russian edition, highlighting existing musical roles, sonic worlds, local generation, arrangement and export.
 - Added a real-app looping orbital GIF and refreshed the desktop screenshot. No engine, controls, dependencies or project format changes.

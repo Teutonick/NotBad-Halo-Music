@@ -26,3 +26,10 @@ test('phrase panel position and stacking survive a validated preference roundtri
 test('visual-only preference persists and older autosaves default to visible controls',()=>{
  const value=snapshot();value.ui.visualOnly=true;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.visualOnly,true);assert.equal(Prefs.validate(snapshot(),P,S).ui.visualOnly,false);
 });
+test('effectMode persists across classic, cosmic and hyper and preserves legacy boolean',()=>{
+ const value=snapshot();value.ui.effectMode=2;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.effectMode,2);assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.richEffects,true);
+ value.ui.effectMode=0;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.effectMode,0);assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.richEffects,false);
+ const legacy=snapshot();delete legacy.ui.effectMode;legacy.ui.richEffects=true;
+ assert.equal(Prefs.validate(legacy,P,S).ui.effectMode,1);assert.equal(Prefs.validate(legacy,P,S).ui.richEffects,true);
+});
+

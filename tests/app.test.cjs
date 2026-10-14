@@ -187,6 +187,7 @@ test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed schedu
   const a=app(), $=id=>a.document.getElementById(id);
   await $('play').onclick(); assert.ok(a.calls.some(c=>c[0]==='play'));
   const before=a.calls.filter(c=>c[0]==='play').length;
+  $('effects').onclick(); assert.equal($('effects').textContent,'HYPER');
   $('effects').onclick(); assert.equal($('effects').textContent,'CLASSIC');
   $('effects').onclick(); assert.equal($('effects').textContent,'COSMIC');
   assert.equal(a.calls.filter(c=>c[0]==='play').length,before);

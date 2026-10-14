@@ -181,7 +181,7 @@ Capability Registry — это машинно-читаемый JSON-манифе
   "visuals": {
     "scenes": ["ORBIT", "BLOOM", "CURRENT"],
     "motionModes": ["DRIFT", "IN TIME", "PHRASE"],
-    "effects": ["CLASSIC", "COSMIC"]
+    "effects": ["CLASSIC", "COSMIC", "HYPER"]
   }
 }
 ```
@@ -317,7 +317,9 @@ AI-агент не передает монолитный проект целик
 #### Визуальные операции (Visual Operations)
 - `visual.setScene`: `{ scene: 'ORBIT'|'BLOOM'|'CURRENT' }`
 - `visual.setMotion`: `{ motion: 'DRIFT'|'IN TIME'|'PHRASE' }`
-- `visual.setCosmic`: `{ enabled: boolean }`
+- `visual.setEffectMode`: `{ mode: 'CLASSIC'|'COSMIC'|'HYPER' }`
+- `visual.setCosmic`: `{ enabled: boolean }` *(обратная совместимость: `true` переключает в `COSMIC`, `false` — в `CLASSIC`)*
+
 
 ---
 

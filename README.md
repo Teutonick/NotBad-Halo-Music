@@ -24,7 +24,7 @@ HALO is a browser music and relaxation constructor. Shape a soundscape, find a p
 | **Two sonic worlds** | **AMBIENT:** 30 original procedural patches. **REACTOR:** 32 presets built from 130 locally hosted CC0 recordings — drums, guitar, bass, piano and synth timbres. |
 | **Order beneath the drift** | Independent track cycles and phase offsets move around one shared audio clock. A 24-key major/minor harmonic system keeps generation musically connected. |
 | **Your phrase becomes a song** | The local arranger develops a first verse into intro, verses, recurring chorus, bridge and outro. The first verse stays intact; repeated choruses share one phrase. |
-| **Three ways to see the sound** | Orbit, Bloom and Current in DRIFT; IN TIME follows musical steps; PHRASE traces a 4/8-bar revolution. Switch representation while the music continues. |
+| **Three ways to see the sound** | Orbit, Bloom and Current in DRIFT; IN TIME follows musical steps; PHRASE traces a 4/8-bar revolution. Three comet FX modes (Classic, Cosmic, Hyper) with radically distinct visual signatures per track. Switch representation while the music continues. |
 | **Keep what you make** | Edit phrase steps, shape timbres and spatial effects, save projects, share compact links and export WAV. MP3 is available when the browser provides a compatible native codec. |
 
 **Generative, without generative AI.** Original motifs, ensemble rules and seeded variation run locally. No model, prompt, account or API key stands between you and the music.

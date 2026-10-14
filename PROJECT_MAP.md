@@ -6,7 +6,26 @@
 - Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
 - Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
 
-### Latest implemented update — 2026-10-14: cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
+### Latest implemented update — 2026-10-14: third orbit visualization mode (HYPER) with 8 distinct dynamic comet signatures
+
+- **Third Orbit Visualization Mode (HYPER / "ГИПЕР"):**
+  - Added a third visual comet trail mode cycling alongside `CLASSIC` and `COSMIC`: `CLASSIC` → `COSMIC` → `HYPER` → `CLASSIC`.
+  - Implemented 8 radically distinct, bright, and hyper-dynamic procedural special effect signatures for each of the 8 track slots in `src/effects.js`:
+    - **Track 0 (GLASS / Pulse):** *Plasma Lightning Bolt* — high-frequency jagged electric discharge arcs, Tesla coil branches, blinding white-hot core, and radial electric nova blast on audio pulse.
+    - **Track 1 (TIDAL / Accent):** *Chromatic Vortex Ribbons* — 3D braided counter-rotating undulating wave ribbons, iridescent ladder cross-struts, and chromatic rippling wave crests.
+    - **Track 2 (ROOT / Percussion):** *Seismic Shock Diamonds* — supersonic Mach shock diamonds, heavy compression barrier contours, cross-braces, and sonic boom blast cones.
+    - **Track 3 (EMBER / Texture):** *Solar Flare Firestorm* — swirling coronal magnetic loops, convective fire plumes, incandescent ember sparks, and CME solar flare eruptions.
+    - **Track 4 (RAIN / Bass):** *Cyberpunk Laser Grid* — quantized digital oscilloscope waveform, holographic directional chevrons, and digital targeting matrix sweeps.
+    - **Track 5 (VEIL / Melody):** *Celestial Mandala Spiral* — logarithmic rotating spiral galaxy arms, sacred constellation node web, and 8-pointed starbursts.
+    - **Track 6 (MOSS / Arpeggio):** *Prismatic Crystal Shards* — tumbling 3D faceted geometric crystals with specular highlights, rainbow dispersion rays, and crystal detonation bursts.
+    - **Track 7 (AURA / Harmony):** *Hyperspace Warp Tunnel* — 3D-perspective receding warp rings, tachyon hyper-speed streaks, billowing dimensional sails, and warp singularity jump flashes.
+  - Enhanced WebGL2 fragment shader with hyper-nebula cosmic shimmer and warp rays when `richness > 1.5`.
+  - Maintained full Canvas 2D fallback, mobile quality tier scaling (`small`), and strict reduced-motion invariance (no strobe/jitter, zero wall-clock dependency).
+  - Persisted `effectMode` in localStorage preferences (0, 1, 2) with 100% backward compatibility for legacy `richEffects` boolean.
+  - Added bilingual RU/EN localization (`HYPER` / `ГИПЕР`, toasts, button titles) and synchronized in-app User Manual (`index.html`), `docs/engine-capabilities.md`, and `docs/agent-api-specification.md`.
+- **Verification:** 145 passing Node tests across the test suite, verifying `hyperStyles`, `drawHyper`, Canvas state balance, reduced-motion invariance, `effectMode` preferences, and app cycling. Preserves zero-build static deployment on GitHub Pages.
+
+### Previous implemented update — 2026-10-14: cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
 
 - **Cycle and Step Randomization in GENERATE ("СОЗДАТЬ"):**
   - Integrated `CYCLE` (length `4..32`) and `STEP` (division `1/16`, `1/8`, `1/4`) into the GENERATE button (`randomizeTrack` in `src/sounds.js`) with musical restraint ("без фанатизма").

@@ -4,7 +4,8 @@
   if(!value||value.version!==1)throw Error('Unsupported autosave');
   const clean={version:1,project:project.validate(value.project,sounds),ui:{},manual:[],draft:null};
   for(const field of ['scene','motionMode']){const n=value.ui?.[field];if(!Number.isInteger(n)||n<0||n>2)throw Error('Invalid view');clean.ui[field]=n}
-  for(const field of ['richEffects','autoEvolve','autoKey']){if(typeof value.ui?.[field]!=='boolean')throw Error('Invalid preference');clean.ui[field]=value.ui[field]}
+  let effectMode=1;if(Number.isInteger(value.ui?.effectMode)&&value.ui.effectMode>=0&&value.ui.effectMode<=2){effectMode=value.ui.effectMode}else if(typeof value.ui?.richEffects==='boolean'){effectMode=value.ui.richEffects?1:0}else if(Number.isInteger(value.ui?.richEffects)&&value.ui.richEffects>=0&&value.ui.richEffects<=2){effectMode=value.ui.richEffects}else{throw Error('Invalid preference')}clean.ui.effectMode=effectMode;clean.ui.richEffects=effectMode!==0;
+  for(const field of ['autoEvolve','autoKey']){if(typeof value.ui?.[field]!=='boolean')throw Error('Invalid preference');clean.ui[field]=value.ui[field]}
   clean.ui.visualOnly=value.ui.visualOnly===true;
   clean.ui.phraseRepeat=value.ui?.phraseRepeat!==false;
   clean.ui.language=['ru','en'].includes(value.ui.language)?value.ui.language:null;clean.ui.promoIndex=Number.isInteger(value.ui.promoIndex)&&value.ui.promoIndex>=0&&value.ui.promoIndex<4?value.ui.promoIndex:0;
