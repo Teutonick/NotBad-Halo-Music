@@ -17,7 +17,7 @@ function app(storage, options = {}) {
     return el;
   }
   const document = { getElementById(id) { if(!elements.has(id)) elements.set(id,element(id)); return elements.get(id); },
-    createElement: () => element(''), addEventListener(k,v) { events[k] = v; } };
+    createElement: () => element(''), addEventListener(k,v) { events[k] = v; }, removeEventListener() {} };
   const ctx = { currentTime: 0, resume: async()=>{}, suspend:async()=>{},close:async()=>{} };
   const sandbox = { document, console, Math, Float32Array, TextEncoder, TextDecoder: globalThis.TextDecoder,
     CompressionStream: globalThis.CompressionStream, DecompressionStream: globalThis.DecompressionStream, URL: globalThis.URL,
@@ -387,3 +387,83 @@ test('HaloAudio builds shared Delay (4 sync taps) and Chorus buses when createDe
  assert.ok(audio.delayTaps['1/8'].delayTime.calls.length > 0);
  assert.ok(Math.abs(audio.delayTaps['1/8'].delayTime.calls.at(-1)[0] - (60/120*0.5)) < 0.001);
 });
+
+test('Space key strictly toggles play and prevents focused button click, while preserving text input typing',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id);
+ let buttonClicked=0;
+ const btn={tagName:'BUTTON',type:'button',onclick(){buttonClicked++}};
+ let prevented=false;
+ const spaceOnButton={
+   code:'Space',key:' ',
+   target:btn,
+   preventDefault(){prevented=true;}
+ };
+ const flush=async()=>{for(let i=0;i<6;i++)await Promise.resolve()};
+ assert.equal($('play').classList.contains('is-playing'),false);
+ a.events.keydown(spaceOnButton);
+ assert.equal(prevented,true);
+ assert.equal(buttonClicked,0);
+ await flush();
+ assert.equal($('play').classList.contains('is-playing'),true);
+
+ let textPrevented=false;
+ const textInput={tagName:'INPUT',type:'text',value:'hello'};
+ const spaceOnText={
+   code:'Space',key:' ',
+   target:textInput,
+   preventDefault(){textPrevented=true;}
+ };
+ a.events.keydown(spaceOnText);
+ assert.equal(textPrevented,false);
+ assert.equal($('play').classList.contains('is-playing'),true);
+
+ let rangePrevented=false;
+ const rangeInput={tagName:'INPUT',type:'range',value:'50'};
+ const spaceOnRange={
+   code:'Space',key:' ',
+   target:rangeInput,
+   preventDefault(){rangePrevented=true;}
+ };
+ a.events.keydown(spaceOnRange);
+ assert.equal(rangePrevented,true);
+ await flush();
+ assert.equal($('play').classList.contains('is-playing'),false);
+});
+
+test('custom confirm dialog displays styled modal and resolves user choice',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id);
+ a.sandbox.window.confirm=undefined;
+ const confirmPromise=a.sandbox.HaloConfirm({
+   title:'Удаление фразы',
+   message:'Удалить фразу «Intro»?',
+   confirmText:'Удалить',
+   cancelText:'Отмена',
+   danger:true
+ });
+ const modal=$('confirmModal');
+ assert.equal(modal.hidden,false);
+ assert.equal($('confirmTitle').textContent,'Удаление фразы');
+ assert.equal($('confirmMessage').textContent,'Удалить фразу «Intro»?');
+ assert.equal($('confirmOk').textContent,'Удалить');
+ assert.ok($('confirmOk').className.includes('confirm-btn-danger'));
+ assert.equal($('confirmCancel').textContent,'Отмена');
+
+ $('confirmCancel').onclick();
+ const result=await confirmPromise;
+ assert.equal(result,false);
+ assert.equal(modal.hidden,true);
+
+ const confirmPromise2=a.sandbox.HaloConfirm({
+   title:'Reset workspace',
+   message:'Reset everything?',
+   confirmText:'Reset',
+   cancelText:'Cancel',
+   danger:true
+ });
+ assert.equal(modal.hidden,false);
+ $('confirmOk').onclick();
+ const result2=await confirmPromise2;
+ assert.equal(result2,true);
+ assert.equal(modal.hidden,true);
+});
+

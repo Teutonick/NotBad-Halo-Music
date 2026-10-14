@@ -18,8 +18,9 @@
   function labelFor(i){const section=song.sections[i],p=song.phrases.find(p=>p.id===section.phrase);return p.label||(section.name==='phrase'?tr('Фраза','Phrase')+p.id:names[section.name][env.language()==='ru'?0:1])}
   function showPhrase(){phraseCaption.textContent=tr('Фраза: ','Phrase: ')+(song?labelFor(index):tr('Фраза','Phrase')+'1');phraseCaption.title=tr('Редактируемая фраза','Phrase being edited')}
   function rename(i){
-   const id=song.sections[i].phrase,record=song.phrases.find(p=>p.id===id),card=blocks.children[i],button=Array.from(card.children).find(c=>c.className==='song-open');if(!button||card.querySelector?.('.song-name-input'))return;
-   const input=element('input','song-name-input');input.type='text';input.maxLength=10;input.value=record.label||tr('Фраза','Phrase')+id;input.setAttribute('aria-label',tr('Имя фразы: 1–10 букв или цифр, без пробелов','Phrase name: 1–10 letters or digits, no spaces'));button.hidden=true;card.append(input);input.focus?.();input.select?.();let done=false;
+   const id=song.sections[i].phrase,record=song.phrases.find(p=>p.id===id),card=blocks.children[i];if(!card||card.querySelector?.('.song-name-input'))return;
+   const head=card.querySelector?.('.song-block-head')||Array.from(card.children).find(c=>c.className==='song-open');
+   const input=element('input','song-name-input');input.type='text';input.maxLength=10;input.value=record.label||tr('Фраза','Phrase')+id;input.setAttribute('aria-label',tr('Имя фразы: 1–10 букв или цифр, без пробелов','Phrase name: 1–10 letters or digits, no spaces'));if(head)head.hidden=true;card.append(input);input.focus?.();input.select?.();let done=false;
    function finish(save){if(done)return;if(save){let label;try{label=S.phraseName(input.value)}catch(e){fail(e);input.focus?.();return}commit();const next=S.copy(song);next.phrases.find(p=>p.id===id).label=label;song=S.validate(next,root.HaloProject,root.HaloSounds);persist()}done=true;render()}
    input.onclick=e=>e.stopPropagation();input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter'){e.preventDefault();finish(true)}else if(e.key==='Escape'){e.preventDefault();finish(false)}};input.onblur=()=>finish(false);
   }
@@ -55,7 +56,22 @@
   async function build(){commit();song=S.validate(S.build(env.snapshot()),root.HaloProject,root.HaloSounds);await select(0,false)}
   async function add(){commit();const p=env.snapshot();if(!song){song=S.validate({format:'halo-composition',version:1,tempo:p.tempo,phrases:[{id:1,project:p}],sections:[{phrase:1,name:'phrase',repeats:1,fade:'none'}]},root.HaloProject,root.HaloSounds)}else{const next=S.copy(song),id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:p});next.sections.push({phrase:id,name:'phrase',repeats:1,fade:'none'});song=S.validate(next,root.HaloProject,root.HaloSounds)}await select(song.sections.length-1,false)}
   async function duplicate(i,independent){commit();song=S.validate(S.duplicate(song,i,independent),root.HaloProject,root.HaloSounds);await select(i+1,false)}
-  async function remove(i){if(song.sections.length===1)return;commit();const chosen=song.sections[index];song.sections.splice(i,1);song.phrases=song.phrases.filter(p=>song.sections.some(s=>s.phrase===p.id));await select(chosen===undefined||!song.sections.includes(chosen)?Math.min(i,song.sections.length-1):song.sections.indexOf(chosen),false)}
+  async function remove(i){
+   if(song.sections.length===1)return;
+   const label=labelFor(i);
+   const confirmFn=env.confirm||(typeof root.HaloConfirm==='function'?root.HaloConfirm:null);
+   if(confirmFn){
+    const ok=await confirmFn({
+     title:tr('Удаление фразы','Delete phrase'),
+     message:tr('Удалить фразу «'+label+'» из композиции?','Remove phrase "'+label+'" from composition?'),
+     confirmText:tr('Удалить','Delete'),
+     cancelText:tr('Отмена','Cancel'),
+     danger:true
+    });
+    if(!ok)return;
+   }
+   commit();const chosen=song.sections[index];song.sections.splice(i,1);song.phrases=song.phrases.filter(p=>song.sections.some(s=>s.phrase===p.id));await select(chosen===undefined||!song.sections.includes(chosen)?Math.min(i,song.sections.length-1):song.sections.indexOf(chosen),false);
+  }
   function repeats(i,value){try{commit();const next=S.copy(song);next.sections[i].repeats=value;song=S.validate(next,root.HaloProject,root.HaloSounds);persist();render()}catch(e){fail(e);render()}}
   function render(){
    if(drag)return;showPhrase();
@@ -64,12 +80,15 @@
    instrumentsButton.textContent='‹ ≋';compositionButton.textContent='▤ ›';
    blocks.replaceChildren();panel.querySelector?.('.song-loop')?.remove();
    if(song){song.sections.forEach((section,i)=>{
-    const p=S.phrase(song,i),label=labelFor(i),card=element('article','song-block');card.dataset.section=String(i);card.style.setProperty('--section-tone',({intro:'#80baca',verse:'#b29dcf',chorus:'#dcac78',bridge:'#83b9a9',outro:'#80baca',phrase:'#abc8d9'})[section.name]);card.setAttribute('aria-label',tr('Выбрать фразу','Select phrase')+' · '+label);card.tabIndex=0;card.onkeydown=e=>{if(e.target===card&&['Enter',' '].includes(e.key)){e.preventDefault();choose(i).catch(fail)}};card.setAttribute('data-selected',String(i===index));card.setAttribute('data-queued',String(i===queued?.index));card.setAttribute('aria-current',String(i===lastSection));if(i===queued?.index)card.title=tr('Следующая фраза после текущей','Next phrase after the current one');
+    const p=S.phrase(song,i),label=labelFor(i),card=element('article','song-block');card.dataset.section=String(i);card.style.setProperty('--section-tone',({intro:'#80baca',verse:'#b29dcf',chorus:'#dcac78',bridge:'#83b9a9',outro:'#80baca',phrase:'#abc8d9'})[section.name]);card.setAttribute('aria-label',tr('Выбрать фразу','Select phrase')+' · '+label);card.tabIndex=0;card.onkeydown=e=>{if(e.target===card&&e.key==='Enter'){e.preventDefault();choose(i).catch(fail)}};card.setAttribute('data-selected',String(i===index));card.setAttribute('data-queued',String(i===queued?.index));card.setAttribute('aria-current',String(i===lastSection));if(i===queued?.index)card.title=tr('Следующая фраза после текущей','Next phrase after the current one');
     const active=p.tracks.reduce((n,t)=>n+(t.on?t.steps.length/(p.bars*16):0),0);card.style.setProperty('--full',Math.round(active/8*100)+'%');
     grip(card,i);
     const removeButton=action(card,'song-remove','×',tr('Удалить часть','Remove section')+' · '+label,()=>remove(i));removeButton.disabled=song.sections.length===1;
-    card.onclick=e=>{if(!e?.target?.closest('button'))return choose(i).catch(fail)};
-    const open=action(card,'song-open',label,tr('Переименовать фразу','Rename phrase')+' · '+label,()=>rename(i));open.setAttribute('aria-pressed',String(i===index));
+    card.onclick=e=>{if(e?.target?.closest?.('button, input'))return;return choose(i).catch(fail)};
+    const head=element('div','song-block-head');
+    const title=element('span','song-title',label);title.title=label;head.append(title);
+    const renameButton=action(head,'song-rename','✎',tr('Переименовать фразу','Rename phrase')+' · '+label,()=>rename(i));renameButton.setAttribute('aria-pressed',String(i===index));
+    card.append(head);
     const meta=element('span','song-bars',barLabel(p.bars*section.repeats));card.append(meta);
     const foot=element('div','song-card-footer');card.append(foot);
     const counter=element('div','song-repeat');foot.append(counter);

@@ -2,7 +2,7 @@ const test=require('node:test'),assert=require('node:assert/strict'),vm=require(
 const Song=require('../src/song.js'),P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js');
 function app(){
  const nodes=new Map(),events={},storage=new Map(),messages=[];let dropTarget=null;
- function node(){const classes=new Set();return {children:[],dataset:{},style:{setProperty(){}},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle(x,on){if(on)classes.add(x);else classes.delete(x)}},append(...x){this.children.push(...x)},insertBefore(x){this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(k,v){this[k]=v},contains(x){return this===x||this.children.some(c=>c.contains(x))},getBoundingClientRect:()=>({left:0,right:900}),setPointerCapture(){},hasPointerCapture(){return true},releasePointerCapture(){},closest(){return this}}}
+ function node(tag){const classes=new Set();const n={tagName:(tag||'div').toUpperCase(),parent:null,children:[],dataset:{},style:{setProperty(){}},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle(x,on){if(on)classes.add(x);else classes.delete(x)},has:x=>classes.has(x)},append(...x){x.forEach(c=>{if(c&&typeof c==='object')c.parent=n});this.children.push(...x)},insertBefore(x){if(x&&typeof x==='object')x.parent=n;this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(k,v){this[k]=v},contains(x){return this===x||this.children.some(c=>c.contains(x))},getBoundingClientRect:()=>({left:0,right:900}),setPointerCapture(){},hasPointerCapture(){return true},releasePointerCapture(){},closest(sel){let cur=this;while(cur){if(sel==='[data-section]'&&cur.dataset?.section!==undefined)return cur;if((sel==='button'||sel.includes('button'))&&cur.tagName==='BUTTON')return cur;if((sel==='input'||sel.includes('input'))&&cur.tagName==='INPUT')return cur;cur=cur.parent}return null}};return n}
  const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
  const doc={elementFromPoint:()=>dropTarget,getElementById:get,querySelector:selector=>get(selector==='.bottom'?'bottom':'hint'),createElement:node,addEventListener(k,f){events[k]=f}};
  const tracks=Object.keys(S.banks).map(name=>({name,sound:S.banks[name].sounds[0].id,on:true,level:65,density:70,character:50,duration:50,space:55,pattern:[0,4,8,12]}));
@@ -87,3 +87,31 @@ test('name clicks rename linked phrase, invalid names preserve state and new phr
  await a.click('Rename phrase',2);a.name(2,'<img>');assert.equal(a.saved().song.phrases.find(p=>p.id===a.saved().song.sections[2].phrase).label,'Тема1');assert.equal(a.messages.length,1);
  await a.click('Add current phrase');const id=a.saved().song.sections.at(-1).phrase;assert.equal(id,7);assert.equal(a.blocks.children.at(-2)['aria-label'],'Select phrase · Phrase7');
 });
+
+test('phrase title click selects phrase, while pencil icon activates renaming',async()=>{
+ const a=app();await a.click('Build composition');
+ const card=a.blocks.children[2];
+ const titleSpan=card.children.find(c=>c.className==='song-block-head')?.children.find(c=>c.className==='song-title');
+ assert.ok(titleSpan,'Missing song-title span');
+ await card.onclick({target:titleSpan});
+ assert.equal(a.saved().index,2);
+ assert.equal(a.blocks.children[2].children.some(c=>c.className==='song-name-input'),false);
+ await a.click('Rename phrase',2);
+ assert.equal(a.blocks.children[2].children.some(c=>c.className==='song-name-input'),true);
+});
+
+test('deleting a section prompts for confirmation and respects cancel or confirm',async()=>{
+ const a=app();let confirmCalled=0,confirmResult=false;
+ a.env.confirm=async(opts)=>{confirmCalled++;assert.match(opts.title,/Delete phrase|Удаление фразы/);return confirmResult;};
+ await a.click('Build composition');
+ const initialCount=a.saved().song.sections.length;
+ confirmResult=false;
+ await a.click('Remove section',1);
+ assert.equal(confirmCalled,1);
+ assert.equal(a.saved().song.sections.length,initialCount);
+ confirmResult=true;
+ await a.click('Remove section',1);
+ assert.equal(confirmCalled,2);
+ assert.equal(a.saved().song.sections.length,initialCount-1);
+});
+

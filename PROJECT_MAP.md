@@ -1,6 +1,13 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-### Latest implemented update — 2026-10-14: bounded shared inputs and phrase names
+### Latest implemented update — 2026-10-14: dedicated phrase rename icon, unified confirm dialog, and strict Spacebar play/pause
+
+- **Phrase title edit click area:** clicking anywhere on the phrase card or phrase title now selects/cues the phrase during playback or in pause. Inline renaming is exclusively initiated by a dedicated pencil icon button (`✎` / `Rename phrase`), eliminating accidental inline rename triggers when clicking cards to switch or drag phrases.
+- **Unified custom confirm dialog (`#confirmModal`):** replaced native browser `window.confirm` for both phrase deletion from composition and workspace reset with a custom translucent modal dialog matching the app's visual style. Features bilingual RU/EN titles and descriptions, distinct danger button styling for destructive actions, keyboard focus trapping, Escape key cancellation, and backdrop click dismiss.
+- **Space key transport binding:** Spacebar (`code === 'Space' || key === ' ' || key === 'Spacebar'`) calls `e.preventDefault()` and strictly executes `togglePlay()`. It bypasses browser synthetic click dispatch on previously focused buttons, range sliders, or other interactive elements, ensuring reliable Play/Pause toggling while preserving standard text entry in text inputs and textareas.
+- **Verification:** 139 passing Node tests across the test suite, including new unit tests for pencil icon vs title click, section removal confirmation cancel/confirm, Space key preventDefault and play toggling without clicking focused buttons, text input space typing passthrough, and custom confirm modal DOM/resolution logic. Zero runtime dependencies/CDNs added; full GitHub Pages static compatibility preserved.
+
+### Previous implemented update — 2026-10-14: bounded shared inputs and phrase names
 
 - Audited numeric controls, legacy pattern storage, project/composition import, autosave and share fragments. Existing strict control ranges/schema allowlists retained. Shared tokens now enforce base64url alphabet/length, strict single recognized fragment parameter and percent decoding; unpacked streams cancel above 512 KiB before JSON parsing. Stale async URL replies are ignored before state loading. Unknown query variables do not configure the app. AUTO key jumps are constant-time; seeds wrap within the validated bound.
 - Optional allowlisted phrase `label`: 1–10 Unicode letters/numbers, no spaces, markup or special characters. IDs are safe integers ≤1,000,000. New records display their sequential ID; repeats share names. Name click opens an inline input, Enter saves / Escape or blur cancels; background/keyboard card selection still cues playback. Transport displays the edited/current phrase name. Custom text uses textContent only.

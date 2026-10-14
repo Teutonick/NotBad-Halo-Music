@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-14 — Dedicated phrase rename icon, unified confirm dialog, and strict Spacebar play/pause
+
+- Reduced the click area for renaming phrases: clicking phrase cards or titles now reliably selects/cues phrases without accidental inline rename triggers; renaming is activated via a dedicated pencil icon (✎).
+- Replaced native browser `window.confirm` for phrase deletion from composition and workspace reset with a unified, styled modal dialog matching the app's translucent design, complete with bilingual RU/EN support, focus trapping, danger button styling, and Escape/backdrop dismissal.
+- Bound the Space key strictly to Play/Pause toggle with `preventDefault()`, eliminating accidental activation of the last clicked button or slider, while preserving normal space typing in text inputs and textareas.
+
 ## 2026-10-14 — Bound shared input and name phrases
 
 - Strict URL token/fragment checks and streaming decompression limits; safe bounded phrase IDs/names, numeric seed rollover and constant-time harmony jumps.
