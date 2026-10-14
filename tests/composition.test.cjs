@@ -6,6 +6,27 @@ test('default loops stay identical; auto pattern and auto harmony are independen
   c.setAutoEvolve(false);c.setAutoKey(true);const next=c.at(21);assert.equal(next.seed,2);assert.notEqual(next.key,0);
   c.setAutoKey(false);assert.deepEqual(c.at(22),next);
   assert.equal(c.generate().seed,3);assert.equal(c.nextKey().key,(next.key+1)%12);
+  assert.equal(c.prevKey().key,next.key);
+});
+test('keys follow the Circle of Fifths and switching navigates strictly adjacent neighbors',()=>{
+  assert.equal(C.keys.length,12);
+  for(let i=0;i<12;i++){
+    const curr=(C.offsets[i]+120)%12,next=(C.offsets[(i+1)%12]+120)%12;
+    assert.equal((curr+7)%12,next,'consecutive key must be an ascending perfect fifth');
+  }
+  const comp=C.create({key:0});
+  assert.equal(comp.nextKey().key,1);
+  assert.equal(comp.prevKey().key,0);
+  assert.equal(comp.prevKey().key,11);
+  comp.setAutoKey(true);
+  for(let loop=0;loop<24;loop++){
+    const prevKey=comp.key;
+    const current=comp.at(loop);
+    if(loop>0){
+      const diff=(current.key-prevKey+12)%12;
+      assert.ok(diff===1||diff===11,'auto key must transition strictly to adjacent circle-of-fifths neighbors');
+    }
+  }
 });
 test('lookahead retains prior loop decisions; automatic keys do not depend on melody evolution',()=>{
   const a=C.create(),b=C.create();a.setAutoKey(true);b.setAutoKey(true);b.setAutoEvolve(true);

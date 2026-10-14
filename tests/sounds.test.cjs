@@ -107,8 +107,8 @@ test('master gain defaults to half volume and includes complete silence',()=>{
 test('new 50 percent master matches previous 100 percent instrument feed and mute remains silent',()=>{
  const tracks=Object.keys(banks).map(track),audio=Audio.create(context(),tracks,50);
  tracks.forEach((t,i)=>{
-  assert.equal(audio.trackGains[i].gain.value*audio.master.gain.value,t.level/100);
-  t.level=100;audio.update(i,1);assert.equal(audio.trackGains[i].gain.calls.at(-1)[0]*audio.master.gain.value,1);
+  assert.equal(audio.trackGains[i].gain.value*audio.master.gain.value,(t.level/100)*2);
+  t.level=100;audio.update(i,1);assert.equal(audio.trackGains[i].gain.calls.at(-1)[0]*audio.master.gain.value,2);
   t.on=false;audio.update(i,2);assert.equal(audio.trackGains[i].gain.calls.at(-1)[0],0);
  });
 });
@@ -134,10 +134,10 @@ test('relocated bass/kick stay near stereo center and layered roles receive ramp
  const ctx=context(),audio=Audio.create(ctx,tracks,50,{}, {low:0,mid:0,high:0,width:100});
  assert.ok(Math.abs(audio.panners[7].pan.calls.at(-1)[0])<=.06);
  assert.ok(Math.abs(audio.panners[4].pan.calls.at(-1)[0])<=.06);
- assert.equal(audio.trackGains[7].gain.value,tracks[7].level/100*2/Math.sqrt(2));
+ assert.equal(audio.trackGains[7].gain.value,tracks[7].level/100*4/Math.sqrt(2));
  tracks[7].instrument='MOSS';tracks[7].sound='reactor-singing-lead';S.arrange(tracks);audio.update(7,2);
  assert.equal(audio.panners[7].pan.calls.at(-1)[0],.7);
- assert.equal(audio.trackGains[7].gain.calls.at(-1)[0],tracks[7].level/100*2/Math.sqrt(2));
+ assert.equal(audio.trackGains[7].gain.calls.at(-1)[0],tracks[7].level/100*4/Math.sqrt(2));
 });
 
 test('reactor drum transients use a fast attack and stronger event gain than guitar',()=>{

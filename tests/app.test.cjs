@@ -317,6 +317,8 @@ test('SHARE button generates compact hash link, and opening or hashchange restor
  assert.equal(saved.project.masterVolume,42);
  assert.equal(b.document.getElementById('tracks').children[0]['aria-pressed'],'false');
  assert.equal(get('transportTitle').textContent,'UNIVERSE PAUSED');
+ assert.equal(b.sandbox.location.hash,'');
+ assert.ok(b.calls.some(c=>c[0]==='replaceState'));
 });
 
 test('editor mode switch toggles between SOUND and FX panes, and FX controls update audio and sync reverb',async()=>{

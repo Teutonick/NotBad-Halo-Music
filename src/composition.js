@@ -12,7 +12,7 @@
         if(epoch>=0&&loop>epoch){
           const jumps=loop-epoch;
           if(autoEvolve)seed+=jumps;
-          if(autoKey)for(let j=0;j<jumps;j++)key=(key+1+((43+(epoch+j+1)*7)%11))%12;
+          if(autoKey)for(let j=0;j<jumps;j++)key=(key+1)%12;
         }
         epoch=loop;current={seed,key};
         snapshots.set(loop,{...current});
@@ -23,6 +23,7 @@
     function refresh(){snapshots.clear();if(epoch>=0)snapshots.set(epoch,{...current});}
     return {at,view(loop){return {...(snapshots.get(loop)||current)}},generate(){seed++;current={seed,key};refresh();return {...current}},
       nextKey(){key=(key+1)%12;current={seed,key};refresh();return {...current}},
+      prevKey(){key=(key+11)%12;current={seed,key};refresh();return {...current}},
       setAutoEvolve(value){autoEvolve=!!value},setAutoKey(value){autoKey=!!value},
       get autoEvolve(){return autoEvolve},get autoKey(){return autoKey},
       resetBoundary(){epoch=-1;snapshots.clear()},get seed(){return seed},get key(){return key}};

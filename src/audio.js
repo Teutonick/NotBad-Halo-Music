@@ -101,7 +101,7 @@
     const sends = [], delaySends = [], chorusSends = [], panners=[], voices = tracks.map(() => new Set());
     const trackGains = tracks.map((t,i) => {
       const gain = ctx.createGain(), send = ctx.createGain();
-      gain.gain.value = t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0;
+      gain.gain.value = t.on ? t.level / 100 * 4 * (t.ensembleGain||1) : 0;
       send.gain.value = (t.space || 0) / 100 * .8;
       if(ctx.createStereoPanner){const pan=ctx.createStereoPanner();gain.connect(pan);pan.connect(master);panners[i]=pan}else gain.connect(master);
       gain.connect(send); send.connect(reverb); sends.push(send);
@@ -138,7 +138,7 @@
     function update(index, at=ctx.currentTime) {
       const t = tracks[index], now = at;
       panners[index]?.pan.setTargetAtTime(panFor(index)*sceneWidth,now,.05);
-      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 2 * (t.ensembleGain||1) : 0, now, .04);
+      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 4 * (t.ensembleGain||1) : 0, now, .04);
       sends[index].gain.setTargetAtTime((t.space || 0) / 100 * .8, now, .06);
       if (delaySends[index]) {
         delaySends[index].gain.setTargetAtTime(((t.delay || 0) / 100) * 0.7, now, .05);

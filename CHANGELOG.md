@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-14 — Circle of Fifths neighboring key switching and H A L O header capitalization
+
+- Circle of Fifths harmonic proximity for key changes (`src/composition.js`, `index.html`):
+  - Verified that `HaloComposition.keys` is strictly ordered by ascending perfect fifths (`D, A, E, B, F♯, C♯, G♯, D♯, A♯, F, C, G`), conforming mathematically to the Circle of Fifths (each neighbor step = +7 semitones modulo 12).
+  - Added native `prevKey()` method to `HaloComposition` to step counter-clockwise to the subdominant neighbor (-1 step on Circle of Fifths).
+  - Updated `autoKey` loop transitions in `HaloComposition` to advance strictly to adjacent neighboring keys on the Circle of Fifths (`(key + 1) % 12`), ensuring smooth harmonic modulations differing by at most 1 accidental.
+  - Linked manual `keyNext` and `keyPrev` buttons to `queueAutosave()` so key adjustments persist to localStorage immediately.
+  - Added comprehensive unit test in `tests/composition.test.cjs` validating Circle of Fifths ordering and adjacent neighbor transitions for both manual and automatic key switching.
+- Header capitalization (`index.html`):
+  - Updated brand link text in the top header from "NotBad Halo" to "NotBad H A L O" in uppercase letters as requested.
+
+## 2026-10-13 — Doubled instrument base volume, compact editor without scrollbar, and SHARE hash cleanup
+
+- Doubled base instrument volume multiplier in `src/audio.js` (`* 4` instead of `* 2`):
+  - At default 50% master volume, playback output now matches the volume previously achieved at 100% master volume.
+  - The downstream master compressor (-1 dBFS threshold, 20:1 ratio, 2ms attack) continues to provide clean peak protection against digital clipping distortion.
+- Redesigned and compacted the instrument settings editor (`.editor`):
+  - Removed the redundant "COMPATIBLE SOUNDS" ("СОВМЕСТИМЫЕ ЗВУКИ") label above the sound family dropdown.
+  - Reduced slider typography size to 8px and compressed slider vertical margins and gaps, cutting slider height by more than half.
+  - Tightened preset buttons, cycle controls, and panel padding so the full editor fits comfortably within the viewport without vertical scrollbars.
+- Cleaned URL hash on shared link import:
+  - After loading and restoring a shared loop via `#loop=...`, `window.history.replaceState` removes the hash from the browser address bar.
+  - Prevents accidental re-application of the initial shared preset on subsequent browser refreshes (F5).
+- Updated tests in `tests/sounds.test.cjs`, `tests/app.test.cjs`, and `tests/i18n.test.cjs`. All 106 tests pass.
+
 ## 2026-10-13 — Shared FX buses (Reverb, Delay, Chorus) with instrument sends
 
 - Added three shared FX effect return buses in Web Audio routing with individual send levels for each of the eight instruments:

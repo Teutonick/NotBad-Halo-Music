@@ -1,8 +1,35 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-**Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-13. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
+**Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-14. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
 
-### Latest implemented update — 2026-10-13: shared FX buses (Reverb, Delay, Chorus) and instrument FX editor
+### Latest implemented update — 2026-10-14: Circle of Fifths neighboring key switching and H A L O header capitalization
+
+- **Circle of Fifths harmonic proximity (`src/composition.js`, `index.html`):**
+  - Confirmed and mathematically validated that `HaloComposition.keys` is strictly arranged along the Circle of Fifths (`D, A, E, B, F♯, C♯, G♯, D♯, A♯, F, C, G`), where every step is an ascending perfect fifth (+7 semitones modulo 12).
+  - Added native `prevKey()` method to `HaloComposition` to step directly to the counter-clockwise neighbor (-1 fifth / subdominant minor).
+  - Constrained automatic loop boundary key modulations (`autoKey`) to step strictly to adjacent neighboring keys on the Circle of Fifths (`(key + 1) % 12`), ensuring peaceful and harmonious modulations with at most 1 accidental difference.
+  - Linked manual `keyNext` and `keyPrev` button clicks to `queueAutosave()` so key adjustments persist across page refreshes.
+  - Added automated test in `tests/composition.test.cjs` verifying 12-key fifth cycle continuity and adjacent neighbor step guarantees for both manual and automatic transitions.
+- **Top header branding (`index.html`):**
+  - Updated brand title link in the header from "NotBad Halo" to "NotBad H A L O" in uppercase letters as requested.
+
+### Previous implemented update — 2026-10-13: doubled instrument base volume, compact editor without scrollbar, and SHARE hash cleanup
+
+- **Audio loudness boost without clipping (`src/audio.js`):**
+  - Doubled the base instrument volume multiplier from 2 to 4 (`t.level / 100 * 4`).
+  - At default 50% master volume, the overall audible loudness now equals the previous 100% volume level (+6 dB output).
+  - Downstream master compressor (-1 dBFS threshold, 20:1 ratio, 2ms attack, 80ms release) and 32-bit float internal summing prevent any digital clipping or harsh distortion even when tracks and master volume are maxed.
+- **Compacted instrument settings editor (`index.html`):**
+  - Removed redundant "COMPATIBLE SOUNDS" ("СОВМЕСТИМЫЕ ЗВУКИ") label text above the bank select dropdown.
+  - Reduced slider typography size to 8px and compressed slider vertical margins and gaps, cutting slider height by more than half.
+  - Tightened preset buttons, cycle controls, and panel padding so the full editor fits comfortably within the viewport without vertical scrollbars.
+- **Client-side share hash cleanup (`index.html`):**
+  - On loading a project from a URL share link (`#loop=...`), `window.history.replaceState` clears the hash from the browser address bar after applying state.
+  - Prevents unintended re-application of the shared preset on accidental browser refresh (F5).
+- **Validation:**
+  - 106 Node tests passing across all test suites (`tests/*.test.cjs`).
+
+### Previous implemented update — 2026-10-13: shared FX buses (Reverb, Delay, Chorus) and instrument FX editor
 
 - **Shared FX buses architecture (`src/audio.js`):**
   - Implemented three shared FX send/return buses in Web Audio graph with per-instrument send levels across all eight voices:
