@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-10-14 — Musical loop generation: protected anchors, role corridors, register tiering and organic surprise
+
+- **Protected anchors & accent-weighted density:**
+  - Preserved downbeat step 0 for foundation rhythm roles (`pulse`, `bass`, `kick`) whenever `density > 0`, eliminating hollow, broken bar openings.
+  - Anchored bar downbeats (`step % 16 === 0`) at `density >= 35` for rhythmic foundation voices.
+  - Implemented accent-weighted density thinning: notes with high motif accent (`>= 0.85`) receive higher survival weight (`1.25x`), keeping the core musical motif intact as density decreases, while off-beat 16th syncopations and ghost hits thin out first (`0.82x`).
+  - At `density >= 100`, all candidate notes fire. Seed-based pseudo-random syncopations preserve natural organic variation, breathing room, and human feel.
+- **Role-aware parameter corridors & wildcard chaos:**
+  - Replaced uniform blind random sampling (`20..100%`) in `randomizeTrack` with role-specific acoustic corridors: punchy low-space bass/kick, tucked transient percussion, gentle ambient textures, shimmering articulated arpeggios, and prominent singing leads.
+  - Introduced deterministic wildcard serendipity: ~16% of tracks receive an expanded range (`[20, 100]`), allowing occasional unexpected timbres, dramatic staccatos, or wide spatial washes without breaking mix stability or test contracts.
+- **Acoustic register & frequency separation:**
+  - Separated Melody and Arpeggio registers in `src/roles.js`: Arpeggio occupies the mid-register (`pitch + 12`), while Melody sings in the upper register (`pitch + 24`), ending unison clashing and providing clean voice leading alongside bass (`pitch - 12`) and harmony pads (`chord`).
+- **Curated vibe archetypes in arrangement:**
+  - Enhanced `randomizeArrangement` with 5 stylistic archetypes (Driving Heartbeat, Lush Atmosphere, Floating Half-time without kick, Syncopated Groove, and Arp Motion).
+  - Guarantees foundation (Bass), lead narrative (Melody), harmonic glue (Pad/Texture), and rhythmic engine, while varying across 16+ distinct active voice masks and musical sends (0–50%).
+- **Vibrant first-launch preset:**
+  - Initialized default active voices in `index.html` to include Pulse (0), Shaker (2), Bass (4), Melody (5), Arpeggio (6), and Harmony pad (7), so first-time users hear an immediate, polished, rhythmic soundscape upon pressing Play.
+
 ## 2026-10-14 — Relocate REPEAT to transport panel with dual-mode phrase/composition looping
 
 - Moved the REPEAT button from the bottom of the screen to the transport panel directly adjacent to BPM as a stylish icon button with an intuitive loop symbol.

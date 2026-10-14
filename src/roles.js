@@ -85,9 +85,9 @@
   if(role==='bass')result=[original%4===0?chord[0]-12:pitch-12];
   else if(role==='texture')result=[chord[0]+(world?12:-12)];
   else if(role==='harmony')result=chord.map((_,i)=>chord[(i+degree)%4]+(world?12:0));
-  else if(role==='arpeggio')result=[pitch+(world?24:12)];
+  else if(role==='arpeggio')result=[pitch+12];
   else if(sound.engine==='guitar'&&!sound.lead){let fifth=pitch+7;if(![0,2,3,5,7,8,10].includes(mod(fifth-38-transpose,12)))fifth--;result=[pitch+12,fifth+12]}
-  else {const n=pitch+(world?24:12)+(answer&&sound.lead&&ordinal%3===0?12:0);result=[n,...(sound.octave?[n+12]:[])]}
+  else {const n=pitch+24+(answer&&sound.lead&&ordinal%3===0?12:0);result=[n,...(sound.octave?[n+12]:[])]}
   return constrain(result,sound,role);
  }
  function velocity(track,sound,step,seed,bars=4){const p=plan(track,sound,seed,bars),i=p.steps.indexOf(mod(step,p.period));return i<0?.72:p.accents[i]}

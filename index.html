@@ -158,7 +158,7 @@ const instruments=[
  {name:'MOSS',desc:'slow marimba',color:'#a5e0b7',on:false,level:55,density:66,pattern:[3,9,13],register:6},
  {name:'AURA',desc:'environmental atmosphere',color:'#f3bbdf',on:false,level:40,density:60,pattern:[0,6,11],register:7}
 ];
-instruments.forEach((t,i)=>Object.assign(t,HaloSounds.roles.initial('ambient',t.name),{setup:'ambient',character:50,duration:i===3||i===7?70:50,space:[18,25,30,65,25,50,45,65][i],level:[45,35,35,32,60,64,50,58][i],density:[60,50,45,75,85,75,65,100][i],on:i>=3,delay:[0,20,0,30,0,15,25,20][i],delayTime:'1/8',chorus:[0,15,0,0,0,25,0,20][i]}));
+instruments.forEach((t,i)=>Object.assign(t,HaloSounds.roles.initial('ambient',t.name),{setup:'ambient',character:50,duration:i===3||i===7?70:50,space:[18,25,30,65,25,50,45,65][i],level:[52,35,38,32,62,65,52,58][i],density:[65,50,50,75,85,75,65,90][i],on:[true,false,true,false,true,true,true,true][i],delay:[0,20,0,30,0,15,25,20][i],delayTime:'1/8',chorus:[0,15,0,0,0,25,0,20][i]}));
 let setup='ambient',pendingSetup=null,sampleLoading=false,sampleRequest=0;const worlds={};const ambientDefaults=instruments.map(t=>({...t,pattern:[...t.pattern]}));
 const reactorColors=['#ff7046','#ffc38c','#dde8f2','#e29250','#ee515d','#ff9a53','#cba8ff','#86d9ee'];
 const {random01,chords}=HaloSounds;const scenes=['ORBIT','BLOOM','CURRENT'];let scene=0,selected=-1,tempo=72,variant=1,playing=false,audioBusy=false,fileBusy=false,audio=null,scheduler=null,step=0,nextNote=0,startedAt=0,frozenBeat=0,lastVisualAt=performance.now()/1000,toastTimer;

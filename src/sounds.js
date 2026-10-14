@@ -145,7 +145,16 @@
     const p=track.generator===3?roles.plan(track,soundFor(track),seed,bars):phrases.plan(track,soundFor(track),seed,bars),key=index+':'+track.density;
     let cache=densityCache.get(p);if(!cache){cache=new Map();densityCache.set(p,cache)}
     if(cache.has(key))return cache.get(key);
-    const steps=track.density>0?p.steps.filter(step=>random01(index*97+step*31+seed*191)<=track.density/100):[];
+    const roleId=track.generator===3?roles.forTrack(track).id:p.role;
+    const isFoundation=['pulse','bass','kick'].includes(roleId);
+    const steps=track.density>0?p.steps.filter((step,i)=>{
+      if(track.density>=100)return true;
+      if(step===0&&isFoundation)return true;
+      if(step%16===0&&isFoundation&&track.density>=35)return true;
+      const accent=p.accents?p.accents[i]:.7;
+      const factor=accent>=.85?1.25:accent>=.75?1.05:.82;
+      return random01(index*97+step*31+seed*191)<=Math.min(1,(track.density/100)*factor);
+    }):[];
     // Low density leaves space but never silently disables an enabled instrument.
     if(track.density>0&&!steps.length&&p.steps.length){const loudest=Math.max(...p.accents);steps.push(p.steps[p.accents.indexOf(loudest)])}
     if(cache.size>=32)cache.delete(cache.keys().next().value);cache.set(key,steps);return steps;
@@ -190,25 +199,62 @@
     const shift=Math.floor(random01(track.variation*53+identity*17)* (16/division))*division;
     return base.map(step=>(step+shift)%16).sort((a,b)=>a-b);
   }
+  const roleCorridors={
+    pulse:      {level:[68,88], duration:[35,65], space:[20,35], character:[40,75], density:[50,85]},
+    accent:     {level:[58,78], duration:[30,60], space:[25,50], character:[40,75], density:[40,75]},
+    percussion: {level:[45,68], duration:[25,55], space:[25,55], character:[35,80], density:[50,85]},
+    texture:    {level:[38,62], duration:[65,95], space:[45,80], character:[30,80], density:[30,70]},
+    bass:       {level:[70,90], duration:[55,85], space:[20,32], character:[35,70], density:[50,80]},
+    melody:     {level:[65,85], duration:[45,75], space:[38,68], character:[45,80], density:[45,80]},
+    arpeggio:   {level:[50,72], duration:[35,65], space:[32,60], character:[40,75], density:[50,85]},
+    harmony:    {level:[55,75], duration:[72,98], space:[42,78], character:[35,70], density:[35,70]}
+  };
   function randomizeTrack(track,index,seed){
     const sounds=roles.pool(track,banksFor(track.setup),true).filter(choice=>choice.sound.id!==track.sound);
     const choice=sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)];
-    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roles.forTrack(track).id,sequence:roles.sequence(track.sequence)};
+    const roleId=roles.forTrack(track).id;
+    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:roles.sequence(track.sequence)};
     ['character','duration','density','level','space'].forEach((key,i)=>{
-      const values=Array.from({length:81},(_,n)=>n+20).filter(n=>n!==track[key]);
+      const isWildcard=random01(seed*733+index*59+i*29)<0.16;
+      const corridor=(!isWildcard&&roleCorridors[roleId]?.[key])||[20,100];
+      let values=Array.from({length:corridor[1]-corridor[0]+1},(_,n)=>n+corridor[0]).filter(n=>n!==track[key]);
+      if(values.length<2)values=Array.from({length:81},(_,n)=>n+20).filter(n=>n!==track[key]);
       result[key]=values[Math.floor(random01(seed*3571+index*193+i*71)*values.length)];
     });
     return result;
   }
+  const arrangementArchetypes=[
+    [0,7,6,2,1,3],
+    [7,3,0,6,2,1],
+    [1,7,6,2,3,0],
+    [0,1,7,6,2,3],
+    [0,6,2,7,3,1]
+  ];
   function randomizeArrangement(tracks,seed){
-    const profile=phrases.ensemble(tracks[0]?.setup,seed),rank=profile[4],world=tracks[0]?.setup;
-    const keep=new Set([4,5]);keep.add(world==='reactor'?0:(rank%2?3:7));
-    const optional=[0,1,2,3,6,7].filter(i=>!keep.has(i)).sort((a,b)=>random01(seed*811+a*37)-random01(seed*811+b*37));
-    const count=4+(seed%3);for(const i of optional.slice(0,count-keep.size))keep.add(i);
-    if(tracks.every((t,i)=>t.on===keep.has(i))){const enabled=optional.find(i=>keep.has(i)),disabled=optional.find(i=>!keep.has(i));if(enabled!==undefined&&disabled!==undefined){keep.delete(enabled);keep.add(disabled)}}
-    return tracks.map((t,i)=>{const role=roles.forTrack(t).id;
+    const keep=new Set([4,5]);
+    const count=4+(seed%3);
+    const archetype=arrangementArchetypes[(seed+Math.floor(seed/7))%arrangementArchetypes.length];
+    const ranked=[...archetype].sort((a,b)=>{
+      const sA=archetype.indexOf(a)*1.5+random01(seed*617+a*43)*1.8;
+      const sB=archetype.indexOf(b)*1.5+random01(seed*617+b*43)*1.8;
+      return sA-sB;
+    });
+    for(const i of ranked){if(keep.size>=count)break;keep.add(i);}
+    const pool=[0,1,2,3,6,7];
+    if(tracks.every((t,i)=>t.on===keep.has(i))){
+      const enabled=pool.find(i=>keep.has(i)),disabled=pool.find(i=>!keep.has(i));
+      if(enabled!==undefined&&disabled!==undefined){keep.delete(enabled);keep.add(disabled);}
+    }
+    return tracks.map((t,i)=>{
+      const role=roles.forTrack(t).id;
       const amount=(salt,max)=>{const r=random01(seed*997+i*67+salt);return r<.28?0:Math.round((r-.28)/.72*max)};
-      return {on:keep.has(i),space:amount(101,['pulse','bass'].includes(role)?16:50),delay:amount(211,['pulse','bass','accent'].includes(role)?10:role==='arpeggio'?20:35),chorus:['pulse','bass','accent','percussion'].includes(role)?0:amount(307,30),delayTime:['1/8','1/8d','1/4'][(seed+i)%3]};
+      return {
+        on:keep.has(i),
+        space:amount(101,['pulse','bass'].includes(role)?16:50),
+        delay:amount(211,['pulse','bass','accent'].includes(role)?10:role==='arpeggio'?40:35),
+        chorus:['pulse','bass','accent','percussion'].includes(role)?0:amount(307,30),
+        delayTime:['1/8','1/8d','1/4'][(seed+i)%3]
+      };
     });
   }
   function arrange(tracks){const types=tracks.map(t=>t.generator===3?roles.forTrack(t).id:phrases.roleFor(t,soundFor(t))),assignments=types.map((role,i)=>({role,count:types.filter(r=>r===role).length,ordinal:types.slice(0,i).filter(r=>r===role).length}));tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator>=2?1/Math.sqrt(assignments[i].count):1});return assignments}
