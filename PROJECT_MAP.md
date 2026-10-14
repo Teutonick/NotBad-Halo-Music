@@ -6,7 +6,24 @@
 - Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
 - Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
 
-### Latest implemented update — 2026-10-14: third orbit visualization mode (HYPER) with 8 distinct dynamic comet signatures
+### Latest implemented update — 2026-10-14: background playback engine with adaptive lookahead, and 20-minute GitHub Actions deployment workflow
+
+- **Background Playback Engine & Toolbar Toggle (`#bgAudio`):**
+  - Added a dedicated background playback toggle button in `.top-actions` (top-right header) right next to `#visualOnly` (`Visuals only`) with an intuitive SVG icon featuring a browser window with an acoustic note and radiated sound waves.
+  - When enabled (`clean.ui.backgroundAudio = true`), the `visibilitychange` listener does not pause playback or suspend the `AudioContext` when the browser tab loses focus, the window is minimized, or the user switches applications.
+  - **Adaptive Lookahead Scheduling (`schedule()`):** Browsers (Chromium, Firefox, Safari) throttle background tab timers (`setInterval`) down to 1000ms. HALO's scheduler dynamically expands its lookahead window from `0.16s` (48 ticks) to `1.5s` (192 ticks) whenever `document.hidden && backgroundAudio` is true, keeping the browser's hardware audio buffer continuously populated without dropouts or skipped notes.
+  - State is fully persisted in `localStorage` under `ui.backgroundAudio` with 100% backward compatibility for existing autosaves.
+  - Full RU/EN localization for button titles, accessible labels, and status toasts (`Background playback enabled` / `Фоновое воспроизведение включено`).
+- **Robust GitHub Pages Deployment Workflow (`.github/workflows/deploy.yml`):**
+  - Resolved GitHub Pages deployment timeouts on large audio asset syncs by increasing `actions/deploy-pages@v4` timeout to 20 minutes (`timeout: 1200000`).
+  - Added manual `workflow_dispatch` trigger enabling 1-click manual re-deployments directly from the GitHub repository Actions tab.
+- **Documentation & Specifications Synchronization:**
+  - Updated Section 11 of the in-app User Manual (`index.html`) in both Russian and English.
+  - Synchronized `docs/engine-capabilities.md` with Section 10 covering Background Playback Engine mechanics and deployment specifications.
+  - Synchronized `docs/agent-api-specification.md` with `system.setBackgroundAudio` and `system.setVisualOnly` operations.
+- **Verification:** 147 passing Node tests across the test suite, including new unit tests for preferences persistence and live background audio toggling / hidden tab behavior. Preserves zero-build static deployment on GitHub Pages.
+
+### Previous implemented update — 2026-10-14: third orbit visualization mode (HYPER) with 8 distinct dynamic comet signatures
 
 - **Third Orbit Visualization Mode (HYPER / "ГИПЕР"):**
   - Added a third visual comet trail mode cycling alongside `CLASSIC` and `COSMIC`: `CLASSIC` → `COSMIC` → `HYPER` → `CLASSIC`.

@@ -9,7 +9,7 @@ function app(storage, options = {}) {
   function element(id) {
     const classes = new Set(), children = [];
     const el = { id, children, value: 50, textContent: '', style: { setProperty() {} },
-      classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains:x=>classes.has(x) },
+      classList: { add: x => classes.add(x), remove: x => classes.delete(x), contains:x=>classes.has(x), toggle:(x,force)=>((force!==undefined?force:!classes.has(x))?classes.add(x):classes.delete(x)) },
       setAttribute(k,v) { this[k] = v; }, append(x) { children.push(x); }, focus() {},
       addEventListener(k,v) { this[k] = v; }, click() { this.onclick?.(); },
       getContext: kind => kind === 'webgl2' ? null : {setTransform() {}}, getBoundingClientRect: () => ({left:0,top:0,width:1200,height:800}) };
@@ -510,4 +510,28 @@ test('user guide button opens comprehensive modal, supports bilingual labels, TO
  a.events.keydown({key:'Escape',preventDefault(){}});
  assert.equal($('guideModal').hidden, true);
 });
+
+test('background playback button toggles state and maintains playback when document is hidden', async () => {
+ const a = app(), $ = id => a.document.getElementById(id);
+ const btn = $('bgAudio');
+ assert.equal(btn['aria-pressed'], 'false');
+
+ btn.click();
+ assert.equal(btn['aria-pressed'], 'true');
+ assert.match($('toast').textContent, /Background playback enabled|Фоновое воспроизведение включено/);
+
+ await $('play').onclick();
+ assert.equal($('transportTitle').textContent, 'YOUR UNIVERSE IS ALIVE');
+
+ a.document.hidden = true;
+ a.events.visibilitychange();
+ assert.equal($('transportTitle').textContent, 'YOUR UNIVERSE IS ALIVE');
+
+ btn.click();
+ assert.equal(btn['aria-pressed'], 'false');
+ assert.match($('toast').textContent, /Background playback disabled|Фоновое воспроизведение выключено/);
+
+ a.events.visibilitychange();
+});
+
 

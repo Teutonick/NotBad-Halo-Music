@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-14 — Background playback engine with adaptive lookahead, and GitHub Actions 20-minute deployment workflow
+
+- **Background Playback Engine & UI (`#bgAudio`):**
+  - Added background playback toggle button in the top-right toolbar next to `#visualOnly` with custom SVG window and audio note icon.
+  - Enabled continuous, uninterrupted music playback when the browser tab is hidden, minimized, or switched away.
+  - Implemented adaptive lookahead scheduling (`schedule()`): when `document.hidden && backgroundAudio`, lookahead dynamically expands from `0.16s` (48 ticks) to `1.5s` (192 ticks) to prevent audio starvation caused by browser timer throttling (which slows background timers down to 1000ms).
+  - Persisted background audio preference in `localStorage` with full RU/EN localization and status toasts (`Background playback enabled` / `Фоновое воспроизведение включено`).
+- **GitHub Pages Deployment Workflow (`.github/workflows/deploy.yml`):**
+  - Created `.github/workflows/deploy.yml` with a 20-minute CDN propagation timeout (`timeout: 1200000`) for `actions/deploy-pages@v4` to resolve deployment timeouts on large audio assets.
+  - Added manual `workflow_dispatch` trigger for 1-click manual deployment directly from the GitHub Actions tab.
+- **Documentation & Test Coverage:**
+  - Synchronized in-app User Manual (`index.html`) Section 11 in Russian and English.
+  - Added Section 10 to `docs/engine-capabilities.md` and updated `docs/agent-api-specification.md`.
+  - Added comprehensive test coverage in `tests/preferences.test.cjs` and `tests/app.test.cjs`, with 147 passing tests.
+
 ## 2026-10-14 — Third orbit visualization mode (HYPER) with 8 distinct dynamic comet signatures
 
 - **Third Orbit Visualization Mode (HYPER / "ГИПЕР"):**

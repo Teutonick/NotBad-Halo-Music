@@ -32,4 +32,7 @@ test('effectMode persists across classic, cosmic and hyper and preserves legacy 
  const legacy=snapshot();delete legacy.ui.effectMode;legacy.ui.richEffects=true;
  assert.equal(Prefs.validate(legacy,P,S).ui.effectMode,1);assert.equal(Prefs.validate(legacy,P,S).ui.richEffects,true);
 });
+test('background-audio preference persists and older autosaves default to disabled',()=>{
+ const value=snapshot();value.ui.backgroundAudio=true;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.backgroundAudio,true);assert.equal(Prefs.validate(snapshot(),P,S).ui.backgroundAudio,false);
+});
 

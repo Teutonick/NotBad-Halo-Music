@@ -7,6 +7,7 @@
   let effectMode=1;if(Number.isInteger(value.ui?.effectMode)&&value.ui.effectMode>=0&&value.ui.effectMode<=2){effectMode=value.ui.effectMode}else if(typeof value.ui?.richEffects==='boolean'){effectMode=value.ui.richEffects?1:0}else if(Number.isInteger(value.ui?.richEffects)&&value.ui.richEffects>=0&&value.ui.richEffects<=2){effectMode=value.ui.richEffects}else{throw Error('Invalid preference')}clean.ui.effectMode=effectMode;clean.ui.richEffects=effectMode!==0;
   for(const field of ['autoEvolve','autoKey']){if(typeof value.ui?.[field]!=='boolean')throw Error('Invalid preference');clean.ui[field]=value.ui[field]}
   clean.ui.visualOnly=value.ui.visualOnly===true;
+  clean.ui.backgroundAudio=value.ui?.backgroundAudio===true;
   clean.ui.phraseRepeat=value.ui?.phraseRepeat!==false;
   clean.ui.language=['ru','en'].includes(value.ui.language)?value.ui.language:null;clean.ui.promoIndex=Number.isInteger(value.ui.promoIndex)&&value.ui.promoIndex>=0&&value.ui.promoIndex<4?value.ui.promoIndex:0;
   clean.ui.windowOrder=Array.isArray(value.ui.windowOrder)?value.ui.windowOrder.filter(id=>['editor','patternEditor','storageInfo','phraseGuide'].includes(id)).slice(0,4):[];

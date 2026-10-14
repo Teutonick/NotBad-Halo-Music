@@ -314,11 +314,13 @@ AI-агент не передает монолитный проект целик
 - `master.setVolume`: `{ volume: 0..100 }`
 - `master.setMix`: `{ low?: -9..9, mid?: -9..9, high?: -9..9, width?: 0..100 }`
 
-#### Визуальные операции (Visual Operations)
+#### Визуальные и системные операции (Visual & System Operations)
 - `visual.setScene`: `{ scene: 'ORBIT'|'BLOOM'|'CURRENT' }`
 - `visual.setMotion`: `{ motion: 'DRIFT'|'IN TIME'|'PHRASE' }`
 - `visual.setEffectMode`: `{ mode: 'CLASSIC'|'COSMIC'|'HYPER' }`
 - `visual.setCosmic`: `{ enabled: boolean }` *(обратная совместимость: `true` переключает в `COSMIC`, `false` — в `CLASSIC`)*
+- `system.setBackgroundAudio`: `{ enabled: boolean }` (включение/выключение непрерывного фонового воспроизведения при свернутом окне и смене вкладок)
+- `system.setVisualOnly`: `{ enabled: boolean }` (скрытие или восстановление элементов управления интерфейса)
 
 
 ---
