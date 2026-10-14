@@ -1,5 +1,33 @@
 # Changelog
 
+## 2026-10-14 — Develop the authored verse and vary generated ensembles
+
+- GENERATE now changes active voices and restrained per-track FX (0–50%), retaining bass/melody anchors and master/cycle settings.
+- Replaced event-thinning arrangements with role/ensemble-based development: intact first verse, developed accompaniment, independent second verse/bridge, three linked choruses, intro/outro; main event pitches are retained.
+- Added bounded optional note frames to version-1 files and expanded bounded autosave capacity, preserving muted exact material and older projects. No backend or new dependency.
+
+## 2026-10-14 — Queue phrase selection during composition playback
+
+- Card clicks keep Composition visible and queue the selected phrase after the current phrase cycle, with last-click-wins behavior and localized pending indication.
+- Audio context and scheduler continue; paused selection remains immediate. Live navigation does not alter the saved arrangement or offline export order.
+
+## 2026-10-14 — Compact headers and aligned panel rocker
+
+- Removed spaces in HALO branding, put EQ captions/values on one line, and moved phrase names onto the drag/delete header row.
+- Shortened phrase cards and aligned the two side-switch buttons to the visible card/track area in both panel modes, including wide screens.
+
+## 2026-10-14 — Composition cards and side rocker
+
+- Replaced tab/action rows with a side rocker and card-local +/×/variation/repeat controls; added pointer drag and Alt+arrow keyboard reordering.
+- Bounded short-screen panels, hid phrase overlays during Composition and kept default editor/promotion clear of transport.
+- Verified 119 Node tests and in-app browser pointer/layout checks at 1440×900, 390×844 and 320×568. Physical touch/Safari/iOS and listening remain unverified.
+
+## 2026-10-14 — Phrase-based composition arranger
+
+- Added localized Instruments/Composition lower-panel views, deterministic source-loop arrangement, linked repeats and independent variations; right instrument editor remains available.
+- Added ordered sections, repeat counts, local persistence, validated JSON/share links, audio-clock transitions, fades and whole-composition offline export. Old loop files remain supported; static GitHub Pages requires no backend or new dependency.
+- Model/DOM/export contracts verified automatically; real-browser layout, audible and device acceptance remain pending because browser/loopback access failed.
+
 ## 2026-10-14 — Circle of Fifths neighboring key switching and H A L O header capitalization
 
 - Circle of Fifths harmonic proximity for key changes (`src/composition.js`, `index.html`):

@@ -114,6 +114,7 @@
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
   function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=bar*16+local){
+    const saved=track.noteEvents?.find(e=>e.step===((absoluteStep%((track.manualBars||bars)*16))+(track.manualBars||bars)*16)%((track.manualBars||bars)*16));if(saved){const shifted=saved.notes.map(n=>Math.max(0,Math.min(127,n+transpose-(track.noteTranspose||0))));return track.generator===3?roles.constrain(shifted,soundFor(track),roles.forTrack(track).id):shifted;}
     if(track.generator===3)return roles.notes(track,soundFor(track),bar,local,seed,transpose,bars,absoluteStep);
     return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose);
   }
@@ -199,12 +200,23 @@
     });
     return result;
   }
+  function randomizeArrangement(tracks,seed){
+    const profile=phrases.ensemble(tracks[0]?.setup,seed),rank=profile[4],world=tracks[0]?.setup;
+    const keep=new Set([4,5]);keep.add(world==='reactor'?0:(rank%2?3:7));
+    const optional=[0,1,2,3,6,7].filter(i=>!keep.has(i)).sort((a,b)=>random01(seed*811+a*37)-random01(seed*811+b*37));
+    const count=4+(seed%3);for(const i of optional.slice(0,count-keep.size))keep.add(i);
+    if(tracks.every((t,i)=>t.on===keep.has(i))){const enabled=optional.find(i=>keep.has(i)),disabled=optional.find(i=>!keep.has(i));if(enabled!==undefined&&disabled!==undefined){keep.delete(enabled);keep.add(disabled)}}
+    return tracks.map((t,i)=>{const role=roles.forTrack(t).id;
+      const amount=(salt,max)=>{const r=random01(seed*997+i*67+salt);return r<.28?0:Math.round((r-.28)/.72*max)};
+      return {on:keep.has(i),space:amount(101,['pulse','bass'].includes(role)?16:50),delay:amount(211,['pulse','bass','accent'].includes(role)?10:role==='arpeggio'?20:35),chorus:['pulse','bass','accent','percussion'].includes(role)?0:amount(307,30),delayTime:['1/8','1/8d','1/4'][(seed+i)%3]};
+    });
+  }
   function arrange(tracks){const types=tracks.map(t=>t.generator===3?roles.forTrack(t).id:phrases.roleFor(t,soundFor(t))),assignments=types.map((role,i)=>({role,count:types.filter(r=>r===role).length,ordinal:types.slice(0,i).filter(r=>r===role).length}));tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator>=2?1/Math.sqrt(assignments[i].count):1});return assignments}
   function velocityFor(track,index,step,seed,bars=4){return track.generator===3?roles.velocity(track,soundFor(track),step,seed,bars):track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
   function cycleLength(track,bars=4){return track.manualSteps?track.manualBars*16:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars).period:track.generator===2?bars*16:16}
   function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
   function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
-  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
+  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

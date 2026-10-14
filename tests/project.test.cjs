@@ -75,3 +75,12 @@ test('track FX settings (delay, delayTime, chorus) roundtrip, default safely, an
  assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,chorus:-1})},S));
  assert.throws(()=>P.validate({...project,tracks:project.tracks.map((t,i)=>i?t:{...t,delay:'50'})},S));
 });
+
+test('muting exact pitched material preserves notes and repeats in portable snapshots',()=>{
+ const song=require('../src/song.js').build(P.capture(tracks,4,81,2,4,S,M)),p=song.phrases[2].project;
+ const ts=p.tracks.map(t=>({...t,setup:p.setup,manualSteps:t.steps,manualBars:p.bars,pattern:[0,4,8,12],on:false}));
+ const saved=P.capture(ts,8,p.tempo,p.seed,p.key,S,M);assert.ok(saved.tracks.every(t=>!t.on));
+ const i=ts.findIndex(t=>t.noteEvents?.some(e=>e.notes.length));const t=ts[i],e=t.noteEvents.find(e=>e.notes.length);
+ assert.deepEqual(saved.tracks[i].noteEvents.find(n=>n.step===e.step+p.bars*16).notes,e.notes);
+ assert.deepEqual(S.notesFor(t,i,4,e.step%16,p.seed,require('../src/composition.js').offsets[p.key],8,e.step+64),S.notesFor(t,i,0,e.step%16,p.seed,require('../src/composition.js').offsets[p.key],4,e.step));
+});

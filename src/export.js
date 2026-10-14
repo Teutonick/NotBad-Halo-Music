@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  async function render(project){
+  if(project.format==='halo-composition')return renderSong(project);
   const rate=44100,seconds=project.bars*4*60/project.tempo,length=Math.round(seconds*rate);
   const ctx=new OfflineAudioContext(2,length*2,rate);
   const samples=project.setup==='reactor'?await HaloSamples.prepare(ctx):{};
@@ -13,6 +14,18 @@
   }
   const full=await ctx.startRendering();
   return {length,numberOfChannels:2,sampleRate:rate,getChannelData(ch){return full.getChannelData(ch).subarray(length,length*2)}};
+ }
+ async function renderSong(song){
+  const rate=44100,length=Math.round(HaloSong.bars(song)*240/song.tempo*rate),ctx=new OfflineAudioContext(2,length,rate);
+  const samples=HaloSong.phrase(song,0).setup==='reactor'?await HaloSamples.prepare(ctx):{};
+  const tracks=Array.from({length:8},()=>({}));let engine=null,last=-1;
+  for(let step=0;step<HaloSong.bars(song)*16;step++){
+   const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4;
+   if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars});if(t.generator!==3||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
+   engine.master?.gain.setTargetAtTime(song.masterVolume/100*event.gain,time,.05);
+   tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,HaloComposition.offsets[p.key],p.bars,clock),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
+  }
+  return ctx.startRendering();
  }
  async function checkMp3(){
   const config={codec:'mp3',sampleRate:44100,numberOfChannels:2,bitrate:192000};

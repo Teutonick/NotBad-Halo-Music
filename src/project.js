@@ -21,12 +21,17 @@
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';
    clean.chorus=number(t.chorus??0,0,100);
+   if(t.noteEvents!==undefined){
+    if(!Array.isArray(t.noteEvents)||t.noteEvents.length>128||generator===3&&!clean.exact)throw Error('Invalid phrase notes');const used=new Set();
+    clean.noteTranspose=number(t.noteTranspose??0,-12,12);if(!Number.isInteger(clean.noteTranspose))throw Error('Invalid phrase notes');
+    clean.noteEvents=t.noteEvents.map(e=>{if(!e||!clean.steps.includes(e.step)||used.has(e.step)||!Array.isArray(e.notes)||e.notes.length>4||e.notes.some(n=>!Number.isInteger(n)||n<0||n>127))throw Error('Invalid phrase notes');used.add(e.step);return {step:e.step,notes:[...e.notes]}}).sort((a,b)=>a.step-b.step);
+   }
    result.tracks.push(clean);
   }
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
  }
  function parse(text,sounds){if(typeof text!=='string'||text.length>MAX_BYTES||new TextEncoder().encode(text).length>MAX_BYTES)throw Error('Project file exceeds 64 KiB');let data;try{data=JSON.parse(text)}catch{throw Error('Invalid JSON file')}return validate(data,sounds)}
- function capture(tracks,bars,tempo,seed,key,sounds,motion,masterVolume=50,mix,startStep=0){sounds.arrange(tracks);return validate({format:'notbad-halo-project',version:1,setup:tracks[0]?.setup||'ambient',bars,startStep,tempo,masterVolume,mix,seed,key,tracks:tracks.map((t,i)=>({...t,exact:!!t.manualSteps,steps:motion.phraseSteps({...t,variation:seed},i,startStep,seed,sounds,bars).filter(e=>e.fires).map(e=>e.step)}))},sounds)}
+ function capture(tracks,bars,tempo,seed,key,sounds,motion,masterVolume=50,mix,startStep=0){sounds.arrange(tracks);return validate({format:'notbad-halo-project',version:1,setup:tracks[0]?.setup||'ambient',bars,startStep,tempo,masterVolume,mix,seed,key,tracks:tracks.map((t,i)=>{const steps=motion.phraseSteps({...t,...(t.manualSteps?{on:true}:{}),variation:seed},i,startStep,seed,sounds,bars).filter(e=>e.fires).map(e=>e.step);return {...t,exact:!!t.manualSteps,steps,...(t.noteEvents?{noteEvents:steps.flatMap(step=>{const e=t.noteEvents.find(e=>e.step===(startStep+step)%((t.manualBars||bars)*16));return e?[{step,notes:[...e.notes]}]:[]})}:{})}})},sounds)}
  function wav(buffer){
   const length=buffer.length,channels=buffer.numberOfChannels,bytes=new ArrayBuffer(44+length*channels*2),v=new DataView(bytes);
   const text=(at,s)=>{for(let i=0;i<s.length;i++)v.setUint8(at+i,s.charCodeAt(i))};
@@ -73,6 +78,7 @@
   }else{
    text=new TextDecoder().decode(bytes);
   }
+  if(root.HaloSong&&text.length<=root.HaloSong.MAX_BYTES){const value=JSON.parse(text);if(value.format==='halo-composition')return root.HaloSong.parse(text,api,sounds)}
   return parse(text,sounds);
  }
  const api={MAX_BYTES,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;

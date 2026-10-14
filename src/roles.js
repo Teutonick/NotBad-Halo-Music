@@ -111,6 +111,6 @@
   const spec=forTrack(roleOrTrack);
   return (spec&&glyphs[spec.id])||glyphs.pulse;
  }
- const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,velocity,voicePolicy,mod,glyphs,glyph};
+ const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,constrain,velocity,voicePolicy,mod,glyphs,glyph};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloRoles=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

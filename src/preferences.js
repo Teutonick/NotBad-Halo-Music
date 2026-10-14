@@ -25,6 +25,6 @@
   }
   return clean;
  }
- function parse(text,project,sounds){if(typeof text!=='string'||text.length>65536||new TextEncoder().encode(text).length>65536)throw Error('Autosave exceeds limit');return validate(JSON.parse(text),project,sounds)}
+ function parse(text,project,sounds){if(typeof text!=='string'||text.length>262144||new TextEncoder().encode(text).length>262144)throw Error('Autosave exceeds limit');return validate(JSON.parse(text),project,sounds)}
  root.HaloPreferences={validate,parse};if(typeof module!=='undefined'&&module.exports)module.exports=root.HaloPreferences;
 })(globalThis);

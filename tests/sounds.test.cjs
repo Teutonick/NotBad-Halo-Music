@@ -238,3 +238,8 @@ test('boosting only bass keeps other master bands and broadband gain unchanged a
   assert.equal(audio.compressor.threshold.value,-1);assert.equal(audio.compressor.knee.value,0);
  }
 });
+
+test('ensemble generation varies active parts, preserves musical anchors and keeps optional FX between zero and fifty',()=>{
+ const S=require('../src/sounds.js');
+ for(const setup of ['ambient','reactor']){let ts=Object.keys(S.banksFor(setup)).map(name=>({...S.roles.initial(setup,name),name,setup,on:true}));const masks=new Set(),amounts=new Set();for(let seed=1;seed<=60;seed++){const mix=S.randomizeArrangement(ts,seed),mask=mix.map(t=>Number(t.on)).join('');assert.notEqual(mask,ts.map(t=>Number(t.on)).join(''));masks.add(mask);assert.ok(mix.filter(t=>t.on).length>=4&&mix.filter(t=>t.on).length<=6);assert.equal(mix[4].on,true);assert.equal(mix[5].on,true);for(const t of mix)for(const field of ['space','delay','chorus']){assert.ok(t[field]>=0&&t[field]<=50);amounts.add(t[field])}ts=ts.map((t,i)=>({...t,...mix[i]}))}assert.ok(masks.size>10);assert.ok(amounts.has(0));assert.ok([...amounts].some(n=>n>35));}
+});

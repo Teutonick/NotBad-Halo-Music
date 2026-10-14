@@ -122,7 +122,7 @@ test('new phrases drive the live scheduler on eight bars and retain old projects
  $('regen').onclick();assert.notEqual($('ensembleName').textContent,'Legacy phrase');
 });
 
-test('GENERATE randomizes all slot sounds and tuning, preserves mute and master settings and restores results',()=>{
+test('GENERATE randomizes timbres, activity and bounded FX while preserving master settings and restoring results',()=>{
  for(const reactor of [false,true]){
   const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
   if(reactor)$('setupSwitch').onclick();
@@ -131,8 +131,8 @@ test('GENERATE randomizes all slot sounds and tuning, preserves mute and master 
   const before=read();$('regen').onclick();const after=read();
   assert.deepEqual(after.mix,before.mix);assert.equal(after.tempo,before.tempo);assert.equal(after.key,before.key);assert.equal(after.masterVolume,35);
   for(let i=0;i<8;i++){
-   assert.equal(after.tracks[i].on,before.tracks[i].on);assert.notEqual(after.tracks[i].sound,before.tracks[i].sound);
-   for(const field of ['character','duration','density','level','space'])assert.ok(after.tracks[i][field]>=20&&after.tracks[i][field]<=100);
+   assert.equal(typeof after.tracks[i].on,'boolean');for(const field of ['space','delay','chorus'])assert.ok(after.tracks[i][field]>=0&&after.tracks[i][field]<=50);assert.notEqual(after.tracks[i].sound,before.tracks[i].sound);
+   for(const field of ['character','duration','density','level'])assert.ok(after.tracks[i][field]>=20&&after.tracks[i][field]<=100);
   }
   const b=app(storage);b.timeouts.filter(t=>t.ms===250).at(-1)?.fn();
   b.document.getElementById('tracks').children[1].oncontextmenu({preventDefault(){}});

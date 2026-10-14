@@ -1,6 +1,11 @@
 (function(root){
  'use strict';
  const pairs=[
+ ["Generate a new phrase, active voices and gentle FX","Создать фразу, выбрать звучащие инструменты и мягкие FX"],["New phrase, voices and gentle FX generated; loops now repeat","Созданы фраза, состав инструментов и мягкие FX; луп повторяется"],
+ ["The verse needs at least one active part","Для сборки нужен куплет хотя бы с одной звучащей партией"],["Invalid phrase notes","Некорректные ноты фразы"],
+ ['FILE','ФАЙЛ'],['Phrase controls','Настройки фразы'],['File and export controls','Файл и экспорт'],['SAVE PHRASE','СОХРАНИТЬ ФРАЗУ'],
+ ['Invalid composition','Некорректная композиция'],['Invalid phrase reference','Некорректная ссылка на фразу'],['Mixed sound worlds are unsupported','Смешивание звуковых миров не поддерживается'],['Invalid section','Некорректная часть композиции'],['Composition exceeds 128 bars','Композиция превышает 128 тактов'],['Composition exceeds size limit','Композиция превышает допустимый размер'],['Invalid master volume','Некорректная общая громкость'],
+
  ["The preset supplies the timbre; the track role controls how it plays.", "Тембр задаёт пресет; роль дорожки определяет, как он звучит."],
  ["Sound families that this track role can play. Generate uses the current world’s preferred sounds.", "Семейства звуков, совместимые с ролью. Создать выбирает предпочтительные звуки текущей орбиты."],
  ["The shared arrangement and harmony used by all eight tracks.", "Общая аранжировка и гармония для всех восьми дорожек."],
