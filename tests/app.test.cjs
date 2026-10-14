@@ -53,7 +53,7 @@ function app(storage, options = {}) {
 test('musical worlds preserve sounds, generated/manual identity and drafts across switches and reload',()=>{
  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
  const a=app(storage),$=id=>a.document.getElementById(id);
- $('motion').onclick();$('motion').onclick();$('editPattern').onclick();$('stepGrid').children[1].click();
+ $('patternEditor').hidden=true;$('editPattern').onclick();$('stepGrid').children[1].click();
  $('setupSwitch').onclick();assert.equal($('bpmInput').value,'100');
  $('tracks').children[7].oncontextmenu({preventDefault(){}});assert.equal($('types').children.length,4);$('types').children[2].click();
  $('bpmInput').onchange({target:{value:'112'}});$('editPattern').onclick();$('stepGrid').children[3].click();
@@ -68,7 +68,7 @@ test('reactor GENERATE clears all manual tracks and replaces every displayed phr
  const data=new Map(),a=app({getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)}),$=id=>a.document.getElementById(id);
  $('setupSwitch').onclick();
  const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project;};
- $('motion').onclick();$('motion').onclick();$('editPattern').onclick();$('savePattern').onclick();
+ $('editPattern').onclick();$('savePattern').onclick();
  const before=read();$('regen').onclick();const after=read();
  assert.ok(JSON.parse(data.get('notbad-halo-autosave-v1')).manual.every(t=>t===null));
  assert.equal(after.seed,before.seed+1);
@@ -190,6 +190,7 @@ test('play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed schedu
   $('effects').onclick(); assert.equal($('effects').textContent,'CLASSIC');
   $('effects').onclick(); assert.equal($('effects').textContent,'COSMIC');
   assert.equal(a.calls.filter(c=>c[0]==='play').length,before);
+  $('motion').onclick(); assert.equal($('motion').textContent,'DRIFT');
   $('motion').onclick(); assert.equal($('motion').textContent,'IN TIME');
   assert.equal($('motion')['aria-pressed'],'true');
   $('motion').onclick(); assert.equal($('motion').textContent,'PHRASE');

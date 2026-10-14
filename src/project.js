@@ -1,6 +1,6 @@
 (function(root){
  'use strict';
- const MAX_BYTES=65536;
+ const MAX_BYTES=65536,MAX_TOKEN=24000,MAX_SHARE_BYTES=524288;
  function number(value,min,max){if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)throw Error('Invalid numeric value');return value}
  function bpm(text){if(typeof text!=='string'||text.length>7||!/^\d{2,3}(\.\d{1,2})?$/.test(text))throw Error('BPM must be 30–200');return number(Number(text),30,200)}
  function mixSettings(value={}){if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid mix settings');return {low:number(value.low??0,-9,9),mid:number(value.mid??0,-9,9),high:number(value.high??0,-9,9),width:number(value.width??35,0,100)}}
@@ -56,7 +56,7 @@
   return new Uint8Array(Buffer.from(b,'base64'));
  }
  async function encodeShare(project){
-  const text=JSON.stringify(project);
+  const text=JSON.stringify(project);if(new TextEncoder().encode(text).length>MAX_SHARE_BYTES)throw Error('Shared data exceeds size limit');
   if(typeof CompressionStream==='function'){
    const stream=new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
    const compressed=new Uint8Array(await new Response(stream).arrayBuffer());
@@ -64,22 +64,35 @@
   }
   return bytesToBase64Url(new TextEncoder().encode(text));
  }
+ async function boundedText(stream,limit){
+  const reader=stream.getReader(),chunks=[];let length=0;
+  try{while(true){const {done,value}=await reader.read();if(done)break;length+=value.byteLength;if(length>limit){await reader.cancel().catch(()=>{});throw Error('Shared data exceeds size limit')}chunks.push(value)}}finally{reader.releaseLock()}
+  const bytes=new Uint8Array(length);let offset=0;for(const chunk of chunks){bytes.set(chunk,offset);offset+=chunk.byteLength}return new TextDecoder('utf-8',{fatal:true}).decode(bytes);
+ }
+ function shareHash(hash){
+  if(typeof hash!=='string'||hash.length>MAX_TOKEN*3+16)throw Error('Invalid share token');
+  if(!/^#(?:loop|project|share|song)=/.test(hash))return null;
+  const match=hash.match(/^#(loop|project|share|song)=([^&]+)$/);if(!match)throw Error('Invalid share token');
+  const token=decodeURIComponent(match[2]);if(!token||token.length>MAX_TOKEN||token.length%4===1||! /^[A-Za-z0-9_-]+$/.test(token))throw Error('Invalid share token');return {kind:match[1],token};
+ }
  async function decodeShare(token,sounds){
-  if(typeof token!=='string'||!token||token.length>MAX_BYTES)throw Error('Invalid share token');
+  if(typeof token!=='string'||!token||token.length>MAX_TOKEN||token.length%4===1||! /^[A-Za-z0-9_-]+$/.test(token))throw Error('Invalid share token');
   const bytes=base64UrlToBytes(token);
   let text='';
   if(typeof DecompressionStream==='function'){
    try{
     const stream=new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-    text=await new Response(stream).text();
-   }catch{
-    text=new TextDecoder().decode(bytes);
+    text=await boundedText(stream,MAX_SHARE_BYTES);
+   }catch(error){
+    if(error.message==='Shared data exceeds size limit')throw error;
+    text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
    }
   }else{
-   text=new TextDecoder().decode(bytes);
+   text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);
   }
+  if(new TextEncoder().encode(text).length>MAX_SHARE_BYTES)throw Error('Shared data exceeds size limit');
   if(root.HaloSong&&text.length<=root.HaloSong.MAX_BYTES){const value=JSON.parse(text);if(value.format==='halo-composition')return root.HaloSong.parse(text,api,sounds)}
   return parse(text,sounds);
  }
- const api={MAX_BYTES,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
+ const api={MAX_BYTES,MAX_TOKEN,shareHash,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

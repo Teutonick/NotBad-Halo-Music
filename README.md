@@ -1,5 +1,11 @@
 # NotBad Halo Music Constructor — Interactive Sound Universe
 
+Click a phrase name to rename it in place (Enter saves, Escape cancels): 1–10 letters or digits, no spaces/special characters. New saved phrases have sequential numbers; linked repeats share their name. The transport shows the phrase being edited. / Нажмите имя фразы для переименования: Enter сохраняет, Escape отменяет; до 10 букв или цифр, без пробелов и спецсимволов.
+
+Shared URL fragments and imported JSON are bounded and allowlisted. Tokens accept only base64url, one recognized fragment parameter, and at most 24,000 characters; decompression stops above 512 KiB. Numeric controls reject nonfinite/out-of-range/off-grid input. Query parameters do not configure music. These checks reduce injection/resource abuse; they are not a security certification.
+
+First use opens PHRASE view; validated saved views still restore. Instruments loops and edits the current phrase; switching to Composition continues the ordered sections without stopping playback. Optional REPEAT loops the entire composition and persists locally and in JSON. / При первом запуске открыт экран ФРАЗА; сохранённый вид восстанавливается. Инструменты зацикливают текущую фразу, Композиция продолжает секции без остановки. REPEAT повторяет всю композицию.
+
 **Compose worlds, not timelines.**
 
 NotBad Halo Music Constructor is an open-source, browser-based relaxation constructor. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. Choose and shape a calm soundscape without musical expertise or the demands of a professional instrument.

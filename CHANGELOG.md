@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-14 — Bound shared input and name phrases
+
+- Strict URL token/fragment checks and streaming decompression limits; safe bounded phrase IDs/names, numeric seed rollover and constant-time harmony jumps.
+- Inline phrase naming, sequential phrase numbers, transport phrase caption and custom scrollbar without native arrow buttons.
+
+## 2026-10-14 — Continuous phrase/composition playback
+
+- Panel switching preserves playback: Instruments loops the current phrase, Composition follows sections. Optional persisted REPEAT restarts the full composition.
+- PHRASE is the first-use view; compact aligned rocker and narrow themed editor scrollbar.
+
 ## 2026-10-14 — Develop the authored verse and vary generated ensembles
 
 - GENERATE now changes active voices and restrained per-track FX (0–50%), retaining bass/melody anchors and master/cycle settings.

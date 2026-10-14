@@ -84,3 +84,19 @@ test('muting exact pitched material preserves notes and repeats in portable snap
  assert.deepEqual(saved.tracks[i].noteEvents.find(n=>n.step===e.step+p.bars*16).notes,e.notes);
  assert.deepEqual(S.notesFor(t,i,4,e.step%16,p.seed,require('../src/composition.js').offsets[p.key],8,e.step+64),S.notesFor(t,i,0,e.step%16,p.seed,require('../src/composition.js').offsets[p.key],4,e.step));
 });
+
+
+test('URL tokens reject ambiguous parameters, invalid alphabet, huge input and bad escapes',async()=>{
+ for(const hash of ['#loop=abc&song=def','#song=abc&x=1','#loop=%ZZ','#project=a','#share=<script>','#loop='+ 'A'.repeat(24001)])assert.throws(()=>P.shareHash(hash));
+ assert.deepEqual(P.shareHash('#song=abcd'),{kind:'song',token:'abcd'});assert.equal(P.shareHash('#other=abcd'),null);
+ for(const token of ['a','abcd=','ab+c','ab/c','abc%','abc\n'])await assert.rejects(()=>P.decodeShare(token,S));
+});
+test('compressed expansion is stopped before unbounded JSON allocation',async()=>{
+ const z=require('node:zlib'),token=z.deflateRawSync(Buffer.from(' '.repeat(524289))).toString('base64url');
+ await assert.rejects(()=>P.decodeShare(token,S),/Shared data exceeds size limit/);
+});
+test('injected project keys are discarded and unsafe numeric/schema data never reaches state',()=>{
+ const source=P.capture(tracks,4,81,2,0,S,M),payload=JSON.parse(JSON.stringify(source).replace('"version":1','"__proto__":{"polluted":true},"version":1'));payload.script='<img src=x onerror=alert(1)>';
+ const parsed=P.parse(JSON.stringify(payload),S);assert.equal(Object.hasOwn(parsed,'__proto__'),false);assert.equal(parsed.script,undefined);assert.equal({}.polluted,undefined);
+ for(const value of [1e300,-1,NaN,Infinity,'1',null])assert.throws(()=>P.validate({...source,seed:value},S));
+});

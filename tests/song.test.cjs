@@ -55,3 +55,10 @@ test('frozen note events serialize, transpose with key and reject invalid events
  for(const events of [[{step:999,notes:[60]}],[{step:t.steps[0],notes:[NaN]}],[{step:t.steps[0],notes:[128]}],[{step:t.steps[0],notes:[60,61,62,63,64]}]]){const bad=Song.copy(p);bad.tracks[i].noteEvents=events;assert.throws(()=>P.validate(bad,S))}
  const silent=source(4);silent.tracks.forEach(t=>{t.on=false;t.steps=[]});assert.throws(()=>Song.build(silent),/active part/);
 });
+
+
+test('phrase names and identifiers are bounded and survive serialization without markup',()=>{
+ const song=Song.validate(Song.build(source(4)),P,S);song.phrases[0].label='Тема123';assert.equal(Song.parse(JSON.stringify(song),P,S).phrases[0].label,'Тема123');
+ for(const label of ['', 'a'.repeat(11),'two words','<script>','a_b','a-b','a\n','😀','a\u200b'])assert.throws(()=>Song.validate({...song,phrases:song.phrases.map((p,i)=>i?p:{...p,label})},P,S));
+ for(const id of [Number.MAX_SAFE_INTEGER,1e300,1000001])assert.throws(()=>Song.validate({...song,phrases:song.phrases.map((p,i)=>i?p:{...p,id})},P,S));
+});

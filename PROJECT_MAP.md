@@ -1,5 +1,16 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+### Latest implemented update — 2026-10-14: bounded shared inputs and phrase names
+
+- Audited numeric controls, legacy pattern storage, project/composition import, autosave and share fragments. Existing strict control ranges/schema allowlists retained. Shared tokens now enforce base64url alphabet/length, strict single recognized fragment parameter and percent decoding; unpacked streams cancel above 512 KiB before JSON parsing. Stale async URL replies are ignored before state loading. Unknown query variables do not configure the app. AUTO key jumps are constant-time; seeds wrap within the validated bound.
+- Optional allowlisted phrase `label`: 1–10 Unicode letters/numbers, no spaces, markup or special characters. IDs are safe integers ≤1,000,000. New records display their sequential ID; repeats share names. Name click opens an inline input, Enter saves / Escape or blur cancels; background/keyboard card selection still cues playback. Transport displays the edited/current phrase name. Custom text uses textContent only.
+- Chromium editor uses only its custom scrollbar (standard scrollbar styling was overriding arrow removal); unsupported browsers retain thin native fallback. Verified: 135 Node tests pass, including compressed expansion cancellation, strict URL parsing, schema/key injection rejection, unsafe numerics, phrase names and linked identity. In-app browser at 987×904 confirmed invalid-name rejection, valid inline rename, transport caption, scrollbar buttons display:none, no horizontal page overflow and a clean console. No dependencies/backend/CDN or commit; security tests are bounded-input regression evidence, not certification.
+
+### Latest implemented update — 2026-10-14: continuous panel playback and composition repeat
+
+- Instruments returns to the sounding phrase and loops it on the shared audio clock; Composition resumes its selected section without reloading/stopping. Whole-song REPEAT is optional, defaults off, and is allowlisted in version-1 JSON/local state; offline export remains one pass. First-use visual mode is PHRASE, saved validated view still takes precedence.
+- Rocker icons/arrows remain on one line. Editor uses a narrow rounded themed scrollbar with no arrow buttons. Static classic-script deployment and eight voices remain unchanged. Verified: 129 Node tests pass; browser confirmed Play stays active across both panel switches, REPEAT toggles, one repeat button, themed thin scrollbar and no horizontal page overflow; console clean. Full-song wrap covered by deterministic scheduler tests; no listening or physical-device acceptance claimed.
+
 **Status:** prototype with procedural ambient and sample-backed rock banks, versioned local motif/ensemble generation, fixed musical roles with compatible same-world timbres, localized UI and persisted preferences, 2026-10-14. This document distinguishes **CURRENT** implementation from **TARGET** design. It is the shared product/engineering map for future Codex sessions.
 
 ### Latest implemented update — 2026-10-14: authored-verse development and varied generator ensembles

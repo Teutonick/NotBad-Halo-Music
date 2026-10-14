@@ -52,3 +52,8 @@ test('versioned local pattern roundtrip validates every track and rejects unsafe
   for(const bad of [{...data,version:2},{...data,bars:7},{...data,key:12},{...data,tracks:[...data.tracks.slice(1),data.tracks[1]]},
     {...data,tracks:data.tracks.map((t,i)=>i? t:{...t,steps:[128]})}])assert.throws(()=>C.decode(JSON.stringify(bad),names));
 });
+
+
+test('huge clock jumps keep harmony constant-time and seeds inside serialized bounds',()=>{
+ const c=require('../src/composition.js').create({seed:1000000000,key:11});c.setAutoEvolve(true);c.setAutoKey(true);c.at(0);const next=c.at(1000000000);assert.ok(next.seed>=1&&next.seed<=1000000000);assert.equal(next.key,(11+1000000000)%12);assert.ok(c.generate().seed<=1000000000);
+});

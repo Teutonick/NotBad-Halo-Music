@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const pairs=[
+ ['Phrase name: 1–10 letters or digits, no spaces','Имя фразы: 1–10 букв или цифр, без пробелов'],['Shared data exceeds size limit','Данные ссылки превышают допустимый размер'],
  ["Generate a new phrase, active voices and gentle FX","Создать фразу, выбрать звучащие инструменты и мягкие FX"],["New phrase, voices and gentle FX generated; loops now repeat","Созданы фраза, состав инструментов и мягкие FX; луп повторяется"],
  ["The verse needs at least one active part","Для сборки нужен куплет хотя бы с одной звучащей партией"],["Invalid phrase notes","Некорректные ноты фразы"],
  ['FILE','ФАЙЛ'],['Phrase controls','Настройки фразы'],['File and export controls','Файл и экспорт'],['SAVE PHRASE','СОХРАНИТЬ ФРАЗУ'],
