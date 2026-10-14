@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-14 — Cyrillic typography whitespace fix and modernized font stack
+
+- **DOM Localization Whitespace Preservation (`src/i18n.js`):**
+  - Resolved root cause of "eaten spaces" in Russian localization where DOM text nodes adjacent to inline HTML tags (`<strong>`, `<em>`, `<span>`, `<code>`) had their leading and trailing whitespace stripped by `translate()`.
+  - Added explicit preservation of leading and trailing whitespace (`lead` and `trail`) across all translation branches (dictionary matches and fallback substitutions).
+  - Excluded `#guideModal` from dynamic `TreeWalker` translation in `setup()`, preventing redundant re-translation and keyword mutations in the already localized bilingual markup.
+- **Modernized Cyrillic Font Stack (`index.html`):**
+  - Updated global `font-family` stack to `Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` with font smoothing (`-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale`) for sharp, readable Cyrillic glyphs across Windows (Segoe UI/Inter), Apple (San Francisco), Android (Roboto), and Linux.
+- **Test Coverage & Security:**
+  - Expanded `tests/i18n.test.cjs` with tests specifically validating that leading and trailing whitespace is preserved across phrases, dictionary entries, and untranslated content.
+  - Resolved GitHub CodeQL code scanning alert #1 (`js/bad-tag-filter` / CWE-116): replaced regular expression matching `/<script>([\s\S]*?)<\/script>/g` in `tests/app.test.cjs` with deterministic substring extraction (`indexOf` and `slice`), eliminating incomplete tag filter warnings.
+
 ## 2026-10-14 — Background playback engine with adaptive lookahead, and GitHub Actions 20-minute deployment workflow
 
 - **Background Playback Engine & UI (`#bgAudio`):**

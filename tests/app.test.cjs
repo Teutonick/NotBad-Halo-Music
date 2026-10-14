@@ -45,7 +45,9 @@ function app(storage, options = {}) {
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
   vm.createContext(sandbox);
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
-  const code=[...html.matchAll(/<script>([\s\S]*?)<\/script>/g)][0][1];
+  const scriptOpen=html.indexOf('<script>');
+  const scriptClose=html.indexOf('</script>',scriptOpen);
+  const code=scriptOpen>=0&&scriptClose>scriptOpen?html.slice(scriptOpen+8,scriptClose):'';
   vm.runInContext(code,sandbox);
   return { document, elements, events, calls, timers, ctx, sandbox, timeouts };
 }

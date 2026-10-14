@@ -24,10 +24,17 @@ test('browser locale falls back to English and recognizes Russian variants',()=>
 });
 test('static and dynamic interface labels localize without swallowing layout spaces',()=>{
  assert.equal(I.translate(' ','ru'),' ');
+ assert.equal(I.translate('   ','ru'),'   ');
+ assert.equal(I.translate(' теплота, пространство','ru'),' теплота, пространство');
+ assert.equal(I.translate(' с помощью ','ru'),' с помощью ');
+ assert.equal(I.translate('  PULSE  ','ru'),'  ПУЛЬС  ');
+ assert.equal(I.translate('Конструктор содержит ','ru'),'Конструктор содержит ');
+ assert.equal(I.translate(' 30 оригинальных','ru'),' 30 оригинальных');
  assert.equal(I.translate('Switch language','ru'),'Переключить язык');
  assert.equal(I.translate('PHRASE 2 · 8 BARS · BAR 1/8 · BEAT 2/4','ru'),'ФРАЗА 2 · 8 ТАКТОВ · ТАКТ 1/8 · ДОЛЯ 2/4');
  assert.equal(I.translate('GLASS, Ringing accents, on. Tap to toggle; hold to edit.','ru'),'GLASS, Звонкие акценты, включён. Нажмите для переключения; удерживайте для правки.');
  assert.equal(I.translate('Общая громкость','en'),'Master volume');
+ assert.equal(I.translate('  Master volume  ','ru'),'  Общая громкость  ');
  assert.equal(I.translate('Load failed: Invalid JSON file','ru'),'Ошибка загрузки: Некорректный файл JSON');
 });
 

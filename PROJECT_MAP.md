@@ -6,7 +6,15 @@
 - Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
 - Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
 
-### Latest implemented update — 2026-10-14: background playback engine with adaptive lookahead, and 20-minute GitHub Actions deployment workflow
+### Latest implemented update — 2026-10-14: Cyrillic typography whitespace fix, background playback engine, and deployment workflow
+
+- **Cyrillic Localization Whitespace Preservation & Font Stack Modernization:**
+  - Diagnosed and fixed the "eaten spaces" issue in Russian UI and User Guide (`#guideModal`): DOM text nodes had their leading and trailing whitespace stripped by `translate()` in `src/i18n.js` when running through fallback substitution.
+  - Added explicit leading/trailing whitespace preservation across all translation paths in `src/i18n.js`.
+  - Excluded `#guideModal` from dynamic DOM `TreeWalker` translation in `setup()`, preventing redundant re-translation of pre-translated Russian and English guide trees.
+  - Modernized `font-family` stack in `index.html` to `Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif` with font smoothing (`-webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale`), providing crisp and readable Cyrillic glyphs across all operating systems without external runtime dependencies or CDNs.
+  - Added unit test coverage in `tests/i18n.test.cjs` validating whitespace preservation on arbitrary strings and dictionary matches.
+  - Resolved GitHub CodeQL code scanning alert #1 (`js/bad-tag-filter` / CWE-116): replaced `<script>` RegExp extraction in `tests/app.test.cjs` with safe, deterministic `indexOf` substring slicing.
 
 - **Background Playback Engine & Toolbar Toggle (`#bgAudio`):**
   - Added a dedicated background playback toggle button in `.top-actions` (top-right header) right next to `#visualOnly` (`Visuals only`) with an intuitive SVG icon featuring a browser window with an acoustic note and radiated sound waves.
