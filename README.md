@@ -6,9 +6,17 @@ Shared URL fragments and imported JSON are bounded and allowlisted. Tokens accep
 
 First use opens PHRASE view; validated saved views still restore. Instruments loops and edits the current phrase; switching to Composition continues the ordered sections without stopping playback. The transport repeat button next to BPM features dual-mode looping with independent states: loops phrase playback in Instruments (default: ON) or loops the whole composition in Composition (default: OFF). / При первом запуске открыт экран ФРАЗА; сохранённый вид восстанавливается. Инструменты воспроизводят текущую фразу, Композиция продолжает секции без остановки. Кнопка повтора на панели рядом с BPM поддерживает два режима с независимым сохранением состояния: зацикливает фразу на панели Инструментов (по умолчанию: ВКЛ) или всю композицию на панели Композиции (по умолчанию: ВЫКЛ).
 
+Click the **GUIDE / ИНСТРУКЦИЯ** button in the top-right corner to open the exhaustive, bilingual in-app User Manual with an interactive Table of Contents, musical theory in HALO terms, voice parameters, spatial effects, polymeter generation, 24-key Circle of Fifths harmony with parallel Major/Minor modes, song arranger, and hotkeys. / Кнопка **ИНСТРУКЦИЯ / GUIDE** в правом верхнем углу открывает интерактивное двуязычное руководство пользователя с оглавлением, теорией в терминах продукта, параметрами синтеза, эффектами, полиметрией в генераторе, 24 тональностями квинтового круга с параллельными минорными и мажорными ладами, аранжировщиком и горячими клавишами.
+
 **Compose worlds, not timelines.**
 
 NotBad Halo Music Constructor is an open-source, browser-based relaxation constructor. Eight musical voices share one pulse while glowing bodies travel along different closed trajectories. Choose and shape a calm soundscape without musical expertise or the demands of a professional instrument.
+
+### Technical & Developer Documentation
+- **[Engine Capabilities Registry](docs/engine-capabilities.md)** — complete technical ground-truth reference for all 8 track slots, 8 fixed musical roles, 30 Ambient patches, 32 Reactor presets (130 CC0 PCM samples), Web Audio formulas, master DSP chain, and musical constraints.
+- **[Universal Agent API Specification v1.1](docs/agent-api-specification.md)** — adapted specification for the upcoming AI Composer & Agent API: declarative operations, state inspection, optimistic concurrency revisions, and zero-backend shadow preview.
+- **[Track Roles & Polyphony](docs/track-roles.md)** — role operator rules, glyphs, and voice allocation.
+- **[Phrase & Motif Library](docs/phrase-library.md)** — generative motif families and harmony matrix.
 
 ![HALO desktop preview](screenshot.png)
 

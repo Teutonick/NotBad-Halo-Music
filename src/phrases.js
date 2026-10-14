@@ -84,12 +84,15 @@
   return roles.map((role,i)=>({role,count:roles.filter(r=>roleMatrix[role][r].balance==='share').length,ordinal:roles.slice(0,i).filter(r=>roleMatrix[role][r].balance==='share').length}));
  }
  function ensemble(setup,seed){const list=profiles[setup==='reactor'?'reactor':'ambient'];return list[(seed-1)%list.length]}
- function chordFor(setup,seed,bar,bars=4,transpose=0){
+ const majorScale=Object.freeze([0,2,4,5,7,9,11]);
+ function chordFor(setup,seed,bar,bars=4,transpose=0,mode='minor'){
+  if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
   const profile=ensemble(setup,seed),degrees=profile[3];
   // The second four bars answer the first, with a tonic resolution on bar eight.
   const degree=bars===8&&bar%8===7?0:degrees[bar%4];
   const tonic=setup==='reactor'?38:50;
-  return [0,2,4,6].map(n=>tonic+scale[(degree+n)%7]+12*Math.floor((degree+n)/7)+transpose);
+  const currentScale=mode==='major'?majorScale:scale;
+  return [0,2,4,6].map(n=>tonic+currentScale[(degree+n)%7]+12*Math.floor((degree+n)/7)+transpose);
  }
  const cache=new Map();
  function plan(track,sound,seed,bars=4){
@@ -121,9 +124,10 @@
   if(cache.size>=256)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
  }
  function fold(note,low,high){while(note<low)note+=12;while(note>high)note-=12;return note}
- function notes(track,sound,bar,local,seed,transpose=0,bars=4){
+ function notes(track,sound,bar,local,seed,transpose=0,bars=4,mode='minor'){
+  if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
   const p=plan(track,sound,seed,bars),role=p.role;if(unpitched.has(role))return [];
-  const chord=chordFor(track.setup,seed,bar,bars,transpose);
+  const chord=chordFor(track.setup,seed,bar,bars,transpose,mode);
   const within=p.steps.filter(step=>Math.floor(step/16)===bar%bars).map(step=>step%16);
   const ordinal=Math.max(0,within.filter(step=>step<=local).length-1);
   const answer=bar>=4||(bar%4===3),contour=p.degrees;
@@ -131,9 +135,9 @@
   const pitch=chord[degree%4],world=track.setup==='reactor';
   if(role==='bass')return [fold(pitch-12,26,world?45:49)];
   if(role==='riff'){
-   // A fifth above the chosen chord tone, quantized to the active minor scale.
-   let fifth=pitch+7;const tonic=38+transpose;
-   if(!scale.includes(((fifth-tonic)%12+12)%12))fifth--;
+   // A fifth above the chosen chord tone, quantized to the active scale.
+   let fifth=pitch+7;const tonic=38+transpose,currentScale=mode==='major'?majorScale:scale;
+   if(!currentScale.includes(((fifth-tonic)%12+12)%12))fifth--;
    return [fold(pitch+12,41,82),fold(fifth+12,48,89)];
   }
   if(role==='lead'){const n=fold(pitch+24+(answer&&ordinal%3===0?12:0),50,89),upper=fold(n+12,50,89);return [n,...(sound.octave&&upper!==n?[upper]:[])]}

@@ -113,12 +113,15 @@
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=bar*16+local){
+  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=bar*16+local,mode='minor'){
+    if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
     const saved=track.noteEvents?.find(e=>e.step===((absoluteStep%((track.manualBars||bars)*16))+(track.manualBars||bars)*16)%((track.manualBars||bars)*16));if(saved){const shifted=saved.notes.map(n=>Math.max(0,Math.min(127,n+transpose-(track.noteTranspose||0))));return track.generator===3?roles.constrain(shifted,soundFor(track),roles.forTrack(track).id):shifted;}
-    if(track.generator===3)return roles.notes(track,soundFor(track),bar,local,seed,transpose,bars,absoluteStep);
-    return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose);
+    if(track.generator===3)return roles.notes(track,soundFor(track),bar,local,seed,transpose,bars,absoluteStep,mode);
+    return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars,mode):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose,mode);
   }
-  function legacyNotesFor(track, index, bar, local, seed, transpose=0) {
+  const majorChords=[[0,4,7,11],[5,9,12,16],[7,11,14,17],[4,7,11,14]];
+  function legacyNotesFor(track, index, bar, local, seed, transpose=0, mode='minor') {
+    if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
     if(track.setup==='reactor'){
       const s=soundFor(track),root=[38,38,34,36][((bar%4)+4)%4]+transpose;
       if(['kick','snare','metal','tom'].includes(s.engine))return [];
@@ -127,12 +130,12 @@
       // Keep the riff within both recorded bass articulations' 26–45 range.
       if(s.engine==='rockbass')return [root+offset>45?root+offset-12:root+offset];
       if(s.engine==='guitar'&&!s.lead)return [root+12+offset,root+19+offset];
-      const minor=[0,3,7,10];
-      if(s.lead)return [root+24+minor[(Math.floor(local/2)+bar+seed)%4],...(s.octave?[root+36+minor[(Math.floor(local/2)+bar+seed)%4]]:[])];
-      if(s.arp)return [root+24+minor[(Math.floor(local/2)+seed)%4]];
-      return [root+12,root+15,root+19];
+      const degrees=mode==='major'?[0,4,7,11]:[0,3,7,10];
+      if(s.lead)return [root+24+degrees[(Math.floor(local/2)+bar+seed)%4],...(s.octave?[root+36+degrees[(Math.floor(local/2)+bar+seed)%4]]:[])];
+      if(s.arp)return [root+24+degrees[(Math.floor(local/2)+seed)%4]];
+      return mode==='major'?[root+12,root+16,root+19]:[root+12,root+15,root+19];
     }
-    const s = soundFor(track), chord = chords[((bar % 4) + 4) % 4].map(n=>n+transpose);
+    const s = soundFor(track), chord = (mode==='major'?majorChords:chords)[((bar % 4) + 4) % 4].map(n=>n+transpose);
     if (['noise','kick','drop','snare','clap'].includes(s.engine)) return [];
     if (track.name === 'ROOT') return [chord[0] - 12];
     if (track.name === 'TIDAL' || track.name === 'VEIL')
@@ -209,11 +212,34 @@
     arpeggio:   {level:[50,72], duration:[35,65], space:[32,60], character:[40,75], density:[50,85]},
     harmony:    {level:[55,75], duration:[72,98], space:[42,78], character:[35,70], density:[35,70]}
   };
+  const cycleProfiles={
+    pulse:      [{length:16,stepLength:1,weight:85},{length:8,stepLength:2,weight:10},{length:32,stepLength:1,weight:5}],
+    accent:     [{length:16,stepLength:1,weight:85},{length:8,stepLength:1,weight:10},{length:32,stepLength:1,weight:5}],
+    percussion: [{length:16,stepLength:1,weight:60},{length:12,stepLength:1,weight:15},{length:8,stepLength:1,weight:10},{length:14,stepLength:1,weight:8},{length:16,stepLength:2,weight:7}],
+    texture:    [{length:16,stepLength:1,weight:55},{length:8,stepLength:2,weight:20},{length:16,stepLength:2,weight:15},{length:8,stepLength:4,weight:10}],
+    bass:       [{length:16,stepLength:1,weight:80},{length:8,stepLength:2,weight:10},{length:12,stepLength:1,weight:6},{length:32,stepLength:1,weight:4}],
+    melody:     [{length:16,stepLength:1,weight:75},{length:16,stepLength:2,weight:15},{length:32,stepLength:1,weight:6},{length:8,stepLength:1,weight:4}],
+    arpeggio:   [{length:16,stepLength:1,weight:50},{length:12,stepLength:1,weight:18},{length:8,stepLength:1,weight:12},{length:14,stepLength:1,weight:10},{length:6,stepLength:1,weight:6},{length:8,stepLength:2,weight:4}],
+    harmony:    [{length:16,stepLength:1,weight:60},{length:8,stepLength:2,weight:18},{length:16,stepLength:2,weight:12},{length:8,stepLength:4,weight:10}]
+  };
+  function pickSequence(roleId,seed,index){
+    const profiles=cycleProfiles[roleId]||[{length:16,stepLength:1,weight:100}];
+    const total=profiles.reduce((sum,p)=>sum+p.weight,0);
+    const r=random01(seed*4111+index*137)*total;
+    let acc=0,chosen=profiles[0];
+    for(const p of profiles){acc+=p.weight;if(r<=acc){chosen=p;break;}}
+    let offset=0;
+    if(['arpeggio','percussion'].includes(roleId)&&random01(seed*1831+index*83)<0.2){
+      offset=Math.floor(random01(seed*2741+index*109)*Math.min(4,chosen.length));
+    }
+    return roles.sequence({length:chosen.length,stepLength:chosen.stepLength,offset});
+  }
   function randomizeTrack(track,index,seed){
     const sounds=roles.pool(track,banksFor(track.setup),true).filter(choice=>choice.sound.id!==track.sound);
     const choice=sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)];
     const roleId=roles.forTrack(track).id;
-    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:roles.sequence(track.sequence)};
+    const seq=pickSequence(roleId,seed,index);
+    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:seq};
     ['character','duration','density','level','space'].forEach((key,i)=>{
       const isWildcard=random01(seed*733+index*59+i*29)<0.16;
       const corridor=(!isWildcard&&roleCorridors[roleId]?.[key])||[20,100];

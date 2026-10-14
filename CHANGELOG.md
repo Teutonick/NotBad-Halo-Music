@@ -1,5 +1,40 @@
 # Changelog
 
+## 2026-10-14 — Cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
+
+- **Cycle and Step Randomization in GENERATE ("СОЗДАТЬ"):**
+  - Integrated `CYCLE` (length `4..32`) and `STEP` (division `1/16`, `1/8`, `1/4`) into the GENERATE button (`randomizeTrack` in `src/sounds.js`) with musical restraint ("без фанатизма").
+  - Anchor rhythm roles (`Pulse`, `Accent`, `Bass`) remain locked to the standard 16-step grid (1/16) in 80–85% of seeds, preserving groove stability and foundation.
+  - Textural and polyphonic voices (`Arpeggio`, `Percussion`, `Texture`, `Harmony`) explore organic polymeter (`6, 8, 12, 14, 32` steps and `1/8`, `1/4` divisions) with subtle phase offsets (`0..min(4, length-1)` on Arpeggio/Percussion with 20% probability).
+  - Manual step editing continues to override cycle playback and density until cleared.
+- **24-Key Circle of Fifths with Parallel Major & Minor Modes:**
+  - Expanded key structure from 12 minor keys to **24 tonal centers** (12 minor and 12 parallel major keys) in `src/composition.js`.
+  - Arranged as a continuous Hamiltonian cycle alternating relative pairs (0 accidentals difference / identical 7 diatonic pitch classes) and perfect fifth modulations (strictly 1 accidental difference):
+    `D MINOR ↔ F MAJOR → C MAJOR ↔ A MINOR → E MINOR ↔ G MAJOR → D MAJOR ↔ B MINOR → F♯ MINOR ↔ A MAJOR → E MAJOR ↔ C♯ MINOR → G♯ MINOR ↔ B MAJOR → F♯ MAJOR ↔ D♯ MINOR → A♯ MINOR ↔ C♯ MAJOR → G♯ MAJOR ↔ F MINOR → C MINOR ↔ D♯ MAJOR → A♯ MAJOR ↔ G MINOR (→ D MINOR)`.
+  - Added direct relative mode toggle (`composition.toggleMode()`): clicking the key name `#keyName` in the header or inspector instantly flips between parallel minor and major.
+  - Implemented pure diatonic major scale triad and seventh chord construction (`majorScale = [0,2,4,5,7,9,11]`, Imaj7, IVmaj7, V7, iiim7) in `src/phrases.js`, `src/roles.js`, and `src/sounds.js`.
+  - Maintained smooth neighborly modulation in `AUTO KEY` with $(K + 1) \pmod{24}$, stepping strictly to adjacent circle neighbors.
+  - Updated project validation and decoding bounds to accept `key: 0..23`.
+- **Documentation & User Manual Synchronization:**
+  - Synchronized Sections 6 and 7 in both Russian and English within the in-app User Manual (`index.html`).
+  - Updated `docs/engine-capabilities.md` with the 24-key table, relative pair formulas, major scale intervals, and cycle randomization corridor profiles.
+  - Updated `docs/agent-api-specification.md` with `totalKeys: 24`, `transport.toggleMode`, `transport.setKey` range `0..23`, and `phrase.generate` sequence fields.
+
+## 2026-10-14 — Bilingual User Manual, Engine Capability Registry, Universal Agent API Specification, and mandatory documentation sync rule
+
+- **Interactive in-app User Manual (`#guideModal`):**
+  - Added dedicated header button `#guideBtn` (`ИНСТРУКЦИЯ` / `GUIDE`) with book SVG icon and bilingual tooltips.
+  - Built exhaustive 13-section manual in Russian (`.guide-lang-ru`) and English (`.guide-lang-en`) covering Philosophy, Sound Worlds (Ambient vs Reactor), 8 Musical Roles, Voice Parameters, Spatial FX, Master Transport & Polymeter, Aeolian Circle of Fifths Harmony, Phrases & Step Grid, Song Arranger & 56-bar narrative, Master Section & Spatial Stage, Visual Orbits & Worlds, Storage/Export/Sharing, and Hotkeys.
+  - Implemented responsive Table of Contents: sticky sidebar on desktop, horizontal chip bar on mobile (<=700px), smooth anchor scrolling, backdrop click dismiss, dedicated close button, and Escape key dismissal.
+  - Connected live to language toggle (`RU/EN`) without page reload.
+- **Engine Capability Registry (`docs/engine-capabilities.md`):**
+  - Documented complete technical reference for all 8 tracks (`GLASS`..`AURA`), 8 fixed roles, 30 Ambient patches, 32 Reactor presets (130 CC0 PCM samples with SHA-256 hashes and pinned provenance), parameter conversion math, 3-band Master EQ (-9..+9 dB), peak limiter dynamics, and composition limits.
+- **Universal Agent API Specification v1.1 (`docs/agent-api-specification.md`):**
+  - Adapted ТЗ v1.0 into an architecturally sound specification reconciled with HALO's actual codebase.
+  - Specified Capability Registry schema, project state inspection, declarative JSON operations (`track.*`, `phrase.*`, `composition.*`, `master.*`, `visual.*`), optimistic concurrency revision tracking, atomic commits, shadow preview pipeline, and client-side zero-backend AI Composer architecture.
+- **Mandatory Documentation Synchronization Rule:**
+  - Added Rule 13 to `AGENTS.md` and updated step 8 and Definition of Done: any functional expansion or engine change strictly requires updating the User Manual (`index.html`) in RU/EN, `docs/engine-capabilities.md`, and `docs/agent-api-specification.md`.
+
 ## 2026-10-14 — Compact BPM input, cleaner transport phrase caption, and muted brand prefix
 
 - Compacted the BPM input box by approximately 2x (to 40px width with centered text) so that 3 digits fit neatly and compactly without excessive empty space.

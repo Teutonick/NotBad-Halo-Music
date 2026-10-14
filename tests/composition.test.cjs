@@ -5,26 +5,36 @@ test('default loops stay identical; auto pattern and auto harmony are independen
   c.setAutoEvolve(true);assert.equal(c.at(20).seed,2);assert.equal(c.at(20).seed,2);assert.equal(c.at(20).key,0);
   c.setAutoEvolve(false);c.setAutoKey(true);const next=c.at(21);assert.equal(next.seed,2);assert.notEqual(next.key,0);
   c.setAutoKey(false);assert.deepEqual(c.at(22),next);
-  assert.equal(c.generate().seed,3);assert.equal(c.nextKey().key,(next.key+1)%12);
+  assert.equal(c.generate().seed,3);assert.equal(c.nextKey().key,(next.key+1)%24);
   assert.equal(c.prevKey().key,next.key);
 });
 test('keys follow the Circle of Fifths and switching navigates strictly adjacent neighbors',()=>{
-  assert.equal(C.keys.length,12);
-  for(let i=0;i<12;i++){
-    const curr=(C.offsets[i]+120)%12,next=(C.offsets[(i+1)%12]+120)%12;
-    assert.equal((curr+7)%12,next,'consecutive key must be an ascending perfect fifth');
+  assert.equal(C.keys.length,24);
+  assert.equal(C.definitions.length,24);
+  for(let i=0;i<24;i++){
+    const curr=C.definitions[i],next=C.definitions[(i+1)%24];
+    if(curr.mode!==next.mode){
+      const [minorKey,majorKey]=curr.mode==='minor'?[curr,next]:[next,curr];
+      assert.equal(((majorKey.offset-minorKey.offset)%12+12)%12,3,'relative pair share identical pitch scale');
+    }else{
+      const currFifth=(curr.offset+120)%12,nextFifth=(next.offset+120)%12;
+      assert.ok(nextFifth===(currFifth+7)%12||nextFifth===(currFifth+5)%12,'adjacent modulation is by fifth/fourth');
+    }
   }
   const comp=C.create({key:0});
   assert.equal(comp.nextKey().key,1);
   assert.equal(comp.prevKey().key,0);
-  assert.equal(comp.prevKey().key,11);
+  assert.equal(comp.prevKey().key,23);
+  assert.equal(comp.nextKey().key,0);
+  assert.equal(comp.toggleMode().key,1);
+  assert.equal(comp.toggleMode().key,0);
   comp.setAutoKey(true);
   for(let loop=0;loop<24;loop++){
     const prevKey=comp.key;
     const current=comp.at(loop);
     if(loop>0){
-      const diff=(current.key-prevKey+12)%12;
-      assert.ok(diff===1||diff===11,'auto key must transition strictly to adjacent circle-of-fifths neighbors');
+      const diff=(current.key-prevKey+24)%24;
+      assert.ok(diff===1||diff===23,'auto key must transition strictly to adjacent circle-of-fifths neighbors');
     }
   }
 });
@@ -38,7 +48,7 @@ test('4/8-bar phrase clocks wrap independently of tempo; transposition preserves
   assert.equal(M.phraseSteps({name:'ROOT',sound:'punch',on:true,density:100,pattern:[0]},2,0,1,S,8).length,128);
   const t={name:'TIDAL',sound:'air'};
   for(const offset of C.offsets)assert.deepEqual(S.notesFor(t,1,0,0,1,offset),S.notesFor(t,1,0,0,1).map(n=>n+offset));
-  assert.equal(new Set(C.keys).size,12);assert.equal(C.offsets[1],-5);
+  assert.equal(new Set(C.names).size,24);assert.equal(C.offsets[1],3);
 });
 test('exact edited hits bypass random density and alternate-bar silences and repeat over 8 bars',()=>{
   const t={name:'VEIL',sound:'bow',on:true,density:0,pattern:[0],manualSteps:[0,17,127],manualBars:8};
@@ -49,11 +59,11 @@ test('versioned local pattern roundtrip validates every track and rejects unsafe
   const names=Object.keys(S.banks),tracks=names.map(name=>({name,sound:S.banks[name].sounds[0].id,manualSteps:[0,17,127],manualBars:8}));
   const saved=C.encode(tracks,8,3,4),data=C.decode(saved,names);
   assert.equal(data.seed,3);assert.equal(data.key,4);assert.equal(data.bars,8);assert.deepEqual(data.tracks[0].steps,[0,17,127]);
-  for(const bad of [{...data,version:2},{...data,bars:7},{...data,key:12},{...data,tracks:[...data.tracks.slice(1),data.tracks[1]]},
+  for(const bad of [{...data,version:2},{...data,bars:7},{...data,key:24},{...data,tracks:[...data.tracks.slice(1),data.tracks[1]]},
     {...data,tracks:data.tracks.map((t,i)=>i? t:{...t,steps:[128]})}])assert.throws(()=>C.decode(JSON.stringify(bad),names));
 });
 
 
 test('huge clock jumps keep harmony constant-time and seeds inside serialized bounds',()=>{
- const c=require('../src/composition.js').create({seed:1000000000,key:11});c.setAutoEvolve(true);c.setAutoKey(true);c.at(0);const next=c.at(1000000000);assert.ok(next.seed>=1&&next.seed<=1000000000);assert.equal(next.key,(11+1000000000)%12);assert.ok(c.generate().seed<=1000000000);
+ const c=require('../src/composition.js').create({seed:1000000000,key:11});c.setAutoEvolve(true);c.setAutoKey(true);c.at(0);const next=c.at(1000000000);assert.ok(next.seed>=1&&next.seed<=1000000000);assert.equal(next.key,(11+1000000000)%24);assert.ok(c.generate().seed<=1000000000);
 });

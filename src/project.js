@@ -9,7 +9,7 @@
   if(data.setup!==undefined&&!['ambient','reactor'].includes(data.setup))throw Error('Unsupported setup');
   const setup=data.setup||'ambient',banks=sounds.banksFor(setup);
   const startStep=number(data.startStep??0,0,1000000000);if(!Number.isInteger(startStep)||startStep%(data.bars*16)!==0)throw Error('Invalid phrase position');
-  const result={format:data.format,version:1,setup,bars:data.bars,startStep,tempo:number(data.tempo,30,200),masterVolume:number(data.masterVolume??50,0,100),mix:mixSettings(data.mix),seed:number(data.seed,1,1000000000),key:number(data.key,0,11),tracks:[]};
+  const result={format:data.format,version:1,setup,bars:data.bars,startStep,tempo:number(data.tempo,30,200),masterVolume:number(data.masterVolume??50,0,100),mix:mixSettings(data.mix),seed:number(data.seed,1,1000000000),key:number(data.key,0,23),tracks:[]};
   if(!Number.isInteger(result.seed)||!Number.isInteger(result.key)||!Array.isArray(data.tracks)||data.tracks.length!==8)throw Error('Invalid project state');
   const names=Object.keys(banks),seen=new Set();
   for(const t of data.tracks){

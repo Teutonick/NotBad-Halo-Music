@@ -1,6 +1,43 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-### Latest implemented update — 2026-10-14: compact BPM input, cleaner transport phrase caption, and muted brand prefix
+### Latest implemented update — 2026-10-14: cycle and step randomization in GENERATE, 24-key Circle of Fifths with parallel Major/Minor modes, and documentation sync
+
+- **Cycle and Step Randomization in GENERATE ("СОЗДАТЬ"):**
+  - Integrated `CYCLE` (length `4..32`) and `STEP` (division `1/16`, `1/8`, `1/4`) into the GENERATE button (`randomizeTrack` in `src/sounds.js`) with musical restraint ("без фанатизма").
+  - Anchor rhythm roles (`Pulse`, `Accent`, `Bass`) remain locked to the standard 16-step grid (1/16) in 80–85% of seeds, preserving groove stability and foundation.
+  - Textural and polyphonic voices (`Arpeggio`, `Percussion`, `Texture`, `Harmony`) explore organic polymeter (`6, 8, 12, 14, 32` steps and `1/8`, `1/4` divisions) with subtle phase offsets (`0..min(4, length-1)` on Arpeggio/Percussion with 20% probability).
+  - Manual step editing continues to override cycle playback and density until cleared.
+- **24-Key Circle of Fifths with Parallel Major & Minor Modes:**
+  - Expanded key structure from 12 minor keys to **24 tonal centers** (12 minor and 12 parallel major keys) in `src/composition.js`.
+  - Arranged as a continuous Hamiltonian cycle alternating relative pairs (0 accidentals difference / identical 7 diatonic pitch classes) and perfect fifth modulations (strictly 1 accidental difference):
+    `D MINOR ↔ F MAJOR → C MAJOR ↔ A MINOR → E MINOR ↔ G MAJOR → D MAJOR ↔ B MINOR → F♯ MINOR ↔ A MAJOR → E MAJOR ↔ C♯ MINOR → G♯ MINOR ↔ B MAJOR → F♯ MAJOR ↔ D♯ MINOR → A♯ MINOR ↔ C♯ MAJOR → G♯ MAJOR ↔ F MINOR → C MINOR ↔ D♯ MAJOR → A♯ MAJOR ↔ G MINOR (→ D MINOR)`.
+  - Added direct relative mode toggle (`composition.toggleMode()`): clicking the key name `#keyName` in the header or inspector instantly flips between parallel minor and major.
+  - Implemented pure diatonic major scale triad and seventh chord construction (`majorScale = [0,2,4,5,7,9,11]`, Imaj7, IVmaj7, V7, iiim7) in `src/phrases.js`, `src/roles.js`, and `src/sounds.js`.
+  - Maintained smooth neighborly modulation in `AUTO KEY` with $(K + 1) \pmod{24}$, stepping strictly to adjacent circle neighbors.
+  - Updated project validation and decoding bounds to accept `key: 0..23`.
+- **Documentation & User Manual Synchronization:**
+  - Synchronized Sections 6 and 7 in both Russian and English within the in-app User Manual (`index.html`).
+  - Updated `docs/engine-capabilities.md` with the 24-key table, relative pair formulas, major scale intervals, and cycle randomization corridor profiles.
+  - Updated `docs/agent-api-specification.md` with `totalKeys: 24`, `transport.toggleMode`, `transport.setKey` range `0..23`, and `phrase.generate` sequence fields.
+- **Verification:** 143 passing Node tests across the test suite, verifying constraint checking, cycle randomization corridors, 24-key relative and fifth transitions, mode toggle, and project validation. Preserves zero-build static deployment on GitHub Pages.
+
+### Previous implemented update — 2026-10-14: bilingual User Manual, Engine Capability Registry, Universal Agent API Specification, and mandatory documentation sync rule
+
+- **Interactive in-app User Manual (`#guideModal`):**
+  - Added a dedicated `#guideBtn` in `.top-actions` (top-right of header) displaying `ИНСТРУКЦИЯ` / `GUIDE` with an SVG book icon, title tooltip, and responsive styling.
+  - Built an exhaustive 13-section manual in full Russian (`.guide-lang-ru`) and English (`.guide-lang-en`): Philosophy & Product Promise, Sound Worlds (Ambient vs Reactor), 8 Fixed Musical Roles, Voice Parameters & Normalized Corridors, Spatial FX & Rhythmic Delay, Master Transport & Track Polymeter, Circle of Fifths Harmony, Phrases & Step Grid, Song Arranger & Narrative Arc, Master Section & Spatial Stage, Visual Orbits & Worlds, Storage / Export / Sharing, and Keyboard Shortcuts.
+  - Interactive navigation: sticky Table of Contents on desktop, responsive horizontal scroll chips on mobile/narrow viewports (<=700px), smooth scrolling to section anchors, active TOC link highlighting, backdrop click dismiss, dedicated close button, and Escape key dismissal.
+  - Synchronized dynamically with the app's `RU/EN` toggle button without reload.
+- **Exhaustive Engine Capability Registry (`docs/engine-capabilities.md`):**
+  - Created a complete technical ground-truth reference documenting all 8 track slots (`GLASS`..`AURA`), 8 fixed roles (`pulse`..`harmony`), 30 Ambient procedural synth patches, 32 Reactor presets (130 CC0 PCM samples with hashes and pinned provenance), parameter conversion math (0..100 to Web Audio Hz/seconds/gain), 3-band Master EQ (-9..+9 dB), peak limiter dynamics, Circle of Fifths Aeolian transposition, 4/8-bar phrase bounds, and 56-bar composition limits.
+- **Universal Agent API Specification v1.1 (`docs/agent-api-specification.md`):**
+  - Adapted the draft ТЗ v1.0 into an architecturally sound, production-ready specification aligned with HALO's actual codebase. Reconciled misconceptions (exact 8 roles, CC0 sample banks, Aeolian harmony, relative 16-step grid).
+  - Defined machine-readable Capability Registry schema, project state inspection, declarative JSON operations (`track.*`, `phrase.*`, `composition.*`, `master.*`, `visual.*`), optimistic concurrency revision tracking, atomic commits, shadow preview audio pipeline, and client-side zero-backend AI Composer architecture.
+- **Mandatory Documentation Synchronization Rule:**
+  - Added Rule 13 to `AGENTS.md` and updated the working procedure and Definition of Done: any functional expansion, parameter update, or engine feature strictly mandates updating the User Manual (`index.html`) in both RU and EN, the Engine Capabilities registry (`docs/engine-capabilities.md`), and the Agent API specification (`docs/agent-api-specification.md`).
+- **Verification:** 142 passing Node tests across the test suite, including new unit tests for guide button, modal open/close, language toggle synchronization, anchor verification in RU/EN, and Escape key dismissal. Preserves zero-build static deployment on GitHub Pages.
+
+### Previous implemented update — 2026-10-14: compact BPM input, cleaner transport phrase caption, and muted brand prefix
 
 - **Compact BPM input:** resized the BPM input field by ~2x (width 40px, centered text, snug padding) so that 3 digits (e.g. 100, 200, 72) fit cleanly and comfortably without excessive empty space across both desktop and mobile viewports.
 - **Cleaner transport phrase caption:** removed the redundant "Фраза: " / "Phrase: " prefix under the Play button, cleanly showing the phrase label directly (e.g. "Фраза1", "Куплет", or custom user name).

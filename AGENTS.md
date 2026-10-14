@@ -24,8 +24,13 @@ Treat the repository's actual code as the source of truth for what is implemente
 10. **Do not overbuild.** Prefer small, testable changes that preserve the zero-build static deployment path wherever possible.
 11. **GitHub Pages is mandatory.** Every feature must work as a static project site under `/<repository>/`, without a backend, mandatory build step, runtime CDN, secrets, or server rewrites. Use relative asset/module/sample paths and locally hosted assets. Verify deployment compatibility when changing paths or loading behavior.
 12. **Sound provenance is mandatory.** Use original procedural synthesis or external sounds with verified CC0/public-domain status only. Reject paid permissions, required attribution, non-commercial restrictions, and redistribution restrictions. Free or royalty-free alone is insufficient. Record each imported sound's source URL, author, rights evidence, and local filename before inclusion; never copy proprietary OP-Z sounds.
+13. **Documentation and API synchronization is mandatory.** Any functional expansion, parameter change, new synthesis feature, sequencer enhancement, or capability update strictly requires simultaneous updating and synchronization of:
+    - The in-app User Manual (`index.html`) in both Russian and English, maintaining theoretical rigor and product terminology;
+    - The comprehensive engine capabilities package (`docs/engine-capabilities.md`);
+    - The Agent API format and capabilities specification (`docs/agent-api-specification.md`).
+    Never introduce engine or interface capabilities without updating these documentation packages.
 
-## Current implementation (2026-10-13)
+## Current implementation (2026-10-14)
 
 - Generator 3 uses eight fixed role operators in `src/roles.js`, compatible manual timbres and world-affinity randomization. It preserves the generator-2 motif/ensemble library and legacy generator-1/2 projects. Optional per-track cycles share absolute transport time; role polyphony is enforced by audio. See `docs/track-roles.md`.
 - `index.html` contains markup/styles, transport, state, visuals and UI. `src/sounds.js` resolves patches and legacy musical rules; `src/phrases.js` owns original version-2 motifs, ensemble harmony and compatibility matrices; `src/audio.js` owns synthesis and audio routing. Classic local scripts preserve direct file opening and GitHub Pages.
@@ -72,7 +77,7 @@ Keep render, transport, composition, and audio synthesis independently testable.
 6. **Check desktop and mobile.** Validate Chrome/Chromium and, when available, Safari/iOS. Verify startup by user gesture, resizing, pause/resume, and WebGL fallback.
    For local browser checks, run `./scripts/preview.ps1` and use `http://127.0.0.1:8766/`. If Windows sandbox blocks sockets, request the standard execution escalation for the loopback preview server. Prefer the supported current browser API when a legacy adapter fails; do not bypass browser URL policy or security controls. Reload after edits; record console results and actual viewport/device coverage.
 7. **Report clearly.** Summarize changed files, behavior, validation performed, limitations, and next recommended step. Do not claim to have listened to audio or tested a device unless you actually did.
-8. **Update docs in the same change.** Every major or consequential change to behavior, audio, controls, architecture, dependencies, sound assets, compatibility, or deployment must update `PROJECT_MAP.md` with the resulting state, decisions, and known limitations; update `README.md` when user-facing features or instructions change. Add a short dated entry to `CHANGELOG.md` describing what changed and its impact. Distinguish planned, implemented, and verified behavior; a major product change does not automatically imply a major version release.
+8. **Update docs in the same change.** Every major or consequential change to behavior, audio, controls, architecture, dependencies, sound assets, compatibility, or deployment must update `PROJECT_MAP.md` with the resulting state, decisions, and known limitations; update `README.md` when user-facing features or instructions change; and strictly update the in-app bilingual User Manual (`index.html`), the Engine Capabilities registry (`docs/engine-capabilities.md`), and the Agent API specification (`docs/agent-api-specification.md`) whenever functionality or parameters change. Add a short dated entry to `CHANGELOG.md` describing what changed and its impact. Distinguish planned, implemented, and verified behavior; a major product change does not automatically imply a major version release.
 
 ## Definition of done (for each feature)
 
@@ -82,7 +87,7 @@ Keep render, transport, composition, and audio synthesis independently testable.
 - No audible click when toggling, no dangerous gain spikes, and no runaway CPU/GPU work.
 - Functional keyboard, pointer, and touch interactions for relevant controls.
 - Mobile layout and fallback behavior are considered.
-- Documentation accurately reflects what was shipped.
+- Documentation accurately reflects what was shipped, and the User Manual and Agent API specifications remain 100% synchronized with actual engine capabilities.
 - Significant changes are recorded in project documentation and the short changelog; GitHub Pages compatibility and imported sound provenance are accounted for.
 
 ## Earlier refactor recommendation

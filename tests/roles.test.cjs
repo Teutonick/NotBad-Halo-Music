@@ -23,11 +23,21 @@ test('presets declare engine, compatibility and affinity separately; generation 
  for(const setup of ['ambient','reactor'])for(const [i,t] of tracks(setup).entries())for(let seed=2;seed<100;seed++){
   const before={...t,sequence:{length:7,stepLength:2,offset:3},on:false},choice=S.randomizeTrack(before,i,seed),sound=S.soundFor({...before,...choice});
   assert.ok(sound.playback.compatibleRoles.includes(R.forTrack(t).id));assert.ok(sound.playback.affinityRoles.includes(R.forTrack(t).id));
-  assert.deepEqual(choice.sequence,before.sequence);assert.equal(choice.role,R.forTrack(t).id);assert.equal(choice.generator,3);assert.equal(choice.on,undefined);
+  assert.ok(choice.sequence.length>=4&&choice.sequence.length<=32);assert.ok([1,2,4].includes(choice.sequence.stepLength));assert.ok(choice.sequence.offset>=0&&choice.sequence.offset<choice.sequence.length);assert.equal(choice.role,R.forTrack(t).id);assert.equal(choice.generator,3);assert.equal(choice.on,undefined);
   for(const key of ['character','duration','space','level','density'])assert.ok(choice[key]>=20&&choice[key]<=100);
  }
  const pulse=tracks('ambient')[0],melody=tracks('ambient')[5];assert.equal(R.compatible(pulse,S.banks.GLASS.sounds[0]),false);assert.equal(R.compatible(melody,S.banks.GLASS.sounds[0]),true);
  const piano=S.reactorBanks.AURA.sounds[0];assert.equal(R.metadata(piano).engine,'sampler');assert.equal(R.compatible(tracks('reactor')[0],piano),true);
+});
+
+test('track cycle and step participate in generation within role bounds without breaking groove',()=>{
+ const pulse=tracks('ambient')[0],arpeggio=tracks('ambient')[6];
+ const pulseSeqs=Array.from({length:50},(_,s)=>S.randomizeTrack(pulse,0,s+1).sequence);
+ const arpSeqs=Array.from({length:50},(_,s)=>S.randomizeTrack(arpeggio,6,s+1).sequence);
+ const pulseStandard=pulseSeqs.filter(s=>s.length===16&&s.stepLength===1).length;
+ assert.ok(pulseStandard>=35,'pulse stays anchored on standard 16-step grid >70% of seeds');
+ const arpLengths=new Set(arpSeqs.map(s=>s.length));
+ assert.ok(arpLengths.size>=3,'arpeggio explores at least 3 distinct cycle lengths');
 });
 
 test('fixed operators constrain notes, harmony and recorded roots for every compatible preset and key',()=>{

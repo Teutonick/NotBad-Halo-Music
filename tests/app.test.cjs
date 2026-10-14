@@ -260,15 +260,17 @@ test('visual-only mode suppresses music shortcuts and Escape restores controls w
  a.events.keydown({key:'Escape',target:{tagName:'BODY'},preventDefault(){}});assert.equal(button['aria-pressed'],'false');assert.equal(a.document.getElementById('patternEditor').hidden,false);
 });
 
-test('fixed role cycles survive generation, world switching and reload with compatible affinity sounds',()=>{
+test('fixed role cycles randomize on generation, survive world switching and reload with compatible affinity sounds',()=>{
  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
  const a=app(storage),$=id=>a.document.getElementById(id);
  const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project};
  $('tracks').children[6].oncontextmenu({preventDefault(){}});
- $('cycleLength').onchange({target:{value:'7'}});$('stepLength').onchange({target:{value:'2'}});$('cycleOffset').onchange({target:{value:'3'}});
- let saved=read();assert.deepEqual(saved.tracks[6].sequence,{length:7,stepLength:2,offset:3});
- $('regen').onclick();saved=read();assert.deepEqual(saved.tracks[6].sequence,{length:7,stepLength:2,offset:3});
+ $('regen').onclick();let saved=read();
+ assert.ok(saved.tracks[6].sequence.length>=4&&saved.tracks[6].sequence.length<=32);
+ assert.ok([1,2,4].includes(saved.tracks[6].sequence.stepLength));
  for(const t of saved.tracks){assert.equal(t.generator,3);const sound=a.sandbox.HaloSounds.soundFor(t);assert.ok(sound.playback.affinityRoles.includes(t.role))}
+ $('cycleLength').onchange({target:{value:'7'}});$('stepLength').onchange({target:{value:'2'}});$('cycleOffset').onchange({target:{value:'3'}});
+ saved=read();assert.deepEqual(saved.tracks[6].sequence,{length:7,stepLength:2,offset:3});
  $('setupSwitch').onclick();$('setupSwitch').onclick();assert.equal($('cycleLength').value,'7');read();
  const b=app(storage);b.document.getElementById('tracks').children[6].oncontextmenu({preventDefault(){}});
  assert.equal(b.document.getElementById('cycleLength').value,'7');assert.equal(b.document.getElementById('stepLength').value,'2');assert.equal(b.document.getElementById('cycleOffset').value,'3');
@@ -473,5 +475,38 @@ test('transport repeat button is present in markup next to BPM with loop icon an
  assert.match(html,/class="transport-repeat active"/);
  assert.match(html,/aria-label="Repeat phrase/);
  assert.match(html,/repeat-svg/);
+});
+
+test('user guide button opens comprehensive modal, supports bilingual labels, TOC and Escape close',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ assert.match(html,/<button class="glass-btn" id="guideBtn"/);
+ assert.match(html,/<div id="guideModal"/);
+ assert.match(html,/guide-toc/);
+ assert.match(html,/guide-lang-ru/);
+ assert.match(html,/guide-lang-en/);
+ for(const anchor of ['g-concept','g-worlds','g-roles','g-params','g-fx','g-transport','g-harmony','g-phrases','g-arranger','g-master','g-visuals','g-export','g-hotkeys']){
+  assert.ok(html.includes('id="'+anchor+'-ru"'), 'RU section anchor missing: '+anchor);
+  assert.ok(html.includes('id="'+anchor+'-en"'), 'EN section anchor missing: '+anchor);
+ }
+
+ const a=app(),$=id=>a.document.getElementById(id);
+ assert.equal($('guideModal').hidden, true);
+ $('guideBtn').onclick();
+ assert.equal($('guideModal').hidden, false);
+ assert.equal($('guideBtnText').textContent, 'GUIDE');
+
+ $('language').onclick();
+ assert.equal($('guideBtnText').textContent, 'ИНСТРУКЦИЯ');
+
+ $('language').onclick();
+ assert.equal($('guideBtnText').textContent, 'GUIDE');
+
+ $('guideClose').onclick();
+ assert.equal($('guideModal').hidden, true);
+
+ $('guideBtn').onclick();
+ assert.equal($('guideModal').hidden, false);
+ a.events.keydown({key:'Escape',preventDefault(){}});
+ assert.equal($('guideModal').hidden, true);
 });
 

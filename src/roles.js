@@ -73,20 +73,21 @@
   if(role==='bass'){low=Math.max(min,26);high=Math.min(max,Math.max(low+12,49))}
   return [...new Set(notes.map(n=>fold(n,low,high)))].slice(0,byId[role].maxNotes);
  }
- function notes(track,sound,bar,local,seed,transpose,bars=4,absoluteStep=bar*16+local){
+ function notes(track,sound,bar,local,seed,transpose,bars=4,absoluteStep=bar*16+local,mode='minor'){
+  if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
   const role=forTrack(track).id,m=metadata(sound);if(!m.pitched)return [];
   if(['pulse','accent','percussion'].includes(role))return [m.referenceNote];
   const clock=track.manualSteps?mod(absoluteStep,track.manualBars*16):absoluteStep,p=plan(track,sound,seed,bars),pos=position(track,clock,bars),virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars);
   const original=p.origins[mod(clock,p.period)]??(pos.cell*16+Math.floor(pos.local*16/pos.sequence.length));
   const within=base.steps.filter(n=>Math.floor(n/16)===pos.cell).map(n=>n%16),ordinal=Math.max(0,within.filter(n=>n<=original%16).length-1);
-  const chord=F.chordFor(track.setup,seed,bar,bars,transpose),answer=pos.cell>=4||pos.cell%4===3;
+  const chord=F.chordFor(track.setup,seed,bar,bars,transpose,mode),answer=pos.cell>=4||pos.cell%4===3;
   const degree=pos.cell===bars-1&&original%16>=(within.at(-1)??15)?0:base.degrees[(ordinal+(answer?pos.cell%3:0))%base.degrees.length];
   const pitch=chord[degree%4],world=track.setup==='reactor';let result;
   if(role==='bass')result=[original%4===0?chord[0]-12:pitch-12];
   else if(role==='texture')result=[chord[0]+(world?12:-12)];
   else if(role==='harmony')result=chord.map((_,i)=>chord[(i+degree)%4]+(world?12:0));
   else if(role==='arpeggio')result=[pitch+12];
-  else if(sound.engine==='guitar'&&!sound.lead){let fifth=pitch+7;if(![0,2,3,5,7,8,10].includes(mod(fifth-38-transpose,12)))fifth--;result=[pitch+12,fifth+12]}
+  else if(sound.engine==='guitar'&&!sound.lead){let fifth=pitch+7;const currentScale=mode==='major'?[0,2,4,5,7,9,11]:[0,2,3,5,7,8,10];if(!currentScale.includes(mod(fifth-38-transpose,12)))fifth--;result=[pitch+12,fifth+12]}
   else {const n=pitch+24+(answer&&sound.lead&&ordinal%3===0?12:0);result=[n,...(sound.octave?[n+12]:[])]}
   return constrain(result,sound,role);
  }

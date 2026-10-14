@@ -30,7 +30,7 @@ test('bounded BPM rejects overflows, scientific notation, nonnumbers and out-of-
 test('project roundtrip contains only validated settings and steps, and rejects oversized or malformed input',()=>{
  const project=P.capture(tracks,8,72.25,2,3,S,M),text=JSON.stringify(project);
  assert.deepEqual(P.parse(text,S),project);assert.ok(!text.includes('samples'));assert.equal(project.tracks.length,8);
- for(const value of [{...project,tempo:Infinity},{...project,key:12},{...project,seed:1e20},{...project,bars:5},{...project,tracks:project.tracks.map((t,i)=>i?t:{...t,steps:[128]})},{...project,tracks:[...project.tracks.slice(1),project.tracks[1]]}])assert.throws(()=>P.validate(value,S));
+ for(const value of [{...project,tempo:Infinity},{...project,key:24},{...project,seed:1e20},{...project,bars:5},{...project,tracks:project.tracks.map((t,i)=>i?t:{...t,steps:[128]})},{...project,tracks:[...project.tracks.slice(1),project.tracks[1]]}])assert.throws(()=>P.validate(value,S));
  assert.throws(()=>P.parse(' '.repeat(65537),S));
 });
 test('WAV produces actual PCM headers and safely clamps nonfinite samples',()=>{
