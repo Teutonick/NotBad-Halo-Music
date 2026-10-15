@@ -760,6 +760,7 @@
         <button type="button" class="glass-btn" id="loopInputAccess">${tr('ДОСТУП К ВХОДАМ','ENABLE INPUTS')}</button>
         <button type="button" class="glass-btn" id="loopInputListen" aria-pressed="false">${tr('СЛУШАТЬ ВХОД','LISTEN TO INPUT')}</button>
         <small>${tr('Файл — через ИМПОРТ. Запись — с выбранного входа. Для прослушивания используйте наушники. USB/линейный вход должен определяться системой как аудиоустройство.','Use IMPORT for a file, RECORD for the selected input. Use headphones for monitoring. USB/line input must appear as a system audio device.')}</small>
+        <small id="loopInputDiagnostics" role="status" aria-live="polite"></small>
         <label>${tr('Задержка записи, мс','Recording latency, ms')} <input id="loopInputLatency" type="number" min="0" max="200" step="1" value="${settings.latencyMs}"></label>
       </div>`;
       bindInputControls();
@@ -810,6 +811,13 @@
   function updateInputUI(){
     if(typeof document==='undefined'||!inputController)return;
     const state=inputController.state();
+    const diagnostics=document.getElementById('loopInputDiagnostics');
+    if(diagnostics){
+      const error=state.lastError;
+      const reason=error?({InputSelectionRequired:tr('Выберите конкретный вход аудиоинтерфейса в списке УСТРОЙСТВО','Choose a specific interface input in the DEVICE list'),NotAllowedError:tr('Разрешение отклонено браузером или системой','Permission denied by browser or operating system'),NotFoundError:tr('Выбираемые аудиовходы не найдены','No selectable audio inputs found'),NotReadableError:tr('Устройство занято или недоступно драйверу','Device is busy or unavailable to the driver'),OverconstrainedError:tr('Выбранное устройство недоступно: выберите вход заново','Selected device unavailable: select an input again'),SecurityError:tr('Доступ заблокирован контекстом безопасности','Access blocked by security context')})[error.name]||tr('Не удалось открыть аудиовход','Could not open audio input'):'';
+      diagnostics.textContent=[error?`${reason} (${error.stage}: ${error.name}${error.constraint?' / '+error.constraint:''}).`:'',state.accessReady&&!error?tr('Доступ проверен. Выберите устройство и нажмите СЛУШАТЬ ВХОД.','Access checked. Choose a device and press LISTEN TO INPUT.'):'',state.fileContext?tr('Открыто как локальный файл. Если браузер повторяет запрос разрешения, запустите scripts/preview.ps1 и откройте http://127.0.0.1:8766/. Разрешением управляет браузер.','Opened as a local file. If permission keeps being requested, run scripts/preview.ps1 and open http://127.0.0.1:8766/. Permission persistence is controlled by the browser.'):''].filter(Boolean).join(' ');
+    }
+
     const toggle=document.getElementById('loopInputToggle');if(toggle){toggle.classList?.toggle('is-monitoring',state.monitoring);toggle.title=state.monitoring?tr('Аудиовход · прослушивание включено','Audio input · monitoring active'):tr('Микрофон и аудиоустройства','Microphone and audio devices');}
     const select=document.getElementById('loopInputDevice');
     if(select){

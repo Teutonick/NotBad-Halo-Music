@@ -517,3 +517,8 @@ UI refinement (2026-10-15): frameless window actions share the top-right edge; T
 Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.
 
 - Track 09 minimize/expand icon is a plain thin square outline, vertically centered beside the workspace fold line in the same 18 px button height.
+
+
+Audio input fix (2026-10-15): enumerate selectable nonempty device IDs before stopping the permission probe; preserve the exposed list if a browser later hides IDs, and avoid probing again when named inputs are already available. Hardware stays released after the probe. Local controller state adds accessReady, lastError {stage,name,constraint}, and fileContext; the input window reports errors and console diagnostics include operation/error codes without device IDs/labels. For repeated file:// permission prompts, use scripts/preview.ps1 and localhost:8766; persistent permission remains browser-controlled. No automatic monitoring or permissions on reload.
+
+- Audio access always performs its first permission probe even if the browser exposes a named default input. Console errors are printed as readable JSON text.
