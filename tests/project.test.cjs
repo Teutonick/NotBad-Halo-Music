@@ -100,3 +100,19 @@ test('injected project keys are discarded and unsafe numeric/schema data never r
  const parsed=P.parse(JSON.stringify(payload),S);assert.equal(Object.hasOwn(parsed,'__proto__'),false);assert.equal(parsed.script,undefined);assert.equal({}.polluted,undefined);
  for(const value of [1e300,-1,NaN,Infinity,'1',null])assert.throws(()=>P.validate({...source,seed:value},S));
 });
+
+
+test('Track 09 project state validates bounded local references and treatment without PCM',()=>{
+ const project=P.capture(tracks,4,100,2,0,S,M);project.liveLoop={version:1,layerIds:[123],settings:{pitch:7,bars:2,reverse:true,trimStart:.1,trimEnd:.9,sliceSteps:Array(16).fill(-1),unknown:'discard'},pcm:'discard'};
+ const clean=P.parse(JSON.stringify(project),S);assert.equal(clean.liveLoop.settings.pitch,7);assert.equal(clean.liveLoop.pcm,undefined);assert.equal(clean.liveLoop.settings.unknown,undefined);
+ for(const change of [v=>v.layerIds=['unsafe'],v=>v.settings.pitch=13,v=>v.settings.bars=3,v=>v.settings.reverse='true',v=>v.settings.trimEnd=.05,v=>v.settings.sliceSteps=[99]]){const p=JSON.parse(JSON.stringify(project));change(p.liveLoop);assert.throws(()=>P.validate(p,S));}
+});
+
+
+test('phrase WAV warm-up restarts Track 09 at the same phrase boundary as the eight voices',async()=>{
+ const vm=require('node:vm'),fs=require('node:fs'),calls=[],project=P.capture(tracks,4,120,2,0,S,M);
+ project.liveLoop={version:1,layerIds:[123],settings:{bars:8}};
+ const sandbox={HaloSounds:S,HaloComposition:require('../src/composition.js'),HaloLiveLoop:{ready:async()=>{},renderPhraseOffline(ctx,engine,bars,tempo,state,time=0){calls.push({bars,time})}},HaloAudio:{create(){return {play(){}}}},OfflineAudioContext:function(ch,length){this.startRendering=async()=>({getChannelData:()=>new Float32Array(length)})}};
+ vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/export.js','utf8'),sandbox);await sandbox.HaloExport.render(project);
+ assert.deepEqual(calls,[{bars:4,time:0},{bars:4,time:8}]);
+});

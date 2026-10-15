@@ -62,3 +62,22 @@ test('phrase names and identifiers are bounded and survive serialization without
  for(const label of ['', 'a'.repeat(11),'two words','<script>','a_b','a-b','a\n','😀','a\u200b'])assert.throws(()=>Song.validate({...song,phrases:song.phrases.map((p,i)=>i?p:{...p,label})},P,S));
  for(const id of [Number.MAX_SAFE_INTEGER,1e300,1000001])assert.throws(()=>Song.validate({...song,phrases:song.phrases.map((p,i)=>i?p:{...p,id})},P,S));
 });
+
+
+test('Track 09 treatment survives arrangement, repeats, independent duplicates and JSON',()=>{
+ const p=source(4);p.liveLoop={version:1,layerIds:[123],settings:{pitch:7,reverse:true,bars:2,sliceSteps:Array(16).fill(1)}};
+ const song=Song.validate(Song.build(p),P,S);assert.deepEqual(Song.phrase(song,1).liveLoop,p.liveLoop);
+ const duplicate=Song.validate(Song.duplicate(song,1,true),P,S);
+ Song.phrase(duplicate,2).liveLoop.settings.pitch=-3;Song.phrase(duplicate,2).liveLoop.settings.sliceSteps[0]=4;
+ assert.equal(Song.phrase(duplicate,1).liveLoop.settings.pitch,7);assert.equal(Song.phrase(duplicate,1).liveLoop.settings.sliceSteps[0],1);
+ assert.deepEqual(Song.parse(JSON.stringify(duplicate),P,S),duplicate);
+});
+
+test('song export selects Track 09 by phrase and schedules every phrase repeat at its audio time',async()=>{
+ const p=source(4);p.liveLoop={version:1,layerIds:[123],settings:{pitch:7,bars:2}};
+ const song=Song.validate(Song.build(p),P,S),calls=[];
+ const sandbox={HaloSong:Song,HaloSounds:S,HaloComposition:require('../src/composition.js'),HaloLiveLoop:{ready:async()=>{},renderPhraseOffline(ctx,engine,bars,tempo,state,time){calls.push({bars,tempo,state,time})}},HaloAudio:{create(){return {update(){},play(){}}}},OfflineAudioContext:function(){this.startRendering=async()=>({})}};
+ vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/export.js','utf8'),sandbox);await sandbox.HaloExport.render(song);
+ let expected=0;for(const section of song.sections){const project=song.phrases.find(p=>p.id===section.phrase).project;for(let repeat=0;repeat<section.repeats;repeat++){const call=calls.shift();assert.equal(call.time,expected*240/song.tempo);assert.deepEqual(call.state,project.liveLoop);expected+=project.bars;}}
+ assert.equal(calls.length,0);
+});

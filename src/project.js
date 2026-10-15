@@ -4,6 +4,18 @@
  function number(value,min,max){if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)throw Error('Invalid numeric value');return value}
  function bpm(text){if(typeof text!=='string'||text.length>7||!/^\d{2,3}(\.\d{1,2})?$/.test(text))throw Error('BPM must be 30–200');return number(Number(text),30,200)}
  function mixSettings(value={}){if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid mix settings');return {low:number(value.low??0,-9,9),mid:number(value.mid??0,-9,9),high:number(value.high??0,-9,9),width:number(value.width??35,0,100)}}
+ function liveLoop(value){
+  if(!value||value.version!==1||!Array.isArray(value.layerIds)||value.layerIds.length>128)throw Error('Invalid Track 09');
+  const layerIds=value.layerIds.map(id=>{if(!Number.isSafeInteger(id)||id<0)throw Error('Invalid audio reference');return id});
+  const input=value.settings;if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Invalid Track 09 settings');
+  const settings={},ranges={bars:[1,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],latencyMs:[0,200],pitch:[-12,12],character:[0,100],duration:[0,100],density:[0,100],chorus:[0,100],cycle:[4,32],stepLength:[1,4],offset:[0,15]};
+  for(const [key,range] of Object.entries(ranges))if(input[key]!==undefined)settings[key]=number(input[key],...range);
+  for(const key of ['mute','solo','monitor','copyrightConfirmed','instantRestart','reverse'])if(input[key]!==undefined){if(typeof input[key]!=='boolean')throw Error('Invalid Track 09 flag');settings[key]=input[key]}
+  for(const [key,allowed] of Object.entries({bars:[1,2,4,8],stepLength:[1,2,4],mode:['loop','slice'],sliceCount:[4,8,16],slicePattern:['beat','chrono','shuffle','arp','arpeggio','custom'],delayTime:['1/16','1/8','1/8d','1/4']}))if(input[key]!==undefined){if(!allowed.includes(input[key]))throw Error('Invalid Track 09 option');settings[key]=input[key]}
+  if(settings.trimStart!==undefined&&settings.trimEnd!==undefined&&settings.trimStart>=settings.trimEnd)throw Error('Invalid audio trim');
+  if(input.sliceSteps!==undefined){if(!Array.isArray(input.sliceSteps)||input.sliceSteps.length!==16||input.sliceSteps.some(n=>!Number.isInteger(n)||n< -1||n>15))throw Error('Invalid slice steps');settings.sliceSteps=[...input.sliceSteps]}
+  return {version:1,layerIds,settings};
+ }
  function validate(data,sounds){
   if(!data||data.format!=='notbad-halo-project'||data.version!==1||![4,8].includes(data.bars))throw Error('Unsupported project');
   if(data.setup!==undefined&&!['ambient','reactor'].includes(data.setup))throw Error('Unsupported setup');
@@ -28,6 +40,7 @@
    }
    result.tracks.push(clean);
   }
+  if(data.liveLoop!==undefined)result.liveLoop=liveLoop(data.liveLoop);
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
  }
  function parse(text,sounds){if(typeof text!=='string'||text.length>MAX_BYTES||new TextEncoder().encode(text).length>MAX_BYTES)throw Error('Project file exceeds 64 KiB');let data;try{data=JSON.parse(text)}catch{throw Error('Invalid JSON file')}return validate(data,sounds)}
@@ -94,5 +107,5 @@
   if(root.HaloSong&&text.length<=root.HaloSong.MAX_BYTES){const value=JSON.parse(text);if(value.format==='halo-composition')return root.HaloSong.parse(text,api,sounds)}
   return parse(text,sounds);
  }
- const api={MAX_BYTES,MAX_TOKEN,shareHash,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
+ const api={MAX_BYTES,MAX_TOKEN,liveLoop,shareHash,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

@@ -72,3 +72,6 @@ Then open `http://127.0.0.1:8766/`. Deploy the same files to **GitHub Pages** �
 [Play HALO ↗](https://teutonick.github.io/NotBad-Halo-Music/) · [More by the creator](https://tnick.cc)
 
 </div>
+
+
+Track 09 processing belongs to each phrase. Independent variations preserve their own edits; Instant Restart restarts all nine voices together. With it off, sample edits apply on the next phrase cycle. Project files retain local audio references, so imported/recorded audio remains available only in the browser that stores it.

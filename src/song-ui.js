@@ -70,7 +70,7 @@
    const fail=e=>env.toast(tr('Не удалось: ','Could not complete: ')+(root.HaloI18n?.translate(e.message,env.language())||e.message));
    function element(tag,cls,text){const el=document.createElement(tag);el.className=cls;if(text!==undefined)el.textContent=text;return el}
    function action(parent,cls,text,label,run){const b=element('button',cls,text);b.type='button';b.title=label;b.setAttribute('aria-label',label);b.onclick=async e=>{e?.stopPropagation();try{await run()}catch(error){fail(error)}};parent.append(b);return b}
-   function commit(){if(song&&!preview){const p=env.snapshot();if(p.setup!==S.phrase(song,index).setup)return;const next=S.copy(song);next.phrases.find(p=>p.id===next.sections[index].phrase).project=p;next.tempo=p.tempo;next.masterVolume=p.masterVolume;next.mix=S.copy(p.mix);song=S.validate(next,root.HaloProject,root.HaloSounds)}}
+   function commit(){if(song&&preview&&lastSection>=0&&root.HaloLiveLoop)song.phrases.find(p=>p.id===song.sections[lastSection].phrase).project.liveLoop=root.HaloLiveLoop.capturePhrase();if(song&&!preview){const p=env.snapshot();if(p.setup!==S.phrase(song,index).setup)return;const next=S.copy(song);next.phrases.find(p=>p.id===next.sections[index].phrase).project=p;next.tempo=p.tempo;next.masterVolume=p.masterVolume;next.mix=S.copy(p.mix);song=S.validate(next,root.HaloProject,root.HaloSounds)}}
    function settings(){return env.settings?env.settings():env.snapshot()}
    function snapshotPhrase(n,value=song){const p=S.copy(S.phrase(value,n));p.tempo=value.tempo;p.masterVolume=value.masterVolume;p.mix=S.copy(value.mix);return p}
    function persist(){if(env.resetting())return;try{commit();if(song&&preview){const common=settings();song.tempo=common.tempo;song.masterVolume=common.masterVolume;song.mix=S.copy(common.mix);}localStorage.setItem(key,JSON.stringify({song,mode,index,tab}));}catch(e){env.toast(tr('Композиция не сохранена: ','Composition was not saved: ')+(root.HaloI18n?.translate(e.message,env.language())||e.message))}}
@@ -180,13 +180,10 @@
    async function checkSharedSong(){const hash=location.hash;try{const shared=root.HaloProject.shareHash(hash);if(!shared||shared.kind!=='song')return;const value=await root.HaloProject.decodeShare(shared.token,root.HaloSounds);if(location.hash!==hash)return;const next=S.validate(value,root.HaloProject,root.HaloSounds);await env.load(snapshotPhrase(0,next));song=next;index=0;mode=true;tab='composition';preview=false;window.history?.replaceState(null,'',location.href.split('#')[0]);render();persist()}catch(e){env.toast(root.HaloI18n?.translate(e.message,env.language())||e.message)}}
    window.addEventListener('hashchange',checkSharedSong);checkSharedSong();
    if(root.HaloLiveLoop){
-    root.HaloLiveLoop.init(env);
+    root.HaloLiveLoop.init({...env,changed(){persist();env.changed?.();}});
    }
    render();
-   return {phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),length=p.bars*16;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
-    if(root.HaloLiveLoop){
-     root.HaloLiveLoop.tick(time,step,audio,(env.settings?env.settings().tempo:72),(env.phraseBars?env.phraseBars():4));
-    }
+    return {onPhraseRestart(){commit();phrasePlaySteps=0;phraseOffset=0;ended=false;lastScheduledStep=-1;if(mode&&song){stepOffset=sectionStart(index);lastSection=-1;queued=null;}},phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),length=p.bars*16;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
     if(!mode||!song){
      lastScheduledStep=step;
      if(resetGain){audio.master?.gain.setTargetAtTime(settings().masterVolume/100,time,.05);resetGain=false;}
@@ -200,6 +197,7 @@
       }
       phrasePlaySteps++;
      }
+     root.HaloLiveLoop?.tick(time,((step+phraseOffset)%((env.phraseBars?.()||4)*16)+((env.phraseBars?.()||4)*16))%((env.phraseBars?.()||4)*16),audio,settings().tempo,env.phraseBars?.()||4);
      return false;
     }
     if(!preview){commit();preview=true;lastSection=-1}
@@ -208,7 +206,8 @@
     let position=step+stepOffset;const total=S.bars(song)*16;if(song.repeat&&position>=total){stepOffset-=Math.floor(position/total)*total;position=step+stepOffset;lastSection=-1;}const event=S.at(song,position);if(!event){if(!ended){ended=true;env.finish(time)}return true}
     const p=event.project;
     audio.master?.gain.setTargetAtTime(settings().masterVolume/100*event.gain,time,.05);
-    if(event.index!==lastSection){env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
+    if(event.index!==lastSection){if(lastSection>=0) {const previous=song.phrases.find(p=>p.id===song.sections[lastSection].phrase);if(previous&&root.HaloLiveLoop)previous.project.liveLoop=root.HaloLiveLoop.capturePhrase();}root.HaloLiveLoop?.restorePhrase(p.liveLoop,time);env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
+    root.HaloLiveLoop?.tick(time,event.local,audio,song.tempo,p.bars);
     env.tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!root.HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;audio.play(i,root.HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,root.HaloComposition.offsets[p.key],p.bars,clock),time,root.HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,root.HaloSounds.soundFor(t));env.pulse(i,time)});return true;
    }};
   }};

@@ -26,7 +26,18 @@
     copyrightConfirmed: false,
     instantRestart: true,
     pitch: 0,
-    reverse: false
+    reverse: false,
+    mode: 'loop', // 'loop' | 'slice'
+    sliceCount: 8, // 4 | 8 | 16
+    slicePattern: 'beat', // 'beat' | 'chrono' | 'shuffle' | 'arpeggio' | 'custom'
+    sliceSteps: [0, -1, 1, -1, 2, -1, 1, -1, 0, -1, 3, -1, 2, -1, 1, 3],
+    character: 60,
+    duration: 65,
+    density: 75,
+    chorus: 0,
+    cycle: 16,
+    stepLength: 1,
+    offset: 0
   };
 
   const IDB = {
@@ -154,13 +165,365 @@
   // State
   let settings = { ...defaultSettings };
   let layers = [];
+  const layerLibrary = new Map();
+  let phraseState = undefined;
+  let ready = Promise.resolve();
+  let initialized = false;
+  let playbackSettings = null;
+  const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,key==='sliceSteps'?[...(value.sliceSteps||defaultSettings.sliceSteps)]:value[key]??defaultSettings[key]]));
   let undoStack = [];
   let compositeBuffer = null;
+  let bufferContext = null;
+  function compositeContext(){return activeAudio?.ctx || bufferContext || (typeof root.AudioBuffer==='function'?{sampleRate:44100,createBuffer(channels,length,sampleRate){return new root.AudioBuffer({numberOfChannels:channels,length,sampleRate})}}:null)}
   let activeAudio = null;
-  let trackGain = null, panner = null, reverbSend = null, delaySend = null;
+  let trackContext = null;
+  let trackGain = null, panner = null, reverbSend = null, delaySend = null, chorusSend = null;
   let activeSource = null;
+  const playbackSources = new Set();
   let lastScheduledStep = -1;
   let envRef = null;
+
+  // SLICE State
+  let activeSliceVoice = null;
+  let slices = [];
+  let activeSliceIndex = -1;
+  let activeSliceStep = -1;
+
+  function detectTransients(buf, count, windowStartSec = 0, windowDurSec = 0) {
+    if (!buf) return [];
+    const sampleRate = buf.sampleRate || 44100;
+    const pcm = buf.getChannelData(0);
+    const totalLen = pcm.length;
+    const dur = buf.duration || (totalLen / sampleRate);
+    const winDur = (windowDurSec > 0 && windowDurSec <= dur) ? windowDurSec : dur;
+    const winStart = Math.max(0, Math.min(Math.max(0, dur - winDur), windowStartSec || 0));
+
+    const startSample = Math.floor(winStart * sampleRate);
+    const numSamples = Math.min(totalLen - startSample, Math.floor(winDur * sampleRate));
+    if (numSamples < 512) {
+      return [{ index: 0, startSec: winStart, endSec: winStart + winDur, duration: winDur }];
+    }
+
+    const frameSize = 512;
+    const hopSize = 256;
+    const numFrames = Math.floor((numSamples - frameSize) / hopSize);
+    if (numFrames < 4) {
+      return [{ index: 0, startSec: winStart, endSec: winStart + winDur, duration: winDur }];
+    }
+
+    const energy = new Float32Array(numFrames);
+    for (let i = 0; i < numFrames; i++) {
+      const offset = startSample + i * hopSize;
+      let sum = 0;
+      for (let j = 0; j < frameSize; j += 2) {
+        const val = pcm[offset + j] || 0;
+        sum += val * val;
+      }
+      energy[i] = Math.sqrt(sum / (frameSize / 2));
+    }
+
+    const odf = new Float32Array(numFrames);
+    let maxFlux = 0.0001;
+    for (let i = 1; i < numFrames; i++) {
+      const diff = energy[i] - energy[i - 1];
+      if (diff > 0) {
+        odf[i] = diff;
+        if (diff > maxFlux) maxFlux = diff;
+      }
+    }
+
+    const minSecDistance = 0.065;
+    const threshold = maxFlux * 0.12;
+    const candidates = [];
+
+    for (let i = 2; i < numFrames - 2; i++) {
+      const val = odf[i];
+      if (val >= threshold && val > odf[i - 1] && val >= odf[i + 1]) {
+        const peakTime = winStart + (i * hopSize) / sampleRate;
+        if (peakTime > winStart + 0.04 && peakTime < winStart + winDur - 0.04) {
+          candidates.push({ frame: i, time: peakTime, flux: val });
+        }
+      }
+    }
+
+    candidates.sort((a, b) => b.flux - a.flux);
+    const pickedTimes = [];
+
+    for (const c of candidates) {
+      if (pickedTimes.length >= count - 1) break;
+      const tooClose = pickedTimes.some(t => Math.abs(t - c.time) < minSecDistance);
+      if (!tooClose) {
+        pickedTimes.push(c.time);
+      }
+    }
+
+    if (pickedTimes.length < count - 1) {
+      for (let s = 1; s < count; s++) {
+        const gridTime = winStart + (s / count) * winDur;
+        const tooClose = pickedTimes.some(t => Math.abs(t - gridTime) < minSecDistance);
+        if (!tooClose) {
+          pickedTimes.push(gridTime);
+          if (pickedTimes.length >= count - 1) break;
+        }
+      }
+    }
+
+    pickedTimes.sort((a, b) => a - b);
+
+    const boundaries = [winStart, ...pickedTimes, winStart + winDur];
+    const result = [];
+    for (let i = 0; i < boundaries.length - 1; i++) {
+      const s0 = boundaries[i];
+      const s1 = boundaries[i + 1];
+      result.push({
+        index: i,
+        startSec: s0,
+        endSec: s1,
+        duration: Math.max(0.02, s1 - s0)
+      });
+    }
+    return result;
+  }
+
+  function getPresetSlicePattern(patternName, count) {
+    const N = Math.max(2, Math.min(16, count || 8));
+    const steps = new Array(16).fill(-1);
+    if (patternName === 'chrono') {
+      if (N === 16) {
+        for (let i = 0; i < 16; i++) steps[i] = i;
+      } else if (N === 8) {
+        for (let i = 0; i < 8; i++) steps[i * 2] = i;
+      } else {
+        for (let i = 0; i < 4; i++) steps[i * 4] = i;
+      }
+    } else if (patternName === 'shuffle') {
+      const seq = [0, -1, 1 % N, 1 % N, 2 % N, -1, -1, 2 % N, 0, -1, 3 % N, -1, 1 % N, 1 % N, 4 % N, 5 % N];
+      for (let i = 0; i < 16; i++) steps[i] = seq[i] === -1 ? -1 : seq[i] % N;
+    } else if (patternName === 'arpeggio' || patternName === 'arp') {
+      const seq = [0, -1, 1 % N, -1, 2 % N, -1, 3 % N, -1, 2 % N, -1, 1 % N, -1, 0, -1, 1 % N, -1];
+      for (let i = 0; i < 16; i++) steps[i] = seq[i] === -1 ? -1 : seq[i] % N;
+    } else {
+      steps[0] = 0;
+      steps[2] = 1 % N;
+      steps[4] = (N >= 4 ? 2 : 1) % N;
+      steps[6] = 1 % N;
+      steps[8] = 0;
+      steps[10] = (N >= 4 ? 3 : 1) % N;
+      steps[12] = (N >= 4 ? 2 : 1) % N;
+      steps[14] = 1 % N;
+      steps[15] = (N >= 4 ? N - 1 : 0) % N;
+    }
+    return steps;
+  }
+
+  function randomizeSlicePattern(count) {
+    const N = Math.max(2, Math.min(16, count || settings.sliceCount || 8));
+    const steps = new Array(16).fill(-1);
+    steps[0] = 0;
+    [4, 8, 12].forEach(st => {
+      if (Math.random() < 0.85) {
+        steps[st] = Math.floor(Math.random() * N);
+      }
+    });
+    [2, 6, 10, 14].forEach(st => {
+      if (Math.random() < 0.65) {
+        steps[st] = Math.floor(Math.random() * N);
+      }
+    });
+    [1, 3, 5, 7, 9, 11, 13, 15].forEach(st => {
+      if (Math.random() < 0.32) {
+        steps[st] = Math.floor(Math.random() * N);
+      }
+    });
+    return steps;
+  }
+
+  function rebuildSlices() {
+    if (!compositeBuffer) {
+      slices = [];
+      return slices;
+    }
+    const tempo = envRef?.settings?.().tempo || 72;
+    const loopDur = (settings.bars * 4 * 60) / tempo;
+    const totalDur = compositeBuffer.duration;
+    const isLonger = totalDur > loopDur + 0.05;
+    const winDur = isLonger ? loopDur : totalDur;
+    const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
+    const trimStart = Math.max(0, Math.min(0.95, settings.trimStart || 0));
+    const trimEnd = Math.max(trimStart + 0.01, Math.min(1.0, settings.trimEnd || 1));
+    const startSec = offsetSec + trimStart * winDur;
+    const activeDur = (trimEnd - trimStart) * winDur;
+
+    slices = detectTransients(compositeBuffer, settings.sliceCount || 8, startSec, activeDur);
+    return slices;
+  }
+
+  function playSlice(sliceIndex, time, audioCtx, optionalTempo) {
+    if (!compositeBuffer) return;
+    if (!slices || !slices.length) rebuildSlices();
+    if (!slices || !slices.length) return;
+    const slice = slices[Math.max(0, Math.min(slices.length - 1, sliceIndex))];
+    if (!slice) return;
+
+    const ctx = audioCtx || (activeAudio && activeAudio.ctx);
+    if (!ctx) return;
+    const atTime = (typeof time === 'number' && time >= ctx.currentTime) ? time : ctx.currentTime;
+
+    if (activeSliceVoice) {
+      try {
+        if (activeSliceVoice.gain && activeSliceVoice.gain.gain) {
+          activeSliceVoice.gain.gain.setValueAtTime(activeSliceVoice.gain.gain.value, atTime);
+          activeSliceVoice.gain.gain.linearRampToValueAtTime(0.0001, atTime + 0.004);
+        }
+        activeSliceVoice.source.stop(atTime + 0.005);
+      } catch (_) {}
+      activeSliceVoice = null;
+    }
+
+    const playBuf = getPlaybackBuffer(ctx);
+    if (!playBuf) return;
+
+    const source = ctx.createBufferSource();
+    source.buffer = playBuf;
+
+    const pitchVal = Number(settings.pitch) || 0;
+    if (pitchVal !== 0 && source.playbackRate) {
+      source.playbackRate.value = Math.pow(2, pitchVal / 12);
+    }
+
+    let filter = null;
+    if (ctx.createBiquadFilter) {
+      try {
+        filter = ctx.createBiquadFilter();
+        const charVal = (typeof settings.character === 'number') ? settings.character : 60;
+        const cutoff = 250 * Math.pow(20000 / 250, Math.max(0, Math.min(100, charVal)) / 100);
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(cutoff, atTime);
+        filter.Q.value = 1.0;
+      } catch (_) { filter = null; }
+    }
+
+    const vGain = ctx.createGain();
+    const peak = 1.0;
+    vGain.gain.setValueAtTime(0.0001, atTime);
+    vGain.gain.linearRampToValueAtTime(peak, atTime + 0.003);
+
+    const durSetting = (typeof settings.duration === 'number') ? settings.duration : 65;
+    const gateDur = Math.max(0.035, slice.duration * (0.15 + 0.85 * (durSetting / 100)));
+    const holdTime = Math.max(0.01, gateDur - 0.012);
+    if (vGain.gain.exponentialRampToValueAtTime) {
+      vGain.gain.exponentialRampToValueAtTime(0.0001, atTime + gateDur);
+    } else if (vGain.gain.linearRampToValueAtTime) {
+      vGain.gain.linearRampToValueAtTime(0.0001, atTime + gateDur);
+    }
+
+    if (filter) {
+      source.connect(filter);
+      filter.connect(vGain);
+    } else {
+      source.connect(vGain);
+    }
+    if (trackGain) vGain.connect(trackGain);
+
+    let sliceStart = slice.startSec;
+    if (settings.reverse) {
+      const totalBufDur = playBuf.duration;
+      sliceStart = Math.max(0, Math.min(totalBufDur - slice.duration, totalBufDur - (slice.startSec + slice.duration)));
+    }
+
+    source.start(atTime, sliceStart, gateDur + 0.03);
+    source.stop(atTime + gateDur + 0.04);
+
+    activeSliceVoice = { source, gain: vGain, filter, stopTime: atTime + gateDur + 0.04 };
+    activeSliceIndex = sliceIndex;
+
+    if (typeof root.HaloPulse === 'function') {
+      root.HaloPulse(8, atTime);
+    } else if (envRef?.pulse) {
+      envRef.pulse(8, atTime);
+    }
+  }
+
+  function getSlicePhraseSteps(phraseStart = 0, phraseBars = 4) {
+    const events = [];
+    const totalSteps = phraseBars * 16;
+    if (!compositeBuffer) return events;
+
+    if (settings.mode === 'slice') {
+      if (!slices.length) rebuildSlices();
+      const stepLen = settings.stepLength || 1;
+      const cycleLen = settings.cycle || 16;
+      const dens = (typeof settings.density === 'number') ? settings.density : 75;
+
+      for (let step = 0; step < totalSteps; step++) {
+        const absS = phraseStart + step;
+        if (absS % stepLen === 0) {
+          const s = Math.floor(absS / stepLen);
+          const patternStep = (s + (settings.offset || 0)) % cycleLen;
+          const stepIdx = patternStep % 16;
+          const sliceIdx = (settings.sliceSteps && typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
+          const isCandidate = sliceIdx >= 0;
+          const isAnchor = (stepIdx % 4 === 0);
+          const isMedium = (stepIdx % 2 === 0);
+          const threshold = isAnchor ? 15 : (isMedium ? 35 : 55);
+          const fires = isCandidate && (dens >= threshold);
+          events.push({ step, fires, candidate: isCandidate, sliceIndex: sliceIdx });
+        } else {
+          events.push({ step, fires: false, candidate: false });
+        }
+      }
+    } else {
+      for (let step = 0; step < totalSteps; step++) {
+        const isLoopStart = (step % (settings.bars * 16) === 0);
+        const isDownbeat = (step % 16 === 0);
+        events.push({ step, fires: isLoopStart, candidate: isDownbeat });
+      }
+    }
+    return events;
+  }
+
+  function randomizeSlice(seed) {
+    if (!compositeBuffer) return;
+    const rng = (offset) => {
+      const x = Math.sin((seed || 1) * 91.17 + offset * 13.37) * 43758.5453;
+      return x - Math.floor(x);
+    };
+
+    if (settings.mode === 'slice') {
+      const patterns = ['beat', 'chrono', 'shuffle', 'arpeggio'];
+      const patIndex = Math.floor(rng(1) * patterns.length);
+      settings.slicePattern = patterns[patIndex];
+
+      const counts = [4, 8, 16];
+      settings.sliceCount = counts[Math.floor(rng(2) * counts.length)];
+
+      settings.character = Math.round(35 + rng(3) * 55);
+      settings.duration = Math.round(45 + rng(4) * 45);
+      settings.density = Math.round(50 + rng(5) * 40);
+      settings.pan = Math.round(rng(6) * 80 - 40);
+      settings.space = Math.round(15 + rng(7) * 35);
+      settings.delay = Math.round(rng(8) * 35);
+      settings.chorus = Math.round(rng(9) * 30);
+
+      const cycles = [8, 16, 16, 32];
+      settings.cycle = cycles[Math.floor(rng(10) * cycles.length)];
+      const steps = [1, 1, 1, 2];
+      settings.stepLength = steps[Math.floor(rng(11) * steps.length)];
+      settings.offset = Math.floor(rng(12) * 8);
+
+      rebuildSlices();
+      settings.sliceSteps = getPresetSlicePattern(settings.slicePattern, settings.sliceCount);
+    } else {
+      settings.space = Math.round(15 + rng(7) * 35);
+      settings.delay = Math.round(rng(8) * 35);
+      settings.pan = Math.round(rng(6) * 60 - 30);
+    }
+
+    updateMixerNodes();
+    persistSettings();
+    renderWaveform();
+    renderUI();
+  }
 
   // Recording State
   let recordingState = 'idle'; // 'idle' | 'preroll' | 'recording' | 'overdubbing' | 'looping'
@@ -183,7 +546,6 @@
   let reversedBuffer = null;
   let pendingQuantizedRestart = false;
   let loopAnchorStep = 0;
-  let restartDebounceTimer = null;
 
   function getReversedBuffer(ctx, buf) {
     if (!buf || !ctx) return null;
@@ -216,36 +578,44 @@
   }
 
   function triggerSampleRestart(immediate = false) {
-    if (!settings.instantRestart) return;
-    if (!compositeBuffer || settings.mute) return;
-    if (!activeAudio || !activeAudio.ctx) return;
-    const isPlaying = envRef?.isPlaying ? envRef.isPlaying() : (isPlaybackRunning || activeSource !== null || (activeAudio && activeAudio.ctx.state === 'running'));
-    if (!isPlaying) return;
-
-    if (restartDebounceTimer) {
-      clearTimeout(restartDebounceTimer);
-      restartDebounceTimer = null;
-    }
-
-    const doRestart = () => {
-      const tempo = envRef?.settings?.().tempo || 72;
-      schedulePlayback(activeAudio.ctx.currentTime, activeAudio, tempo);
-    };
-
-    if (immediate) {
-      doRestart();
-    } else {
-      restartDebounceTimer = setTimeout(doRestart, 40);
-    }
+    triggerQuantizedLoopRestart();
   }
 
   function triggerQuantizedLoopRestart() {
     if (!settings.instantRestart) return;
-    if (!compositeBuffer || settings.mute) return;
-    if (!activeAudio || !activeAudio.ctx) return;
-    const isPlaying = envRef?.isPlaying ? envRef.isPlaying() : (isPlaybackRunning || activeSource !== null || (activeAudio && activeAudio.ctx.state === 'running'));
-    if (!isPlaying) return;
+    const playing = envRef?.isPlaying ? envRef.isPlaying() : isPlaybackRunning;
+    if (!playing) return;
     pendingQuantizedRestart = true;
+    const restart = envRef?.retriggerPhrase || root.HaloRetriggerPhrase;
+    if (typeof restart === 'function') restart(true);
+  }
+
+  function capturePhrase() {
+    for (const layer of layers) {
+      if (!Number.isSafeInteger(layer.id)) layer.id = Date.now() + layerLibrary.size;
+      layerLibrary.set(layer.id, layer);
+    }
+    return {version:1,settings:copySettings(settings),layerIds:layers.map(l=>l.id)};
+  }
+
+  function restorePhrase(value, time) {
+    capturePhrase();
+    phraseState = value === undefined ? null : value;
+    settings = copySettings({...defaultSettings,...value?.settings});
+    layers = (value?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
+    undoStack = [];
+    stopPlayback(time);
+    compositeBuffer = layers.length ? buildCompositeBuffer(compositeContext(),layers) : null;
+    reversedBuffer = null;
+    playbackSettings = copySettings(settings);
+    pendingQuantizedRestart = false;
+    loopAnchorStep = 0;
+    lastScheduledStep = -1;
+    slices = [];
+    if (compositeBuffer) rebuildSlices();
+    updateMixerNodes(time);
+    const container=typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null;
+    if(container?.children?.length)createUI(container,envRef);else renderUI();
   }
 
   function tr(ru, en) {
@@ -256,6 +626,7 @@
   function buildCompositeBuffer(ctx, layerList, targetDuration) {
     reversedBuffer = null;
     if (!layerList.length || !ctx) return null;
+    bufferContext=ctx;
     const sampleRate = ctx.sampleRate || 44100;
     let maxLayerDur = 0;
     for (const l of layerList) {
@@ -296,18 +667,18 @@
   }
 
   function init(env) {
+    initialized = true;
     envRef = env;
-    IDB.loadSettings().then(s => {
-      if (s) {
+    ready = IDB.loadSettings().then(s => {
+      if (s && phraseState === undefined) {
         settings = { ...defaultSettings, ...s };
+        if(Array.isArray(settings.slicePattern)){settings.sliceSteps=[...settings.slicePattern];settings.slicePattern='custom';}
       }
       return IDB.loadLayers();
     }).then(list => {
-      layers = list;
-      if (activeAudio && activeAudio.ctx && layers.length) {
-        const dur = (settings.bars * 4 * 60) / 72;
-        compositeBuffer = buildCompositeBuffer(activeAudio.ctx, layers, dur);
-      }
+      for (const layer of list) layerLibrary.set(layer.id,layer);
+      layers = phraseState === undefined ? (settings.layerIds ? settings.layerIds.map(id=>layerLibrary.get(id)).filter(Boolean) : list) : (phraseState?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
+      if (layers.length) compositeBuffer=buildCompositeBuffer(compositeContext(),layers);
       renderUI();
     }).catch(() => {});
   }
@@ -317,6 +688,12 @@
     activeAudio = audio;
     const ctx = audio.ctx;
 
+    if (trackGain && trackContext !== ctx) {
+      stopPlayback();
+      for (const node of [trackGain,panner,reverbSend,delaySend,chorusSend]) {try {node?.disconnect();} catch (_) {}}
+      trackGain=panner=reverbSend=delaySend=chorusSend=null;
+    }
+    trackContext=ctx;
     if (!trackGain) {
       trackGain = ctx.createGain();
       if (ctx.createStereoPanner) panner = ctx.createStereoPanner();
@@ -336,7 +713,13 @@
       }
       if (audio.delayTaps && audio.delayTaps['1/8']) {
         trackGain.connect(delaySend);
-        delaySend.connect(audio.delayTaps['1/8']);
+        const tapDiv = (audio.delayTaps && audio.delayTaps[settings.delayTime]) ? settings.delayTime : '1/8';
+        delaySend.connect(audio.delayTaps[tapDiv] || audio.delayTaps['1/8']);
+      }
+      if (audio.chorusIn) {
+        chorusSend = ctx.createGain();
+        trackGain.connect(chorusSend);
+        chorusSend.connect(audio.chorusIn);
       }
     }
 
@@ -355,14 +738,27 @@
     trackGain.gain.setTargetAtTime(vol, now, 0.04);
     if (panner) panner.pan.setTargetAtTime(settings.pan / 100, now, 0.05);
     if (reverbSend) reverbSend.gain.setTargetAtTime((settings.space / 100) * 0.8, now, 0.06);
-    if (delaySend) delaySend.gain.setTargetAtTime((settings.delay / 100) * 0.7, now, 0.05);
+    if (delaySend) {
+      delaySend.gain.setTargetAtTime((settings.delay / 100) * 0.7, now, 0.05);
+      const tapDiv = (activeAudio.delayTaps && activeAudio.delayTaps[settings.delayTime]) ? settings.delayTime : '1/8';
+      if (activeAudio.delayTaps && activeAudio.delayTaps[tapDiv]) {
+        try {
+          delaySend.disconnect();
+          delaySend.connect(activeAudio.delayTaps[tapDiv]);
+        } catch (_) {}
+      }
+    }
+    if (chorusSend) {
+      chorusSend.gain.setTargetAtTime(((settings.chorus || 0) / 100) * 0.75, now, 0.05);
+    }
   }
 
   function persistSettings() {
-    IDB.saveSettings(settings);
+    IDB.saveSettings({...settings, layerIds:capturePhrase().layerIds});
+    envRef?.changed?.();
   }
 
-  function schedulePlayback(time, audio, tempo) {
+  function schedulePlayback(time, audio, tempo, remaining = Infinity) {
     if (!compositeBuffer || settings.mute) return;
     try {
       if (activeSource) {
@@ -375,7 +771,11 @@
 
       const source = ctx.createBufferSource();
       source.buffer = playBuf;
-      source.connect(trackGain);
+      const voiceGain=ctx.createGain();
+      source.connect(voiceGain);voiceGain.connect(trackGain);
+      source.loopGain=voiceGain;
+      playbackSources.add(source);
+      source.onended=()=>{playbackSources.delete(source);try{source.disconnect();voiceGain.disconnect();}catch(_){}};
 
       const pitchVal = Number(settings.pitch) || 0;
       if (pitchVal !== 0 && source.playbackRate) {
@@ -396,23 +796,61 @@
         startOffset = Math.max(0, Math.min(totalDur - playDur, totalDur - (startOffset + playDur)));
       }
 
-      source.start(time, startOffset, playDur);
+      const rate=Math.pow(2,pitchVal/12),duration=Math.min(playDur/rate,loopDur,remaining);
+      voiceGain.gain.setValueAtTime(0,time);
+      voiceGain.gain.linearRampToValueAtTime(1,time+Math.min(.005,duration/2));
+      voiceGain.gain.setValueAtTime(1,time+Math.max(.005,duration-.005));
+      voiceGain.gain.linearRampToValueAtTime(0,time+duration);
+      source.start(time, startOffset, Math.min(playDur,loopDur*rate,remaining*rate));
       activeSource = source;
       loopPlayStartTime = time;
-      loopPlayDuration = playDur;
+      loopPlayDuration = duration;
+
+      if (typeof root.HaloPulse === 'function') {
+        root.HaloPulse(8, time);
+      } else if (envRef?.pulse) {
+        envRef.pulse(8, time);
+      }
     } catch (_) {}
   }
 
-  function stopPlayback() {
+  function stopPlayback(time) {
+    const at=Number.isFinite(time)?time:activeAudio?.ctx?.currentTime||0;
+    for(const source of playbackSources){
+      try{const gain=source.loopGain?.gain;gain?.cancelScheduledValues?.(at);gain?.setValueAtTime(1,at);gain?.linearRampToValueAtTime(0,at+.005);source.stop(at+.005);}catch(_){}
+    }
+    playbackSources.clear();
     if (activeSource) {
-      try { activeSource.stop(); } catch (_) {}
+      try { activeSource.stop(at + .005); } catch (_) {}
       activeSource = null;
+    }
+    if (activeSliceVoice) {
+      try { activeSliceVoice.source.stop(at); } catch (_) {}
+      activeSliceVoice = null;
     }
     loopPlayStartTime = 0;
     pendingQuantizedRestart = false;
+    activeSliceIndex = -1;
+    activeSliceStep = -1;
   }
 
-  function tick(time, absStep, audio, tempo, phraseBars) {
+  function tick(time, absStep, audio, tempo, phraseBars = 4) {
+    const boundary = absStep % (phraseBars * 16) === 0;
+    if (!playbackSettings || boundary || pendingQuantizedRestart && absStep === 0) {
+      playbackSettings = copySettings(settings);
+      pendingQuantizedRestart = false;
+      if (boundary) {loopAnchorStep = absStep; lastScheduledStep = -1;}
+      rebuildSlices();
+    }
+    const editing = settings;
+    // Only timing/sample-window changes wait; mixer controls stay live.
+    settings = {...settings};
+    for (const key of ['bars','pitch','reverse','trimStart','trimEnd','offsetSec']) settings[key]=playbackSettings[key];
+    try { tickPlayback(time, absStep, audio, tempo, phraseBars); }
+    finally { settings = editing; }
+  }
+
+  function tickPlayback(time, absStep, audio, tempo, phraseBars) {
     if (!audio || !audio.ctx) return;
     if (!trackGain) connectToAudio(audio);
 
@@ -438,15 +876,43 @@
       return;
     }
 
-    // Quantized Loop Retrigger (Instant Restart active on loop length / cycle boundaries)
-    if (pendingQuantizedRestart && compositeBuffer && !settings.mute) {
-      if (absStep % 4 === 0) {
-        pendingQuantizedRestart = false;
-        loopAnchorStep = absStep;
-        lastScheduledStep = absStep;
-        schedulePlayback(time, audio, tempo);
-        return;
+    // SLICE MODE Playback
+    if (settings.mode === 'slice') {
+      if (compositeBuffer && !settings.mute) {
+        if (!slices || !slices.length) rebuildSlices();
+        if (slices && slices.length) {
+          const stepLen = settings.stepLength || 1;
+          if (absStep % stepLen === 0 && absStep !== lastScheduledStep) {
+            lastScheduledStep = absStep;
+            const s = Math.floor(absStep / stepLen);
+            const cycleLen = settings.cycle || 16;
+            const patternStep = (s + (settings.offset || 0)) % cycleLen;
+            const stepIdx = patternStep % 16;
+            activeSliceStep = stepIdx;
+            if (typeof document !== 'undefined') {
+              const grid = document.getElementById('sliceSeqGrid');
+              if (grid) {
+                const pads = grid.children;
+                for (let pi = 0; pi < pads.length; pi++) {
+                  pads[pi].classList.toggle('is-current-step', pi === stepIdx);
+                }
+              }
+            }
+            const sliceIdx = (settings.sliceSteps && typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
+
+            if (sliceIdx >= 0 && sliceIdx < slices.length) {
+              const isAnchor = (stepIdx % 4 === 0);
+              const isMedium = (stepIdx % 2 === 0);
+              const threshold = isAnchor ? 15 : (isMedium ? 35 : 55);
+              const dens = (typeof settings.density === 'number') ? settings.density : 75;
+              if (dens >= threshold) {
+                playSlice(sliceIdx, time, audio.ctx, tempo);
+              }
+            }
+          }
+        }
       }
+      return;
     }
 
     // Normal Loop Playback
@@ -455,7 +921,7 @@
       const stepDiff = absStep - loopAnchorStep;
       if (stepDiff >= 0 && stepDiff % loopSteps === 0 && absStep !== lastScheduledStep) {
         lastScheduledStep = absStep;
-        schedulePlayback(time, audio, tempo);
+        schedulePlayback(time, audio, tempo, (phraseBars*16-(absStep%(phraseBars*16)))*60/tempo/4);
       }
     }
   }
@@ -898,6 +1364,8 @@
 
   function addLayer(layer, optionalCtx) {
     layers.push(layer);
+    capturePhrase();
+    persistSettings();
     IDB.saveLayer(layer);
     const ctx = optionalCtx || (activeAudio && activeAudio.ctx);
     if (ctx) {
@@ -911,7 +1379,8 @@
     if (!layers.length) return null;
     const removed = layers.pop();
     undoStack.push(removed);
-    IDB.deleteLayer(removed.id);
+    // Referenced PCM is immutable and may belong to another phrase.
+    persistSettings();
 
     const ctx = optionalCtx || (activeAudio && activeAudio.ctx);
     if (ctx && layers.length) {
@@ -941,7 +1410,7 @@
       try { cachedMicStream.getTracks().forEach(t => t.stop()); } catch (_) {}
       cachedMicStream = null;
     }
-    IDB.clearAll();
+    persistSettings();
     renderWaveform();
     renderUI();
     envRef?.toast(tr('Все записи 9-го трека очищены', 'All Track 09 layers cleared'));
@@ -1089,34 +1558,82 @@
       ctx.lineWidth = 1.5;
       ctx.strokeRect(x1, mainY + 1, Math.max(2, x2 - x1), mainH - 2);
 
-      // Draw Bar Division Lines & Labels inside the active window
-      const barCount = settings.bars || 4;
-      ctx.fillStyle = 'rgba(206, 255, 243, 0.85)';
-      ctx.font = '9px Inter, system-ui, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'bottom';
+      if (settings.mode === 'slice') {
+        if (!slices || !slices.length) rebuildSlices();
+        const activeDur = (trimEnd - trimStart) * winDur;
+        const startSec = offsetSec + trimStart * winDur;
 
-      for (let b = 0; b < barCount; b++) {
-        const bx = (b / barCount) * width;
-        if (b > 0) {
-          ctx.setLineDash([3, 3]);
-          ctx.strokeStyle = 'rgba(120, 186, 182, 0.45)';
-          ctx.beginPath();
-          ctx.moveTo(bx, mainY);
-          ctx.lineTo(bx, height);
-          ctx.stroke();
-          ctx.setLineDash([]);
+        // Draw Slices
+        if (slices && slices.length) {
+          for (let k = 0; k < slices.length; k++) {
+            const sl = slices[k];
+            const frac1 = Math.max(0, Math.min(1.0, (sl.startSec - startSec) / Math.max(0.001, activeDur)));
+            const frac2 = Math.max(0, Math.min(1.0, (sl.endSec - startSec) / Math.max(0.001, activeDur)));
+            const sx1 = x1 + frac1 * (x2 - x1);
+            const sx2 = x1 + frac2 * (x2 - x1);
+
+            // Active slice audition / playback glow
+            if (activeSliceIndex === k) {
+              ctx.fillStyle = 'rgba(99, 210, 198, 0.32)';
+              ctx.fillRect(sx1, mainY, sx2 - sx1, mainH);
+            }
+
+            // Divider line
+            if (k > 0) {
+              ctx.strokeStyle = '#63d2c6';
+              ctx.lineWidth = 1.2;
+              ctx.beginPath();
+              ctx.moveTo(sx1, mainY);
+              ctx.lineTo(sx1, height);
+              ctx.stroke();
+            }
+
+            // Slice number badge at top of slice
+            const badgeW = 14;
+            const badgeH = 12;
+            const badgeX = Math.min(x2 - badgeW, sx1 + 3);
+            ctx.fillStyle = (activeSliceIndex === k) ? '#63d2c6' : 'rgba(10, 26, 42, 0.85)';
+            ctx.fillRect(badgeX, mainY + 2, badgeW, badgeH);
+            ctx.strokeStyle = '#63d2c6';
+            ctx.lineWidth = 0.8;
+            ctx.strokeRect(badgeX, mainY + 2, badgeW, badgeH);
+            ctx.fillStyle = (activeSliceIndex === k) ? '#07101f' : '#cefff3';
+            ctx.font = 'bold 8px Inter, system-ui, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(k + 1), badgeX + badgeW / 2, mainY + 2 + badgeH / 2);
+          }
         }
-        ctx.fillText(String(b + 1), bx + 3, height - 3);
-      }
+      } else {
+        // Draw Bar Division Lines & Labels inside the active window
+        const barCount = settings.bars || 4;
+        ctx.fillStyle = 'rgba(206, 255, 243, 0.85)';
+        ctx.font = '9px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'bottom';
 
-      // Real-time Playhead cursor if playing
-      if (loopPlayStartTime > 0 && loopPlayDuration > 0 && activeAudio && activeAudio.ctx) {
-        const elapsed = (activeAudio.ctx.currentTime - loopPlayStartTime) % loopPlayDuration;
-        const playFrac = Math.max(0, Math.min(1.0, elapsed / loopPlayDuration));
-        const phX = x1 + playFrac * (x2 - x1);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(phX - 1, mainY, 2, mainH);
+        for (let b = 0; b < barCount; b++) {
+          const bx = (b / barCount) * width;
+          if (b > 0) {
+            ctx.setLineDash([3, 3]);
+            ctx.strokeStyle = 'rgba(120, 186, 182, 0.45)';
+            ctx.beginPath();
+            ctx.moveTo(bx, mainY);
+            ctx.lineTo(bx, height);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          }
+          ctx.fillText(String(b + 1), bx + 3, height - 3);
+        }
+
+        // Real-time Playhead cursor if playing in LOOP mode
+        if (loopPlayStartTime > 0 && loopPlayDuration > 0 && activeAudio && activeAudio.ctx) {
+          const elapsed = (activeAudio.ctx.currentTime - loopPlayStartTime) % loopPlayDuration;
+          const playFrac = Math.max(0, Math.min(1.0, elapsed / loopPlayDuration));
+          const phX = x1 + playFrac * (x2 - x1);
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(phX - 1, mainY, 2, mainH);
+        }
       }
     } else {
       // Empty waveform placeholder
@@ -1179,12 +1696,56 @@
   }
 
   function createUI(container, env) {
-    envRef = env;
+    if (env) envRef = env;
+    if (!container && typeof document !== 'undefined') container = document.getElementById('liveLoopPanel');
+    if (!container) return;
+    const isSlice = (settings.mode === 'slice');
+    const sliceCount = settings.sliceCount || 8;
+    const slicePat = settings.slicePattern || 'beat';
+    const cycle = settings.cycle || 16;
+    const stepLen = settings.stepLength || 1;
+    const offset = settings.offset || 0;
+    const delayTime = settings.delayTime || '1/8';
+
+    let stepsHtml = '';
+    if (isSlice) {
+      stepsHtml = `
+        <div class="slice-seq-card">
+          <div class="slice-seq-header">
+            <div class="slice-seq-header-left">
+              <span class="slice-pill-title">${tr('16-ШАГОВЫЙ ПАТТЕРН', '16-STEP SLICE PATTERN')}</span>
+              <small class="slice-seq-hint">${tr('Кликните по шагу для выбора сэмпла (1..N или пауза)', 'Click step to cycle slice or rest')}</small>
+            </div>
+            <div class="slice-seq-header-actions">
+              <button type="button" class="slice-pill-btn slice-pill-rand-btn" id="sliceSeqRandBtn" title="${tr('Случайный ритм слайсов', 'Random slice pattern')}">🎲 ${tr('РАНДОМ', 'RANDOM')}</button>
+              <button type="button" class="slice-pill-btn slice-pill-reset-btn" id="sliceSeqResetBtn" title="${tr('Сбросить паттерн к начальному (BEAT)', 'Reset pattern to default (BEAT)')}">↺ ${tr('СБРОС', 'RESET')}</button>
+            </div>
+          </div>
+          <div class="slice-seq-grid" id="sliceSeqGrid">
+            ${Array.from({ length: 16 }, (_, i) => {
+              const val = (settings.sliceSteps && typeof settings.sliceSteps[i] === 'number') ? settings.sliceSteps[i] : -1;
+              const isActive = (val >= 0);
+              const isAnchor = (i % 4 === 0);
+              const label = isActive ? String(val + 1) : '—';
+              return `<button type="button" class="slice-seq-pad ${isActive ? 'active' : ''} ${isAnchor ? 'anchor' : ''}" data-slice-step="${i}" title="${tr('Шаг', 'Step')} ${i + 1}: ${isActive ? tr('Слайс', 'Slice') + ' ' + (val + 1) : tr('Пауза', 'Rest')}">
+                <span class="slice-step-num">${i + 1}</span>
+                <span class="slice-step-val">${label}</span>
+              </button>`;
+            }).join('')}
+          </div>
+        </div>
+      `;
+    }
+
     container.innerHTML = `
       <div class="loop-head">
         <div class="loop-title-wrap">
           <span class="loop-mic-icon">🎙</span>
-          <strong>09 — LIVE LOOP</strong>
+          <strong>09 — ${isSlice ? 'SLICE' : 'LIVE LOOP'}</strong>
+          <div class="loop-mode-switch" role="tablist">
+            <button type="button" class="loop-mode-btn ${!isSlice ? 'active' : ''}" id="modeBtnLoop" title="${tr('Режим зацикленного воспроизведения и наложения', 'Continuous loop and overdub mode')}">◈ LOOP</button>
+            <button type="button" class="loop-mode-btn ${isSlice ? 'active' : ''}" id="modeBtnSlice" title="${tr('Режим нарезки сэмплов по транзиентам', 'Transient slice chopping and sequencing')}">✂ SLICE</button>
+          </div>
         </div>
         <div class="loop-head-actions">
           <button type="button" class="loop-instant-btn ${settings.instantRestart ? 'active' : ''}" id="loopInstantRestart" title="${tr('Мгновенный перезапуск при изменении параметров', 'Instant restart on parameter change')}">
@@ -1195,131 +1756,262 @@
         </div>
       </div>
 
-      <div class="loop-steps-bar" role="tablist" aria-label="Live loop workflow">
-        <div class="loop-step" id="stepPreroll">
-          <span class="loop-step-icon">⏱</span>
-          <strong>${tr('Подготовка', 'Preparation')}</strong>
-          <small>${tr('Отсчёт', 'Count-in')}</small>
+      ${isSlice ? `
+        <div class="slice-toolbar">
+          <div class="slice-pill-group" id="sliceCountGroup">
+            <span class="slice-pill-title">SLICES:</span>
+            <button type="button" class="slice-pill-btn ${sliceCount === 4 ? 'active' : ''}" data-slice-count="4">4</button>
+            <button type="button" class="slice-pill-btn ${sliceCount === 8 ? 'active' : ''}" data-slice-count="8">8</button>
+            <button type="button" class="slice-pill-btn ${sliceCount === 16 ? 'active' : ''}" data-slice-count="16">16</button>
+          </div>
+          <div class="slice-pill-group" id="slicePatternGroup">
+            <span class="slice-pill-title">PATTERN:</span>
+            <button type="button" class="slice-pill-btn ${slicePat === 'beat' ? 'active' : ''}" data-slice-pattern="beat">BEAT</button>
+            <button type="button" class="slice-pill-btn ${slicePat === 'chrono' ? 'active' : ''}" data-slice-pattern="chrono">CHRONO</button>
+            <button type="button" class="slice-pill-btn ${slicePat === 'shuffle' ? 'active' : ''}" data-slice-pattern="shuffle">SHUFFLE</button>
+            <button type="button" class="slice-pill-btn ${(slicePat === 'arp' || slicePat === 'arpeggio') ? 'active' : ''}" data-slice-pattern="arp">ARP</button>
+            <button type="button" class="slice-pill-btn slice-pill-rand-btn" id="slicePatRandBtn" title="${tr('Случайный ритм слайсов', 'Random slice pattern')}">🎲 ${tr('РАНДОМ', 'RAND')}</button>
+            <button type="button" class="slice-pill-btn slice-pill-reset-btn" id="slicePatResetBtn" title="${tr('Сбросить паттерн к начальному (BEAT)', 'Reset pattern to default (BEAT)')}">↺ ${tr('СБРОС', 'RESET')}</button>
+          </div>
+          <div class="slice-pill-group slice-actions-group">
+            <button type="button" class="glass-btn slice-aux-btn" id="sliceBtnRec" title="${tr('Запись с микрофона', 'Record from microphone')}">🎙 REC</button>
+            <button type="button" class="glass-btn slice-aux-btn" id="loopImportBtn">📂 ${tr('ИМПОРТ', 'IMPORT')}</button>
+            <input type="file" id="loopFileInput" accept="audio/*" hidden>
+            <button type="button" class="glass-btn slice-aux-btn" id="loopClearBtn" title="${tr('Очистить аудио', 'Clear audio')}">🗑</button>
+            <button type="button" class="glass-btn slice-aux-btn" id="btnLoopUndo" title="${tr('Отменить последний слой', 'Undo last take')}" ${layers.length === 0 ? 'disabled' : ''}>↺</button>
+          </div>
         </div>
-        <div class="loop-step" id="stepRecord">
-          <span class="loop-step-icon">🎙</span>
-          <strong>${tr('Запись', 'Recording')}</strong>
-          <small id="stepRecordBars">${settings.bars} ${tr('такта', 'bars')}</small>
+      ` : `
+        <div class="loop-steps-bar" role="tablist" aria-label="Live loop workflow">
+          <div class="loop-step" id="stepPreroll">
+            <span class="loop-step-icon">⏱</span>
+            <strong>${tr('Подготовка', 'Preparation')}</strong>
+            <small>${tr('Отсчёт', 'Count-in')}</small>
+          </div>
+          <div class="loop-step" id="stepRecord">
+            <span class="loop-step-icon">🎙</span>
+            <strong>${tr('Запись', 'Recording')}</strong>
+            <small id="stepRecordBars">${settings.bars} ${tr('такта', 'bars')}</small>
+          </div>
+          <div class="loop-step" id="stepLoop">
+            <span class="loop-step-icon">🔁</span>
+            <strong>${tr('Повтор', 'Playback')}</strong>
+            <small>Loop</small>
+          </div>
+          <div class="loop-step" id="stepOverdub">
+            <span class="loop-step-icon">🥞</span>
+            <strong>Overdub</strong>
+            <small>${tr('Слой', 'Layer')}</small>
+          </div>
         </div>
-        <div class="loop-step" id="stepLoop">
-          <span class="loop-step-icon">🔁</span>
-          <strong>${tr('Повтор', 'Playback')}</strong>
-          <small>Loop</small>
-        </div>
-        <div class="loop-step" id="stepOverdub">
-          <span class="loop-step-icon">🥞</span>
-          <strong>Overdub</strong>
-          <small>${tr('Слой', 'Layer')}</small>
-        </div>
-      </div>
+      `}
 
       <div class="loop-waveform-card">
         <div class="loop-wave-header">
-          <span id="loopWaveTitle">${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}</span>
+          <span id="loopWaveTitle">${isSlice ? `${tr('Нарезка сэмплов', 'Slice Chops')} · ${sliceCount} ${tr('кусочков', 'Slices')}` : `${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`}</span>
           <span id="loopWaveBpm">72 BPM</span>
         </div>
         <div class="loop-canvas-wrap">
           <canvas id="loopCanvas" height="110"></canvas>
         </div>
         <div class="loop-trim-wrap">
-          <label class="loop-trim-label">
-            <span>TRIM START: <output id="trimStartVal">${Math.round((settings.trimStart||0)*100)}%</output></span>
-            <input type="range" id="loopTrimStart" min="0" max="95" value="${Math.round((settings.trimStart||0)*100)}" step="1">
-          </label>
-          <label class="loop-trim-label">
-            <span>TRIM END: <output id="trimEndVal">${Math.round((settings.trimEnd||1)*100)}%</output></span>
-            <input type="range" id="loopTrimEnd" min="5" max="100" value="${Math.round((settings.trimEnd||1)*100)}" step="1">
-          </label>
-          <label class="loop-trim-label">
-            <span>PITCH: <output id="loopPitchVal">${(settings.pitch||0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)} st</output></span>
-            <input type="range" id="loopPitch" min="-12" max="12" value="${settings.pitch || 0}" step="1">
-          </label>
-          <div class="loop-rev-wrap">
-            <button type="button" class="loop-rev-btn ${settings.reverse ? 'active' : ''}" id="loopRevBtn" title="${tr('Реверс воспроизведения аудио', 'Reverse audio playback')}">
-              <span>⇄ REV</span>
-            </button>
-          </div>
+          ${isSlice ? `
+            <label class="loop-trim-label">
+              <span>PITCH: <output id="loopPitchVal">${(settings.pitch||0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)} st</output></span>
+              <input type="range" id="loopPitch" min="-12" max="12" value="${settings.pitch || 0}" step="1">
+            </label>
+            <div class="loop-rev-wrap">
+              <button type="button" class="loop-rev-btn ${settings.reverse ? 'active' : ''}" id="loopRevBtn" title="${tr('Реверс воспроизведения аудио', 'Reverse audio playback')}">
+                <span>⇄ REV</span>
+              </button>
+            </div>
+            <div class="loop-slice-hint-label">
+              <small>${tr('✂ Транзиенты найдены автоматически · Нажмите на срез для проверки', '✂ Transients detected · Tap slice on waveform to audition')}</small>
+            </div>
+          ` : `
+            <label class="loop-trim-label">
+              <span>TRIM START: <output id="trimStartVal">${Math.round((settings.trimStart||0)*100)}%</output></span>
+              <input type="range" id="loopTrimStart" min="0" max="95" value="${Math.round((settings.trimStart||0)*100)}" step="1">
+            </label>
+            <label class="loop-trim-label">
+              <span>TRIM END: <output id="trimEndVal">${Math.round((settings.trimEnd||1)*100)}%</output></span>
+              <input type="range" id="loopTrimEnd" min="5" max="100" value="${Math.round((settings.trimEnd||1)*100)}" step="1">
+            </label>
+            <label class="loop-trim-label">
+              <span>PITCH: <output id="loopPitchVal">${(settings.pitch||0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)} st</output></span>
+              <input type="range" id="loopPitch" min="-12" max="12" value="${settings.pitch || 0}" step="1">
+            </label>
+            <div class="loop-rev-wrap">
+              <button type="button" class="loop-rev-btn ${settings.reverse ? 'active' : ''}" id="loopRevBtn" title="${tr('Реверс воспроизведения аудио', 'Reverse audio playback')}">
+                <span>⇄ REV</span>
+              </button>
+            </div>
+          `}
         </div>
       </div>
 
-      <div class="loop-actions">
-        <button type="button" class="loop-action-btn loop-btn-record" id="btnLoopRecord" title="${tr('Начать запись с микрофона', 'Start recording from microphone')}">
-          <span class="loop-action-glyph rec-glyph">●</span>
-          <span>Record</span>
-        </button>
-        <button type="button" class="loop-action-btn loop-btn-loop" id="btnLoopLoop" title="${tr('Зациклить воспроизведение', 'Play / loop')}">
-          <span class="loop-action-glyph loop-glyph">🔁</span>
-          <span>Loop</span>
-        </button>
-        <button type="button" class="loop-action-btn loop-btn-overdub" id="btnLoopOverdub" title="${tr('Записать Overdub слой', 'Record new overdub layer')}">
-          <span class="loop-action-glyph overdub-glyph">🥞</span>
-          <span>Overdub</span>
-        </button>
-        <button type="button" class="loop-action-btn loop-btn-undo" id="btnLoopUndo" title="${tr('Отменить последний Overdub', 'Undo last overdub')}">
-          <span class="loop-action-glyph undo-glyph">↺</span>
-          <span>Undo</span>
-        </button>
-      </div>
+      ${isSlice ? stepsHtml : `
+        <div class="loop-actions">
+          <button type="button" class="loop-action-btn loop-btn-record" id="btnLoopRecord" title="${tr('Начать запись с микрофона', 'Start recording from microphone')}">
+            <span class="loop-action-glyph rec-glyph">●</span>
+            <span>Record</span>
+          </button>
+          <button type="button" class="loop-action-btn loop-btn-loop" id="btnLoopLoop" title="${tr('Зациклить воспроизведение', 'Play / loop')}">
+            <span class="loop-action-glyph loop-glyph">🔁</span>
+            <span>Loop</span>
+          </button>
+          <button type="button" class="loop-action-btn loop-btn-overdub" id="btnLoopOverdub" title="${tr('Записать Overdub слой', 'Record new overdub layer')}">
+            <span class="loop-action-glyph overdub-glyph">🥞</span>
+            <span>Overdub</span>
+          </button>
+          <button type="button" class="loop-action-btn loop-btn-undo" id="btnLoopUndo" title="${tr('Отменить последний Overdub', 'Undo last overdub')}">
+            <span class="loop-action-glyph undo-glyph">↺</span>
+            <span>Undo</span>
+          </button>
+        </div>
+      `}
 
       <div class="loop-controls-strip">
-        <div class="loop-ctrl-group loop-bars-group">
-          <span class="loop-group-title">BARS</span>
-          <div class="loop-bars-buttons" id="loopBarsGroup">
-            <button type="button" class="loop-bar-btn ${settings.bars===1?'active':''}" data-bars="1">1</button>
-            <button type="button" class="loop-bar-btn ${settings.bars===2?'active':''}" data-bars="2">2</button>
-            <button type="button" class="loop-bar-btn ${settings.bars===4?'active':''}" data-bars="4">4</button>
-            <button type="button" class="loop-bar-btn ${settings.bars===8?'active':''}" data-bars="8">8</button>
+        ${isSlice ? `
+          <div class="loop-ctrl-group loop-slice-sound-group">
+            <span class="loop-group-title">SOUND</span>
+            <div class="loop-sliders-grid loop-slice-grid">
+              <label class="loop-slider-label" title="${tr('Фильтр среза низких/высоких частот (250 Гц .. 20 кГц)', 'Lowpass filter cutoff')}">
+                <span>${tr('ХАРАКТЕР', 'CHARACTER')} <output id="loopCharVal">${settings.character || 60}%</output></span>
+                <input type="range" id="loopCharacter" min="0" max="100" value="${settings.character || 60}">
+              </label>
+              <label class="loop-slider-label" title="${tr('Длина звучания кусочка (гейт / затухание)', 'Slice gate duration and release')}">
+                <span>${tr('ДЛИТЕЛЬНОСТЬ', 'DURATION')} <output id="loopDurVal">${settings.duration || 65}%</output></span>
+                <input type="range" id="loopDuration" min="10" max="100" value="${settings.duration || 65}">
+              </label>
+              <label class="loop-slider-label" title="${tr('Плотность срабатывания ритмических шагов', 'Rhythmic trigger density')}">
+                <span>${tr('ПЛОТНОСТЬ', 'DENSITY')} <output id="loopDensVal">${settings.density || 75}%</output></span>
+                <input type="range" id="loopDensity" min="0" max="100" value="${settings.density || 75}">
+              </label>
+              <label class="loop-slider-label">
+                <span>LEVEL <output id="loopLevelVal">${settings.level}%</output></span>
+                <input type="range" id="loopLevel" min="0" max="100" value="${settings.level}">
+              </label>
+              <label class="loop-slider-label">
+                <span>PAN <output id="loopPanVal">${settings.pan}</output></span>
+                <input type="range" id="loopPan" min="-100" max="100" value="${settings.pan}">
+              </label>
+            </div>
+            <div class="loop-slice-meta-row">
+              <div class="loop-slice-subgroup">
+                <span class="slice-pill-title">CYCLE:</span>
+                <div class="loop-mini-pills">
+                  <button type="button" class="slice-pill-btn ${cycle===4?'active':''}" data-slice-cycle="4">4</button>
+                  <button type="button" class="slice-pill-btn ${cycle===8?'active':''}" data-slice-cycle="8">8</button>
+                  <button type="button" class="slice-pill-btn ${cycle===16?'active':''}" data-slice-cycle="16">16</button>
+                  <button type="button" class="slice-pill-btn ${cycle===32?'active':''}" data-slice-cycle="32">32</button>
+                </div>
+              </div>
+              <div class="loop-slice-subgroup">
+                <span class="slice-pill-title">STEP:</span>
+                <div class="loop-mini-pills">
+                  <button type="button" class="slice-pill-btn ${stepLen===1?'active':''}" data-slice-step-len="1">1/16</button>
+                  <button type="button" class="slice-pill-btn ${stepLen===2?'active':''}" data-slice-step-len="2">1/8</button>
+                  <button type="button" class="slice-pill-btn ${stepLen===4?'active':''}" data-slice-step-len="4">1/4</button>
+                </div>
+              </div>
+              <div class="loop-slice-subgroup">
+                <span class="slice-pill-title">OFFSET:</span>
+                <div class="loop-mini-pills">
+                  <button type="button" class="slice-pill-btn ${offset===0?'active':''}" data-slice-offset="0">0</button>
+                  <button type="button" class="slice-pill-btn ${offset===2?'active':''}" data-slice-offset="2">2</button>
+                  <button type="button" class="slice-pill-btn ${offset===4?'active':''}" data-slice-offset="4">4</button>
+                  <button type="button" class="slice-pill-btn ${offset===8?'active':''}" data-slice-offset="8">8</button>
+                </div>
+              </div>
+              <div class="loop-btn-row loop-mute-solo-row">
+                <button type="button" class="loop-mini-toggle ${settings.mute?'active':''}" id="loopMute">MUTE</button>
+                <button type="button" class="loop-mini-toggle ${settings.solo?'active':''}" id="loopSolo">SOLO</button>
+              </div>
+            </div>
           </div>
-          <div class="loop-btn-row loop-mute-solo-row">
-            <button type="button" class="loop-mini-toggle ${settings.mute?'active':''}" id="loopMute">MUTE</button>
-            <button type="button" class="loop-mini-toggle ${settings.solo?'active':''}" id="loopSolo">SOLO</button>
-          </div>
-        </div>
 
-        <div class="loop-ctrl-group loop-mix-group">
-          <span class="loop-group-title">MIX</span>
-          <div class="loop-sliders-grid">
-            <label class="loop-slider-label">
-              <span>LEVEL <output id="loopLevelVal">${settings.level}%</output></span>
-              <input type="range" id="loopLevel" min="0" max="100" value="${settings.level}">
-            </label>
-            <label class="loop-slider-label">
-              <span>PAN <output id="loopPanVal">${settings.pan}</output></span>
-              <input type="range" id="loopPan" min="-100" max="100" value="${settings.pan}">
-            </label>
-            <label class="loop-slider-label">
-              <span>${tr('РЕВЕРБ', 'REVERB')} <output id="loopReverbVal">${settings.space}%</output></span>
-              <input type="range" id="loopReverb" min="0" max="100" value="${settings.space}">
-            </label>
-            <label class="loop-slider-label">
-              <span>${tr('ДИЛЭЙ', 'DELAY')} <output id="loopDelayVal">${settings.delay}%</output></span>
-              <input type="range" id="loopDelay" min="0" max="100" value="${settings.delay}">
-            </label>
+          <div class="loop-ctrl-group loop-slice-fx-group">
+            <span class="loop-group-title">FX</span>
+            <div class="loop-sliders-grid loop-slice-fx-grid">
+              <label class="loop-slider-label">
+                <span>${tr('РЕВЕРБ', 'REVERB')} <output id="loopReverbVal">${settings.space}%</output></span>
+                <input type="range" id="loopReverb" min="0" max="100" value="${settings.space}">
+              </label>
+              <label class="loop-slider-label">
+                <span>${tr('ДИЛЭЙ', 'DELAY')} <output id="loopDelayVal">${settings.delay}%</output></span>
+                <input type="range" id="loopDelay" min="0" max="100" value="${settings.delay}">
+              </label>
+              <label class="loop-slider-label">
+                <span>${tr('ХОРУС', 'CHORUS')} <output id="loopChorusVal">${settings.chorus||0}%</output></span>
+                <input type="range" id="loopChorus" min="0" max="100" value="${settings.chorus||0}">
+              </label>
+            </div>
+            <div class="loop-slice-subgroup loop-delay-time-subgroup">
+              <span class="slice-pill-title">DELAY TIME:</span>
+              <div class="loop-mini-pills">
+                <button type="button" class="slice-pill-btn ${delayTime==='1/16'?'active':''}" data-slice-delay-time="1/16">1/16</button>
+                <button type="button" class="slice-pill-btn ${delayTime==='1/8'?'active':''}" data-slice-delay-time="1/8">1/8</button>
+                <button type="button" class="slice-pill-btn ${delayTime==='1/8D'?'active':''}" data-slice-delay-time="1/8D">1/8D</button>
+                <button type="button" class="slice-pill-btn ${delayTime==='1/4'?'active':''}" data-slice-delay-time="1/4">1/4</button>
+              </div>
+            </div>
           </div>
-        </div>
+        ` : `
+          <div class="loop-ctrl-group loop-bars-group">
+            <span class="loop-group-title">BARS</span>
+            <div class="loop-bars-buttons" id="loopBarsGroup">
+              <button type="button" class="loop-bar-btn ${settings.bars===1?'active':''}" data-bars="1">1</button>
+              <button type="button" class="loop-bar-btn ${settings.bars===2?'active':''}" data-bars="2">2</button>
+              <button type="button" class="loop-bar-btn ${settings.bars===4?'active':''}" data-bars="4">4</button>
+              <button type="button" class="loop-bar-btn ${settings.bars===8?'active':''}" data-bars="8">8</button>
+            </div>
+            <div class="loop-btn-row loop-mute-solo-row">
+              <button type="button" class="loop-mini-toggle ${settings.mute?'active':''}" id="loopMute">MUTE</button>
+              <button type="button" class="loop-mini-toggle ${settings.solo?'active':''}" id="loopSolo">SOLO</button>
+            </div>
+          </div>
 
-        <div class="loop-ctrl-group loop-aux-group">
-          <div class="loop-btn-row">
-            <button type="button" class="glass-btn loop-import-btn" id="loopImportBtn">📂 ${tr('ИМПОРТ', 'IMPORT')}</button>
-            <input type="file" id="loopFileInput" accept="audio/*" hidden>
-            <button type="button" class="glass-btn loop-clear-btn" id="loopClearBtn">🗑 ${tr('СБРОС', 'CLEAR')}</button>
+          <div class="loop-ctrl-group loop-mix-group">
+            <span class="loop-group-title">MIX</span>
+            <div class="loop-sliders-grid">
+              <label class="loop-slider-label">
+                <span>LEVEL <output id="loopLevelVal">${settings.level}%</output></span>
+                <input type="range" id="loopLevel" min="0" max="100" value="${settings.level}">
+              </label>
+              <label class="loop-slider-label">
+                <span>PAN <output id="loopPanVal">${settings.pan}</output></span>
+                <input type="range" id="loopPan" min="-100" max="100" value="${settings.pan}">
+              </label>
+              <label class="loop-slider-label">
+                <span>${tr('РЕВЕРБ', 'REVERB')} <output id="loopReverbVal">${settings.space}%</output></span>
+                <input type="range" id="loopReverb" min="0" max="100" value="${settings.space}">
+              </label>
+              <label class="loop-slider-label">
+                <span>${tr('ДИЛЭЙ', 'DELAY')} <output id="loopDelayVal">${settings.delay}%</output></span>
+                <input type="range" id="loopDelay" min="0" max="100" value="${settings.delay}">
+              </label>
+            </div>
           </div>
-          <div class="loop-setting-row">
-            <label class="loop-latency-label" title="${tr('Компенсация задержки микрофона', 'Microphone latency compensation')}">
-              <span>LATENCY:</span>
-              <input type="number" id="loopLatency" min="0" max="200" step="5" value="${settings.latencyMs}">ms
-            </label>
-            <label class="loop-monitor-label" title="${tr('Прямой мониторинг микрофона (выключен по умолчанию для защиты от обратной связи)', 'Direct microphone monitoring (off by default to prevent feedback)')}">
-              <input type="checkbox" id="loopMonitor" ${settings.monitor?'checked':''}>
-              <span>${tr('МОНИТОР', 'MONITOR')}</span>
-            </label>
+
+          <div class="loop-ctrl-group loop-aux-group">
+            <div class="loop-btn-row">
+              <button type="button" class="glass-btn loop-import-btn" id="loopImportBtn">📂 ${tr('ИМПОРТ', 'IMPORT')}</button>
+              <input type="file" id="loopFileInput" accept="audio/*" hidden>
+              <button type="button" class="glass-btn loop-clear-btn" id="loopClearBtn">🗑 ${tr('СБРОС', 'CLEAR')}</button>
+            </div>
+            <div class="loop-setting-row">
+              <label class="loop-latency-label" title="${tr('Компенсация задержки микрофона', 'Microphone latency compensation')}">
+                <span>LATENCY:</span>
+                <input type="number" id="loopLatency" min="0" max="200" step="5" value="${settings.latencyMs}">ms
+              </label>
+              <label class="loop-monitor-label" title="${tr('Прямой мониторинг микрофона (выключен по умолчанию для защиты от обратной связи)', 'Direct microphone monitoring (off by default to prevent feedback)')}">
+                <input type="checkbox" id="loopMonitor" ${settings.monitor?'checked':''}>
+                <span>${tr('МОНИТОР', 'MONITOR')}</span>
+              </label>
+            </div>
           </div>
-        </div>
+        `}
       </div>
 
       <div class="loop-footer-notice">
@@ -1327,17 +2019,46 @@
       </div>
     `;
 
-    bindUIEvents();
+    bindUIEvents(container);
     renderWaveform();
     updateStatusBadge();
     updateStepIndicators();
   }
 
-  function bindUIEvents() {
-    const btnRec = document.getElementById('btnLoopRecord');
-    const btnLoop = document.getElementById('btnLoopLoop');
-    const btnOverdub = document.getElementById('btnLoopOverdub');
-    const btnUndo = document.getElementById('btnLoopUndo');
+  function bindUIEvents(container) {
+    if (!container && typeof document !== 'undefined') container = document.getElementById('liveLoopPanel');
+    const rootEl = container || (typeof document !== 'undefined' ? document : null);
+    if (!rootEl) return;
+    const find = (id) => (rootEl.querySelector ? rootEl.querySelector('#' + id) : null) || (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
+    const findAll = (sel) => Array.from((rootEl.querySelectorAll ? rootEl.querySelectorAll(sel) : []) || []);
+
+    const btnModeLoop = find('modeBtnLoop') || find('btnLoopModeLoop');
+    const btnModeSlice = find('modeBtnSlice') || find('btnLoopModeSlice');
+    if (btnModeLoop) btnModeLoop.onclick = () => {
+      if (settings.mode !== 'loop') {
+        settings.mode = 'loop';
+        persistSettings();
+        stopPlayback();
+        createUI(container);
+        envRef?.toast(tr('Режим LOOP: Непрерывное зацикливание', 'LOOP mode: Continuous audio loop'));
+      }
+    };
+    if (btnModeSlice) btnModeSlice.onclick = () => {
+      if (settings.mode !== 'slice') {
+        settings.mode = 'slice';
+        rebuildSlices();
+        persistSettings();
+        stopPlayback();
+        createUI(container);
+        envRef?.toast(tr('Режим SLICE: Нарезка по транзиентам', 'SLICE mode: Transient chop sequencer'));
+      }
+    };
+
+    // Transport / Layer Buttons (Loop Mode)
+    const btnRec = find('btnLoopRecord');
+    const btnLoop = find('btnLoopLoop');
+    const btnOverdub = find('btnLoopOverdub');
+    const btnUndo = find('btnLoopUndo');
 
     if (btnRec) btnRec.onclick = () => {
       if (recordingState === 'recording') {
@@ -1368,7 +2089,7 @@
     };
 
     // Instant Restart Button
-    const instantBtn = document.getElementById('loopInstantRestart');
+    const instantBtn = find('loopInstantRestart');
     if (instantBtn) instantBtn.onclick = () => {
       settings.instantRestart = !settings.instantRestart;
       instantBtn.classList.toggle('active', settings.instantRestart);
@@ -1376,15 +2097,15 @@
       envRef?.toast(settings.instantRestart ? tr('Instant Restart включён', 'Instant Restart ON') : tr('Instant Restart выключен', 'Instant Restart OFF'));
     };
 
-    // Bars Buttons
-    const barsGroup = document.getElementById('loopBarsGroup');
+    // Bars Buttons (Loop Mode)
+    const barsGroup = find('loopBarsGroup');
     if (barsGroup) {
       Array.from(barsGroup.children).forEach(btn => {
         btn.onclick = () => {
           const b = Number(btn.dataset.bars) || 4;
           settings.bars = b;
           Array.from(barsGroup.children).forEach(el => el.classList.toggle('active', el === btn));
-          const recBars = document.getElementById('stepRecordBars');
+          const recBars = find('stepRecordBars');
           if (recBars) recBars.textContent = `${b} ${tr('такта', 'bars')}`;
 
           if (compositeBuffer) {
@@ -1405,8 +2126,107 @@
       });
     }
 
+    // Slice Count Buttons (Slice Mode)
+    const countBtns = findAll('[data-slice-count]');
+    countBtns.forEach(btn => {
+      btn.onclick = () => {
+        const c = Number(btn.dataset.sliceCount) || 8;
+        settings.sliceCount = c;
+        rebuildSlices();
+        if (Array.isArray(settings.sliceSteps)) {
+          settings.sliceSteps = settings.sliceSteps.map(v => (v >= c ? (v % c) : v));
+        }
+        persistSettings();
+        createUI(container);
+        renderWaveform();
+        envRef?.toast(tr(`Нарезка: ${c} слайсов`, `Slices: ${c} chops`));
+      };
+    });
+
+    // Slice Pattern Buttons (Slice Mode)
+    const patBtns = findAll('[data-slice-pattern]');
+    patBtns.forEach(btn => {
+      btn.onclick = () => {
+        const pat = btn.dataset.slicePattern || btn.dataset.slicePat || 'beat';
+        settings.slicePattern = pat;
+        settings.sliceSteps = getPresetSlicePattern(pat, settings.sliceCount || 8);
+        persistSettings();
+        createUI(container);
+        renderWaveform();
+        triggerQuantizedLoopRestart();
+        envRef?.toast(tr(`Паттерн: ${pat.toUpperCase()}`, `Pattern: ${pat.toUpperCase()}`));
+      };
+    });
+
+    // Slice Pattern Random & Reset Buttons
+    const doRandomPattern = () => {
+      settings.slicePattern = 'custom';
+      settings.sliceSteps = randomizeSlicePattern(settings.sliceCount || 8);
+      persistSettings();
+      createUI(container);
+      renderWaveform();
+      triggerQuantizedLoopRestart();
+      envRef?.toast(tr('Случайный рисунок слайсов', 'Random slice pattern generated'));
+    };
+
+    const doResetPattern = () => {
+      settings.slicePattern = 'beat';
+      settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
+      persistSettings();
+      createUI(container);
+      renderWaveform();
+      triggerQuantizedLoopRestart();
+      envRef?.toast(tr('Паттерн сброшен к начальному (BEAT)', 'Pattern reset to default (BEAT)'));
+    };
+
+    ['slicePatRandBtn', 'sliceSeqRandBtn'].forEach(id => {
+      const el = find(id);
+      if (el) el.onclick = doRandomPattern;
+    });
+    ['slicePatResetBtn', 'sliceSeqResetBtn'].forEach(id => {
+      const el = find(id);
+      if (el) el.onclick = doResetPattern;
+    });
+
+    // Slice Record Button
+    const sliceBtnRec = find('sliceBtnRec');
+    if (sliceBtnRec) {
+      sliceBtnRec.onclick = () => {
+        if (recordingState === 'recording') {
+          if (activeAudio) finishRecording(activeAudio, envRef?.settings?.().tempo || 72);
+        } else {
+          armRecording(false, activeAudio, envRef?.settings?.().tempo || 72);
+        }
+      };
+    }
+
+    // Slice 16-Step Sequencer Grid
+    const seqGrid = find('sliceSeqGrid');
+    if (seqGrid) {
+      Array.from(seqGrid.children).forEach(pad => {
+        pad.onclick = () => {
+          const stepIdx = Number(pad.dataset.sliceStep);
+          if (isNaN(stepIdx) || stepIdx < 0 || stepIdx > 15) return;
+          if (!Array.isArray(settings.sliceSteps) || settings.sliceSteps.length !== 16) {
+            settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
+          }
+          const curVal = (typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
+          const count = settings.sliceCount || 8;
+          // Cycle: -1 -> 0 -> 1 -> ... -> (count - 1) -> -1
+          const nextVal = (curVal + 2 > count) ? -1 : curVal + 1;
+          settings.sliceSteps[stepIdx] = nextVal;
+          settings.slicePattern = 'custom';
+          persistSettings();
+          if (nextVal >= 0) playSlice(nextVal);
+          pad.classList.toggle('active', nextVal >= 0);
+          const label = pad.querySelector('.slice-step-val') || pad;
+          label.textContent = nextVal >= 0 ? String(nextVal + 1) : '—';
+        };
+      });
+    }
+
     // Interactive Waveform Dragging & Navigation
-    const canvas = document.getElementById('loopCanvas');
+    const canvas = find('loopCanvas');
     if (canvas) {
       let dragMode = null;
       let dragStart = null;
@@ -1424,6 +2244,27 @@
 
         const clickY = e.clientY - rect.top;
         const clickX = e.clientX - rect.left;
+
+        if (settings.mode === 'slice' && clickY > 17) {
+          const trimStartFrac = Math.max(0, Math.min(0.95, settings.trimStart || 0));
+          const trimEndFrac = Math.max(trimStartFrac + 0.01, Math.min(1.0, settings.trimEnd || 1));
+          const x1 = trimStartFrac * rect.width;
+          const x2 = trimEndFrac * rect.width;
+          if (clickX >= x1 && clickX <= x2 && slices && slices.length) {
+            const winDur = isLonger ? loopDur : totalDur;
+            const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
+            const activeDur = (trimEndFrac - trimStartFrac) * winDur;
+            const startSec = offsetSec + trimStartFrac * winDur;
+            const frac = (clickX - x1) / Math.max(1, x2 - x1);
+            const clickTime = startSec + frac * activeDur;
+            const foundIdx = slices.findIndex(s => clickTime >= s.startSec && clickTime <= s.endSec);
+            const sliceIdx = foundIdx >= 0 ? foundIdx : Math.min(slices.length - 1, Math.floor(frac * slices.length));
+            playSlice(sliceIdx);
+            renderWaveform();
+            e.preventDefault();
+            return;
+          }
+        }
 
         if (isLonger && clickY <= 17) {
           dragMode = 'overview';
@@ -1488,10 +2329,10 @@
       canvas.onpointercancel = endDrag;
     }
 
-    // Sliders
+    // Sliders Helper
     const bindSlider = (id, outId, key, scale = 1, unit = '%') => {
-      const el = document.getElementById(id);
-      const out = document.getElementById(outId);
+      const el = find(id);
+      const out = find(outId);
       if (!el) return;
       el.oninput = (e) => {
         const val = Number(e.target.value);
@@ -1502,16 +2343,64 @@
       };
     };
 
+    // Shared Sliders
     bindSlider('loopLevel', 'loopLevelVal', 'level');
     bindSlider('loopPan', 'loopPanVal', 'pan', 1, '');
     bindSlider('loopReverb', 'loopReverbVal', 'space');
     bindSlider('loopDelay', 'loopDelayVal', 'delay');
 
-    // Trim sliders
-    const trimStartEl = document.getElementById('loopTrimStart');
-    const trimEndEl = document.getElementById('loopTrimEnd');
-    const trimStartVal = document.getElementById('trimStartVal');
-    const trimEndVal = document.getElementById('trimEndVal');
+    // Slice Specific Sliders
+    bindSlider('loopCharacter', 'loopCharVal', 'character');
+    bindSlider('loopDuration', 'loopDurVal', 'duration');
+    bindSlider('loopDensity', 'loopDensVal', 'density');
+    bindSlider('loopChorus', 'loopChorusVal', 'chorus');
+
+    // Slice Cycle Pills
+    findAll('[data-slice-cycle]').forEach(btn => {
+      btn.onclick = () => {
+        const cyc = Number(btn.dataset.sliceCycle) || 16;
+        settings.cycle = cyc;
+        persistSettings();
+        findAll('[data-slice-cycle]').forEach(b => b.classList.toggle('active', b === btn));
+      };
+    });
+
+    // Slice Step Length Pills
+    findAll('[data-slice-step-len]').forEach(btn => {
+      btn.onclick = () => {
+        const sl = Number(btn.dataset.sliceStepLen) || 1;
+        settings.stepLength = sl;
+        persistSettings();
+        findAll('[data-slice-step-len]').forEach(b => b.classList.toggle('active', b === btn));
+      };
+    });
+
+    // Slice Offset Pills
+    findAll('[data-slice-offset]').forEach(btn => {
+      btn.onclick = () => {
+        const off = Number(btn.dataset.sliceOffset) || 0;
+        settings.offset = off;
+        persistSettings();
+        findAll('[data-slice-offset]').forEach(b => b.classList.toggle('active', b === btn));
+      };
+    });
+
+    // Slice Delay Time Pills
+    findAll('[data-slice-delay-time]').forEach(btn => {
+      btn.onclick = () => {
+        const dt = btn.dataset.sliceDelayTime || '1/8';
+        settings.delayTime = dt;
+        persistSettings();
+        updateMixerNodes();
+        findAll('[data-slice-delay-time]').forEach(b => b.classList.toggle('active', b === btn));
+      };
+    });
+
+    // Trim sliders (Loop Mode)
+    const trimStartEl = find('loopTrimStart');
+    const trimEndEl = find('loopTrimEnd');
+    const trimStartVal = find('trimStartVal');
+    const trimEndVal = find('trimEndVal');
 
     if (trimStartEl) trimStartEl.oninput = (e) => {
       const v = Number(e.target.value) / 100;
@@ -1532,8 +2421,8 @@
     };
 
     // Pitch & Reverse
-    const pitchEl = document.getElementById('loopPitch');
-    const pitchVal = document.getElementById('loopPitchVal');
+    const pitchEl = find('loopPitch');
+    const pitchVal = find('loopPitchVal');
     if (pitchEl) pitchEl.oninput = (e) => {
       const p = Number(e.target.value) || 0;
       settings.pitch = p;
@@ -1543,7 +2432,7 @@
       triggerSampleRestart(false);
     };
 
-    const revBtn = document.getElementById('loopRevBtn');
+    const revBtn = find('loopRevBtn');
     if (revBtn) revBtn.onclick = () => {
       settings.reverse = !settings.reverse;
       revBtn.classList.toggle('active', settings.reverse);
@@ -1554,7 +2443,7 @@
     };
 
     // Mute & Solo
-    const muteBtn = document.getElementById('loopMute');
+    const muteBtn = find('loopMute');
     if (muteBtn) muteBtn.onclick = () => {
       settings.mute = !settings.mute;
       muteBtn.classList.toggle('active', settings.mute);
@@ -1563,7 +2452,7 @@
       persistSettings();
     };
 
-    const soloBtn = document.getElementById('loopSolo');
+    const soloBtn = find('loopSolo');
     if (soloBtn) soloBtn.onclick = () => {
       settings.solo = !settings.solo;
       soloBtn.classList.toggle('active', settings.solo);
@@ -1572,8 +2461,8 @@
     };
 
     // Import & Clear
-    const importBtn = document.getElementById('loopImportBtn');
-    const fileInput = document.getElementById('loopFileInput');
+    const importBtn = find('loopImportBtn');
+    const fileInput = find('loopFileInput');
     if (importBtn && fileInput) {
       importBtn.onclick = () => fileInput.click();
       fileInput.onchange = (e) => {
@@ -1582,7 +2471,7 @@
       };
     }
 
-    const clearBtn = document.getElementById('loopClearBtn');
+    const clearBtn = find('loopClearBtn');
     if (clearBtn) clearBtn.onclick = async () => {
       if (!layers.length) return;
       const confirmFn = envRef?.confirm || root.HaloConfirm;
@@ -1600,7 +2489,7 @@
     };
 
     // Latency & Monitor
-    const latInput = document.getElementById('loopLatency');
+    const latInput = find('loopLatency');
     if (latInput) {
       if (typeof root.HaloControls !== 'undefined' && root.HaloControls.install) {
         root.HaloControls.install(latInput, { min: 0, max: 200, step: 1, dragStep: 1 });
@@ -1613,7 +2502,7 @@
       latInput.onchange = onLat;
     }
 
-    const monCheck = document.getElementById('loopMonitor');
+    const monCheck = find('loopMonitor');
     if (monCheck) monCheck.onchange = (e) => {
       settings.monitor = e.target.checked;
       persistSettings();
@@ -1641,10 +2530,18 @@
     const pitchVal = document.getElementById('loopPitchVal');
     if (pitchEl) pitchEl.value = settings.pitch || 0;
     if (pitchVal) pitchVal.textContent = ((settings.pitch || 0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)) + ' st';
+
+    // Active slice highlight
+    if (settings.mode === 'slice') {
+      const pads = document.querySelectorAll('.slice-seq-pad');
+      pads.forEach((pad, idx) => {
+        pad.classList.toggle('is-current-step', idx === activeSliceStep);
+      });
+    }
   }
 
   // Offline Export Rendering
-  function renderOffline(ctx, engine, totalBars, tempo) {
+  function renderOffline(ctx, engine, totalBars, tempo, startTime = 0) {
     if (!compositeBuffer || settings.mute) return;
     if (typeof engine === 'number') {
       tempo = totalBars || 72;
@@ -1680,10 +2577,87 @@
         revG.gain.value = (settings.space / 100) * 0.8;
         revG.connect(engine.reverb);
       }
-      if (engine && engine.delayTaps && engine.delayTaps['1/8']) {
-        trackG.connect(delG);
-        delG.gain.value = (settings.delay / 100) * 0.7;
-        delG.connect(engine.delayTaps['1/8']);
+      if (engine && engine.delayTaps) {
+        const tapDiv = (engine.delayTaps && engine.delayTaps[settings.delayTime]) ? settings.delayTime : '1/8';
+        if (engine.delayTaps[tapDiv] || engine.delayTaps['1/8']) {
+          trackG.connect(delG);
+          delG.gain.value = (settings.delay / 100) * 0.7;
+          delG.connect(engine.delayTaps[tapDiv] || engine.delayTaps['1/8']);
+        }
+      }
+      if (engine && engine.chorusIn) {
+        const chorG = ctx.createGain();
+        trackG.connect(chorG);
+        chorG.gain.value = ((settings.chorus || 0) / 100) * 0.75;
+        chorG.connect(engine.chorusIn);
+      }
+
+      if (settings.mode === 'slice') {
+        if (!slices || !slices.length) rebuildSlices();
+        if (!slices || !slices.length) return;
+
+        const totalSteps = totalBars * 16;
+        const secPerStep = (60 / tempo) / 4;
+        const stepLen = settings.stepLength || 1;
+        const cycleLen = settings.cycle || 16;
+        const dens = (typeof settings.density === 'number') ? settings.density : 75;
+
+        for (let step = 0; step < totalSteps; step++) {
+          if (step % stepLen === 0) {
+            const s = Math.floor(step / stepLen);
+            const patternStep = (s + (settings.offset || 0)) % cycleLen;
+            const stepIdx = patternStep % 16;
+            const sliceIdx = (settings.sliceSteps && typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
+
+            if (sliceIdx >= 0 && sliceIdx < slices.length) {
+              const isAnchor = (stepIdx % 4 === 0);
+              const isMedium = (stepIdx % 2 === 0);
+              const threshold = isAnchor ? 15 : (isMedium ? 35 : 55);
+              if (dens >= threshold) {
+                const t = step * secPerStep;
+                const slice = slices[sliceIdx];
+                const src = ctx.createBufferSource();
+                src.buffer = playBuf;
+                if (settings.pitch && src.playbackRate) {
+                  src.playbackRate.value = Math.pow(2, settings.pitch / 12);
+                }
+                let filter = null;
+                if (ctx.createBiquadFilter) {
+                  try {
+                    filter = ctx.createBiquadFilter();
+                    const charVal = (typeof settings.character === 'number') ? settings.character : 60;
+                    const cutoff = 250 * Math.pow(20000 / 250, Math.max(0, Math.min(100, charVal)) / 100);
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(cutoff, t);
+                  } catch (_) {}
+                }
+                const vGain = ctx.createGain();
+                vGain.gain.setValueAtTime(0.0001, startTime + t);
+                vGain.gain.linearRampToValueAtTime(1.0, startTime + t + 0.003);
+                const durSetting = (typeof settings.duration === 'number') ? settings.duration : 65;
+                const gateDur = Math.max(0.035, slice.duration * (0.15 + 0.85 * (durSetting / 100)));
+                vGain.gain.setValueAtTime(1.0, startTime + t + Math.max(0.01, gateDur - 0.012));
+                vGain.gain.exponentialRampToValueAtTime(0.0001, startTime + t + gateDur);
+
+                if (filter) {
+                  src.connect(filter);
+                  filter.connect(vGain);
+                } else {
+                  src.connect(vGain);
+                }
+                vGain.connect(trackG);
+
+                let sliceStart = slice.startSec;
+                if (settings.reverse) {
+                  const totalBufDur = playBuf.duration;
+                  sliceStart = Math.max(0, Math.min(totalBufDur - slice.duration, totalBufDur - (slice.startSec + slice.duration)));
+                }
+                src.start(startTime + t, sliceStart, Math.min(gateDur, Math.max(0.01, (totalBars * 4 * 60 / tempo) - t) * Math.pow(2,(settings.pitch||0)/12)));
+              }
+            }
+          }
+        }
+        return;
       }
 
       const loopDur = (settings.bars * 4 * 60) / tempo;
@@ -1708,9 +2682,24 @@
           src.playbackRate.value = Math.pow(2, settings.pitch / 12);
         }
         src.connect(trackG);
-        src.start(t, startOffset, Math.min(playDur, totalDur - t));
+        src.start(startTime + t, startOffset, Math.min(playDur, (totalDur - t) * Math.pow(2, (settings.pitch || 0) / 12)));
       }
     } catch (_) {}
+  }
+
+  function renderPhraseOffline(ctx, engine, bars, tempo, state, startTime = 0) {
+    const saved = {settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext};
+    try {
+      settings = copySettings({...defaultSettings,...state?.settings});
+      layers = (state?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
+      compositeBuffer = layers.length ? buildCompositeBuffer(ctx,layers) : null;
+      reversedBuffer=null;
+      slices=[];
+      if (compositeBuffer && settings.mode==='slice') rebuildSlices();
+      renderOffline(ctx,engine,bars,tempo,startTime);
+    } finally {
+      ({settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext}=saved);
+    }
   }
 
   function renderOfflineSong(ctx, engine, totalBars, tempo) {
@@ -1719,16 +2708,23 @@
 
   const api = {
     init,
+    ready: () => ready,
+    isInitialized: () => initialized,
+    capturePhrase,
+    restorePhrase,
     connectToAudio,
+    stopPlayback,
     tick,
     onPlay(time, startStep) {
+      if(typeof time==='number')stopPlayback(time);
       isPlaybackRunning = true;
       if (typeof time === 'object' && time && time.ctx) {
         connectToAudio(time);
       } else if (activeAudio) {
         connectToAudio(activeAudio);
       }
-      loopAnchorStep = (typeof startStep === 'number' && startStep >= 0) ? startStep : 0;
+      playbackSettings = copySettings(settings);
+      loopAnchorStep = 0; // Shared phrase grid, including resume.
       lastScheduledStep = -1;
       pendingQuantizedRestart = false;
     },
@@ -1758,7 +2754,7 @@
       return settings.mute;
     },
     getSettings() {
-      return { ...settings };
+      return copySettings(settings);
     },
     setSettings(newSettings) {
       const oldPitch = settings.pitch;
@@ -1811,8 +2807,59 @@
     renderWaveform,
     renderOffline,
     renderOfflineSong,
+    renderPhraseOffline,
     clearAllData() {
       clearAllLayers();
+      layerLibrary.clear();
+      IDB.clearAll();
+    },
+    getMode() {
+      return settings.mode || 'loop';
+    },
+    setMode(m) {
+      if (m === 'loop' || m === 'slice') {
+        settings.mode = m;
+        if (m === 'slice') rebuildSlices();
+        persistSettings();
+        createUI();
+      }
+    },
+    detectTransients,
+    getPresetSlicePattern,
+    randomizeSlicePattern,
+    rebuildSlices,
+    playSlice,
+    getSlicePhraseSteps,
+    randomizeSlice,
+    getSlices() {
+      return slices ? [...slices] : [];
+    },
+    getActiveSliceIndex() {
+      return activeSliceIndex;
+    },
+    getActiveSliceStep() {
+      return activeSliceStep;
+    },
+    getSlicePattern() {
+      return [...settings.sliceSteps];
+    },
+    setSlicePattern(pat) {
+      if (Array.isArray(pat) && pat.length === 16 && pat.every(n=>Number.isInteger(n)&&n>=-1&&n<(settings.sliceCount||8))) {
+        settings.slicePattern = 'custom';
+        settings.sliceSteps = [...pat];
+        persistSettings();
+      }
+    },
+    getSliceCount() {
+      return settings.sliceCount || 8;
+    },
+    setSliceCount(c) {
+      if (c === 4 || c === 8 || c === 16) {
+        settings.sliceCount = c;
+        rebuildSlices();
+        settings.sliceSteps = settings.sliceSteps.map(val => (val >= c ? (val % c) : val));
+        persistSettings();
+      }
     }
   };
 

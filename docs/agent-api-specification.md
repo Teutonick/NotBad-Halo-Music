@@ -399,7 +399,11 @@ interface HaloLiveLoopAPI {
   // Проверка состояния глушения (mute)
   isMuted(): boolean;
 
-  // Получение настроек микшера, квантования, питча и задержки
+  // Режим работы: непрерывный лупер ('loop') или транзиентный сэмплер ('slice')
+  getMode(): 'loop' | 'slice';
+  setMode(mode: 'loop' | 'slice'): void;
+
+  // Получение настроек микшера, квантования, питча, задержки и слайсера
   getSettings(): {
     bars: 1 | 2 | 4 | 8;
     level: number;          // 0..100
@@ -416,7 +420,46 @@ interface HaloLiveLoopAPI {
     instantRestart: boolean;// Мгновенный / квантованный перезапуск
     pitch: number;          // -12..+12 полутонов
     reverse: boolean;       // Реверс аудио буфера
+    // Слайсинг и синтезаторный стрип:
+    mode: 'loop' | 'slice';
+    sliceCount: 4 | 8 | 16;
+    slicePattern: number[]; // 16 элементов: индексы 0..N-1 или -1 (пауза)
+    slicePreset: 'beat' | 'chrono' | 'shuffle' | 'arp' | 'custom';
+    character: number;      // 0..100 (Lowpass/Bandpass Cutoff)
+    duration: number;       // 0..100 (Decay/Release огибающая)
+    density: number;        // 0..100 (вероятность срабатывания)
+    cycleLength: number;    // 4..32 шага полиметрии
+    stepLength: 1 | 2 | 4;  // 1/16, 1/8, 1/4
+    cycleOffset: number;    // 0..15 шагов
+    delayTime: '1/16' | '1/8' | '1/8d' | '1/4';
+    chorus: number;         // 0..100 (Stereo Chorus send)
   };
+
+  // Управление паттерном и количеством слайсов
+  getSlicePattern(): number[];
+  setSlicePattern(pattern: number[]): void;
+  getSliceCount(): 4 | 8 | 16;
+  setSliceCount(count: 4 | 8 | 16): void;
+  randomizeSlicePattern(count: number): number[];
+
+  // Получение массива размеченных слайсов
+  getSlices(): Array<{
+    index: number;
+    startSec: number;
+    endSec: number;
+    duration: number;
+  }>;
+
+  // Текущий играющий слайс (-1 если тишина) и шаг секвенсера (0..15)
+  getActiveSliceIndex(): number;
+  getActiveSliceStep(): number;
+
+  // Получение шагов для отображения на визуальной 9-й орбите (снежно-белая #ffffff) в режиме PHRASE
+  getSlicePhraseSteps(startStep: number, barCount: number): Array<{
+    step: number;
+    active: boolean;
+    muted: boolean;
+  }>;
 
   // Получение количества записанных слоев
   getLayerCount(): number;
@@ -440,13 +483,23 @@ interface HaloLiveLoopAPI {
 ```
 
 ### 7.2. Операции мутации и управления
-- `HaloLiveLoop.updateSettings(partialSettings)` / `setSettings(partialSettings)`: Обновление параметров микшера, питча, реверса и квантования с автоматическим вызовом мгновенного или квантованного перезапуска при `instantRestart: true`.
-- `HaloLiveLoop.triggerSampleRestart(immediate?: boolean)`: Немедленный перезапуск текущего сэмпла (с дебаунсом 40мс или без).
-- `HaloLiveLoop.triggerQuantizedLoopRestart()`: Постановка в очередь квантованного перезапуска цикла на ближайшей доле (`absStep % 4 === 0`) или такте (`absStep % 16 === 0`).
-- `HaloLiveLoop.toggleMute()`: Переключение режима Mute (горячая клавиша `9`).
+- `HaloLiveLoop.setMode(mode: 'loop' | 'slice')`: Бесшовное переключение режима без сброса аудиоматериала или рассинхронизации транспорта.
+- `HaloLiveLoop.updateSettings(partialSettings)` / `setSettings(partialSettings)`: Обновление параметров микшера, питча, реверса, слайсинга и эффектов с автоматическим вызовом мгновенного или квантованного перезапуска при `instantRestart: true`.
+- `HaloLiveLoop.detectTransients(buf, count, startSec, durSec)`: Вычисление транзиентов методом ODF RMS Energy Rise с рефрактерным окном и равномерным fallback.
+- `HaloLiveLoop.getPresetSlicePattern(presetName, sliceCount)`: Генерация 16-шаговых ритмических паттернов (`'beat' | 'chrono' | 'shuffle' | 'arp'`).
+- `HaloLiveLoop.randomizeSlicePattern(sliceCount)`: Алгоритмическая рандомизация 16-шагового паттерна с якорем сильной доли на слайсе 0, акцентами и музыкальными паузами.
+- `HaloLiveLoop.getSlicePattern()` / `setSlicePattern(pattern)`: Чтение и запись активного массива 16 шагов секвенсера.
+- `HaloLiveLoop.getSliceCount()` / `setSliceCount(count)`: Чтение и установка количества слайсов (4, 8, 16) с автоматическим клампингом и переразметкой.
+- `HaloLiveLoop.rebuildSlices()`: Пересчет границ слайсов текущего активного аудиоматериала.
+- `HaloLiveLoop.playSlice(index, atTime, ctx)`: Запуск конкретного фрагмента с резонансным фильтром и огибающей, монофоническим чоком предыдущего голоса и отправкой импульса на 9-ю орбиту (`window.HaloPulse(8, time)`).
+- `HaloLiveLoop.randomizeSlice(seed)`: Детерминированная алгоритмическая перемиксовка паттерна, фильтра и эффектов 9-го трека по правилам гармонии и аранжировки при нажатии `GENERATE`.
+- `HaloLiveLoop.triggerSampleRestart(immediate?: boolean)`: Совместимый вызов общего квантованного перезапуска фразы; аргумент оставлен для совместимости, отдельный рестарт семпла больше не выполняется.
+- `HaloLiveLoop.triggerQuantizedLoopRestart()`: Инициирует квантованный перезапуск воспроизведения на ближайшей доле (`absStep % 4 === 0`) или такте, вызывая `window.HaloRetriggerPhrase(true)` для одновременного перезапуска всей фразы, всех 8 генеративных инструментов и музыкальных тактов со стартового шага.
+- `window.HaloRetriggerPhrase(quantized?: boolean)`: Глобальный метод авторитетного перезапуска транспорта. При `quantized: true` взводит флаг `pendingPhraseRestart`, сбрасывающий транспортный шаг в 0 на ближайшей доле `step % 4 === 0` с мягким снятием хвостов отзвучавших голосов и синхронным ретриггером всех 8 инструментов ансамбля и слоя Track 09; при `quantized: false` или в состоянии паузы сбрасывает `step = 0` и `frozenBeat = 0` немедленно.
+- `HaloLiveLoop.toggleMute()`: Переключение режима Mute (горячая клавиша `9`, клик по кнопке MUTE или касание снежно-белой 9-й орбиты).
 - `HaloLiveLoop.undo()`: Снятие последнего записанного наложения (Overdub) с возвратом к предыдущему композитному буферу.
 - `HaloLiveLoop.clearAllData()`: Полная очистка всех слоев и освобождение IndexedDB.
-- `HaloLiveLoop.renderOffline(ctx, engine, totalBars, tempo)`: Рендеринг 9-го трека при оффлайн-экспорте в WAV и MP3.
+- `HaloLiveLoop.renderOffline(ctx, engine, totalBars, tempo)`: Рендеринг 9-го трека при оффлайн-экспорте в WAV и MP3 (поддерживает как циклический режим `LOOP`, так и нарезанный `SLICE` с огибающими и посылами в эффекты).
 
 ---
 
@@ -459,3 +512,13 @@ interface HaloLiveLoopAPI {
 4. Бесшовность: применение изменений во время воспроизведения не вызывает щелчков, пауз, заиканий звука или рассинхронизации транспорта.
 5. Двусторонний Undo/Redo: любое примененное действие AI Composer может быть мгновенно отменено одной кнопкой или комбинацией клавиш.
 6. 9-й трек: Live Loop изолирован от файла проекта и URL-токенов, сохраняется в IndexedDB и рендерится при оффлайн-экспорте.
+
+
+### Track 09 phrase state — 2026-10-15
+
+- Optional `project.liveLoop`: `{version:1, layerIds:number[0..128], settings:{...}}`. `HaloProject.liveLoop(value)` validates and allowlists settings and safe integer local IDs; PCM and unknown properties are excluded. Eight core `tracks` remain unchanged.
+- `HaloLiveLoop.capturePhrase()` returns detached settings (including slice steps) and immutable local PCM references. `restorePhrase(state?, audioTime?)` switches the active phrase, stops outgoing voices at the transition audio time and selects only that phrase's layers. Missing state/layers means silence; existing legacy global audio is adopted by the active phrase on first startup.
+- `HaloLiveLoop.ready()` waits for IndexedDB restoration before playback/export. `renderPhraseOffline(ctx, engine, bars, tempo, state, startTime=0)` renders that phrase without changing the editor's active state.
+- `BARS`, `trimEnd`, `pitch`, `reverse`, `offsetSec` and `trimStart` request the same shared step-zero transport restart when `instantRestart=true`; with it off, pending values apply at the next phrase boundary. Mixer controls remain live. No sample-only restart or independent beat anchor exists.
+- Independent phrase variations copy all processing settings; repeated sections referencing the same phrase intentionally share edits. Undo/clear of the current phrase retains PCM used elsewhere; full workspace reset removes the local library.
+- JSON/share tokens contain settings and IDs only. Audio is not portable to another browser via those references. Song export resolves each phrase separately; absent references are silent.

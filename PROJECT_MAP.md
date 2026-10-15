@@ -1,27 +1,86 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+### Latest implemented update — 2026-10-15: phrase-owned Track 09 and shared restart
+
+- `src/project.js` validates optional `liveLoop` settings and bounded local PCM IDs; snapshots, autosave, arrangement and independent duplicates preserve treatment without sharing mutable settings. Existing repeated phrase references intentionally share edits.
+- `src/live-loop.js` keeps an immutable local PCM library, restores only a phrase's layers and reconnects mixer nodes when the AudioContext changes. Undo/current-track clear preserve other phrase references; workspace reset clears the library. Legacy global audio is adopted only by the active phrase at startup. Unreferenced PCM remains until full reset.
+- `src/song-ui.js` selects Track 09 at section boundaries on the same audio timestamp as the eight instruments. All listed sample edits request the authoritative phrase restart; with Instant Restart disabled, loop/window/pitch/reverse edits wait for the next 4/8-bar phrase boundary.
+- `src/export.js` renders each phrase's layer references and treatment at its own song position. JSON/share links carry no PCM and cannot transfer recordings to another browser. Missing local layers are silent.
+- Regression evidence and browser/device limitations: `docs/regression-2026-10-15.md`. Static relative-script deployment remains unchanged; no dependencies, backend or external assets added.
+
+
 ### Latest documentation update — 2026-10-14: bilingual product showcase
 
 - README is now a concise English product showcase with a matching `README.ru.md`, prominent live-demo link, six implemented differentiators and focused run/privacy guidance. Detailed engineering material remains in the existing documentation package.
 - Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
 - Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
 
-### Latest implemented update — 2026-10-15: Track 09 Instant Restart, Pitch & Reverse, and UX layout refinements
+### Latest implemented update — 2026-10-15: Track 09 Pattern Randomizer & Reset, Snow-White 9th Orbit, Sequencer Pad Styling & UI Binding Fixes
+
+- **Slice Count & Pattern Preset Selectors (`src/live-loop.js`):**
+  - Resolved UI event delegation issue where slice count buttons (`4`, `8`, `16`) and pattern presets (`BEAT`, `CHRONO`, `SHUFFLE`, `ARP`) remained inactive due to mismatched element IDs. Replaced ID lookups with resilient container-scoped query selectors (`querySelectorAll('[data-slice-count]')` and `querySelectorAll('[data-slice-pattern]')`).
+  - Added support for both `'arp'` and `'arpeggio'` identifiers in pattern preset generator.
+- **Unified 16-Step Pad Styling (`index.html`):**
+  - Upgraded 16-step sequencer pad appearance from drab default button styles into cosmic dark-teal glass pads (`background: rgba(13, 26, 44, 0.75)`, border `rgba(99, 210, 198, 0.3)`, downbeat indicator pips on steps 1, 5, 9, 13, and real-time glowing playhead synchronization).
+- **Pattern Area Randomizer & Reset (`🎲 RAND` & `↺ RESET`):**
+  - Added dedicated `🎲 RAND` button to generate organic chop grooves (`randomizeSlicePattern(count)`) anchoring step 0 to chop 0 while musically varying syncopations and rests.
+  - Added `↺ RESET` button to instantly restore the default foundational `BEAT` groove preset.
+- **Snow-White 9th Orbit (`#ffffff`):**
+  - Switched the outer 9th orbit rendering on the universe canvas from cyan to snow-white (`#ffffff`), producing high-contrast elegance against the dark space background and colored orbits 01–08.
+- **Automated Verification & Docs Sync:**
+  - Added unit test suite in `tests/live-loop.test.cjs` covering `randomizeSlicePattern`, preset patterns, and slice count clamping (162/162 tests passing).
+  - In-app User Manual Section 14 updated in Russian and English (`index.html`).
+  - `docs/engine-capabilities.md` and `docs/agent-api-specification.md` synchronized.
+
+### Previous implemented update — 2026-10-15: Track 09 SLICE Mode (transient slicing & 16-step sequencer), Teenage Engineering-inspired sampling, full SOUND & FX shaping, GENERATE re-grooving, and visual 9th orbit
+
+- **Track 09 SLICE Mode & Transient Chopping (`src/live-loop.js`):**
+  - Added dual mode switcher in Track 09 header: `[ ◈ LOOP ]` (classic continuous looper) and `[ ✂ SLICE ]` (transient-based rhythmic chopper).
+  - Algorithmic transient detection (`detectTransients`): analyzes local RMS energy rise (ODF) in sliding 1024-sample windows (~23ms) with refractory distance constraint (min 50ms) to slice audio on perceptual acoustic attacks into **4, 8, or 16** chops rather than fixed musical pitch.
+  - Automatic fallback to uniform slicing grid for smooth ambient textures and continuous drones without distinct transients.
+  - Interactive waveform rendering with vertical slice demarcation lines, numbered badge chips, and click-to-audition chops.
+- **16-Step Slice Sequencer & Groove Presets (`src/live-loop.js`):**
+  - Interactive 16-step sequencer grid organized into four quarter-note beats with active step playhead indication.
+  - Tap any step to cycle chop index (1..N) or rest (`—`).
+  - Pre-programmed musical groove presets: `BEAT` (dance foundation on beats & syncopations), `CHRONO` (chronological 1..N order), `SHUFFLE` (syncopated groove bounce), `ARP` (ascending/descending chop cascade).
+  - Monophonic Voice Choke: retriggering any slice immediately chokes the previous voice with a 5ms anti-click ramp, eliminating overlapping tail muddiness and unwanted volume summing.
+- **Complete Synthesizer Voice Strip (SOUND) & Spatial FX for Track 09:**
+  - `CHARACTER`: 12 dB/oct resonant Lowpass/Bandpass filter (80–14000 Hz, Q 0.7–4.0).
+  - `DURATION`: Decay/release envelope (0.05s staccato to full slice length).
+  - `DENSITY`: Step trigger probability mask (20–100%) preserving rhythmic groove anchors.
+  - `LEVEL`, `PAN`, and independent polymeter controls (`CYCLE` 4–32 steps, `STEP` 1/16, 1/8, 1/4, `OFFSET` 0..15).
+  - Studio FX sends: `REVERB`, `DELAY` with instant BPM-synced division pills (`1/16`, `1/8`, `1/8D`, `1/4`), and stereo `CHORUS`.
+- **Accompaniment Re-Grooving via `GENERATE` (`Создать`):**
+  - Clicking `GENERATE` invokes `HaloLiveLoop.randomizeSlice(seed)`, organically re-mixing the slice pattern, filter cutoff, envelope decay, and FX sends to blend the user's custom sample seamlessly into the generative ensemble.
+- **Visual 9th Orbit & Interactive Canvas (`index.html` & `src/effects.js`):**
+  - Renders an outer 9th orbit when Track 09 contains audio (`hasAudio()`).
+  - Neon cyan/teal palette (`#63d2c6`), dedicated phase sweep, comet trails in CLASSIC, COSMIC, and HYPER modes, and glowing nucleus pulse on audio triggers (`window.HaloPulse(8, time)`).
+  - Displays slice marker positions along the orbit ring in `PHRASE` motion mode (`getSlicePhraseSteps()`).
+  - Touch/click on the 9th orbit toggles Mute/Unmute state.
+- **Test Suite & Documentation Synchronization:**
+  - Expanded unit tests in `tests/live-loop.test.cjs` covering transient slicing, pattern presets, tick scheduling, choke group, and offline export (all 161 tests passing).
+  - In-app User Manual Section 14 updated in Russian and English (`index.html`).
+  - `docs/engine-capabilities.md` and `docs/agent-api-specification.md` synchronized.
+
+### Previous implemented update — 2026-10-15: Track 09 Instant Restart (immediate sample tweaks vs quantized global phrase & voices restart), Pitch & Reverse, and UX layout refinements
 
 - **Track 09 Instant Restart Engine (`src/live-loop.js` & `index.html`):**
   - Integrated `⚡ INSTANT RESTART` button in the Track 09 header next to `#loopStatusBadge`.
-  - **Sample parameter changes (`Pitch`, `Reverse`, `Sample Start` / waveform drag / `trimStart`):** Immediately restarts sample playback without desynchronizing the 8 generative synthesis voices, with a 40ms debounce timer for smooth continuous slider scrub.
-  - **Loop length and cycle boundaries (`BARS` 1, 2, 4, 8 / `trimEnd`):** Restarts playback strictly quantized to the nearest upcoming quarter-note beat (`absStep % 4 === 0`) or bar downbeat (`absStep % 16 === 0`), locking retriggering into the generative grid.
+  - **Sample parameter changes (`Pitch`, `Reverse`, `Sample Start` / waveform drag / `trimStart`):** Immediately restarts only Track 09 sample playback without disturbing generative synthesis voices 01–08 or changing phrase position, with a 40ms debounce timer for smooth continuous slider scrub.
+  - **Loop length and cycle boundaries (`BARS` 1, 2, 4, 8 / `trimEnd`):** Restarts playback strictly quantized to the nearest upcoming quarter-note beat (`absStep % 4 === 0`) or bar downbeat, restarting the **entire musical phrase, all instruments (tracks 01–08), and musical bars** in total synchronization with Track 09 via `window.HaloRetriggerPhrase(true)` and `songUI.onPhraseRestart()`.
+- **Terminology & Aesthetic Unification:**
+  - Reverted Russian localization of "Overdub" from literal "Наложение" back to standard product and musical term "Overdub".
+  - Unified button gradients in Track 09 and song docking to cosmic cyan-dark blue radial gradient, eliminating unintended reddish color stop tints.
 - **Pitch-Shifting & Audio Buffer Reverse (`src/live-loop.js`):**
   - Live and offline pitch-shifting slider (-12..+12 semitones, `playbackRate = 2^(pitch / 12)`).
   - Reverse audio playback toggle (`⇄ REV`) with full PCM channel mirroring and inverted trim calculation (`totalDur - (offsetSec + trimStart * winDur + playDur)`).
 - **Control Layout & Input Refinements (`index.html`):**
   - Removed browser numeric spinners (`▲▼`) from the `LATENCY` input field (`-webkit-appearance: none; appearance: textfield`).
   - Repositioned `MUTE` and `SOLO` buttons from the right auxiliary block to sit cleanly underneath the `BARS [ 1 ] [ 2 ] [ 4 ] [ 8 ]` selector buttons.
-- **Documentation & 156 Passing Tests:**
+- **Documentation & 157 Passing Tests:**
   - In-app User Manual Section 14 updated in Russian and English.
   - `docs/engine-capabilities.md` and `docs/agent-api-specification.md` synchronized.
-  - Test suite in `tests/live-loop.test.cjs` expanded with 156 tests passing.
+  - Test suite in `tests/live-loop.test.cjs` and `tests/app.test.cjs` expanded with 157 tests passing.
 
 ### Previous implemented update — 2026-10-14: Track 09 (Live Loop, microphone recording, live overdubbing, and IndexedDB storage)
 

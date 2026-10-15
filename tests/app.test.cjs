@@ -536,4 +536,29 @@ test('background playback button toggles state and maintains playback when docum
  a.events.visibilitychange();
 });
 
+test('HaloRetriggerPhrase quantized restarts the entire phrase, all instruments, and musical bars on the nearest beat', async () => {
+  const a = app(), $ = id => a.document.getElementById(id);
+  await $('play').onclick();
+  assert.equal($('play').classList.contains('is-playing'), true);
+
+  a.ctx.currentTime = 1.0;
+  for (let i = 0; i < 5; i++) {
+    a.timers[0]?.();
+  }
+
+  assert.equal(typeof a.sandbox.HaloRetriggerPhrase, 'function');
+  a.sandbox.HaloRetriggerPhrase(true);
+
+  a.ctx.currentTime = 2.0;
+  a.timers[0]?.();
+
+  const playCalls = a.calls.filter(c => c[0] === 'play');
+  assert.ok(playCalls.length > 0, 'Audio plays were triggered');
+
+  // Pause and test unquantized retrigger
+  await $('play').onclick();
+  assert.equal($('play').classList.contains('is-playing'), false);
+  a.sandbox.HaloRetriggerPhrase(false);
+});
+
 

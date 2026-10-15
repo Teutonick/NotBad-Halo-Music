@@ -1,14 +1,14 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const Song=require('../src/song.js'),P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js');
-function app(){
+function app(loop){
  const nodes=new Map(),events={},storage=new Map(),messages=[];let dropTarget=null;
  function node(tag){const classes=new Set();const n={tagName:(tag||'div').toUpperCase(),parent:null,children:[],dataset:{},style:{setProperty(){}},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle(x,on){if(on)classes.add(x);else classes.delete(x)},has:x=>classes.has(x)},append(...x){x.forEach(c=>{if(c&&typeof c==='object')c.parent=n});this.children.push(...x)},insertBefore(x){if(x&&typeof x==='object')x.parent=n;this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(k,v){this[k]=v},contains(x){return this===x||this.children.some(c=>c.contains(x))},getBoundingClientRect:()=>({left:0,right:900}),setPointerCapture(){},hasPointerCapture(){return true},releasePointerCapture(){},closest(sel){let cur=this;while(cur){if(sel==='[data-section]'&&cur.dataset?.section!==undefined)return cur;if((sel==='button'||sel.includes('button'))&&cur.tagName==='BUTTON')return cur;if((sel==='input'||sel.includes('input'))&&cur.tagName==='INPUT')return cur;cur=cur.parent}return null}};return n}
  const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
  const doc={elementFromPoint:()=>dropTarget,getElementById:get,querySelector:selector=>get(selector==='.bottom'?'bottom':'hint'),createElement:node,addEventListener(k,f){events[k]=f}};
  const tracks=Object.keys(S.banks).map(name=>({name,sound:S.banks[name].sounds[0].id,on:true,level:65,density:70,character:50,duration:50,space:55,pattern:[0,4,8,12]}));
  let current=P.capture(tracks,4,81,2,0,S,M),reset=false;
- const env={language:()=> 'en',snapshot:()=>Song.copy(current),load:async p=>{current=Song.copy(p)},toast:s=>messages.push(s),download(){},tracks:[],pulse(){},setTracks(){},finish(){},rewind(){},resetting:()=>reset};
- const sandbox={document:doc,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloProject:P,HaloSounds:S,TextEncoder,Blob,setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:'',href:'https://example.com/halo/'},navigator:{}};
+ const env={language:()=> 'en',snapshot:()=>{const p=Song.copy(current);if(loop)p.liveLoop=loop.capturePhrase();return p},load:async p=>{current=Song.copy(p);loop?.restorePhrase(p.liveLoop)},toast:s=>messages.push(s),download(){},tracks:[],pulse(){},setTracks(){},finish(){},rewind(){},resetting:()=>reset};
+ const sandbox={document:doc,HaloLiveLoop:loop,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloProject:P,HaloSounds:S,TextEncoder,Blob,setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:'',href:'https://example.com/halo/'},navigator:{}};
  sandbox.window=sandbox;sandbox.addEventListener=(k,f)=>events[k]=f;vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/song-ui.js','utf8'),sandbox);const ui=sandbox.HaloSongUI.install(env);
  const dock=get('bottom').children[0],blocks=dock.children[1].children[0];
  const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
@@ -155,3 +155,14 @@ test('deleting a section prompts for confirmation and respects cancel or confirm
  assert.equal(a.saved().song.sections.length,initialCount-1);
 });
 
+
+
+test('song UI switches phrase-owned Track 09 before its audio tick and restart retains current processing',async()=>{
+ let state={version:1,layerIds:[123],settings:{pitch:7,bars:1}},calls=[],changed;
+ const loop={capturePhrase:()=>Song.copy(state),restorePhrase(value,time){state=value?Song.copy(value):{version:1,layerIds:[],settings:{}};calls.push({kind:'restore',time,pitch:state.settings.pitch})},init(env){changed=env.changed},tick(time,step){calls.push({kind:'tick',time,step,pitch:state.settings.pitch})},createUI(){},renderUI(){}};
+ const a=app(loop);await a.click('Add current phrase');await a.click('Create variation',0);state.settings.pitch=-5;changed();
+ await a.select(0);assert.equal(state.settings.pitch,7);await a.composition();const l=live(a);
+ a.ui.tick(0,0,l.audio);assert.equal(calls.at(-1).kind,'tick');assert.equal(calls.at(-1).pitch,7);
+ a.ui.tick(8,64,l.audio);assert.equal(calls.at(-2).kind,'restore');assert.equal(calls.at(-2).time,8);assert.equal(calls.at(-1).pitch,-5);assert.equal(calls.at(-1).step,0);
+ state.settings.pitch=-3;changed();a.ui.onPhraseRestart();a.ui.tick(9,0,l.audio);assert.equal(calls.at(-1).pitch,-3,'Restart cannot restore stale processing');
+});

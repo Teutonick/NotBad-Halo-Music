@@ -34,7 +34,7 @@
 
   function draw(ctx,index,position,angle,time,pulse,color,scale,small,reduced,setup='ambient',mode='cosmic'){
     if(mode==='hyper'||mode===2)return drawHyper(ctx,index,position,angle,time,pulse,color,scale,small,reduced,setup);
-    const style=(setup==='reactor'?reactorStyles:styles)[index],count=reduced?12:small?22:44;
+    const style=(setup==='reactor'?reactorStyles:styles)[(index%8+8)%8],count=reduced?12:small?22:44;
     const span=style.length*(reduced?.45:1),size=Math.max(.7,scale);
     const clock=reduced?0:time;
     const points=Array.from({length:count},(_,j)=>{
@@ -97,7 +97,7 @@
   }
 
   function drawHyper(ctx,index,position,angle,time,pulse,color,scale,small,reduced,setup='ambient'){
-    const style=hyperStyles[index];
+    const style=hyperStyles[(index%8+8)%8];
     const count=reduced?12:small?24:48;
     const span=style.length*(reduced?.45:1);
     const size=Math.max(.7,scale);
