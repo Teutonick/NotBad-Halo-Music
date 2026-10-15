@@ -59,6 +59,15 @@ Capability Registry — это машинно-читаемый JSON-манифе
       "maxSections": 32,
       "maxTotalBars": 128,
       "maxJsonBytes": 524288
+    },
+    "track09LiveLoop": {
+      "supported": true,
+      "maxFileSize": 52428800,
+      "maxDurationSec": 120,
+      "supportedBars": [1, 2, 4, 8],
+      "latencyCompensationMs": { "min": 0, "max": 200, "default": 40 },
+      "storageEngine": "IndexedDB",
+      "databaseName": "halo-live-loop-v1"
     }
   },
   "roles": [
@@ -377,7 +386,71 @@ AI-агент не передает монолитный проект целик
 
 ---
 
-## 7. Критерии готовности реализации (Definition of Done)
+## 7. Управление 9-м треком в Agent API (Track 09 Live Loop Integration)
+
+9-й трек (`09 — LIVE LOOP`) выступает независимым аудиослоем, синхронизированным с Web Audio транспортом, но изолированным от нотных и гармонических ограничений.
+
+### 7.1. Методы чтения состояния 9-го трека
+```typescript
+interface HaloLiveLoopAPI {
+  // Проверка наличия аудиозаписи на 9-м треке
+  hasAudio(): boolean;
+
+  // Проверка состояния глушения (mute)
+  isMuted(): boolean;
+
+  // Получение настроек микшера, квантования, питча и задержки
+  getSettings(): {
+    bars: 1 | 2 | 4 | 8;
+    level: number;          // 0..100
+    pan: number;            // -100..100
+    space: number;          // 0..100 (Reverb send)
+    delay: number;          // 0..100 (Delay send)
+    mute: boolean;
+    solo: boolean;
+    latencyMs: number;      // 0..200
+    monitor: boolean;
+    offsetSec: number;      // Смещение окна воспроизведения в секундах
+    trimStart: number;      // 0..0.95
+    trimEnd: number;        // 0.05..1.0
+    instantRestart: boolean;// Мгновенный / квантованный перезапуск
+    pitch: number;          // -12..+12 полутонов
+    reverse: boolean;       // Реверс аудио буфера
+  };
+
+  // Получение количества записанных слоев
+  getLayerCount(): number;
+
+  // Получение метаданных всех активных слоев
+  getLayers(): Array<{
+    id: number;
+    timestamp: number;
+    duration: number;
+    bars: number;
+    gain: number;
+    name?: string;
+  }>;
+
+  // Флаг ожидания квантованного перезапуска цикла
+  isPendingQuantizedRestart(): boolean;
+
+  // Получение текущего воспроизводимого буфера (с учетом реверса)
+  getPlaybackBuffer(ctx?: AudioContext): AudioBuffer | null;
+}
+```
+
+### 7.2. Операции мутации и управления
+- `HaloLiveLoop.updateSettings(partialSettings)` / `setSettings(partialSettings)`: Обновление параметров микшера, питча, реверса и квантования с автоматическим вызовом мгновенного или квантованного перезапуска при `instantRestart: true`.
+- `HaloLiveLoop.triggerSampleRestart(immediate?: boolean)`: Немедленный перезапуск текущего сэмпла (с дебаунсом 40мс или без).
+- `HaloLiveLoop.triggerQuantizedLoopRestart()`: Постановка в очередь квантованного перезапуска цикла на ближайшей доле (`absStep % 4 === 0`) или такте (`absStep % 16 === 0`).
+- `HaloLiveLoop.toggleMute()`: Переключение режима Mute (горячая клавиша `9`).
+- `HaloLiveLoop.undo()`: Снятие последнего записанного наложения (Overdub) с возвратом к предыдущему композитному буферу.
+- `HaloLiveLoop.clearAllData()`: Полная очистка всех слоев и освобождение IndexedDB.
+- `HaloLiveLoop.renderOffline(ctx, engine, totalBars, tempo)`: Рендеринг 9-го трека при оффлайн-экспорте в WAV и MP3.
+
+---
+
+## 8. Критерии готовности реализации (Definition of Done)
 
 Реализация Agent API считается полностью готовой к передаче в продакшн, если:
 1. Статическая совместимость: проект полностью работает на GitHub Pages без сервера и сторонних CDN.
@@ -385,3 +458,4 @@ AI-агент не передает монолитный проект целик
 3. Валидация: 100% невалидных операций (выход за пределы 0..100, несуществующие пресеты, несовместимые роли, кросс-мирные пресеты) отсекаются с понятными ошибками на двух языках (RU/EN).
 4. Бесшовность: применение изменений во время воспроизведения не вызывает щелчков, пауз, заиканий звука или рассинхронизации транспорта.
 5. Двусторонний Undo/Redo: любое примененное действие AI Composer может быть мгновенно отменено одной кнопкой или комбинацией клавиш.
+6. 9-й трек: Live Loop изолирован от файла проекта и URL-токенов, сохраняется в IndexedDB и рендерится при оффлайн-экспорте.

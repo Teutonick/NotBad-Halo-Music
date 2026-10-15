@@ -44,7 +44,37 @@
  pairs.push(['Edge snare','Удар по краю малого'],['Layered snare','Слоистый малый'],['Sustained lead','Протяжённое соло'],['Loading local rock recordings…','Загрузка локальных рок-записей…'],['Sample pack could not load','Не удалось загрузить записи. Повторите попытку.'],['Sample audio could not decode','Не удалось прочитать аудиозаписи. Повторите попытку.'],['Sample bank is not ready','Записи ещё не готовы'],['Invalid sample pack','Некорректный набор записей']);
  pairs.push(['SHARE','ПОДЕЛИТЬСЯ'],['Copy shareable link to this loop','Скопировать ссылку на этот луп'],['Link copied to clipboard','Ссылка скопирована в буфер обмена'],['Link ready in address bar','Ссылка готова в адресной строке'],['Shared loop loaded · audio remains paused','Загружен луп по ссылке · воспроизведение на паузе'],['Invalid shared loop link','Некорректная ссылка на луп']);
   pairs.push(['FX','FX'],['REVERB','РЕВЕРБЕРАЦИЯ'],['DELAY','ДИЛЭЙ'],['DELAY TIME','ВРЕМЯ ЭХА'],['CHORUS','ХОРУС'],['How much of this instrument is sent to the shared tempo-synced delay.','Количество звука этого инструмента в общем синхронном эхо (дилей).'],['BPM-synchronized delay echo division: 1/16, 1/8, dotted 1/8, or 1/4 note.','Синхронизация повторов эха с темпом: 1/16, 1/8, 1/8 с точкой или 1/4.'],['How much of this instrument is sent to the shared stereo chorus for width and motion.','Количество звука этого инструмента в общем стереохорусе для объёма и движения.'],['Delay division','Деление дилэя'],['Editor modes','Режимы редактора'],['ИНСТРУКЦИЯ','GUIDE'],['Руководство пользователя','User Guide'],['Руководство пользователя / User Guide','User Guide / Руководство пользователя'],['Tap to toggle Relative Major / Minor','Нажмите для переключения параллельного мажора / минора']);
- const en=new Map(),ru=new Map();for(const [a,b]of pairs){if(/[А-Яа-я]/.test(a)){en.set(a,b);ru.set(b,a)}else{ru.set(a,b);en.set(b,a)}}
+  pairs.push(
+    ['09 — LIVE LOOP','09 — ЖИВОЙ ЛУП'],['LIVE LOOP','ЖИВОЙ ЛУП'],['Live Loop','Живой луп'],
+    ['09 — Live Loop / Track 09','09 — Live Loop / 9-й трек'],['09 — Live Loop / 9-й трек','09 — Live Loop / Track 09'],
+    ['Track 09 loop playing','9-й трек включён в повтор'],['Recorded Loop','Записанный луп'],
+    ['Preparation','Подготовка'],['Count-in','Отсчёт'],['Recording','Запись'],['Playback','Повтор'],
+    ['Layering','Layering'],['Overdub','Overdub'],['Undo','Отмена'],['Undo last overdub','Отменить последний Overdub'],
+    ['Start recording from microphone','Начать запись с микрофона'],['Play / loop','Зациклить воспроизведение'],
+    ['Record new overdub layer','Записать Overdub слой'],
+    ['Microphone recording unavailable in this browser','Запись с микрофона недоступна в этом браузере'],
+    ['Microphone access denied: ','Доступ к микрофону отклонен: '],
+    ['Web Audio recording not supported','Web Audio запись не поддерживается'],
+    ['Preparing to record: count-in to next bar…','Подготовка к записи: отсчёт до начала такта…'],
+    ['Recording contains no audio','Запись не содержит аудио'],
+    ['File exceeds 50 MB limit. Please select a smaller file.','Файл превышает 50 МБ. Выберите файл меньшего размера.'],
+    ['Decoding audio file…','Декодирование аудиофайла…'],
+    ['Audio duration limited to 120s. Cropped to limit.','Длительность ограничена 120 сек. Аудио обрезано.'],
+    ['Audio file imported to Track 09','Файл успешно импортирован на 9-й трек'],
+    ['Import failed: ','Ошибка импорта аудио: '],
+    ['Last take undone','Последняя запись отменена (Undo)'],
+    ['All Track 09 layers cleared','Все записи 9-го трека очищены'],
+    ['Clear Track 09','Очистить 9-й трек'],
+    ['Delete all recorded layers on Track 09?','Удалить все записанные слои 9-го трека?'],
+    ['Your audio stays in this browser · Never uploaded to a server','Ваше аудио остаётся в этом браузере · Не передаётся на сервер'],
+    ['Direct mic monitor enabled · Use headphones to prevent acoustic feedback','Прямой мониторинг включён · Рекомендуем наушники во избежание свиста'],
+    ['User Audio & Copyright','Права на аудио · Copyright'],
+    ['Microphone latency compensation','Компенсация задержки микрофона'],
+    ['Direct microphone monitoring (off by default to prevent feedback)','Прямой мониторинг микрофона (выключен по умолчанию для защиты от обратной связи)'],
+    ['Track 09 muted','9-й трек выключен'],['Track 09 active','9-й трек включён'],
+    ['Track 09 solo ON','9-й трек в режиме соло'],['Track 09 solo OFF','Соло 9-го трека выключено']
+  );
+  const en=new Map(),ru=new Map();for(const [a,b]of pairs){if(/[А-Яа-я]/.test(a)){en.set(a,b);ru.set(b,a)}else{ru.set(a,b);en.set(b,a)}}
  function detect(language){return typeof language==='string'&&/^ru(?:-|$)/i.test(language)?'ru':'en'}
  function translate(text,locale){
   if(!text||!text.trim())return text;

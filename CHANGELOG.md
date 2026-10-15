@@ -1,5 +1,73 @@
 # Changelog
 
+## 2026-10-15 — Track 09: Instant Restart (immediate sample tweaks vs quantized loop boundaries), Pitch & Reverse, and UX layout refinements
+
+- **Instant Restart Engine (`⚡ INSTANT RESTART` in `src/live-loop.js` & `index.html`):**
+  - Added toggleable `Instant Restart` button in the Track 09 header directly adjacent to the status badge.
+  - Dual-mode retriggering logic when active:
+    - **Sample tweaks (`Pitch`, `Reverse`, `Sample Start` / waveform drag / `trimStart`):** Immediately restarts sample playback without waiting for loop boundary or desynchronizing tracks 01–08, with 40ms debounce on continuous sliders.
+    - **Loop length & cycle boundaries (`BARS` 1, 2, 4, 8 / `trimEnd`):** Quantizes retriggering strictly to the nearest upcoming beat (`absStep % 4 === 0`) or bar downbeat (`absStep % 16 === 0`), locking into musical step timing without generative drift.
+- **Pitch-Shifting & Audio Buffer Reverse (`src/live-loop.js`):**
+  - Added `PITCH` slider (-12..+12 semitones) adjusting `playbackRate = 2^(pitch / 12)` in real time and offline export.
+  - Added `⇄ REV` toggle generating an inverted PCM buffer (`getReversedBuffer`), accurately recalculating trim start offsets (`totalDur - (offsetSec + trimStart * winDur + playDur)`) for reverse playback within the selected window.
+- **Input Styling & Control Layout Refinements (`index.html`):**
+  - Stripped browser up/down number spin buttons (`▲▼`) from `LATENCY` input field (`-webkit-appearance: none; appearance: textfield`).
+  - Relocated `MUTE` and `SOLO` buttons from the right auxiliary block directly under the `BARS [ 1 ] [ 2 ] [ 4 ] [ 8 ]` selector buttons.
+- **Documentation & Test Synchronization:**
+  - Updated in-app User Manual Section 14 in both Russian and English (`index.html`).
+  - Updated `docs/engine-capabilities.md` and `docs/agent-api-specification.md`.
+  - Added comprehensive test coverage in `tests/live-loop.test.cjs` (156 passing tests).
+
+## 2026-10-15 — Track 09 UX refinement: MIX slider alignment, simplified view switches, and audio timeline scrubbing
+
+- **MIX Channel Strip Alignment (`index.html` & `src/live-loop.js`):**
+  - Resolved CSS grid misalignment in the Track 09 mixer panel where the `MIX` title previously occupied the first grid column and forced the `DELAY` slider to wrap to row 2 beneath it.
+  - Added `.loop-sliders-grid` wrapper beneath the `.loop-group-title`, aligning all four sliders (`LEVEL`, `PAN`, `REVERB`, `DELAY`) evenly in a single horizontal row with consistent baselines and column widths (2x2 on mobile).
+- **Simplified Dock Switch Tabs (`src/song-ui.js`):**
+  - Removed directional chevron arrows (`‹` and `›`) from view switch buttons in `.song-tabs`, rendering clean glyphs `≋` (Instruments), `▤` (Composition), and `🎙` (Track 09 Live Loop) to reflect direct view switching.
+- **Audio Timeline Drag & Scrub with Mini-Overview (`src/live-loop.js`):**
+  - Implemented true composition scrubbing and timeline dragging for long audio files (> loop duration).
+  - Added `offsetSec` position tracking allowing users to drag the audio waveform horizontally across the loop window with 1:1 tactile responsiveness.
+  - Sliced high-resolution waveform rendering: the main canvas displays the active loop window with bar divisions (1..N) and clear beat transients rather than compressing the entire long track into the width.
+  - Top Mini-Overview Strip: slim miniature overview showing the entire track with a highlighted box showing the loop window's position. Clicking or dragging the overview allows macro jumping across the full file.
+  - Updated playback scheduling (`schedulePlayback`) and offline rendering (`renderOffline`) to accurately start playback from `offsetSec + trimStart * loopDur`.
+  - Added unit test coverage for `offsetSec` navigation and offline rendering in `tests/live-loop.test.cjs`.
+
+## 2026-10-14 — Track 09: Live Loop layer, microphone recording, non-destructive overdub, and offline export parity
+
+- **Independent Audio Layer (`Track 09 — LIVE LOOP`):**
+  - Integrated an optional 9th audio track running alongside the 8 generative synthesis orbits, synchronized to HALO's authoritative Web Audio transport clock (`AudioContext.currentTime`).
+  - Freed from modal pitch and scale constraints: users can record voice, acoustic instruments, percussion, or load custom loops while the generative orbits provide harmonic context.
+  - Quantized loop lengths (1, 2, 4, 8 bars) aligning tightly to bar boundaries, tempo (30–200 BPM), and musical playback.
+- **Microphone Capture & Safe Jamming:**
+  - Quantized live recording starting on the next bar boundary with visual pre-roll count-in.
+  - Safe acoustic feedback prevention: microphone monitoring is disabled by default (`monitor: false`) with explicit UI guidance recommending headphones.
+  - Hardware latency compensation with user-adjustable calibration (default 40ms) ensuring recorded takes lock onto the rhythmic grid.
+- **Non-Destructive Live Overdub & Waveform Editing:**
+  - Live Overdub allows recording new layers on top of existing playback without destructive mixing.
+  - Stacked layer management with single-click Undo (`Отменить слой`) to pop the most recent take.
+  - Composite buffer rendering with automatic peak ceiling normalization (0.98) to prevent clipping.
+  - Interactive teal waveform visualization (`#63d2c6`) with musical bar dividers, animated playhead, and trim markers (`trimStart`, `trimEnd`).
+- **Audio File Import & Resource Safety:**
+  - Browser-decoded audio file import (WAV, MP3, OGG, FLAC, AAC, etc.) with guardrails: 50 MB file size limit and 120-second duration ceiling with localized, user-friendly toast alerts.
+- **Mixer Channel Strip & Transport Parity:**
+  - Full dedicated mixer channel strip: Level, Pan, Reverb Send (routed into convolver), Delay Send (routed into 1/8 stereo tape delay), Mute, and Solo.
+  - Routed directly into the master bus through Master EQ and Limiter.
+  - Global keyboard shortcut `9` toggles Track 09 mute state.
+  - Complete parity in offline WAV / MP3 export (phrase and full song arrangement rendering).
+- **Client-Side Privacy & IndexedDB Storage (`halo-live-loop-v1`):**
+  - Audio layers are persisted locally in browser IndexedDB as PCM buffers, keeping audio off the ~5MB `localStorage` limit.
+  - Strict privacy: user audio never touches a server or external network, and is excluded from project JSON (`snapshotProject()`) and URL share hashes to prevent bloat.
+  - Resetting the workspace or clearing loop data cleanly purges IndexedDB records.
+- **Unified 3-Dock Interface (`src/song-ui.js` & `index.html`):**
+  - Upgraded bottom dock tabs with a third button (`🎙` Live Loop) alongside `‹ ≋` (Instruments) and `▤ ›` (Composition).
+  - 4-step guided workflow header (Подготовка / Запись / Повтор / Наложение), circular action buttons, and responsive touch controls.
+- **Documentation, API & Test Coverage:**
+  - Added Section 14 to in-app User Manual (`index.html`) in Russian and English.
+  - Updated `docs/engine-capabilities.md` (Section 11) and `docs/agent-api-specification.md` (Section 7).
+  - Updated `PROJECT_MAP.md`.
+  - Added unit test suite in `tests/live-loop.test.cjs` covering storage, buffer mixing, non-destructive undo, peak normalization, and offline scheduling (151 total passing tests).
+
 ## 2026-10-14 — Cyrillic typography whitespace fix and modernized font stack
 
 - **DOM Localization Whitespace Preservation (`src/i18n.js`):**

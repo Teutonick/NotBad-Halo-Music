@@ -6,7 +6,58 @@
 - Fresh `screenshot.png` and `assets/readme/halo-orbit.gif` capture the actual local COSMIC + DRIFT interface. The silent GIF uses forward/reverse playback for a continuous visual loop; it is not evidence of seamless audio export.
 - Capture: isolated desktop Chromium, 1440×900 screenshot and 1120×700 source frames; no page errors during capture. Loopback preview was unavailable even after escalation, so capture used the supported direct-file startup. No listening, mobile/Safari or deployed-site validation claimed. Relative README assets preserve static hosting; runtime behavior and capabilities are unchanged.
 
-### Latest implemented update — 2026-10-14: Cyrillic typography whitespace fix, background playback engine, and deployment workflow
+### Latest implemented update — 2026-10-15: Track 09 Instant Restart, Pitch & Reverse, and UX layout refinements
+
+- **Track 09 Instant Restart Engine (`src/live-loop.js` & `index.html`):**
+  - Integrated `⚡ INSTANT RESTART` button in the Track 09 header next to `#loopStatusBadge`.
+  - **Sample parameter changes (`Pitch`, `Reverse`, `Sample Start` / waveform drag / `trimStart`):** Immediately restarts sample playback without desynchronizing the 8 generative synthesis voices, with a 40ms debounce timer for smooth continuous slider scrub.
+  - **Loop length and cycle boundaries (`BARS` 1, 2, 4, 8 / `trimEnd`):** Restarts playback strictly quantized to the nearest upcoming quarter-note beat (`absStep % 4 === 0`) or bar downbeat (`absStep % 16 === 0`), locking retriggering into the generative grid.
+- **Pitch-Shifting & Audio Buffer Reverse (`src/live-loop.js`):**
+  - Live and offline pitch-shifting slider (-12..+12 semitones, `playbackRate = 2^(pitch / 12)`).
+  - Reverse audio playback toggle (`⇄ REV`) with full PCM channel mirroring and inverted trim calculation (`totalDur - (offsetSec + trimStart * winDur + playDur)`).
+- **Control Layout & Input Refinements (`index.html`):**
+  - Removed browser numeric spinners (`▲▼`) from the `LATENCY` input field (`-webkit-appearance: none; appearance: textfield`).
+  - Repositioned `MUTE` and `SOLO` buttons from the right auxiliary block to sit cleanly underneath the `BARS [ 1 ] [ 2 ] [ 4 ] [ 8 ]` selector buttons.
+- **Documentation & 156 Passing Tests:**
+  - In-app User Manual Section 14 updated in Russian and English.
+  - `docs/engine-capabilities.md` and `docs/agent-api-specification.md` synchronized.
+  - Test suite in `tests/live-loop.test.cjs` expanded with 156 tests passing.
+
+### Previous implemented update — 2026-10-14: Track 09 (Live Loop, microphone recording, live overdubbing, and IndexedDB storage)
+
+- **Track 09 — Live Loop Engine (`src/live-loop.js`):**
+  - Added an optional 9th audio track (`09 — LIVE LOOP`) running as an independent audio layer synchronized with HALO’s authoritative Web Audio transport clock (`currentTime`), master tempo (BPM 30–200), and bar boundaries.
+  - Preserves the core 8-orbit generative synthesis and modal harmony architecture: Tracks 01–08 remain dedicated to algorithmic voice generation, while Track 09 functions as a free audio layer for live vocals, guitar, acoustic instruments, or external sample loops without scale restrictions.
+  - **IndexedDB Storage (`halo-live-loop-v1`):** Audio recordings and layer PCM arrays reside 100% locally on the user's device in IndexedDB (`audio-layers` and `settings` stores). Audio data is **not** serialized into project JSON files (`snapshotProject()`) and does **not** bloat `#loop=` or `#song=` URL share tokens.
+  - **Live Microphone Recording & Feedback Protection:**
+    - Live mic input capture via `navigator.mediaDevices.getUserMedia` with sample-accurate Float32Array PCM chunk collection matching `AudioContext.sampleRate`.
+    - Direct mic monitoring is disabled by default (`monitor: false`) to prevent acoustic feedback howl through open laptop/desktop speakers, accompanied by in-app headphone recommendations.
+    - Bar-quantized count-in pre-roll: recording waits for the next bar boundary and automatically records for the selected bar count (1, 2, 4, or 8 bars), then immediately transitions into looping playback.
+    - Hardware latency compensation (`latencyMs`, default 40ms, range 0–200ms) trims input buffer delay for tight rhythmic synchronization.
+  - **Non-Destructive Live Overdub & Undo:**
+    - New takes are stacked as independent layer objects in IndexedDB without destructive bounce.
+    - Multi-layer summation with automatic soft-limiting headroom (`buildCompositeBuffer`, 0.98 peak normalization ceiling) prevents clipping.
+    - `Undo (↺)` removes the last overdub take, instantly restoring the previous composite audio buffer.
+  - **Audio File Import:**
+    - Supports WAV, MP3, and browser-supported audio files with device safety limits (max 50 MB, max 120s) and friendly localized toast warnings.
+  - **Interactive Waveform Display & Trimming:**
+    - Canvas 2D waveform renderer with teal bars (`#63d2c6`), dashed vertical bar dividers, and real-time playhead.
+    - Non-destructive `trimStart` (0..95%) and `trimEnd` (5..100%) sliders.
+  - **Dedicated Mixer Strip:**
+    - Level (0..100%), Pan (-100..100%), Reverb Send (0..100%), Delay Send (0..100%), Mute, Solo.
+    - Routes into shared master reverb, 1/8 tempo-synced delay, and master EQ / peak limiter.
+    - Keyboard shortcut: `'9'` toggles Track 09 Mute.
+  - **Export Parity:**
+    - Both Phrase and Full Song offline WAV and MP3 exports automatically render Track 09 when active and unmuted.
+  - **Dock UI Integration (`src/song-ui.js`):**
+    - Added 3rd tab (`🎙`) to `.song-dock` alongside Instruments (`‹ ≋`) and Composition (`▤ ›`).
+    - Swapping tabs displays the dedicated Live Loop panel in place of the track tiles or song arrangement cards while maintaining full transport and dock card height responsiveness.
+  - **Documentation & Tests:**
+    - User Manual (`index.html`) Section 14 added in Russian and English with hotkey documentation.
+    - `docs/engine-capabilities.md` and `docs/agent-api-specification.md` synchronized with Track 09 capabilities.
+    - 151 passing Node tests across the test suite, including dedicated test suite `tests/live-loop.test.cjs`.
+
+### Previous implemented update — 2026-10-14: Cyrillic typography whitespace fix, background playback engine, and deployment workflow
 
 - **Cyrillic Localization Whitespace Preservation & Font Stack Modernization:**
   - Diagnosed and fixed the "eaten spaces" issue in Russian UI and User Guide (`#guideModal`): DOM text nodes had their leading and trailing whitespace stripped by `translate()` in `src/i18n.js` when running through fallback substitution.

@@ -8,6 +8,9 @@
   const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:project.bars}:{})}));HaloSounds.arrange(tracks);
   const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix,project.tempo);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
+  if(root.HaloLiveLoop&&root.HaloLiveLoop.hasAudio&&root.HaloLiveLoop.hasAudio()&&!root.HaloLiveLoop.isMuted()){
+   root.HaloLiveLoop.renderOffline(ctx,engine,project.bars*2,project.tempo);
+  }
   for(let step=0;step<project.bars*32;step++){
    const absolute=(project.startStep||0)+step-project.bars*16,local=((absolute%(project.bars*16))+project.bars*16)%(project.bars*16),time=step*60/project.tempo/4;
    tracks.forEach((t,i)=>{const clock=t.generator===3?absolute:local;if(!HaloSounds.shouldTrigger(t,i,clock,project.seed,project.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(local/16),local%16,project.seed,HaloComposition.offsets[project.key],project.bars,clock),time,HaloSounds.velocityFor(t,i,clock,project.seed,project.bars),HaloSounds.soundFor(t))});
@@ -24,6 +27,9 @@
    if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars});if(t.generator!==3||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
    engine.master?.gain.setTargetAtTime(song.masterVolume/100*event.gain,time,.05);
    tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,HaloComposition.offsets[p.key],p.bars,clock),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
+  }
+  if(engine&&root.HaloLiveLoop&&root.HaloLiveLoop.hasAudio&&root.HaloLiveLoop.hasAudio()&&!root.HaloLiveLoop.isMuted()){
+   root.HaloLiveLoop.renderOffline(ctx,engine,HaloSong.bars(song),song.tempo);
   }
   return ctx.startRendering();
  }

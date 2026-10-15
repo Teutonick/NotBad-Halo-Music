@@ -263,7 +263,7 @@
         if (!pitches.length) cleanup();
       }
     }
-    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value},setTempo,delayTaps,delaySends,chorusSends,reverbSends:sends };
+    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value},setTempo,delayTaps,delaySends,chorusSends,reverbSends:sends,reverb };
   }
   const api = { create };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
