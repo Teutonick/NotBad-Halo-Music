@@ -1,5 +1,10 @@
 # HALO Engine Capabilities & Technical Specification
 
+### Compact workspace controls — 2026-10-15
+
+The universal workspace toggle retains the transport on every editor page. Track 09 separately folds advanced trim/sound/FX/cycle settings while retaining mode, primary sample actions, level, waveform and note/slice steps. INPUT opens a compact movable microphone/device window; heading drag and arrow-key movement use the existing window manager. Recording latency accepts typing and mouse scrubbing in 1 ms steps, bounded to 0–200 ms. Visibility, both folds, position and stacking persist locally. View changes do not restart audio; closing INPUT does not stop monitoring.
+
+
 **Version:** 1.0 · **Date:** 2026-10-14 · **Status:** Authoritative Implementation Reference  
 **Product:** NotBad HALO — Browser-Based Unobtrusive Relaxation Music Constructor
 
@@ -546,3 +551,8 @@ Implemented Track 09 modes: `loop`, `slice`, `pitch`. The core remains eight syn
 - A section boundary finalizes captured audio in the outgoing phrase before switching layer references. Monitoring audio is not serialized or rendered into exports; recorded takes are. Missing APIs, denied permissions and unplugged devices leave playback usable and show localized feedback.
 
 - Layer PCM is resampled from its stored sample rate to the live/offline context rate when building composite buffers, preserving timing and pitch for 48 kHz device recordings exported at 44.1 kHz. Same-rate buffers use a direct summation path.
+
+
+UI refinement (2026-10-15): frameless window actions share the top-right edge; Track 09 minimization is visible only on its page. LOOP/SLICE/PITCH share 26 px buttons, compact selects and sliders, aligned parameter grids and thin arrow-free scrollbars. PITCH octave and actions share one row. The input button is labeled AUDIO INPUT / MIC (localized). Musical settings and timing are unchanged.
+
+Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.

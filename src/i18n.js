@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const pairs=[
+ ['Collapse workspace to transport','Свернуть рабочее окно до транспорта'],['Expand workspace','Развернуть рабочее окно'],['Microphone and audio devices','Микрофон и аудиоустройства'],['Move audio input window with arrow keys','Перемещайте окно аудиовхода стрелками'],['Close audio input','Закрыть аудиовход'],['Audio input','Аудиовход'],
  ['Invalid root note','Некорректная исходная нота'],['Invalid pitch octave','Некорректная октава семпла'],['Invalid pitch pattern','Некорректный нотный рисунок семпла'],['Invalid pitch note','Некорректная нота семпла'],['Invalid pitch steps','Некорректные шаги семпла'],
  ['Phrase name: 1–10 letters or digits, no spaces','Имя фразы: 1–10 букв или цифр, без пробелов'],['Shared data exceeds size limit','Данные ссылки превышают допустимый размер'],
  ["Generate a new phrase, active voices and gentle FX","Создать фразу, выбрать звучащие инструменты и мягкие FX"],["New phrase, voices and gentle FX generated; loops now repeat","Созданы фраза, состав инструментов и мягкие FX; луп повторяется"],

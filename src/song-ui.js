@@ -10,7 +10,7 @@
    const barLabel=n=>n+(env.language()==='ru'?' '+(n%100>=11&&n%100<=14?'тактов':n%10===1?'такт':n%10>=2&&n%10<=4?'такта':'тактов'):' bars');
    const names={intro:['Вступление','Intro'],verse:['Куплет','Verse'],verse2:['Куплет 2','Verse 2'],chorus:['Припев','Chorus'],bridge:['Бридж','Bridge'],outro:['Финал','Outro'],phrase:['Фраза','Phrase']};
    const bottom=document.querySelector('.bottom'),tracks=$('tracks');
-   const dock=document.createElement('div');dock.className='song-dock';bottom.insertBefore(dock,tracks);
+   const dock=document.createElement('div');dock.className='song-dock';dock.id='workstationPages';bottom.insertBefore(dock,tracks);
    const tabs=document.createElement('div');tabs.className='song-tabs';
    const instrumentsButton=document.createElement('button'),compositionButton=document.createElement('button'),loopButton=document.createElement('button');tabs.append(instrumentsButton,compositionButton,loopButton);dock.append(tabs);
    const panel=document.createElement('div');panel.className='song-panel';panel.hidden=true;

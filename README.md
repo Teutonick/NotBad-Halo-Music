@@ -78,3 +78,11 @@ Track 09 processing belongs to each phrase. Independent variations preserve thei
 
 
 Track 09 now offers **LOOP / SLICE / PITCH**. PITCH plays one trimmed sample as a 16-step melody in the phrase key; set its recorded root note first. All three modes accept a file or a selected microphone/USB/line input, with explicit input monitoring. Hardware must appear as a browser audio input; HTTPS/localhost and permission are required. Pitch changes playback speed, with no independent time stretching.
+
+
+The workspace folds down to its transport from any editor. Track 09 has its own compact view for LOOP, SLICE and PITCH, plus a separate movable INPUT window with drag-adjustable recording latency. These view preferences are saved locally without changing playback.
+
+
+UI refinement (2026-10-15): frameless window actions share the top-right edge; Track 09 minimization is visible only on its page. LOOP/SLICE/PITCH share 26 px buttons, compact selects and sliders, aligned parameter grids and thin arrow-free scrollbars. PITCH octave and actions share one row. The input button is labeled AUDIO INPUT / MIC (localized). Musical settings and timing are unchanged.
+
+Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.

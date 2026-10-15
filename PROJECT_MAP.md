@@ -1,5 +1,11 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+### Implemented — 2026-10-15: compact workspace and input window
+
+- Universal persisted workspace fold retains transport; separate Track 09 fold hides advanced controls while keeping mode, primary actions, waveform and steps. `src/live-loop.js` groups existing controls without changing timing.
+- Static `audioInputWindow` uses the existing draggable/keyboard window manager; local preferences allow its position/order/open state. Microphone/device controls are shared across all three modes. Latency uses HaloControls mouse scrubbing (0–200 ms), keyboard editing and hidden spinners. Closing the panel does not stop monitoring. No dependency, project schema or asset-path changes.
+
+
 ### Latest implemented update — 2026-10-15: PITCH and selected device inputs
 
 - Track 09 adds PITCH beside LOOP/SLICE: one trimmed 40 ms–8 s window, explicit recorded root C2–C6, diatonic 16-step melody with rests, octave −1/0/+1, bounded ±24-semitone resampling, existing sound/FX/cycle controls, phrase-local persistence and export. No automatic root detection or independent time stretching.
@@ -675,3 +681,8 @@ Verification for the correction: 58 Node tests passed; after strengthening the a
 - Master strip band captions are LOW/MID/HIGH and STAGE (RU: НИЗ/СЕРЕДИНА/ВЕРХ/СЦЕНА), without frequency suffixes and with nowrap. Frequencies remain 120 Hz / 1 kHz / 6 kHz; accessible control labels remain descriptive.
 - Setup switch is a transparent original SVG mini-orbit near the upper-right edge, with two fine rings, a glowing core, a satellite and the destination setup name. Static decoration avoids new animation work; responsive placement moves below the wrapped top controls on narrow screens. Focus outline, keyboard/button semantics, busy state, eight tracks and audio-clock world-switch behavior are retained.
 - Verification: 68 Node tests pass, including half-master feed parity, full track-level updates, mute silence, short RU/EN captions and existing switching/export contracts. git diff --check passes. The preview endpoint still timed out when requested outside sandbox (normal sandbox request was socket-blocked), so fresh browser layout/listening acceptance is not claimed. No dependencies, third-party graphics, assets or deployment path changes; no commits.
+
+
+UI refinement (2026-10-15): frameless window actions share the top-right edge; Track 09 minimization is visible only on its page. LOOP/SLICE/PITCH share 26 px buttons, compact selects and sliders, aligned parameter grids and thin arrow-free scrollbars. PITCH octave and actions share one row. The input button is labeled AUDIO INPUT / MIC (localized). Musical settings and timing are unchanged.
+
+Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.

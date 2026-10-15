@@ -1,5 +1,11 @@
 # Changelog
 
+### 2026-10-15 — Compact editors
+
+- Added universal transport-only folding and an independent compact Track 09 view for LOOP/SLICE/PITCH.
+- Moved microphone/device controls to a smaller draggable, keyboard-movable INPUT window; latency supports mouse scrubbing without spinners. Local view state persists across reloads; playback timing stays unchanged.
+
+
 ## 2026-10-15 — Track 09 PITCH and microphone/instrument input selection
 
 - Add PITCH: one unsliced sample played as a phrase-key melody, explicit root note/octave, 16 note/rest steps, bounded trim and transposition, common sound/FX and live/offline parity.
@@ -504,3 +510,10 @@ Keep entries short and dated. Record significant changes and their impact in the
 - 2026-10-13: GENERATE now randomizes every slot's patch and five tuning controls in 20–100%, preserving mutes and master settings. Added deterministic bank/bounds and two-world persistence regressions; RU/EN tooltip/message updated.
 
 - 2026-10-13: Doubled internal track gain for half-master parity with the previous full-master signal. Shortened EQ/stage captions and replaced the setup card with an upper-right SVG mini-orbit; added gain/mute and localization checks.
+
+
+UI refinement (2026-10-15): frameless window actions share the top-right edge; Track 09 minimization is visible only on its page. LOOP/SLICE/PITCH share 26 px buttons, compact selects and sliders, aligned parameter grids and thin arrow-free scrollbars. PITCH octave and actions share one row. The input button is labeled AUDIO INPUT / MIC (localized). Musical settings and timing are unchanged.
+
+Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.
+
+- Track 09 minimize/expand icon is a plain thin square outline, vertically centered beside the workspace fold line in the same 18 px button height.

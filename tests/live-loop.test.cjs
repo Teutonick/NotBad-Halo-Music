@@ -841,7 +841,7 @@ test('Track 09 createUI and HTML structure integrity in LOOP and SLICE modes', (
   let locale='en';const localized={...mockAppEnv,language:()=>locale};
   HaloLiveLoop.createUI(pitchContainer,localized);pitchContainer.children=[{}];
   env.document.getElementById=id=>id==='liveLoopPanel'?pitchContainer:null;
-  locale='ru';HaloLiveLoop.renderUI();assert.ok(pitchContainer.innerHTML.includes('ИСХОДНАЯ НОТА СЕМПЛА'));assert.ok(pitchContainer.innerHTML.includes('ДОСТУП К ВХОДАМ'));
+  locale='ru';HaloLiveLoop.renderUI();assert.ok(pitchContainer.innerHTML.includes('ИСХОДНАЯ НОТА СЕМПЛА'));assert.ok(pitchContainer.innerHTML.includes('loopInputToggle'));
   locale='en';HaloLiveLoop.renderUI();assert.ok(pitchContainer.innerHTML.includes('SAMPLE ROOT NOTE'));
 
   assert.ok(pitchContainer.innerHTML.includes('09 — PITCH'));
@@ -849,7 +849,7 @@ test('Track 09 createUI and HTML structure integrity in LOOP and SLICE modes', (
   assert.ok(pitchContainer.innerHTML.includes('id="sliceBtnRec"'));
   assert.ok(!pitchContainer.innerHTML.includes('data-slice-count='));
   for(const html of [loopContainer.innerHTML,sliceContainer.innerHTML,pitchContainer.innerHTML]){
-    for(const id of ['modeBtnPitch','loopInputDevice','loopInputListen','loopInputAccess','loopFileInput'])assert.ok(html.includes('id="'+id+'"'));
+    for(const id of ['modeBtnPitch','loopInputToggle','loopCompact','loopFileInput'])assert.ok(html.includes('id="'+id+'"'));
     const ids=[...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,'Each control ID is unique');
   }
 
@@ -936,4 +936,18 @@ test('pending IndexedDB hydration cannot erase a restored phrase audio reference
  const env=createEnvironment(),loop=env.HaloLiveLoop;loop.init({});
  loop.restorePhrase({version:1,settings:{mode:'pitch',rootNote:57},layerIds:[1234]});
  assert.deepEqual(Array.from(loop.capturePhrase().layerIds),[1234]);assert.equal(loop.capturePhrase().settings.rootNote,57);
+});
+
+
+test('workspace-only Track 09 folding preserves phrase processing and audio',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext();
+ loop.addLayer({id:42,duration:1,sampleRate:44100,pcmL:new Float32Array(44100)},ctx);
+ loop.setMode('pitch');loop.setSettings({rootNote:57,trimStart:.1,trimEnd:.8});
+ const before=JSON.stringify(loop.capturePhrase());
+ loop.setCompact(true);loop.setInputWindow(true);
+ assert.equal(loop.getUIState().compact,true);assert.equal(loop.getUIState().inputOpen,true);
+ assert.equal(JSON.stringify(loop.capturePhrase()),before);
+ loop.setUIState({compact:false,inputOpen:false});
+ assert.equal(loop.getUIState().compact,false);assert.equal(loop.getUIState().inputOpen,false);
+ assert.equal(JSON.stringify(loop.capturePhrase()),before);
 });

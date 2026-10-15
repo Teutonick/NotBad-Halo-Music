@@ -36,3 +36,12 @@ test('background-audio preference persists and older autosaves default to disabl
  const value=snapshot();value.ui.backgroundAudio=true;assert.equal(Prefs.parse(JSON.stringify(value),P,S).ui.backgroundAudio,true);assert.equal(Prefs.validate(snapshot(),P,S).ui.backgroundAudio,false);
 });
 
+
+
+test('workspace folds and the fifth floating input window survive reload independently',()=>{
+ const value=snapshot();Object.assign(value.ui,{workstationCollapsed:true,track09Compact:true,audioInputOpen:true,windowOrder:['editor','patternEditor','storageInfo','phraseGuide','audioInputWindow']});
+ value.windows.push({id:'audioInputWindow',left:240,top:160});
+ const saved=Prefs.parse(JSON.stringify(value),P,S);
+ for(const key of ['workstationCollapsed','track09Compact','audioInputOpen']){assert.equal(saved.ui[key],true);assert.equal(Prefs.validate(snapshot(),P,S).ui[key],false);}
+ assert.equal(saved.ui.windowOrder[4],'audioInputWindow');assert.deepEqual(saved.windows[1],{id:'audioInputWindow',left:240,top:160});
+});

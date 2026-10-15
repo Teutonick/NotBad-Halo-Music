@@ -723,6 +723,81 @@
     return buf;
   }
 
+  let compactMode=false,inputWindowOpen=false,inputWindowLanguage=null;
+  const latencyControls=new WeakSet();
+  function syncCompact(container){
+    container=container||(typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null);
+    const advanced=container?.querySelector?.('.loop-advanced'),button=container?.querySelector?.('#loopCompact')||(typeof document!=='undefined'?document.getElementById('loopCompact'):null);
+    if(advanced)advanced.hidden=compactMode;
+    container?.classList?.toggle('loop-minimized',compactMode);
+    if(button){button.textContent='';button.setAttribute('aria-expanded',String(!compactMode));button.setAttribute('aria-label',tr(compactMode?'Развернуть настройки Track 09':'Минимизировать настройки Track 09',compactMode?'Expand Track 09 settings':'Minimize Track 09 settings'));button.title=button.getAttribute?.('aria-label')||'';}
+  }
+  function setCompact(value){compactMode=value===true;syncCompact();envRef?.changed?.();}
+  function setInputWindow(value,focus=false){
+    inputWindowOpen=value===true;
+    const panel=typeof document!=='undefined'?document.getElementById('audioInputWindow'):null;
+    if(panel){panel.hidden=!inputWindowOpen;if(inputWindowOpen){renderInputWindow();envRef?.frontWindow?.('audioInputWindow');if(focus)panel.querySelector?.('[data-drag]')?.focus?.();}}
+    const button=typeof document!=='undefined'?document.getElementById('loopInputToggle'):null;
+    if(button)button.setAttribute('aria-expanded',String(inputWindowOpen));
+    envRef?.changed?.();
+  }
+  function renderInputWindow(){
+    if(typeof document==='undefined')return;
+    const panel=document.getElementById('audioInputWindow'),body=document.getElementById('audioInputBody');
+    if(!panel||!body)return;
+    panel.hidden=!inputWindowOpen;
+    const language=envRef?.language?.()||'ru';
+    const title=document.getElementById('audioInputTitle'),close=document.getElementById('closeAudioInput'),handle=panel.querySelector?.('[data-drag]');
+    if(title)title.textContent=tr('Аудиовход','Audio input');
+    panel.setAttribute('aria-label',tr('Микрофон и аудиоустройства','Microphone and audio devices'));
+    handle?.setAttribute('aria-label',tr('Перемещайте окно аудиовхода стрелками','Move audio input window with arrow keys'));
+    if(close){close.setAttribute('aria-label',tr('Закрыть аудиовход','Close audio input'));close.onclick=()=>{setInputWindow(false);document.getElementById('loopInputToggle')?.focus?.()};}
+    if(inputWindowLanguage!==language||!body.children?.length){
+      inputWindowLanguage=language;
+      body.innerHTML=`<div class="loop-input-strip">
+        <label>${tr('ВХОД','INPUT')} <select id="loopInputKind" aria-label="${tr('Тип аудиовхода','Audio input type')}"><option value="microphone">${tr('Микрофон','Microphone')}</option><option value="instrument">${tr('Инструмент / аудиоинтерфейс','Instrument / audio interface')}</option></select></label>
+        <label>${tr('УСТРОЙСТВО','DEVICE')} <select id="loopInputDevice" aria-label="${tr('Устройство аудиовхода','Audio input device')}"></select></label>
+        <button type="button" class="glass-btn" id="loopInputAccess">${tr('ДОСТУП К ВХОДАМ','ENABLE INPUTS')}</button>
+        <button type="button" class="glass-btn" id="loopInputListen" aria-pressed="false">${tr('СЛУШАТЬ ВХОД','LISTEN TO INPUT')}</button>
+        <small>${tr('Файл — через ИМПОРТ. Запись — с выбранного входа. Для прослушивания используйте наушники. USB/линейный вход должен определяться системой как аудиоустройство.','Use IMPORT for a file, RECORD for the selected input. Use headphones for monitoring. USB/line input must appear as a system audio device.')}</small>
+        <label>${tr('Задержка записи, мс','Recording latency, ms')} <input id="loopInputLatency" type="number" min="0" max="200" step="1" value="${settings.latencyMs}"></label>
+      </div>`;
+      bindInputControls();
+    }
+    const latency=document.getElementById('loopInputLatency');if(latency&&document.activeElement!==latency)latency.value=String(settings.latencyMs);
+    updateInputUI();
+  }
+  function bindInputControls(){
+    const find=id=>document.getElementById(id),kind=find('loopInputKind'),device=find('loopInputDevice'),access=find('loopInputAccess'),listen=find('loopInputListen'),latency=find('loopInputLatency');
+    if(kind)kind.onchange=e=>inputController?.configure({kind:e.target.value,deviceId:''});
+    if(device)device.onchange=e=>inputController?.configure({deviceId:e.target.value});
+    if(access)access.onclick=()=>inputController?.requestAccess();
+    if(listen)listen.onclick=()=>listenInput(!inputController?.state().monitoring);
+    if(latency){
+      latency.onchange=e=>{try{settings.latencyMs=root.HaloControls.parse(String(e.target.value),{min:0,max:200,step:1});persistSettings()}catch(_){e.target.value=String(settings.latencyMs)}};
+      if(root.HaloControls?.install&&!latencyControls.has(latency)){root.HaloControls.install(latency,{min:0,max:200,step:1,dragStep:1});latencyControls.add(latency);}
+    }
+  }
+  function organizeUI(container){
+    const head=container.querySelector?.('.loop-head');if(!head)return;
+    const primary=document.createElement('div'),quick=document.createElement('div'),advanced=document.createElement('div');
+    primary.className='loop-primary';quick.className='loop-quick';advanced.className='loop-advanced';advanced.id='track09Advanced';
+    const original=Array.from(container.children).filter(node=>node!==head);
+    primary.append(quick);container.append(primary,advanced);
+    const move=(selector,target)=>{const node=container.querySelector(selector);if(node)target.append(node);return node};
+    for(const id of ['btnLoopRecord','sliceBtnRec','btnLoopLoop','btnLoopOverdub','loopImportBtn','btnLoopUndo','loopMute','loopSolo'])move('#'+id,quick);
+    const level=container.querySelector('#loopLevel')?.closest?.('label');if(level)quick.append(level);
+    for(const [id,label] of [['loopBarsGroup','BARS'],['sliceCountGroup',tr('СЛАЙСЫ','SLICES')]]){const group=move('#'+id,quick);if(group){const caption=document.createElement('span');caption.className='loop-quick-caption';caption.textContent=label;group.prepend(caption);}}
+    const wave=move('.loop-waveform-card',primary);
+    if(wave){const trim=wave.querySelector('.loop-trim-wrap');if(trim)advanced.append(trim);}
+    move('.slice-seq-card',primary);
+    for(const node of original){if(node.parentNode===container)advanced.append(node);}
+    // Remove empty action containers after moving their controls.
+    for(const selector of ['.loop-actions','.loop-bars-group','.loop-aux-group'])for(const node of advanced.querySelectorAll?.(selector)||[])if(!node.querySelector('button,input,select'))node.remove();
+    for(const label of container.querySelectorAll('.loop-slider-label')){const input=label.querySelector('input[type=range]');if(input){const caption=document.createElement('span');caption.className='loop-slider-caption';for(const node of Array.from(label.childNodes))if(node!==input)caption.append(node);label.prepend(caption);}}
+    syncCompact(container);
+  }
+
   let inputController=null;
   function recordingActive(){return ['preroll','recording','overdubbing'].includes(recordingState)}
   function cancelInputCapture(){
@@ -734,7 +809,9 @@
   }
   function updateInputUI(){
     if(typeof document==='undefined'||!inputController)return;
-    const state=inputController.state(),select=document.getElementById('loopInputDevice');
+    const state=inputController.state();
+    const toggle=document.getElementById('loopInputToggle');if(toggle){toggle.classList?.toggle('is-monitoring',state.monitoring);toggle.title=state.monitoring?tr('Аудиовход · прослушивание включено','Audio input · monitoring active'):tr('Микрофон и аудиоустройства','Microphone and audio devices');}
+    const select=document.getElementById('loopInputDevice');
     if(select){
       select.replaceChildren?.();
       const option=(value,label)=>{const o=document.createElement('option');o.value=value;o.textContent=label;select.appendChild(o)};
@@ -758,6 +835,7 @@
     envRef = env;
     inputController?.dispose();
     if(root.HaloAudioInput)inputController=root.HaloAudioInput.create({audio:async()=>{const audio=await envRef?.ensureAudio?.();if(audio)connectToAudio(audio);return audio||activeAudio},recording:recordingActive,changed:updateInputUI,inputEnded:cancelInputCapture,toast:message=>envRef?.toast(message),language:()=>envRef?.language?.()||'en'});
+    renderInputWindow();
     ready = IDB.loadSettings().then(s => {
       if (s && phraseState === undefined) {
         settings = { ...defaultSettings, ...s };
@@ -846,6 +924,7 @@
   }
 
   function persistSettings() {
+    const latency=typeof document!=='undefined'?document.getElementById('loopInputLatency'):null;if(latency&&document.activeElement!==latency)latency.value=String(settings.latencyMs);
     IDB.saveSettings({...settings, layerIds:capturePhrase().layerIds});
     envRef?.changed?.();
   }
@@ -1800,6 +1879,7 @@
 
   let panelLanguage=null;
   function createUI(container, env) {
+    const oldWindowButton=typeof document!=='undefined'?document.getElementById('loopCompact'):null;if(oldWindowButton&&oldWindowButton.parentNode?.id==='workspaceWindowActions')oldWindowButton.remove();
     if (env) envRef = env;
     if (!container && typeof document !== 'undefined') container = document.getElementById('liveLoopPanel');
     if (!container) return;
@@ -1854,6 +1934,8 @@
           </div>
         </div>
         <div class="loop-head-actions">
+          <button type="button" class="loop-small-btn" id="loopInputToggle" aria-controls="audioInputWindow" aria-expanded="${inputWindowOpen}" title="${tr('Микрофон и аудиоустройства','Microphone and audio devices')}">${tr('АУДИОВХОД / МИКРОФОН','AUDIO INPUT / MIC')}</button>
+          <button type="button" class="loop-small-btn" id="loopCompact" aria-controls="track09Advanced" aria-expanded="${!compactMode}" aria-label="${tr(compactMode?'Развернуть настройки Track 09':'Минимизировать настройки Track 09',compactMode?'Expand Track 09 settings':'Minimize Track 09 settings')}">${compactMode?'▣':'▁'}</button>
           <button type="button" class="loop-instant-btn ${settings.instantRestart ? 'active' : ''}" id="loopInstantRestart" title="${tr('Мгновенный перезапуск при изменении параметров', 'Instant restart on parameter change')}">
             <span class="loop-instant-glyph">⚡</span>
             <span>INSTANT RESTART</span>
@@ -1930,14 +2012,6 @@
         </div>
       `}
 
-      <div class="loop-input-strip">
-        <label>${tr('ВХОД','INPUT')} <select id="loopInputKind" aria-label="${tr('Тип аудиовхода','Audio input type')}"><option value="microphone">${tr('Микрофон','Microphone')}</option><option value="instrument">${tr('Инструмент / аудиоинтерфейс','Instrument / audio interface')}</option></select></label>
-        <label>${tr('УСТРОЙСТВО','DEVICE')} <select id="loopInputDevice" aria-label="${tr('Устройство аудиовхода','Audio input device')}"></select></label>
-        <button type="button" class="glass-btn" id="loopInputAccess">${tr('ДОСТУП К ВХОДАМ','ENABLE INPUTS')}</button>
-        <button type="button" class="glass-btn" id="loopInputListen" aria-pressed="false">${tr('СЛУШАТЬ ВХОД','LISTEN TO INPUT')}</button>
-        <small>${tr('Файл — через ИМПОРТ. Запись — с выбранного входа. Для прослушивания используйте наушники. USB/линейный вход должен определяться системой как аудиоустройство.','Use IMPORT for a file, RECORD for the selected input. Use headphones for monitoring. USB/line input must appear as a system audio device.')}</small>
-        <label>${tr('Задержка записи, мс','Recording latency, ms')} <input id="loopInputLatency" type="number" min="0" max="200" step="1" value="${settings.latencyMs}"></label>
-      </div>
       <div class="loop-waveform-card">
         <div class="loop-wave-header">
           <span id="loopWaveTitle">${isPitch?tr('Один семпл · PITCH','One sample · PITCH'):isSlice ? `${tr('Нарезка сэмплов', 'Slice Chops')} · ${sliceCount} ${tr('кусочков', 'Slices')}` : `${settings.mode==='pitch'?tr('Один семпл · PITCH','One sample · PITCH'):tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`}</span>
@@ -2142,7 +2216,11 @@
       </div>
     `;
 
+    organizeUI(container);
     bindUIEvents(container);
+    const windowActions=document.getElementById('workspaceWindowActions'),windowButton=container.querySelector?.('#loopCompact');
+    if(windowActions&&windowButton){windowButton.className='window-action track09-window-action';windowButton.textContent='';windowActions.prepend(windowButton);}
+    renderInputWindow();
     updateInputUI();
     if(initialized&&!hydrated)Array.from(container.querySelectorAll?.('button,input,select')||[]).forEach(control=>control.disabled=true);
     renderWaveform();
@@ -2157,12 +2235,9 @@
     const find = (id) => (rootEl.querySelector ? rootEl.querySelector('#' + id) : null) || (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
     const findAll = (sel) => Array.from((rootEl.querySelectorAll ? rootEl.querySelectorAll(sel) : []) || []);
 
-    const inputKind=find('loopInputKind'),inputDevice=find('loopInputDevice'),access=find('loopInputAccess'),listen=find('loopInputListen'),latency=find('loopInputLatency');
-    if(inputKind)inputKind.onchange=e=>inputController?.configure({kind:e.target.value,deviceId:''});
-    if(inputDevice)inputDevice.onchange=e=>inputController?.configure({deviceId:e.target.value});
-    if(access)access.onclick=()=>inputController?.requestAccess();
-    if(listen)listen.onclick=()=>listenInput(!inputController?.state().monitoring);
-    if(latency)latency.onchange=e=>{settings.latencyMs=Math.max(0,Math.min(200,Number(e.target.value)||0));persistSettings()};
+    const inputToggle=find('loopInputToggle'),compact=find('loopCompact');
+    if(inputToggle)inputToggle.onclick=()=>setInputWindow(!inputWindowOpen,true);
+    if(compact)compact.onclick=()=>{setCompact(!compactMode);syncCompact(container);};
     const rootNote=find('pitchRootNote'),octave=find('pitchOctave');
     if(rootNote)rootNote.onchange=e=>api.setSettings({rootNote:Number(e.target.value)});
     if(octave)octave.onchange=e=>api.setSettings({pitchOctave:Number(e.target.value)});
@@ -2655,6 +2730,7 @@
   function renderUI() {
     const container = document.getElementById('liveLoopPanel');
     if (!container) return;
+    renderInputWindow();
     if(container.children?.length&&panelLanguage!==(envRef?.language?.()||'ru')){createUI(container);return;}
     updateStatusBadge();
     updateStepIndicators();
@@ -2861,6 +2937,11 @@
 
   const api = {
     init,
+    getUIState:()=>({compact:compactMode,inputOpen:inputWindowOpen}),
+    setUIState(value){compactMode=value?.compact===true;inputWindowOpen=value?.inputOpen===true;syncCompact();if(typeof document!=='undefined'){const panel=document.getElementById('audioInputWindow');if(panel)panel.hidden=!inputWindowOpen;}},
+    setCompact,
+    setInputWindow,
+    renderInputWindow,
     armRecording,
     releaseInput(){cancelInputCapture();inputController?.release()},
     beforePhraseChange(time,audio,tempo){if(recordingState==='recording'||recordingState==='overdubbing')finishRecording(audio,tempo,time);else if(recordingState==='preroll')cancelInputCapture()},

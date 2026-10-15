@@ -1,5 +1,10 @@
 # HALO — Universal Agent API & AI Composer Specification
 
+### Local workspace UI state — 2026-10-15
+
+Validated autosave `ui` fields `workstationCollapsed`, `track09Compact` and `audioInputOpen` are booleans defaulting to false for older saves. `audioInputWindow` joins the allowlisted floating-window IDs in `windows` and `ui.windowOrder` (up to five). These are local view preferences, excluded from musical project/share payloads. `HaloLiveLoop.getUIState()` returns `{compact,inputOpen}`; `setUIState()` restores them and `setCompact()` / `setInputWindow()` update view state without musical parameter changes. INPUT owns the shared device/monitor/latency controls for LOOP, SLICE and PITCH. Latency remains 0–200 ms; no new audio or external agent endpoint is introduced.
+
+
 **Technical Specification & Architecture · Version 1.1**  
 **Adapted & Reconciled with HALO Audio/Visual Engine**  
 **Date:** 2026-10-14 · **Author:** Codex Architecture & HALO Core Team
@@ -536,3 +541,8 @@ Implemented local API (not a remote/network endpoint):
 - `refreshInputs()` requests audio permission explicitly and refreshes audioinput choices, stopping the permission probe afterwards. `listenInput(true|false)` starts/stops direct monitoring after a gesture. Monitoring is off after reload even when prior monitoring intent was saved. `isMonitoring()` reports actual capture state.
 - `armRecording(overdub,audio?,tempo)` records the selected input after count-in, starting transport through the app when needed. PITCH capture is capped at 8 s on the musical grid; source encoding is mono. `beforePhraseChange(time,audio,tempo)` finalizes the outgoing take before saving its phrase state. `releaseInput()` cancels unfinished capture and releases hardware.
 - All source operations use Web Media APIs and require HTTPS/localhost plus browser permission. No automatic hardware access, microphone fallback for missing instrument inputs, camera, backend, runtime dependency, system-output capture, ASIO or MIDI is introduced. Devices/permissions and actual latency require hardware acceptance testing.
+
+
+UI refinement (2026-10-15): frameless window actions share the top-right edge; Track 09 minimization is visible only on its page. LOOP/SLICE/PITCH share 26 px buttons, compact selects and sliders, aligned parameter grids and thin arrow-free scrollbars. PITCH octave and actions share one row. The input button is labeled AUDIO INPUT / MIC (localized). Musical settings and timing are unchanged.
+
+Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the primary actions. All range controls use the master-volume/EQ accent style. PITCH recorded root is grouped with melody octave in advanced settings (hidden when minimized). Audio semantics are unchanged.
