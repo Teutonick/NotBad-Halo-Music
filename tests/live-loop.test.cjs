@@ -881,7 +881,7 @@ test('PITCH live and offline scheduling agree on notes, trim, reverse, key, gate
  loop.setMode('pitch');loop.setSettings({instantRestart:false,rootNote:62,pitchOctave:1,density:100,trimStart:.25,trimEnd:.5,offsetSec:2,reverse:true,pitchSteps:[0,-1,-1,-1,2,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]});
  assert.equal(loop.pitchWindow().startSec,4);assert.equal(loop.pitchWindow().duration,2);
  loop.onPlay(0,0);for(let step=0;step<64;step++)loop.tick(step/8,step,audio,120,4,6);
- const live=starts.splice(0);assert.equal(live.length,8);assert.equal(live[0].rate,2);assert.equal(live[0].offset,6);assert.ok(live.every(s=>s.duration<=2&&s.duration/s.rate<=.125));
+ const live=starts.splice(0);assert.equal(live.length,8);assert.equal(live[0].rate,2);assert.equal(live[0].offset,6);assert.ok(live.every(s=>s.duration<=2&&s.time+s.duration/s.rate<=8+.00001));assert.ok(live[0].duration/live[0].rate>.125);
  loop.renderPhraseOffline(ctx,audio,4,120,loop.capturePhrase(),3,6);
  assert.deepEqual(starts.map(s=>({...s,time:s.time-3})),live);
  assert.equal(loop.getSettings().pitchSteps[4],2);
@@ -960,4 +960,13 @@ test('slice trim rebuilds all slices inside new boundaries and solo reaches live
  loop.setSettings({trimStart:.25,trimEnd:.75,instantRestart:false});
  const slices=loop.getSlices();assert.ok(slices.length);assert.ok(slices.every(s=>s.startSec>=.5&&s.endSec<=1.5+.00001));
  loop.renderPhraseOffline(ctx,{setCoreMuted:(v,t)=>calls.push([v,t])},4,72,undefined,2);assert.deepEqual(calls.at(-1),[false,2]);
+});
+
+
+test('PITCH duration survives rests beyond a sixteenth and responds to duration independently of step division',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),starts=[];env.HaloComposition=require('../src/composition.js');
+ ctx.createBufferSource=()=>({playbackRate:{value:1},connect(){},disconnect(){},start(t,o,d){starts.push(d/this.playbackRate.value)},stop(){}});
+ const audio={ctx,master:ctx.createGain()};loop.connectToAudio(audio);loop.addLayer({id:71,duration:2,sampleRate:44100,pcmL:new Float32Array(88200)},ctx);loop.setMode('pitch');
+ loop.setSettings({rootNote:62,pitchOctave:0,pitchSteps:[0,...Array(15).fill(-1)],duration:100,density:100,stepLength:1});loop.onPlay(0,0);loop.tick(0,0,audio,120,4,0);const long=starts.at(-1);assert.ok(long>.125);
+ loop.setSettings({duration:0,stepLength:4});loop.onPlay(0,0);loop.tick(0,0,audio,120,4,0);assert.ok(starts.at(-1)<long);
 });

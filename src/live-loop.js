@@ -369,7 +369,7 @@
     const window=pitchWindow(tempo),buffer=getPlaybackBuffer(ctx);
     if(!window||window.duration<.04||!buffer||!event)return null;
     const rate=event.rate;
-    const gate=Math.min(window.duration/rate*(.15+.85*settings.duration/100),(settings.stepLength||1)*60/tempo/4*.94,remaining);
+    const gate=Math.min(window.duration/rate*(.15+.85*settings.duration/100),remaining);
     if(gate<.006)return null;
     if(previous){try{previous.gain.gain.cancelAndHoldAtTime?.(time);previous.gain.gain.linearRampToValueAtTime(.0001,time+.004);previous.source.stop(time+.005)}catch(_){}}
     const source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;source.playbackRate.value=rate;
@@ -791,7 +791,10 @@
     for(const [id,label] of [['loopBarsGroup','BARS'],['sliceCountGroup',tr('СЛАЙСЫ','SLICES')]]){const group=move('#'+id,quick);if(group){const caption=document.createElement('span');caption.className='loop-quick-caption';caption.textContent=label;group.prepend(caption);}}
     const wave=move('.loop-waveform-card',primary);
     if(wave){const trim=wave.querySelector('.loop-trim-wrap');if(trim)advanced.append(trim);}
-    move('.slice-seq-card',primary);
+    const sequencer=move('.slice-seq-card',primary);
+    if(sequencer){const timing=document.createElement('div');timing.className='loop-pattern-timing';for(const attr of ['data-slice-cycle','data-slice-step-len']){const group=container.querySelector('['+attr+']')?.closest('.loop-slice-subgroup');if(group)timing.append(group);}sequencer.prepend(timing);}
+    const clear=container.querySelector('#loopClearBtn');if(clear){clear.textContent='DELETE';clear.setAttribute('aria-label',tr('Удалить семпл Track 09','Delete Track 09 sample'));quick.append(clear);}
+
     for(const node of original){if(node.parentNode===container)advanced.append(node);}
     // Remove empty action containers after moving their controls.
     for(const selector of ['.loop-actions','.loop-bars-group','.loop-aux-group'])for(const node of advanced.querySelectorAll?.(selector)||[])if(!node.querySelector('button,input,select'))node.remove();
@@ -2105,7 +2108,7 @@
                 <span>${tr('ХАРАКТЕР', 'CHARACTER')} <output id="loopCharVal">${settings.character || 60}%</output></span>
                 <input type="range" id="loopCharacter" min="0" max="100" value="${settings.character || 60}">
               </label>
-              <label class="loop-slider-label" title="${isPitch?tr('Гейт ноты ограничен длительностью шага','Note gate is bounded by step duration'):tr('Длина звучания кусочка (гейт / затухание)', 'Slice gate duration and release')}">
+              <label class="loop-slider-label" title="${isPitch?tr('Длина звучания семпла; новый запуск прерывает предыдущий','Sample duration; a new trigger chokes the previous voice'):tr('Длина звучания кусочка (гейт / затухание)', 'Slice gate duration and release')}">
                 <span>${tr('ДЛИТЕЛЬНОСТЬ', 'DURATION')} <output id="loopDurVal">${settings.duration || 65}%</output></span>
                 <input type="range" id="loopDuration" min="10" max="100" value="${settings.duration || 65}">
               </label>
