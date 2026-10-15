@@ -173,7 +173,7 @@
   let ready = Promise.resolve();
   let initialized = false;
   let hydrated = false;
-  let playbackSettings = null;
+  let playbackSettings = null, playbackSlices = null;
   const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,['sliceSteps','pitchSteps'].includes(key)?[...(value[key]||defaultSettings[key])]:value[key]??defaultSettings[key]]));
   let undoStack = [];
   let compositeBuffer = null;
@@ -665,7 +665,7 @@
     loopAnchorStep = 0;
     lastScheduledStep = -1;
     slices = [];
-    if (compositeBuffer) rebuildSlices();
+    if (compositeBuffer){rebuildSlices();playbackSlices=slices;}
     updateMixerNodes(time);
     const container=typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null;
     if(container?.children?.length)createUI(container,envRef);else renderUI();
@@ -910,6 +910,7 @@
   }
 
   function updateMixerNodes(at) {
+    activeAudio?.setCoreMuted?.(settings.solo===true,at);
     if (!trackGain || !activeAudio || !activeAudio.ctx) return;
     const now = at || activeAudio.ctx.currentTime;
     const vol = settings.mute ? 0 : (settings.level / 100) * 1.5;
@@ -1020,14 +1021,15 @@
       playbackSettings = copySettings(settings);
       pendingQuantizedRestart = false;
       if (boundary) {loopAnchorStep = absStep; lastScheduledStep = -1;}
-      rebuildSlices();
+      rebuildSlices();playbackSlices=slices;
     }
-    const editing = settings;
+    const editing = settings,editingSlices=slices;
+    if(playbackSlices)slices=playbackSlices;
     // Only timing/sample-window changes wait; mixer controls stay live.
     settings = {...settings};
     for (const key of ['bars','pitch','reverse','trimStart','trimEnd','offsetSec','rootNote','pitchOctave','pitchSteps']) settings[key]=playbackSettings[key];
     try { tickPlayback(time, absStep, audio, tempo, phraseBars); }
-    finally { settings = editing; }
+    finally { settings = editing;slices=editingSlices; }
   }
 
   function tickPlayback(time, absStep, audio, tempo, phraseBars) {
@@ -2031,6 +2033,15 @@
         <div class="loop-trim-wrap">
           ${isSlice ? `
             <label class="loop-trim-label">
+              <span>TRIM START: <output id="trimStartVal">${Math.round((settings.trimStart||0)*100)}%</output></span>
+              <input type="range" id="loopTrimStart" min="0" max="95" value="${Math.round((settings.trimStart||0)*100)}" step="1">
+            </label>
+            <label class="loop-trim-label">
+              <span>TRIM END: <output id="trimEndVal">${Math.round((settings.trimEnd||1)*100)}%</output></span>
+              <input type="range" id="loopTrimEnd" min="5" max="100" value="${Math.round((settings.trimEnd||1)*100)}" step="1">
+            </label>
+
+            <label class="loop-trim-label">
               <span>PITCH: <output id="loopPitchVal">${(settings.pitch||0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)} st</output></span>
               <input type="range" id="loopPitch" min="-12" max="12" value="${settings.pitch || 0}" step="1">
             </label>
@@ -2629,6 +2640,7 @@
     if (trimStartEl) trimStartEl.oninput = (e) => {
       const v = Number(e.target.value) / 100;
       settings.trimStart = Math.min(v, (settings.trimEnd || 1) - 0.05);
+      if(settings.mode==='slice')rebuildSlices();
       if (trimStartVal) trimStartVal.textContent = Math.round(settings.trimStart * 100) + '%';
       renderWaveform();
       persistSettings();
@@ -2638,6 +2650,7 @@
     if (trimEndEl) trimEndEl.oninput = (e) => {
       const v = Number(e.target.value) / 100;
       settings.trimEnd = Math.max(v, (settings.trimStart || 0) + 0.05);
+      if(settings.mode==='slice')rebuildSlices();
       if (trimEndVal) trimEndVal.textContent = Math.round(settings.trimEnd * 100) + '%';
       renderWaveform();
       persistSettings();
@@ -2680,6 +2693,7 @@
     if (soloBtn) soloBtn.onclick = () => {
       settings.solo = !settings.solo;
       soloBtn.classList.toggle('active', settings.solo);
+      updateMixerNodes();
       persistSettings();
       envRef?.toast(settings.solo ? tr('9-й трек в режиме соло', 'Track 09 solo ON') : tr('Соло 9-го трека выключено', 'Track 09 solo OFF'));
     };
@@ -2924,6 +2938,7 @@
   }
 
   function renderPhraseOffline(ctx, engine, bars, tempo, state, startTime = 0, key = 0) {
+    engine?.setCoreMuted?.(state?.settings?.solo===true,startTime);
     const saved = {settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext,samplerKey};
     try {
       samplerKey=key;
@@ -3023,6 +3038,7 @@
       const oldOffset = settings.offsetSec;
 
       settings = { ...settings, ...newSettings };
+      if(settings.mode==='slice'&&(settings.trimStart!==oldStart||settings.trimEnd!==oldEnd))rebuildSlices();
       updateMixerNodes();
       persistSettings();
       renderUI();

@@ -522,3 +522,10 @@ Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the pri
 Audio input fix (2026-10-15): enumerate selectable nonempty device IDs before stopping the permission probe; preserve the exposed list if a browser later hides IDs, and avoid probing again when named inputs are already available. Hardware stays released after the probe. Local controller state adds accessReady, lastError {stage,name,constraint}, and fileContext; the input window reports errors and console diagnostics include operation/error codes without device IDs/labels. For repeated file:// permission prompts, use scripts/preview.ps1 and localhost:8766; persistent permission remains browser-controlled. No automatic monitoring or permissions on reload.
 
 - Audio access always performs its first permission probe even if the browser exposes a named default input. Console errors are printed as readable JSON text.
+
+- Added bilingual “Bring your guitar / Используй свою гитару” README sections and original live UI GIFs: REACTOR, HYPER, PHRASE, compact Track 09 LOOP with input settings open. No new audio assets or engine changes.
+
+- Re-recorded both guitar README previews in English with verified active REACTOR (warm palette), HYPER/PHRASE and compact LOOP/input window.
+
+
+Track 09 SOLO smoothly silences the eight core voices without changing their mute states or levels; disabling SOLO restores them. Offline export honors this gate too. SLICE advanced settings expose TRIM START/END and automatically rebuild slices on trim changes. With Instant Restart off, live playback retains the previous slices until the next phrase cycle; with it on, the new slices apply at the shared phrase restart.

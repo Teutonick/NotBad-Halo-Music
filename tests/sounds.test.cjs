@@ -243,3 +243,13 @@ test('ensemble generation varies active parts, preserves musical anchors and kee
  const S=require('../src/sounds.js');
  for(const setup of ['ambient','reactor']){let ts=Object.keys(S.banksFor(setup)).map(name=>({...S.roles.initial(setup,name),name,setup,on:true}));const masks=new Set(),amounts=new Set();for(let seed=1;seed<=60;seed++){const mix=S.randomizeArrangement(ts,seed),mask=mix.map(t=>Number(t.on)).join('');assert.notEqual(mask,ts.map(t=>Number(t.on)).join(''));masks.add(mask);assert.ok(mix.filter(t=>t.on).length>=4&&mix.filter(t=>t.on).length<=6);assert.equal(mix[4].on,true);assert.equal(mix[5].on,true);for(const t of mix)for(const field of ['space','delay','chorus']){assert.ok(t[field]>=0&&t[field]<=50);amounts.add(t[field])}ts=ts.map((t,i)=>({...t,...mix[i]}))}assert.ok(masks.size>10);assert.ok(amounts.has(0));assert.ok([...amounts].some(n=>n>35));}
 });
+
+
+test('Track 09 solo gate silences all core gains and preserves mute/level on updates and release',()=>{
+ const tracks=Object.keys(banks).map(track),ctx=context(),audio=Audio.create(ctx,tracks);tracks[2].on=false;
+ const before=JSON.stringify(tracks);audio.setCoreMuted(true,.2);
+ for(const gain of audio.trackGains)assert.equal(gain.gain.calls.at(-1)[0],0);
+ audio.update(0,.3);assert.equal(audio.trackGains[0].gain.calls.at(-1)[0],0);
+ audio.setCoreMuted(false,.4);assert.equal(JSON.stringify(tracks),before);
+ tracks.forEach((t,i)=>assert.equal(audio.trackGains[i].gain.calls.at(-1)[0],t.on?t.level/100*4*(t.ensembleGain||1):0));
+});

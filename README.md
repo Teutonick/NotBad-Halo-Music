@@ -53,6 +53,16 @@ No backend, account, analytics, runtime CDN or mandatory build. Preferences and 
 
 REACTOR recordings load from the site on demand; the full bank is approximately 65.5 MiB. AMBIENT uses original synthesis. [Recording sources and rights](assets/reactor/README.md).
 
+## Bring your guitar
+
+**Plug in. Catch a riff. Launch your own orbit.**
+
+Connect your guitar through an audio interface and let Track 09 join REACTOR’s eight voices. Record a 1, 2, 4 or 8-bar **LOOP**, stack **OVERDUB** layers and undo the last take. Chop a riff into **SLICE** rhythms, or turn one recorded note into a scale-based melody with **PITCH**. Your sound, inside the universe.
+
+![REACTOR in HYPER + PHRASE, with compact Track 09 LOOP and audio input settings](assets/readme/halo-guitar-en.gif)
+
+*Real HALO capture; silent GIF. Connect via HTTPS or localhost, enable inputs and select your interface. Recordings stay in this browser. The preview shows the interface and visual world, without an active guitar recording.*
+
 ## Run it yourself
 
 Open `index.html`, or serve the folder locally:
@@ -91,3 +101,6 @@ Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the pri
 Audio input fix (2026-10-15): enumerate selectable nonempty device IDs before stopping the permission probe; preserve the exposed list if a browser later hides IDs, and avoid probing again only after a successful permission probe in the current session. Hardware stays released after the probe. Local controller state adds accessReady, lastError {stage,name,constraint}, and fileContext; the input window reports errors and console diagnostics include operation/error codes without device IDs/labels. For repeated file:// permission prompts, use scripts/preview.ps1 and localhost:8766; persistent permission remains browser-controlled. No automatic monitoring or permissions on reload.
 
 The first ENABLE INPUTS action always probes capture permission; a named system default alone is insufficient. Diagnostic console entries are readable JSON strings.
+
+
+Track 09 SOLO smoothly silences the eight core voices without changing their mute states or levels; disabling SOLO restores them. Offline export honors this gate too. SLICE advanced settings expose TRIM START/END and automatically rebuild slices on trim changes. With Instant Restart off, live playback retains the previous slices until the next phrase cycle; with it on, the new slices apply at the shared phrase restart.

@@ -691,3 +691,8 @@ Track 09 UI: RECORD is red; orange OVERDUB sits beside recording/Loop in the pri
 Audio input fix (2026-10-15): enumerate selectable nonempty device IDs before stopping the permission probe; preserve the exposed list if a browser later hides IDs, and avoid probing again only after a successful permission probe in the current session. Hardware stays released after the probe. Local controller state adds accessReady, lastError {stage,name,constraint}, and fileContext; the input window reports errors and console diagnostics include operation/error codes without device IDs/labels. For repeated file:// permission prompts, use scripts/preview.ps1 and localhost:8766; persistent permission remains browser-controlled. No automatic monitoring or permissions on reload.
 
 The first ENABLE INPUTS action always probes capture permission; a named system default alone is insufficient. Diagnostic console entries are readable JSON strings.
+
+- README guitar showcase: `assets/readme/halo-guitar-en.gif` and `halo-guitar-ru.gif` are original silent EN browser captures at 1280×900. REACTOR/HYPER/PHRASE, minimized LOOP and floating input window; no active instrument recording is depicted. No runtime dependencies, sound imports or deployment path changes.
+
+
+Track 09 SOLO smoothly silences the eight core voices without changing their mute states or levels; disabling SOLO restores them. Offline export honors this gate too. SLICE advanced settings expose TRIM START/END and automatically rebuild slices on trim changes. With Instant Restart off, live playback retains the previous slices until the next phrase cycle; with it on, the new slices apply at the shared phrase restart.

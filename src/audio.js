@@ -124,6 +124,8 @@
       }
       return gain;
     });
+    let coreMuted=false;
+    function setCoreMuted(value,at=ctx.currentTime){const next=value===true;if(next===coreMuted)return;coreMuted=next;tracks.forEach((_,i)=>update(i,at));}
     let sceneWidth=0;
     function panFor(i){return ['pulse','kick','bass'].includes(tracks[i].arrangement?.role)?(i%2?.06:-.06):[-.06,.08,-.55,.5,-.14,.4,-.7,.7][i]}
     function setMix(value,at=ctx.currentTime){
@@ -138,7 +140,7 @@
     function update(index, at=ctx.currentTime) {
       const t = tracks[index], now = at;
       panners[index]?.pan.setTargetAtTime(panFor(index)*sceneWidth,now,.05);
-      trackGains[index].gain.setTargetAtTime(t.on ? t.level / 100 * 4 * (t.ensembleGain||1) : 0, now, .04);
+      trackGains[index].gain.setTargetAtTime(t.on && !coreMuted ? t.level / 100 * 4 * (t.ensembleGain||1) : 0, now, .04);
       sends[index].gain.setTargetAtTime((t.space || 0) / 100 * .8, now, .06);
       if (delaySends[index]) {
         delaySends[index].gain.setTargetAtTime(((t.delay || 0) / 100) * 0.7, now, .05);
@@ -263,7 +265,7 @@
         if (!pitches.length) cleanup();
       }
     }
-    return { ctx, master, compressor, trackGains, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value},setTempo,delayTaps,delaySends,chorusSends,reverbSends:sends,reverb,chorusIn };
+    return { ctx, master, compressor, trackGains, setCoreMuted, eq,headroom,panners,setMix, update, play, voices,setSamples(value){sampleBank=value},setTempo,delayTaps,delaySends,chorusSends,reverbSends:sends,reverb,chorusIn };
   }
   const api = { create };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

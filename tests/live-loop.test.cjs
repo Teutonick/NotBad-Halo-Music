@@ -849,7 +849,7 @@ test('Track 09 createUI and HTML structure integrity in LOOP and SLICE modes', (
   assert.ok(pitchContainer.innerHTML.includes('id="sliceBtnRec"'));
   assert.ok(!pitchContainer.innerHTML.includes('data-slice-count='));
   for(const html of [loopContainer.innerHTML,sliceContainer.innerHTML,pitchContainer.innerHTML]){
-    for(const id of ['modeBtnPitch','loopInputToggle','loopCompact','loopFileInput'])assert.ok(html.includes('id="'+id+'"'));
+    for(const id of ['modeBtnPitch','loopInputToggle','loopCompact','loopFileInput','loopTrimStart','loopTrimEnd'])assert.ok(html.includes('id="'+id+'"'));
     const ids=[...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,'Each control ID is unique');
   }
 
@@ -950,4 +950,14 @@ test('workspace-only Track 09 folding preserves phrase processing and audio',()=
  loop.setUIState({compact:false,inputOpen:false});
  assert.equal(loop.getUIState().compact,false);assert.equal(loop.getUIState().inputOpen,false);
  assert.equal(JSON.stringify(loop.capturePhrase()),before);
+});
+
+
+test('slice trim rebuilds all slices inside new boundaries and solo reaches live/offline engines',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),calls=[];
+ loop.connectToAudio({ctx,master:ctx.createGain(),setCoreMuted:(v,t)=>calls.push([v,t])});loop.setSettings({solo:true});assert.equal(calls.at(-1)[0],true);
+ loop.addLayer({id:321,duration:2,sampleRate:44100,pcmL:new Float32Array(88200)},ctx);loop.setMode('slice');
+ loop.setSettings({trimStart:.25,trimEnd:.75,instantRestart:false});
+ const slices=loop.getSlices();assert.ok(slices.length);assert.ok(slices.every(s=>s.startSec>=.5&&s.endSec<=1.5+.00001));
+ loop.renderPhraseOffline(ctx,{setCoreMuted:(v,t)=>calls.push([v,t])},4,72,undefined,2);assert.deepEqual(calls.at(-1),[false,2]);
 });
