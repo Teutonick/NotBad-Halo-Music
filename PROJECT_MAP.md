@@ -1,5 +1,14 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+### Latest implemented update — 2026-10-15: PITCH and selected device inputs
+
+- Track 09 adds PITCH beside LOOP/SLICE: one trimmed 40 ms–8 s window, explicit recorded root C2–C6, diatonic 16-step melody with rests, octave −1/0/+1, bounded ±24-semitone resampling, existing sound/FX/cycle controls, phrase-local persistence and export. No automatic root detection or independent time stretching.
+- `src/live-loop.js` shares the PITCH note scheduler between live/offline contexts; `src/song-ui.js` and `src/export.js` pass each phrase key. GENERATE/RANDOM/RESET preserve source root and trim. Captures in PITCH are limited to eight seconds; section transitions finalize the take in the outgoing phrase.
+- New classic local `src/audio-input.js` owns microphone/instrument audioinput selection, permission probes, direct input listening, exact device constraints, local device preferences and capture cleanup. All three modes accept import or selected input recording; monitoring is explicit and does not auto-start on reload. Input IDs stay out of project/share state.
+- HTTPS/localhost and OS/browser-visible audio inputs are required. Recording is mono through the existing ScriptProcessor pipeline; no system-output/ASIO/MIDI/channel-selector support is claimed. Physical input devices, listening/latency and Safari/iOS still need hardware acceptance. Static relative-script GitHub Pages support remains intact; no external assets or dependencies.
+- See `docs/regression-pitch-input-2026-10-15.md` for checks and limitations. Bilingual guide, engine registry, API, READMEs and changelog synchronized.
+
+
 ### Latest implemented update — 2026-10-15: phrase-owned Track 09 and shared restart
 
 - `src/project.js` validates optional `liveLoop` settings and bounded local PCM IDs; snapshots, autosave, arrangement and independent duplicates preserve treatment without sharing mutable settings. Existing repeated phrase references intentionally share edits.

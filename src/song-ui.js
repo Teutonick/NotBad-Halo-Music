@@ -192,7 +192,7 @@
       const length=bars*16;
       const local=((step+phraseOffset)%length+length)%length;
       if(phrasePlaySteps>0&&(local===0||phrasePlaySteps>=length)){
-       if(!ended){ended=true;env.finish(time);}
+       if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,settings().tempo);commit();env.finish(time);}
        return true;
       }
       phrasePlaySteps++;
@@ -203,11 +203,11 @@
     if(!preview){commit();preview=true;lastSection=-1}
     lastScheduledStep=step;
     if(queued&&step>=queued.step){stepOffset=sectionStart(queued.index)-queued.step;index=queued.index;queued=null;lastSection=-1;render();persist()}
-    let position=step+stepOffset;const total=S.bars(song)*16;if(song.repeat&&position>=total){stepOffset-=Math.floor(position/total)*total;position=step+stepOffset;lastSection=-1;}const event=S.at(song,position);if(!event){if(!ended){ended=true;env.finish(time)}return true}
+    let position=step+stepOffset;const total=S.bars(song)*16;if(song.repeat&&position>=total){stepOffset-=Math.floor(position/total)*total;position=step+stepOffset;lastSection=-1;}const event=S.at(song,position);if(!event){if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);commit();env.finish(time)}return true}
     const p=event.project;
     audio.master?.gain.setTargetAtTime(settings().masterVolume/100*event.gain,time,.05);
-    if(event.index!==lastSection){if(lastSection>=0) {const previous=song.phrases.find(p=>p.id===song.sections[lastSection].phrase);if(previous&&root.HaloLiveLoop)previous.project.liveLoop=root.HaloLiveLoop.capturePhrase();}root.HaloLiveLoop?.restorePhrase(p.liveLoop,time);env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
-    root.HaloLiveLoop?.tick(time,event.local,audio,song.tempo,p.bars);
+    if(event.index!==lastSection){if(lastSection>=0) {root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);const previous=song.phrases.find(p=>p.id===song.sections[lastSection].phrase);if(previous&&root.HaloLiveLoop)previous.project.liveLoop=root.HaloLiveLoop.capturePhrase();}root.HaloLiveLoop?.restorePhrase(p.liveLoop,time);env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
+    root.HaloLiveLoop?.tick(time,event.local,audio,song.tempo,p.bars,p.key);
     env.tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!root.HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;audio.play(i,root.HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,root.HaloComposition.offsets[p.key],p.bars,clock),time,root.HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,root.HaloSounds.soundFor(t));env.pulse(i,time)});return true;
    }};
   }};

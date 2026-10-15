@@ -116,3 +116,10 @@ test('phrase WAV warm-up restarts Track 09 at the same phrase boundary as the ei
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/export.js','utf8'),sandbox);await sandbox.HaloExport.render(project);
  assert.deepEqual(calls,[{bars:4,time:0},{bars:4,time:8}]);
 });
+
+
+test('PITCH state roundtrips through the bounded phrase schema and excludes hardware IDs',()=>{
+ const project=P.capture(tracks,4,100,2,0,S,M);project.liveLoop={version:1,layerIds:[123],settings:{mode:'pitch',rootNote:57,pitchOctave:-1,pitchSteps:Array(16).fill(3),inputDeviceId:'private-hardware-id'}};
+ const restored=P.parse(JSON.stringify(project),S);assert.equal(restored.liveLoop.settings.rootNote,57);assert.equal(restored.liveLoop.settings.pitchSteps[0],3);assert.equal(restored.liveLoop.settings.inputDeviceId,undefined);
+ for(const edit of [s=>s.rootNote=90,s=>s.pitchOctave=.5,s=>s.pitchSteps[0]=8]){const p=JSON.parse(JSON.stringify(project));edit(p.liveLoop.settings);assert.throws(()=>P.validate(p,S));}
+});

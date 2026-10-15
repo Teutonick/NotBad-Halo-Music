@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const pairs=[
+ ['Invalid root note','Некорректная исходная нота'],['Invalid pitch octave','Некорректная октава семпла'],['Invalid pitch pattern','Некорректный нотный рисунок семпла'],['Invalid pitch note','Некорректная нота семпла'],['Invalid pitch steps','Некорректные шаги семпла'],
  ['Phrase name: 1–10 letters or digits, no spaces','Имя фразы: 1–10 букв или цифр, без пробелов'],['Shared data exceeds size limit','Данные ссылки превышают допустимый размер'],
  ["Generate a new phrase, active voices and gentle FX","Создать фразу, выбрать звучащие инструменты и мягкие FX"],["New phrase, voices and gentle FX generated; loops now repeat","Созданы фраза, состав инструментов и мягкие FX; луп повторяется"],
  ["The verse needs at least one active part","Для сборки нужен куплет хотя бы с одной звучащей партией"],["Invalid phrase notes","Некорректные ноты фразы"],

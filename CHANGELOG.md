@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-15 — Track 09 PITCH and microphone/instrument input selection
+
+- Add PITCH: one unsliced sample played as a phrase-key melody, explicit root note/octave, 16 note/rest steps, bounded trim and transposition, common sound/FX and live/offline parity.
+- All three modes support audio-file import, selected microphone/USB/line recording and explicit input monitoring. Device preferences remain local; permission is never requested automatically.
+- Preserve phrase isolation and synchronized restart; bound PITCH takes to eight seconds and finalize outgoing takes before composition transitions. Add permission/device lifecycle and sampler regression coverage; update RU/EN guide and technical specifications.
+
+
 ## 2026-10-15 — Phrase-owned Track 09 and synchronized restart
 
 - Preserve Track 09 processing and local audio references through arrangement, independent variations, autosave and project JSON; Undo/clear no longer remove another phrase's audio.

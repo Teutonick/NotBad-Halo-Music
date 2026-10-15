@@ -522,3 +522,17 @@ interface HaloLiveLoopAPI {
 - `BARS`, `trimEnd`, `pitch`, `reverse`, `offsetSec` and `trimStart` request the same shared step-zero transport restart when `instantRestart=true`; with it off, pending values apply at the next phrase boundary. Mixer controls remain live. No sample-only restart or independent beat anchor exists.
 - Independent phrase variations copy all processing settings; repeated sections referencing the same phrase intentionally share edits. Undo/clear of the current phrase retains PCM used elsewhere; full workspace reset removes the local library.
 - JSON/share tokens contain settings and IDs only. Audio is not portable to another browser via those references. Song export resolves each phrase separately; absent references are silent.
+
+
+### Track 09 PITCH and local hardware input — 2026-10-15
+
+Implemented local API (not a remote/network endpoint):
+
+- `setMode('loop'|'slice'|'pitch')`. PITCH is one unsliced sample played on the shared grid.
+- `setSettings({rootNote, pitchOctave, pitchSteps})`: rootNote integer 36..84/default 62, pitchOctave −1/0/+1, pitchSteps exactly 16 integers −1..7 (rest/diatonic degree). `HaloProject.liveLoop` allowlists these fields. They persist per phrase alongside the existing trim, pitch, cycle and FX; no device IDs are added to project/share data.
+- `pitchEvent(step,key?)` returns `{index,note,semitones,rate}` or null for rests, density skips or shifts beyond ±24. Key is the phrase's 24-key index. `pitchWindow()` returns bounded source offsets (maximum 8 s; windows below 40 ms are silent).
+- `tick(time,step,audio,tempo,phraseBars,key?)` and `renderPhraseOffline(ctx,engine,bars,tempo,state,startTime=0,key=0)` pass the same phrase key. The same gated sample scheduler drives live and offline PITCH playback, including Reverse, source trim and cleanup.
+- `getInputState()` returns local `{kind,deviceId,devices,monitoring,busy}`. `configureInput({kind:'microphone'|'instrument',deviceId})` saves browser-local device preference; returns false during recording or invalid input. IDs are bounded to 256 characters and are hardware preferences, never portable sample references.
+- `refreshInputs()` requests audio permission explicitly and refreshes audioinput choices, stopping the permission probe afterwards. `listenInput(true|false)` starts/stops direct monitoring after a gesture. Monitoring is off after reload even when prior monitoring intent was saved. `isMonitoring()` reports actual capture state.
+- `armRecording(overdub,audio?,tempo)` records the selected input after count-in, starting transport through the app when needed. PITCH capture is capped at 8 s on the musical grid; source encoding is mono. `beforePhraseChange(time,audio,tempo)` finalizes the outgoing take before saving its phrase state. `releaseInput()` cancels unfinished capture and releases hardware.
+- All source operations use Web Media APIs and require HTTPS/localhost plus browser permission. No automatic hardware access, microphone fallback for missing instrument inputs, camera, backend, runtime dependency, system-output capture, ASIO or MIDI is introduced. Devices/permissions and actual latency require hardware acceptance testing.

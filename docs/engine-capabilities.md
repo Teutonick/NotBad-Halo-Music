@@ -529,3 +529,20 @@ HALO поддерживает три режима визуализации ко�
 - **Интерактивное касание / клик:**
   - Обработчик `universe.onpointerdown` расширен для радиуса 9-й орбиты (`maxOrbit = hasTrack09 ? 8 : 7`).
   - Клик или тап по 9-й орбите переключает режим `MUTE` 9-го трека без необходимости открывать панель Live Loop.
+
+
+### 11.9. PITCH sampler and selected audio inputs (2026-10-15)
+
+Implemented Track 09 modes: `loop`, `slice`, `pitch`. The core remains eight synthesis tracks plus one optional sample layer.
+
+- PITCH plays one unsliced trimmed sample. `rootNote` is integer MIDI 36–84 (C2–C6), default 62/D4; `pitchOctave` is −1/0/+1, default 0. `pitchSteps` has exactly 16 integers −1 (rest) or 0–7 (tonic through octave), with its own saved pattern independent of `sliceSteps`.
+- Target MIDI = `62 + HaloComposition.offsets[key] + 12*pitchOctave + scale[degree]`. Minor scale `[0,2,3,5,7,8,10,12]`; major `[0,2,4,5,7,9,11,12]`. Playback rate = `2^((target-rootNote+pitch)/12)`. Shifts beyond ±24 semitones rest rather than clamping out of key. Root detection and formant/time-stretch processing are absent; polyphonic/melodic recordings transpose as a whole.
+- PITCH's source window is at most 8 seconds. `offsetSec` selects the window in longer audio; existing trim fractions select within it. Windows shorter than 40 ms do not trigger. PITCH recording auto-stops after at most 8 seconds rounded down to a shared transport step; manual stop/section transition may shorten it.
+- Monophonic gated notes use a 3 ms attack, bounded release, ~5 ms voice choke, resonant lowpass, existing level/pan/FX sends. Gate = min(source duration/rate × (0.15+0.85*duration/100), 0.94*step seconds, remaining phrase seconds). Source offsets/duration stay within trim even in Reverse. Live/offline use the same note scheduler and phrase key.
+- Cycle 4–32, step 1/16–1/4, offset and density reuse the sequenced controls. RANDOM and RESET edit only `pitchSteps`; GENERATE uses seeded note choices without changing root or trim. Notes/root/octave/window/pitch updates follow shared Instant Restart / next-phrase rules. Processing persists per phrase through existing `liveLoop` state and independent variations.
+- `src/audio-input.js` owns the shared microphone/instrument device selector, explicit permission, monitoring and cleanup. It uses only `audioinput` devices and requests exact `deviceId` for selected hardware, `video:false`, and voice-processing constraints off. Missing instrument selection never substitutes a microphone. AudioContext monitoring starts only from a user gesture; no permission request or capture occurs on load.
+- Source kind/device ID are stored under localStorage `halo-audio-input-v1`, separate from phrase/project/share state. Device names are inserted with textContent, not HTML. Device choices are locked during recording. Tracks/nodes are released on stop, device change/disconnection, pagehide and explicit project load; monitoring can continue through transport pause and timed composition transitions. Master volume governs the monitoring feed (50% input gain before master).
+- All three modes expose audio-file import, selected input recording and direct listening. Recording uses the current mono ScriptProcessor capture pipeline and 0–200 ms latency compensation; interfaces must be exposed by the OS/browser as audio inputs. Browser permission may be named microphone even for USB/line input. HTTPS/localhost is required. No system-output capture, ASIO, MIDI or separate interface channel selection is claimed.
+- A section boundary finalizes captured audio in the outgoing phrase before switching layer references. Monitoring audio is not serialized or rendered into exports; recorded takes are. Missing APIs, denied permissions and unplugged devices leave playback usable and show localized feedback.
+
+- Layer PCM is resampled from its stored sample rate to the live/offline context rate when building composite buffers, preserving timing and pitch for 48 kHz device recordings exported at 44.1 kHz. Same-rate buffers use a direct summation path.

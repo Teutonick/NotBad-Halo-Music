@@ -10,7 +10,7 @@
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   if(root.HaloLiveLoop){
    await root.HaloLiveLoop.ready();
-   if(project.liveLoop){root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop);root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,seconds);}
+   if(project.liveLoop){root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,0,project.key);root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,seconds,project.key);}
   }
   for(let step=0;step<project.bars*32;step++){
    const absolute=(project.startStep||0)+step-project.bars*16,local=((absolute%(project.bars*16))+project.bars*16)%(project.bars*16),time=step*60/project.tempo/4;
@@ -27,7 +27,7 @@
   for(let step=0;step<HaloSong.bars(song)*16;step++){
    const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4;
    if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars});if(t.generator!==3||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
-   if(event.local===0&&root.HaloLiveLoop)root.HaloLiveLoop.renderPhraseOffline(ctx,engine,p.bars,song.tempo,p.liveLoop,time);
+   if(event.local===0&&root.HaloLiveLoop)root.HaloLiveLoop.renderPhraseOffline(ctx,engine,p.bars,song.tempo,p.liveLoop,time,p.key);
    engine.master?.gain.setTargetAtTime(song.masterVolume/100*event.gain,time,.05);
    tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,HaloComposition.offsets[p.key],p.bars,clock),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
   }

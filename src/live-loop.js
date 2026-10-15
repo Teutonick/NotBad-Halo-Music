@@ -27,7 +27,10 @@
     instantRestart: true,
     pitch: 0,
     reverse: false,
-    mode: 'loop', // 'loop' | 'slice'
+    mode: 'loop', // 'loop' | 'slice' | 'pitch'
+    rootNote: 62,
+    pitchOctave: 0,
+    pitchSteps: [0,-1,2,-1,4,-1,2,-1,0,-1,3,-1,4,-1,2,7],
     sliceCount: 8, // 4 | 8 | 16
     slicePattern: 'beat', // 'beat' | 'chrono' | 'shuffle' | 'arpeggio' | 'custom'
     sliceSteps: [0, -1, 1, -1, 2, -1, 1, -1, 0, -1, 3, -1, 2, -1, 1, 3],
@@ -169,8 +172,9 @@
   let phraseState = undefined;
   let ready = Promise.resolve();
   let initialized = false;
+  let hydrated = false;
   let playbackSettings = null;
-  const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,key==='sliceSteps'?[...(value.sliceSteps||defaultSettings.sliceSteps)]:value[key]??defaultSettings[key]]));
+  const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,['sliceSteps','pitchSteps'].includes(key)?[...(value[key]||defaultSettings[key])]:value[key]??defaultSettings[key]]));
   let undoStack = [];
   let compositeBuffer = null;
   let bufferContext = null;
@@ -338,13 +342,56 @@
     return steps;
   }
 
+  let samplerKey=0;
+  function pitchWindow(tempo=72){
+    if(!compositeBuffer)return null;
+    const total=compositeBuffer.duration,window=Math.min(8,total);
+    const offset=Math.max(0,Math.min(total-window,settings.offsetSec||0));
+    const start=offset+Math.max(0,Math.min(.95,settings.trimStart||0))*window;
+    const end=Math.min(total,offset+Math.max((settings.trimStart||0)+.01,Math.min(1,settings.trimEnd??1))*window);
+    return {startSec:start,endSec:end,duration:Math.max(0,end-start)};
+  }
+  const noteName = midi => ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'][midi%12]+(Math.floor(midi/12)-1);
+  function pitchEvent(step,key=samplerKey){
+    const length=settings.stepLength||1;if(step%length!==0)return null;
+    const index=(Math.floor(step/length)+(settings.offset||0))%(settings.cycle||16)%16;
+    const degree=settings.pitchSteps[index];
+    if(degree<0||!Number.isInteger(degree))return null;
+    const scale=root.HaloComposition?.modes?.[key]==='major'?[0,2,4,5,7,9,11,12]:[0,2,3,5,7,8,10,12];
+    const note=62+(root.HaloComposition?.offsets?.[key]||0)+12*(settings.pitchOctave||0)+scale[degree];
+    const semitones=note-settings.rootNote+(settings.pitch||0);
+    if(!Number.isFinite(semitones)||Math.abs(semitones)>24)return null;
+    const threshold=index%4===0?15:index%2===0?35:55;
+    if(settings.density<threshold)return null;
+    return {index,note,semitones,rate:Math.pow(2,semitones/12)};
+  }
+  function schedulePitch(ctx,destination,time,event,tempo,remaining=Infinity,previous){
+    const window=pitchWindow(tempo),buffer=getPlaybackBuffer(ctx);
+    if(!window||window.duration<.04||!buffer||!event)return null;
+    const rate=event.rate;
+    const gate=Math.min(window.duration/rate*(.15+.85*settings.duration/100),(settings.stepLength||1)*60/tempo/4*.94,remaining);
+    if(gate<.006)return null;
+    if(previous){try{previous.gain.gain.cancelAndHoldAtTime?.(time);previous.gain.gain.linearRampToValueAtTime(.0001,time+.004);previous.source.stop(time+.005)}catch(_){}}
+    const source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;source.playbackRate.value=rate;
+    let filter=null;
+    if(ctx.createBiquadFilter){filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(250*Math.pow(80,settings.character/100),time);source.connect(filter);filter.connect(gain)}else source.connect(gain);
+    gain.connect(destination);gain.gain.setValueAtTime(.0001,time);gain.gain.linearRampToValueAtTime(.85,time+.003);
+    const end=time+gate;
+    gain.gain.setValueAtTime(.85,Math.max(time+.003,end-.008));
+    if(gain.gain.exponentialRampToValueAtTime)gain.gain.exponentialRampToValueAtTime(.0001,end);else gain.gain.linearRampToValueAtTime(.0001,end);
+    const offset=settings.reverse?Math.max(0,buffer.duration-window.endSec):window.startSec;
+    source.start(time,offset,Math.min(window.duration,gate*rate));source.stop(end+.001);
+    source.onended=()=>{try{source.disconnect();gain.disconnect();filter?.disconnect()}catch(_){}};
+    return {source,gain,filter,stopTime:end+.001};
+  }
+
   function rebuildSlices() {
     if (!compositeBuffer) {
       slices = [];
       return slices;
     }
     const tempo = envRef?.settings?.().tempo || 72;
-    const loopDur = (settings.bars * 4 * 60) / tempo;
+    const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
     const totalDur = compositeBuffer.duration;
     const isLonger = totalDur > loopDur + 0.05;
     const winDur = isLonger ? loopDur : totalDur;
@@ -449,6 +496,7 @@
     const totalSteps = phraseBars * 16;
     if (!compositeBuffer) return events;
 
+    if(settings.mode==='pitch')return Array.from({length:totalSteps},(_,step)=>({step,candidate:!!pitchEvent(phraseStart+step),fires:!!pitchEvent(phraseStart+step)}));
     if (settings.mode === 'slice') {
       if (!slices.length) rebuildSlices();
       const stepLen = settings.stepLength || 1;
@@ -489,7 +537,11 @@
       return x - Math.floor(x);
     };
 
-    if (settings.mode === 'slice') {
+    if(settings.mode==='pitch'){
+      settings.pitchSteps=Array.from({length:16},(_,i)=>i%4===0?0:rng(30+i)<.45?-1:Math.floor(rng(50+i)*8));
+      settings.duration=Math.round(40+rng(4)*40);settings.density=Math.round(65+rng(5)*25);
+      settings.space=Math.round(15+rng(7)*35);settings.delay=Math.round(rng(8)*25);
+    } else if (settings.mode === 'slice') {
       const patterns = ['beat', 'chrono', 'shuffle', 'arpeggio'];
       const patIndex = Math.floor(rng(1) * patterns.length);
       settings.slicePattern = patterns[patIndex];
@@ -523,6 +575,7 @@
     persistSettings();
     renderWaveform();
     renderUI();
+    if(settings.mode==='pitch')triggerQuantizedLoopRestart();
   }
 
   // Recording State
@@ -531,7 +584,6 @@
   let recordStartStep = -1;
   let recordStartTime = 0;
   let recordTargetSteps = 64;
-  let cachedMicStream = null;
   let micStream = null;
   let micSourceNode = null;
   let processorNode = null;
@@ -595,11 +647,12 @@
       if (!Number.isSafeInteger(layer.id)) layer.id = Date.now() + layerLibrary.size;
       layerLibrary.set(layer.id, layer);
     }
-    return {version:1,settings:copySettings(settings),layerIds:layers.map(l=>l.id)};
+    return {version:1,settings:copySettings(settings),layerIds:initialized&&!hydrated&&phraseState?.layerIds?.length?[...phraseState.layerIds]:layers.map(l=>l.id)};
   }
 
   function restorePhrase(value, time) {
     capturePhrase();
+    if(recordingActive())cancelInputCapture();
     phraseState = value === undefined ? null : value;
     settings = copySettings({...defaultSettings,...value?.settings});
     layers = (value?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
@@ -643,10 +696,14 @@
       const pL = l.pcmL || l.pcm, pR = l.pcmR || l.pcmL || l.pcm;
       if (!pL) continue;
       const g = typeof l.gain === 'number' ? l.gain : 1.0;
-      const len = Math.min(length, pL.length);
+      const ratio=(l.sampleRate||sampleRate)/sampleRate;
+      const len = Math.min(length, Math.round(pL.length/ratio));
+      if(ratio===1){for(let i=0;i<len;i++){outL[i]+=pL[i]*g;outR[i]+=(pR?pR[i]:pL[i])*g}continue;}
       for (let i = 0; i < len; i++) {
-        outL[i] += pL[i] * g;
-        outR[i] += (pR ? pR[i] : pL[i]) * g;
+        const position=i*ratio,index=Math.min(pL.length-1,Math.floor(position)),next=Math.min(pL.length-1,index+1),fraction=position-index;
+        outL[i] += (pL[index]+(pL[next]-pL[index])*fraction)*g;
+        const right=pR||pL,ri=Math.min(right.length-1,index),rn=Math.min(right.length-1,next);
+        outR[i] += (right[ri]+(right[rn]-right[ri])*fraction)*g;
       }
     }
 
@@ -666,12 +723,45 @@
     return buf;
   }
 
+  let inputController=null;
+  function recordingActive(){return ['preroll','recording','overdubbing'].includes(recordingState)}
+  function cancelInputCapture(){
+    recordingState='idle';recordedChunks=[];
+    for(const node of [micSourceNode,processorNode,analyserNode,dummyGain]){try{node?.disconnect()}catch(_){}}
+    micSourceNode=processorNode=analyserNode=dummyGain=null;micStream=null;
+    if(recAnimFrame){cancelAnimationFrame(recAnimFrame);recAnimFrame=null}
+    inputController?.releaseCapture();updateStatusBadge();updateInputUI();
+  }
+  function updateInputUI(){
+    if(typeof document==='undefined'||!inputController)return;
+    const state=inputController.state(),select=document.getElementById('loopInputDevice');
+    if(select){
+      select.replaceChildren?.();
+      const option=(value,label)=>{const o=document.createElement('option');o.value=value;o.textContent=label;select.appendChild(o)};
+      option('',tr('Системный вход по умолчанию','System default input'));
+      if(state.deviceId&&!state.devices.some(d=>d.deviceId===state.deviceId))option(state.deviceId,tr('Сохранённый вход (недоступен до разрешения)','Saved input (permission may be needed)'));
+      state.devices.forEach((d,i)=>option(d.deviceId,d.label||tr('Аудиовход ','Audio input ')+(i+1)));
+      select.value=state.deviceId;select.disabled=state.busy||recordingActive();
+    }
+    const kind=document.getElementById('loopInputKind');if(kind){kind.value=state.kind;kind.disabled=state.busy||recordingActive()}
+    const listen=document.getElementById('loopInputListen');if(listen){listen.textContent=state.monitoring?tr('■ СТОП ВХОД','■ STOP INPUT'):tr('▶ СЛУШАТЬ ВХОД','▶ LISTEN TO INPUT');listen.setAttribute('aria-pressed',String(state.monitoring));listen.disabled=state.busy||recordingActive()}
+    const access=document.getElementById('loopInputAccess');if(access)access.disabled=state.busy||recordingActive();
+  }
+  async function listenInput(on){
+    if(!inputController)return false;
+    settings.monitor=await inputController.listen(on);persistSettings();updateInputUI();return settings.monitor;
+  }
+
   function init(env) {
     initialized = true;
+    hydrated = false;
     envRef = env;
+    inputController?.dispose();
+    if(root.HaloAudioInput)inputController=root.HaloAudioInput.create({audio:async()=>{const audio=await envRef?.ensureAudio?.();if(audio)connectToAudio(audio);return audio||activeAudio},recording:recordingActive,changed:updateInputUI,inputEnded:cancelInputCapture,toast:message=>envRef?.toast(message),language:()=>envRef?.language?.()||'en'});
     ready = IDB.loadSettings().then(s => {
       if (s && phraseState === undefined) {
         settings = { ...defaultSettings, ...s };
+        if(settings.delayTime==='1/8D')settings.delayTime='1/8d';
         if(Array.isArray(settings.slicePattern)){settings.sliceSteps=[...settings.slicePattern];settings.slicePattern='custom';}
       }
       return IDB.loadLayers();
@@ -679,7 +769,9 @@
       for (const layer of list) layerLibrary.set(layer.id,layer);
       layers = phraseState === undefined ? (settings.layerIds ? settings.layerIds.map(id=>layerLibrary.get(id)).filter(Boolean) : list) : (phraseState?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
       if (layers.length) compositeBuffer=buildCompositeBuffer(compositeContext(),layers);
-      renderUI();
+      hydrated=true;
+      const panel=typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null;
+      if(panel?.children?.length)createUI(panel);else renderUI();
     }).catch(() => {});
   }
 
@@ -834,7 +926,8 @@
     activeSliceStep = -1;
   }
 
-  function tick(time, absStep, audio, tempo, phraseBars = 4) {
+  function tick(time, absStep, audio, tempo, phraseBars = 4, key = envRef?.settings?.().key || 0) {
+    samplerKey=key;
     const boundary = absStep % (phraseBars * 16) === 0;
     if (!playbackSettings || boundary || pendingQuantizedRestart && absStep === 0) {
       playbackSettings = copySettings(settings);
@@ -845,7 +938,7 @@
     const editing = settings;
     // Only timing/sample-window changes wait; mixer controls stay live.
     settings = {...settings};
-    for (const key of ['bars','pitch','reverse','trimStart','trimEnd','offsetSec']) settings[key]=playbackSettings[key];
+    for (const key of ['bars','pitch','reverse','trimStart','trimEnd','offsetSec','rootNote','pitchOctave','pitchSteps']) settings[key]=playbackSettings[key];
     try { tickPlayback(time, absStep, audio, tempo, phraseBars); }
     finally { settings = editing; }
   }
@@ -860,7 +953,7 @@
         recordingState = isOverdubMode ? 'overdubbing' : 'recording';
         recordStartStep = absStep;
         recordStartTime = time;
-        recordTargetSteps = settings.bars * 16;
+        recordTargetSteps = settings.mode==='pitch'?Math.max(1,Math.min(settings.bars*16,Math.floor(8*tempo/15))):settings.bars*16;
         recordedChunks = [];
         updateStatusBadge();
         updateStepIndicators();
@@ -871,7 +964,24 @@
     // Active Recording / Overdubbing
     if (recordingState === 'recording' || recordingState === 'overdubbing') {
       if (absStep >= recordStartStep + recordTargetSteps) {
-        finishRecording(audio, tempo);
+        finishRecording(audio, tempo, time);
+      }
+      return;
+    }
+
+    if(settings.mode==='pitch'){
+      if(compositeBuffer&&!settings.mute&&absStep!==lastScheduledStep){
+        lastScheduledStep=absStep;
+        if(absStep%(settings.stepLength||1)===0){
+          activeSliceStep=(Math.floor(absStep/(settings.stepLength||1))+(settings.offset||0))%(settings.cycle||16)%16;
+          if(typeof document!=='undefined')document.querySelectorAll('.slice-seq-pad').forEach((pad,i)=>pad.classList.toggle('is-current-step',i===activeSliceStep));
+        }
+        const event=pitchEvent(absStep);
+        if(event){
+          activeSliceVoice=schedulePitch(audio.ctx,trackGain,time,event,tempo,(phraseBars*16-absStep%(phraseBars*16))*60/tempo/4,activeSliceVoice);
+          activeSliceStep=event.index;
+          if(activeSliceVoice)(root.HaloPulse||envRef?.pulse)?.(8,time);
+        }
       }
       return;
     }
@@ -1145,25 +1255,20 @@
     if (!rightsOk) return;
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      envRef?.toast(tr('Запись с микрофона недоступна в этом браузере', 'Microphone recording unavailable in this browser'));
+      envRef?.toast(tr('Аудиовход требует HTTPS/localhost и поддержки браузера', 'Audio input requires HTTPS/localhost and browser support'));
       return;
     }
 
-    let stream = cachedMicStream;
-    const isStreamAlive = stream && stream.active && stream.getAudioTracks().some(t => t.readyState === 'live');
-    if (isStreamAlive) {
-      stream.getAudioTracks().forEach(t => { t.enabled = true; });
-    } else {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false }
-        });
-        cachedMicStream = stream;
-      } catch (err) {
-        envRef?.toast(tr('Доступ к микрофону отклонен: ', 'Microphone access denied: ') + err.message);
-        return;
-      }
-    }
+    if(recordingActive())return;
+    try{
+      audio=audio||await envRef?.ensureAudio?.();
+      if(!audio?.ctx)throw Error(tr('Нажмите Play перед записью','Press Play before recording'));
+      connectToAudio(audio);
+      if(envRef?.isPlaying&&!envRef.isPlaying())await envRef?.startPlayback?.();
+      if(!audio.ctx.createScriptProcessor)throw Error(tr('Запись не поддерживается браузером','Recording is unsupported by this browser'));
+    }catch(err){envRef?.toast(err.message);return}
+    let stream;
+    try{stream=await inputController.acquire()}catch(err){envRef?.toast(tr('Аудиовход недоступен: ','Audio input unavailable: ')+err.message);return}
     micStream = stream;
 
     const ctx = audio.ctx;
@@ -1186,9 +1291,7 @@
     processorNode.connect(dummyGain);
     dummyGain.connect(ctx.destination);
 
-    if (settings.monitor && trackGain) {
-      micSourceNode.connect(trackGain);
-    }
+
 
     recordedChunks = [];
     recWaveData = [];
@@ -1201,6 +1304,7 @@
 
     isOverdubMode = isOverdub;
     recordingState = 'preroll';
+    updateInputUI();
     recordStartStep = -1;
     recordStartTime = 0;
     updateStatusBadge();
@@ -1210,7 +1314,7 @@
     envRef?.toast(tr('Подготовка к записи: отсчёт до начала такта…', 'Preparing to record: count-in to next bar…'));
   }
 
-  function finishRecording(audio, tempo) {
+  function finishRecording(audio, tempo, endTime = audio?.ctx?.currentTime) {
     recordingState = 'looping';
     updateStatusBadge();
     updateStepIndicators();
@@ -1236,11 +1340,8 @@
       try { dummyGain.disconnect(); } catch (_) {}
       dummyGain = null;
     }
-    if (micStream) {
-      // Mute active tracks instead of stopping them, so the browser preserves permission for next take
-      micStream.getAudioTracks().forEach(t => { t.enabled = false; });
-      micStream = null;
-    }
+    micStream=null;
+    inputController?.releaseCapture();updateInputUI();
 
     if (!recordedChunks.length) {
       envRef?.toast(tr('Запись не содержит аудио', 'Recording contains no audio'));
@@ -1260,7 +1361,8 @@
     // Latency compensation
     const sampleRate = audio.ctx.sampleRate;
     const latencyOffset = Math.max(0, Math.round((settings.latencyMs / 1000) * sampleRate));
-    const targetDur = (settings.bars * 4 * 60) / tempo;
+    const requestedDuration=(settings.mode==='pitch'?recordTargetSteps:settings.bars*16)*15/tempo;
+    const targetDur = Math.min(requestedDuration,Math.max(.04,(endTime??recordStartTime+requestedDuration)-recordStartTime));
     const targetLength = Math.max(1, Math.round(targetDur * sampleRate));
     const finalPcm = new Float32Array(targetLength);
 
@@ -1346,7 +1448,7 @@
       undoStack = [];
       IDB.saveLayer(newLayer);
 
-      const loopDur = (settings.bars * 4 * 60) / tempo;
+      const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
       compositeBuffer = buildCompositeBuffer(ctx, layers, dur);
       settings.offsetSec = 0;
       settings.trimStart = 0;
@@ -1406,10 +1508,7 @@
     reversedBuffer = null;
     recordingState = 'idle';
     stopPlayback();
-    if (cachedMicStream) {
-      try { cachedMicStream.getTracks().forEach(t => t.stop()); } catch (_) {}
-      cachedMicStream = null;
-    }
+    cancelInputCapture();inputController?.release();
     persistSettings();
     renderWaveform();
     renderUI();
@@ -1441,9 +1540,10 @@
     ctx.fillRect(0, 0, width, height);
 
     const tempo = envRef?.settings?.().tempo || 72;
-    const loopDur = (settings.bars * 4 * 60) / tempo;
+    const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
     const totalDur = compositeBuffer ? compositeBuffer.duration : 0;
     const isLonger = totalDur > loopDur + 0.05;
+    const winDur=isLonger?loopDur:totalDur;
     const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
     const trimStart = Math.max(0, Math.min(0.95, settings.trimStart || 0));
     const trimEnd = Math.max(trimStart + 0.01, Math.min(1.0, settings.trimEnd || 1));
@@ -1456,13 +1556,16 @@
       const revTag = settings.reverse ? ' · REV' : '';
       const pitchTag = (settings.pitch && settings.pitch !== 0) ? ` · ${settings.pitch > 0 ? '+' + settings.pitch : settings.pitch}st` : '';
       if (totalDur > 0) {
-        if (isLonger) {
-          title.textContent = `${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')} (${loopDur.toFixed(1)}с / ${totalDur.toFixed(1)}с · ${tr('Позиция', 'Pos')}: ${offsetSec.toFixed(1)}с)${revTag}${pitchTag}`;
+        if(settings.mode==='pitch'){
+          const window=pitchWindow(tempo),unit=tr('с','s');
+          title.textContent=`PITCH · ${window.duration.toFixed(2)}${unit} / ${totalDur.toFixed(1)}${unit} · ${noteName(settings.rootNote)}${revTag}${pitchTag}`;
+        } else if (isLonger) {
+          title.textContent = `${settings.mode==='pitch'?tr('Один семпл · PITCH','One sample · PITCH'):tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')} (${loopDur.toFixed(1)}с / ${totalDur.toFixed(1)}с · ${tr('Позиция', 'Pos')}: ${offsetSec.toFixed(1)}с)${revTag}${pitchTag}`;
         } else {
-          title.textContent = `${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')} (${totalDur.toFixed(1)}с)${revTag}${pitchTag}`;
+          title.textContent = `${settings.mode==='pitch'?tr('Один семпл · PITCH','One sample · PITCH'):tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')} (${totalDur.toFixed(1)}с)${revTag}${pitchTag}`;
         }
       } else {
-        title.textContent = `${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`;
+        title.textContent = `${settings.mode==='pitch'?tr('Один семпл · PITCH','One sample · PITCH'):tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`;
       }
     }
 
@@ -1604,7 +1707,7 @@
             ctx.fillText(String(k + 1), badgeX + badgeW / 2, mainY + 2 + badgeH / 2);
           }
         }
-      } else {
+      } else if(settings.mode==='loop') {
         // Draw Bar Division Lines & Labels inside the active window
         const barCount = settings.bars || 4;
         ctx.fillStyle = 'rgba(206, 255, 243, 0.85)';
@@ -1657,7 +1760,7 @@
       badge.textContent = 'OVERDUB';
       badge.className = 'loop-status-pill badge-overdub';
     } else if (compositeBuffer && !settings.mute) {
-      badge.textContent = tr('ПОВТОР', 'LOOP');
+      badge.textContent = settings.mode==='pitch'?'PITCH':settings.mode==='slice'?'SLICE':tr('ПОВТОР', 'LOOP');
       badge.className = 'loop-status-pill badge-looping';
     } else if (settings.mute) {
       badge.textContent = tr('MUTE', 'MUTED');
@@ -1695,11 +1798,13 @@
     if (btnUndo) btnUndo.disabled = (layers.length === 0);
   }
 
+  let panelLanguage=null;
   function createUI(container, env) {
     if (env) envRef = env;
     if (!container && typeof document !== 'undefined') container = document.getElementById('liveLoopPanel');
     if (!container) return;
-    const isSlice = (settings.mode === 'slice');
+    panelLanguage=envRef?.language?.()||'ru';
+    const isSlice = (settings.mode === 'slice'), isPitch=settings.mode==='pitch',isSequenced=isSlice||isPitch;
     const sliceCount = settings.sliceCount || 8;
     const slicePat = settings.slicePattern || 'beat';
     const cycle = settings.cycle || 16;
@@ -1708,26 +1813,26 @@
     const delayTime = settings.delayTime || '1/8';
 
     let stepsHtml = '';
-    if (isSlice) {
+    if (isSequenced) {
       stepsHtml = `
         <div class="slice-seq-card">
           <div class="slice-seq-header">
             <div class="slice-seq-header-left">
-              <span class="slice-pill-title">${tr('16-ШАГОВЫЙ ПАТТЕРН', '16-STEP SLICE PATTERN')}</span>
-              <small class="slice-seq-hint">${tr('Кликните по шагу для выбора сэмпла (1..N или пауза)', 'Click step to cycle slice or rest')}</small>
+              <span class="slice-pill-title">${isPitch?tr('16 ШАГОВ · СТУПЕНИ ЛАДА','16 STEPS · SCALE DEGREES'):tr('16-ШАГОВЫЙ ПАТТЕРН', '16-STEP SLICE PATTERN')}</span>
+              <small class="slice-seq-hint">${isPitch?tr('Нажмите: ступень 1–8 или пауза','Tap: scale degree 1–8 or rest'):tr('Кликните по шагу для выбора сэмпла (1..N или пауза)', 'Click step to cycle slice or rest')}</small>
             </div>
             <div class="slice-seq-header-actions">
-              <button type="button" class="slice-pill-btn slice-pill-rand-btn" id="sliceSeqRandBtn" title="${tr('Случайный ритм слайсов', 'Random slice pattern')}">🎲 ${tr('РАНДОМ', 'RANDOM')}</button>
-              <button type="button" class="slice-pill-btn slice-pill-reset-btn" id="sliceSeqResetBtn" title="${tr('Сбросить паттерн к начальному (BEAT)', 'Reset pattern to default (BEAT)')}">↺ ${tr('СБРОС', 'RESET')}</button>
+              <button type="button" class="slice-pill-btn slice-pill-rand-btn" id="sliceSeqRandBtn" title="${isPitch?tr('Случайный нотный рисунок','Random note pattern'):tr('Случайный ритм слайсов', 'Random slice pattern')}">🎲 ${tr('РАНДОМ', 'RANDOM')}</button>
+              <button type="button" class="slice-pill-btn slice-pill-reset-btn" id="sliceSeqResetBtn" title="${isPitch?tr('Восстановить исходный нотный рисунок','Restore initial note pattern'):tr('Сбросить паттерн к начальному (BEAT)', 'Reset pattern to default (BEAT)')}">↺ ${tr('СБРОС', 'RESET')}</button>
             </div>
           </div>
           <div class="slice-seq-grid" id="sliceSeqGrid">
             ${Array.from({ length: 16 }, (_, i) => {
-              const val = (settings.sliceSteps && typeof settings.sliceSteps[i] === 'number') ? settings.sliceSteps[i] : -1;
+              const val = settings[isPitch?'pitchSteps':'sliceSteps'][i];
               const isActive = (val >= 0);
               const isAnchor = (i % 4 === 0);
               const label = isActive ? String(val + 1) : '—';
-              return `<button type="button" class="slice-seq-pad ${isActive ? 'active' : ''} ${isAnchor ? 'anchor' : ''}" data-slice-step="${i}" title="${tr('Шаг', 'Step')} ${i + 1}: ${isActive ? tr('Слайс', 'Slice') + ' ' + (val + 1) : tr('Пауза', 'Rest')}">
+              return `<button type="button" class="slice-seq-pad ${isActive ? 'active' : ''} ${isAnchor ? 'anchor' : ''}" data-slice-step="${i}" title="${tr('Шаг', 'Step')} ${i + 1}: ${isActive ? (isPitch?tr('Ступень','Degree'):tr('Слайс', 'Slice')) + ' ' + (val + 1) : tr('Пауза', 'Rest')}">
                 <span class="slice-step-num">${i + 1}</span>
                 <span class="slice-step-val">${label}</span>
               </button>`;
@@ -1741,10 +1846,11 @@
       <div class="loop-head">
         <div class="loop-title-wrap">
           <span class="loop-mic-icon">🎙</span>
-          <strong>09 — ${isSlice ? 'SLICE' : 'LIVE LOOP'}</strong>
+          <strong>09 — ${isPitch?'PITCH':isSlice ? 'SLICE' : 'LIVE LOOP'}</strong>
           <div class="loop-mode-switch" role="tablist">
-            <button type="button" class="loop-mode-btn ${!isSlice ? 'active' : ''}" id="modeBtnLoop" title="${tr('Режим зацикленного воспроизведения и наложения', 'Continuous loop and overdub mode')}">◈ LOOP</button>
+            <button type="button" class="loop-mode-btn ${!isSequenced ? 'active' : ''}" id="modeBtnLoop" title="${tr('Режим зацикленного воспроизведения и наложения', 'Continuous loop and overdub mode')}">◈ LOOP</button>
             <button type="button" class="loop-mode-btn ${isSlice ? 'active' : ''}" id="modeBtnSlice" title="${tr('Режим нарезки сэмплов по транзиентам', 'Transient slice chopping and sequencing')}">✂ SLICE</button>
+            <button type="button" class="loop-mode-btn ${isPitch?'active':''}" id="modeBtnPitch" title="${tr('Один семпл: воспроизведение нотами без нарезки','One sample played as notes without slicing')}">♪ PITCH</button>
           </div>
         </div>
         <div class="loop-head-actions">
@@ -1756,7 +1862,25 @@
         </div>
       </div>
 
-      ${isSlice ? `
+      ${isPitch ? `
+        <div class="pitch-setup">
+          <label>${tr('ИСХОДНАЯ НОТА СЕМПЛА','SAMPLE ROOT NOTE')}
+            <select id="pitchRootNote" aria-label="${tr('Исходная нота записи','Recorded root note')}">${Array.from({length:49},(_,i)=>`<option value="${i+36}" ${settings.rootNote===i+36?'selected':''}>${noteName(i+36)}</option>`).join('')}</select>
+          </label>
+          <label>${tr('ОКТАВА МЕЛОДИИ','MELODY OCTAVE')}
+            <select id="pitchOctave" aria-label="${tr('Октава мелодии семпла','Sample melody octave')}">${[-1,0,1].map(n=>`<option value="${n}" ${settings.pitchOctave===n?'selected':''}>${n>0?'+':''}${n}</option>`).join('')}</select>
+          </label>
+          <small>${tr('Одна нота или фраза · окно до 8 с, минимум 40 мс · ±24 полутона. Укажите реальную ноту записи; высота и длительность меняются вместе. Высоты вне диапазона пропускаются.','One note or phrase · window up to 8 s, minimum 40 ms · ±24 semitones. Set the actual recorded note; pitch and playback length change together. Out-of-range notes rest.')}</small>
+          <div class="loop-btn-row">
+            <button type="button" class="glass-btn" id="sliceBtnRec">● ${tr('ЗАПИСЬ','RECORD')}</button>
+            <button type="button" class="glass-btn" id="btnLoopOverdub">🥞 OVERDUB</button>
+            <button type="button" class="glass-btn" id="btnLoopUndo" ${layers.length?'':'disabled'}>↺ ${tr('ОТМЕНА','UNDO')}</button>
+            <button type="button" class="glass-btn" id="loopImportBtn">📂 ${tr('ИМПОРТ','IMPORT')}</button>
+            <input type="file" id="loopFileInput" accept="audio/*" hidden>
+            <button type="button" class="glass-btn" id="loopClearBtn">${tr('СБРОС','CLEAR')}</button>
+          </div>
+        </div>
+      ` : isSlice ? `
         <div class="slice-toolbar">
           <div class="slice-pill-group" id="sliceCountGroup">
             <span class="slice-pill-title">SLICES:</span>
@@ -1806,9 +1930,17 @@
         </div>
       `}
 
+      <div class="loop-input-strip">
+        <label>${tr('ВХОД','INPUT')} <select id="loopInputKind" aria-label="${tr('Тип аудиовхода','Audio input type')}"><option value="microphone">${tr('Микрофон','Microphone')}</option><option value="instrument">${tr('Инструмент / аудиоинтерфейс','Instrument / audio interface')}</option></select></label>
+        <label>${tr('УСТРОЙСТВО','DEVICE')} <select id="loopInputDevice" aria-label="${tr('Устройство аудиовхода','Audio input device')}"></select></label>
+        <button type="button" class="glass-btn" id="loopInputAccess">${tr('ДОСТУП К ВХОДАМ','ENABLE INPUTS')}</button>
+        <button type="button" class="glass-btn" id="loopInputListen" aria-pressed="false">${tr('СЛУШАТЬ ВХОД','LISTEN TO INPUT')}</button>
+        <small>${tr('Файл — через ИМПОРТ. Запись — с выбранного входа. Для прослушивания используйте наушники. USB/линейный вход должен определяться системой как аудиоустройство.','Use IMPORT for a file, RECORD for the selected input. Use headphones for monitoring. USB/line input must appear as a system audio device.')}</small>
+        <label>${tr('Задержка записи, мс','Recording latency, ms')} <input id="loopInputLatency" type="number" min="0" max="200" step="1" value="${settings.latencyMs}"></label>
+      </div>
       <div class="loop-waveform-card">
         <div class="loop-wave-header">
-          <span id="loopWaveTitle">${isSlice ? `${tr('Нарезка сэмплов', 'Slice Chops')} · ${sliceCount} ${tr('кусочков', 'Slices')}` : `${tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`}</span>
+          <span id="loopWaveTitle">${isPitch?tr('Один семпл · PITCH','One sample · PITCH'):isSlice ? `${tr('Нарезка сэмплов', 'Slice Chops')} · ${sliceCount} ${tr('кусочков', 'Slices')}` : `${settings.mode==='pitch'?tr('Один семпл · PITCH','One sample · PITCH'):tr('Записанный луп', 'Recorded Loop')} · ${settings.bars} ${tr('такта', 'Bars')}`}</span>
           <span id="loopWaveBpm">72 BPM</span>
         </div>
         <div class="loop-canvas-wrap">
@@ -1850,7 +1982,7 @@
         </div>
       </div>
 
-      ${isSlice ? stepsHtml : `
+      ${isSequenced ? stepsHtml : `
         <div class="loop-actions">
           <button type="button" class="loop-action-btn loop-btn-record" id="btnLoopRecord" title="${tr('Начать запись с микрофона', 'Start recording from microphone')}">
             <span class="loop-action-glyph rec-glyph">●</span>
@@ -1872,7 +2004,7 @@
       `}
 
       <div class="loop-controls-strip">
-        ${isSlice ? `
+        ${isSequenced ? `
           <div class="loop-ctrl-group loop-slice-sound-group">
             <span class="loop-group-title">SOUND</span>
             <div class="loop-sliders-grid loop-slice-grid">
@@ -1880,7 +2012,7 @@
                 <span>${tr('ХАРАКТЕР', 'CHARACTER')} <output id="loopCharVal">${settings.character || 60}%</output></span>
                 <input type="range" id="loopCharacter" min="0" max="100" value="${settings.character || 60}">
               </label>
-              <label class="loop-slider-label" title="${tr('Длина звучания кусочка (гейт / затухание)', 'Slice gate duration and release')}">
+              <label class="loop-slider-label" title="${isPitch?tr('Гейт ноты ограничен длительностью шага','Note gate is bounded by step duration'):tr('Длина звучания кусочка (гейт / затухание)', 'Slice gate duration and release')}">
                 <span>${tr('ДЛИТЕЛЬНОСТЬ', 'DURATION')} <output id="loopDurVal">${settings.duration || 65}%</output></span>
                 <input type="range" id="loopDuration" min="10" max="100" value="${settings.duration || 65}">
               </label>
@@ -1952,7 +2084,7 @@
               <div class="loop-mini-pills">
                 <button type="button" class="slice-pill-btn ${delayTime==='1/16'?'active':''}" data-slice-delay-time="1/16">1/16</button>
                 <button type="button" class="slice-pill-btn ${delayTime==='1/8'?'active':''}" data-slice-delay-time="1/8">1/8</button>
-                <button type="button" class="slice-pill-btn ${delayTime==='1/8D'?'active':''}" data-slice-delay-time="1/8D">1/8D</button>
+                <button type="button" class="slice-pill-btn ${delayTime==='1/8d'?'active':''}" data-slice-delay-time="1/8d">1/8D</button>
                 <button type="button" class="slice-pill-btn ${delayTime==='1/4'?'active':''}" data-slice-delay-time="1/4">1/4</button>
               </div>
             </div>
@@ -2000,16 +2132,7 @@
               <input type="file" id="loopFileInput" accept="audio/*" hidden>
               <button type="button" class="glass-btn loop-clear-btn" id="loopClearBtn">🗑 ${tr('СБРОС', 'CLEAR')}</button>
             </div>
-            <div class="loop-setting-row">
-              <label class="loop-latency-label" title="${tr('Компенсация задержки микрофона', 'Microphone latency compensation')}">
-                <span>LATENCY:</span>
-                <input type="number" id="loopLatency" min="0" max="200" step="5" value="${settings.latencyMs}">ms
-              </label>
-              <label class="loop-monitor-label" title="${tr('Прямой мониторинг микрофона (выключен по умолчанию для защиты от обратной связи)', 'Direct microphone monitoring (off by default to prevent feedback)')}">
-                <input type="checkbox" id="loopMonitor" ${settings.monitor?'checked':''}>
-                <span>${tr('МОНИТОР', 'MONITOR')}</span>
-              </label>
-            </div>
+
           </div>
         `}
       </div>
@@ -2020,6 +2143,8 @@
     `;
 
     bindUIEvents(container);
+    updateInputUI();
+    if(initialized&&!hydrated)Array.from(container.querySelectorAll?.('button,input,select')||[]).forEach(control=>control.disabled=true);
     renderWaveform();
     updateStatusBadge();
     updateStepIndicators();
@@ -2031,6 +2156,17 @@
     if (!rootEl) return;
     const find = (id) => (rootEl.querySelector ? rootEl.querySelector('#' + id) : null) || (typeof document !== 'undefined' && document.getElementById ? document.getElementById(id) : null);
     const findAll = (sel) => Array.from((rootEl.querySelectorAll ? rootEl.querySelectorAll(sel) : []) || []);
+
+    const inputKind=find('loopInputKind'),inputDevice=find('loopInputDevice'),access=find('loopInputAccess'),listen=find('loopInputListen'),latency=find('loopInputLatency');
+    if(inputKind)inputKind.onchange=e=>inputController?.configure({kind:e.target.value,deviceId:''});
+    if(inputDevice)inputDevice.onchange=e=>inputController?.configure({deviceId:e.target.value});
+    if(access)access.onclick=()=>inputController?.requestAccess();
+    if(listen)listen.onclick=()=>listenInput(!inputController?.state().monitoring);
+    if(latency)latency.onchange=e=>{settings.latencyMs=Math.max(0,Math.min(200,Number(e.target.value)||0));persistSettings()};
+    const rootNote=find('pitchRootNote'),octave=find('pitchOctave');
+    if(rootNote)rootNote.onchange=e=>api.setSettings({rootNote:Number(e.target.value)});
+    if(octave)octave.onchange=e=>api.setSettings({pitchOctave:Number(e.target.value)});
+    const pitchMode=find('modeBtnPitch');if(pitchMode)pitchMode.onclick=()=>{api.setMode('pitch');stopPlayback();createUI(container)};
 
     const btnModeLoop = find('modeBtnLoop') || find('btnLoopModeLoop');
     const btnModeSlice = find('modeBtnSlice') || find('btnLoopModeSlice');
@@ -2160,6 +2296,7 @@
 
     // Slice Pattern Random & Reset Buttons
     const doRandomPattern = () => {
+      if(settings.mode==='pitch'){api.setSettings({pitchSteps:Array.from({length:16},(_,i)=>i%4===0?0:Math.random()<.4?-1:Math.floor(Math.random()*8))});createUI(container);return;}
       settings.slicePattern = 'custom';
       settings.sliceSteps = randomizeSlicePattern(settings.sliceCount || 8);
       persistSettings();
@@ -2170,6 +2307,7 @@
     };
 
     const doResetPattern = () => {
+      if(settings.mode==='pitch'){api.setSettings({pitchSteps:[...defaultSettings.pitchSteps]});createUI(container);return;}
       settings.slicePattern = 'beat';
       settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
       persistSettings();
@@ -2210,6 +2348,9 @@
           if (!Array.isArray(settings.sliceSteps) || settings.sliceSteps.length !== 16) {
             settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
           }
+          if(settings.mode==='pitch'){
+            const steps=[...settings.pitchSteps];steps[stepIdx]=steps[stepIdx]>=7?-1:steps[stepIdx]+1;api.setSettings({pitchSteps:steps});createUI(container);return;
+          }
           const curVal = (typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
           const count = settings.sliceCount || 8;
           // Cycle: -1 -> 0 -> 1 -> ... -> (count - 1) -> -1
@@ -2238,7 +2379,7 @@
         canvas.setPointerCapture?.(e.pointerId);
 
         const tempo = envRef?.settings?.().tempo || 72;
-        const loopDur = (settings.bars * 4 * 60) / tempo;
+        const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
         const totalDur = compositeBuffer.duration;
         const isLonger = totalDur > loopDur + 0.05;
 
@@ -2292,7 +2433,7 @@
         if (rect.width <= 0) return;
 
         const tempo = envRef?.settings?.().tempo || 72;
-        const loopDur = (settings.bars * 4 * 60) / tempo;
+        const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
         const totalDur = compositeBuffer.duration;
         const isLonger = totalDur > loopDur + 0.05;
         if (!isLonger) return;
@@ -2504,8 +2645,7 @@
 
     const monCheck = find('loopMonitor');
     if (monCheck) monCheck.onchange = (e) => {
-      settings.monitor = e.target.checked;
-      persistSettings();
+      listenInput(e.target.checked);
       if (settings.monitor) {
         envRef?.toast(tr('Прямой мониторинг включён · Рекомендуем наушники во избежание свиста', 'Direct mic monitor enabled · Use headphones to prevent acoustic feedback'));
       }
@@ -2515,6 +2655,7 @@
   function renderUI() {
     const container = document.getElementById('liveLoopPanel');
     if (!container) return;
+    if(container.children?.length&&panelLanguage!==(envRef?.language?.()||'ru')){createUI(container);return;}
     updateStatusBadge();
     updateStepIndicators();
     renderWaveform();
@@ -2522,6 +2663,7 @@
     if (bpmLabel && envRef?.settings) {
       bpmLabel.textContent = `${Math.round(envRef.settings().tempo || 72)} BPM`;
     }
+    const rootNote=document.getElementById('pitchRootNote'),octave=document.getElementById('pitchOctave');if(rootNote)rootNote.value=settings.rootNote;if(octave)octave.value=settings.pitchOctave;
     const instantBtn = document.getElementById('loopInstantRestart');
     if (instantBtn) instantBtn.classList.toggle('active', !!settings.instantRestart);
     const revBtn = document.getElementById('loopRevBtn');
@@ -2532,7 +2674,7 @@
     if (pitchVal) pitchVal.textContent = ((settings.pitch || 0) > 0 ? '+' + settings.pitch : (settings.pitch || 0)) + ' st';
 
     // Active slice highlight
-    if (settings.mode === 'slice') {
+    if (settings.mode === 'slice'||settings.mode==='pitch') {
       const pads = document.querySelectorAll('.slice-seq-pad');
       pads.forEach((pad, idx) => {
         pad.classList.toggle('is-current-step', idx === activeSliceStep);
@@ -2590,6 +2732,16 @@
         trackG.connect(chorG);
         chorG.gain.value = ((settings.chorus || 0) / 100) * 0.75;
         chorG.connect(engine.chorusIn);
+      }
+
+      if(settings.mode==='pitch'){
+        let previous=null;
+        const totalSteps=totalBars*16,duration=totalBars*240/tempo;
+        for(let step=0;step<totalSteps;step++){
+          const local=step*60/tempo/4,event=pitchEvent(step);
+          if(event)previous=schedulePitch(ctx,trackG,startTime+local,event,tempo,duration-local,previous);
+        }
+        return;
       }
 
       if (settings.mode === 'slice') {
@@ -2660,7 +2812,7 @@
         return;
       }
 
-      const loopDur = (settings.bars * 4 * 60) / tempo;
+      const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
       const totalDur = (totalBars * 4 * 60) / tempo;
       const bufDur = playBuf.duration;
       const isLonger = bufDur > loopDur + 0.05;
@@ -2687,9 +2839,10 @@
     } catch (_) {}
   }
 
-  function renderPhraseOffline(ctx, engine, bars, tempo, state, startTime = 0) {
-    const saved = {settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext};
+  function renderPhraseOffline(ctx, engine, bars, tempo, state, startTime = 0, key = 0) {
+    const saved = {settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext,samplerKey};
     try {
+      samplerKey=key;
       settings = copySettings({...defaultSettings,...state?.settings});
       layers = (state?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
       compositeBuffer = layers.length ? buildCompositeBuffer(ctx,layers) : null;
@@ -2698,7 +2851,7 @@
       if (compositeBuffer && settings.mode==='slice') rebuildSlices();
       renderOffline(ctx,engine,bars,tempo,startTime);
     } finally {
-      ({settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext}=saved);
+      ({settings,layers,compositeBuffer,reversedBuffer,slices,bufferContext,samplerKey}=saved);
     }
   }
 
@@ -2708,10 +2861,20 @@
 
   const api = {
     init,
+    armRecording,
+    releaseInput(){cancelInputCapture();inputController?.release()},
+    beforePhraseChange(time,audio,tempo){if(recordingState==='recording'||recordingState==='overdubbing')finishRecording(audio,tempo,time);else if(recordingState==='preroll')cancelInputCapture()},
+    listenInput,
+    getInputState:()=>inputController?.state()||{kind:'microphone',deviceId:'',devices:[],monitoring:false},
+    configureInput:value=>inputController?.configure(value),
+    refreshInputs:()=>inputController?.requestAccess(),
+    isMonitoring:()=>!!inputController?.state().monitoring,
     ready: () => ready,
     isInitialized: () => initialized,
     capturePhrase,
     restorePhrase,
+    pitchWindow,
+    pitchEvent,
     connectToAudio,
     stopPlayback,
     tick,
@@ -2734,7 +2897,8 @@
       pendingQuantizedRestart = false;
       loopAnchorStep = 0;
       lastScheduledStep = -1;
-      if (recordingState === 'preroll' || recordingState === 'recording' || recordingState === 'overdubbing') {
+      if (recordingActive()) {
+        cancelInputCapture();
         recordingState = 'idle';
         updateStatusBadge();
         updateStepIndicators();
@@ -2757,7 +2921,12 @@
       return copySettings(settings);
     },
     setSettings(newSettings) {
+      if(newSettings.rootNote!==undefined&&(!Number.isInteger(newSettings.rootNote)||newSettings.rootNote<36||newSettings.rootNote>84))throw Error('Invalid root note');
+      if(newSettings.pitchOctave!==undefined&&![-1,0,1].includes(newSettings.pitchOctave))throw Error('Invalid pitch octave');
+      if(newSettings.pitchSteps!==undefined&&(!Array.isArray(newSettings.pitchSteps)||newSettings.pitchSteps.length!==16||newSettings.pitchSteps.some(n=>!Number.isInteger(n)||n< -1||n>7)))throw Error('Invalid pitch pattern');
+      if(newSettings.pitchSteps)newSettings={...newSettings,pitchSteps:[...newSettings.pitchSteps]};
       const oldPitch = settings.pitch;
+      const oldRoot=settings.rootNote,oldOctave=settings.pitchOctave,oldSteps=JSON.stringify(settings.pitchSteps);
       const oldRev = settings.reverse;
       const oldStart = settings.trimStart;
       const oldEnd = settings.trimEnd;
@@ -2770,7 +2939,8 @@
       renderUI();
 
       if (settings.instantRestart) {
-        if ((newSettings.pitch !== undefined && newSettings.pitch !== oldPitch) ||
+        if ((settings.rootNote!==oldRoot||settings.pitchOctave!==oldOctave||JSON.stringify(settings.pitchSteps)!==oldSteps)||
+            (newSettings.pitch !== undefined && newSettings.pitch !== oldPitch) ||
             (newSettings.reverse !== undefined && newSettings.reverse !== oldRev) ||
             (newSettings.trimStart !== undefined && newSettings.trimStart !== oldStart) ||
             (newSettings.offsetSec !== undefined && newSettings.offsetSec !== oldOffset)) {
@@ -2809,6 +2979,7 @@
     renderOfflineSong,
     renderPhraseOffline,
     clearAllData() {
+      cancelInputCapture();inputController?.release();
       clearAllLayers();
       layerLibrary.clear();
       IDB.clearAll();
@@ -2817,7 +2988,7 @@
       return settings.mode || 'loop';
     },
     setMode(m) {
-      if (m === 'loop' || m === 'slice') {
+      if (['loop','slice','pitch'].includes(m)) {
         settings.mode = m;
         if (m === 'slice') rebuildSlices();
         persistSettings();
@@ -2865,10 +3036,7 @@
 
   if (typeof window !== 'undefined') {
     window.addEventListener?.('pagehide', () => {
-      if (cachedMicStream) {
-        try { cachedMicStream.getTracks().forEach(t => t.stop()); } catch (_) {}
-        cachedMicStream = null;
-      }
+      cancelInputCapture();inputController?.release();
     });
   }
 

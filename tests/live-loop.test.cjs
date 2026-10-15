@@ -136,6 +136,8 @@ function createEnvironment() {
   const i18nCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'i18n.js'), 'utf8');
   vm.runInContext(i18nCode, context);
 
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'src', 'audio-input.js'), 'utf8'), context);
+
   // Load live-loop
   const liveLoopCode = fs.readFileSync(path.join(__dirname, '..', 'src', 'live-loop.js'), 'utf8');
   vm.runInContext(liveLoopCode, context);
@@ -833,6 +835,24 @@ test('Track 09 createUI and HTML structure integrity in LOOP and SLICE modes', (
   assert.ok(sliceContainer.innerHTML.includes('id="slicePatRandBtn"'), 'Pattern random button present');
   assert.ok(sliceContainer.innerHTML.includes('id="slicePatResetBtn"'), 'Pattern reset button present');
   validateHtmlTagBalance(sliceContainer.innerHTML, 'SLICE');
+  HaloLiveLoop.setMode('pitch');
+  const pitchContainer=makeContainer();HaloLiveLoop.createUI(pitchContainer,mockAppEnv);
+  validateHtmlTagBalance(pitchContainer.innerHTML,'PITCH');
+  let locale='en';const localized={...mockAppEnv,language:()=>locale};
+  HaloLiveLoop.createUI(pitchContainer,localized);pitchContainer.children=[{}];
+  env.document.getElementById=id=>id==='liveLoopPanel'?pitchContainer:null;
+  locale='ru';HaloLiveLoop.renderUI();assert.ok(pitchContainer.innerHTML.includes('ИСХОДНАЯ НОТА СЕМПЛА'));assert.ok(pitchContainer.innerHTML.includes('ДОСТУП К ВХОДАМ'));
+  locale='en';HaloLiveLoop.renderUI();assert.ok(pitchContainer.innerHTML.includes('SAMPLE ROOT NOTE'));
+
+  assert.ok(pitchContainer.innerHTML.includes('09 — PITCH'));
+  assert.ok(pitchContainer.innerHTML.includes('id="pitchRootNote"'));
+  assert.ok(pitchContainer.innerHTML.includes('id="sliceBtnRec"'));
+  assert.ok(!pitchContainer.innerHTML.includes('data-slice-count='));
+  for(const html of [loopContainer.innerHTML,sliceContainer.innerHTML,pitchContainer.innerHTML]){
+    for(const id of ['modeBtnPitch','loopInputDevice','loopInputListen','loopInputAccess','loopFileInput'])assert.ok(html.includes('id="'+id+'"'));
+    const ids=[...html.matchAll(/id="([^"]+)"/g)].map(m=>m[1]);assert.equal(new Set(ids).size,ids.length,'Each control ID is unique');
+  }
+
 });
 
 
@@ -842,4 +862,78 @@ test('Track 09 long loop is clipped at the shared phrase end and explicit transp
  loop.addLayer({id:99,duration:20,sampleRate:44100,pcm:new Float32Array(44100*20)},ctx);
  const audio={ctx,master:ctx.createGain()};loop.connectToAudio(audio);loop.setSettings({bars:8,instantRestart:false});loop.onPlay(0,0);loop.tick(0,0,audio,120,4);
  assert.equal(starts[0].d,8,'Eight-bar sample cannot run past four-bar phrase');loop.stopPlayback(8);assert.ok(stops.includes(8.005));
+});
+
+
+test('PITCH uses one sample with diatonic notes, explicit root, bounded shifts and isolated saved pattern',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop;env.HaloComposition=require('../src/composition.js');
+ loop.setMode('pitch');loop.setSettings({pitchSteps:[0,1,2,3,4,5,6,7,-1,-1,-1,-1,-1,-1,-1,-1],density:100,rootNote:62});
+ assert.equal(loop.pitchEvent(0,0).note,62);assert.equal(loop.pitchEvent(2,0).note,65);assert.equal(loop.pitchEvent(2,6).note,66);assert.equal(loop.pitchEvent(7,0).rate,2);assert.equal(loop.pitchEvent(8,0),null);
+ const state=loop.capturePhrase();state.settings.pitchSteps[0]=7;assert.equal(loop.getSettings().pitchSteps[0],0);
+ loop.setSettings({rootNote:36});assert.equal(loop.pitchEvent(0,0),null,'Out-of-range notes rest rather than becoming out of key');
+ for(const bad of [{rootNote:35},{rootNote:60.5},{pitchOctave:2},{pitchSteps:[9]}])assert.throws(()=>loop.setSettings(bad));
+});
+
+test('PITCH live and offline scheduling agree on notes, trim, reverse, key, gate and shared phrase bounds',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),starts=[];env.HaloComposition=require('../src/composition.js');
+ ctx.createBufferSource=()=>{const source={playbackRate:{value:1},connect(){},disconnect(){},start(time,offset,duration){starts.push({time,offset,duration,rate:this.playbackRate.value})},stop(){}};return source};
+ const audio={ctx,master:ctx.createGain()};loop.connectToAudio(audio);loop.addLayer({id:999,sampleRate:44100,duration:12,pcmL:new Float32Array(44100*12)},ctx);
+ loop.setMode('pitch');loop.setSettings({instantRestart:false,rootNote:62,pitchOctave:1,density:100,trimStart:.25,trimEnd:.5,offsetSec:2,reverse:true,pitchSteps:[0,-1,-1,-1,2,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1]});
+ assert.equal(loop.pitchWindow().startSec,4);assert.equal(loop.pitchWindow().duration,2);
+ loop.onPlay(0,0);for(let step=0;step<64;step++)loop.tick(step/8,step,audio,120,4,6);
+ const live=starts.splice(0);assert.equal(live.length,8);assert.equal(live[0].rate,2);assert.equal(live[0].offset,6);assert.ok(live.every(s=>s.duration<=2&&s.duration/s.rate<=.125));
+ loop.renderPhraseOffline(ctx,audio,4,120,loop.capturePhrase(),3,6);
+ assert.deepEqual(starts.map(s=>({...s,time:s.time-3})),live);
+ assert.equal(loop.getSettings().pitchSteps[4],2);
+});
+
+test('PITCH pending note edits wait for the phrase when Instant Restart is off',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),rates=[];env.HaloComposition=require('../src/composition.js');
+ ctx.createBufferSource=()=>({playbackRate:{value:1},connect(){},disconnect(){},start(){rates.push(this.playbackRate.value)},stop(){}});
+ const audio={ctx,master:ctx.createGain()};loop.connectToAudio(audio);loop.addLayer({id:123,duration:1,sampleRate:44100,pcmL:new Float32Array(44100)},ctx);loop.setMode('pitch');loop.setSettings({instantRestart:false,density:100,pitchSteps:Array(16).fill(0)});loop.onPlay(0,0);loop.tick(0,0,audio,120,4);
+ loop.setSettings({rootNote:50});loop.tick(.125,1,audio,120,4);assert.equal(rates.at(-1),1);loop.tick(8,64,audio,120,4);assert.equal(rates.at(-1),2);
+});
+
+
+test('all Track 09 modes record the selected input; PITCH bounds takes to eight seconds',async()=>{
+ for(const mode of ['loop','slice','pitch']){
+  const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),calls=[],tracks=[],processors=[];
+  ctx.createMediaStreamSource=()=>({connect(){},disconnect(){}});
+  ctx.createScriptProcessor=()=>{const p={connect(){},disconnect(){}};processors.push(p);return p};
+  env.navigator.mediaDevices.getUserMedia=async constraints=>{calls.push(constraints);const track={readyState:'live',stop(){this.readyState='ended'}};tracks.push(track);return {active:true,getAudioTracks:()=>[track],getTracks:()=>[track]}};
+  env.navigator.mediaDevices.enumerateDevices=async()=>[{kind:'audioinput',deviceId:'test-interface',label:'Test interface'}];
+  const audio={ctx,master:ctx.createGain()};loop.init({isPlaying:()=>true,language:()=> 'en',ensureAudio:async()=>audio,settings:()=>({tempo:120}),confirm:async()=>true,toast(){}});
+  loop.setMode(mode);loop.setSettings({copyrightConfirmed:true,bars:8,latencyMs:0});loop.configureInput({kind:'instrument',deviceId:'test-interface'});
+  await loop.armRecording(false,audio,120);assert.equal(calls[0].audio.deviceId.exact,'test-interface');
+  loop.tick(0,0,audio,120,8);processors[0].onaudioprocess({inputBuffer:{getChannelData:()=>new Float32Array(44100*9).fill(.1)}});
+  const last=mode==='pitch'?64:128;ctx.currentTime=last/8;loop.tick(last/8,last,audio,120,8);
+  assert.equal(loop.getLayerCount(),1);assert.ok(loop.getLayers()[0].duration<=(mode==='pitch'?8:16));assert.equal(tracks[0].readyState,'ended');
+ }
+});
+
+
+test('recording PCM sample rates are resampled for context/export without changing pitch or duration',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),rate=48000,pcm=new Float32Array(rate/10);
+ for(let i=0;i<pcm.length;i++)pcm[i]=.2*Math.sin(2*Math.PI*440*i/rate);
+ const buffer=loop.buildCompositeBuffer(ctx,[{sampleRate:rate,duration:.1,pcmL:pcm}],.1);
+ assert.equal(buffer.length,4410);assert.equal(buffer.sampleRate,44100);
+ for(const i of [1,50,100,1000,4000])assert.ok(Math.abs(buffer.getChannelData(0)[i]-.2*Math.sin(2*Math.PI*440*i/44100))<.0002);
+});
+
+
+test('loaded waveforms draw finite geometry in LOOP, SLICE and PITCH including longer sample windows',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),calls=[];
+ const drawing=new Proxy({}, {get(target,key){return target[key]||((...args)=>{if(['fillRect','strokeRect','moveTo','lineTo'].includes(key))assert.ok(args.every(Number.isFinite),key+' geometry');calls.push(key)})}});
+ const canvas={clientWidth:600,clientHeight:110,classList:{toggle(){}},getContext:()=>drawing};
+ env.document.getElementById=id=>id==='loopCanvas'?canvas:null;
+ loop.addLayer({id:123,duration:12,sampleRate:44100,pcmL:new Float32Array(44100*12)},ctx);
+ for(const mode of ['loop','slice','pitch']){loop.setMode(mode);loop.setSettings({bars:1,trimStart:.1,trimEnd:.8});assert.doesNotThrow(()=>loop.renderWaveform());}
+ assert.ok(calls.includes('fillRect'));assert.ok(calls.includes('fillText'));
+});
+
+
+test('pending IndexedDB hydration cannot erase a restored phrase audio reference',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop;loop.init({});
+ loop.restorePhrase({version:1,settings:{mode:'pitch',rootNote:57},layerIds:[1234]});
+ assert.deepEqual(Array.from(loop.capturePhrase().layerIds),[1234]);assert.equal(loop.capturePhrase().settings.rootNote,57);
 });

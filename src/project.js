@@ -8,11 +8,13 @@
   if(!value||value.version!==1||!Array.isArray(value.layerIds)||value.layerIds.length>128)throw Error('Invalid Track 09');
   const layerIds=value.layerIds.map(id=>{if(!Number.isSafeInteger(id)||id<0)throw Error('Invalid audio reference');return id});
   const input=value.settings;if(!input||typeof input!=='object'||Array.isArray(input))throw Error('Invalid Track 09 settings');
-  const settings={},ranges={bars:[1,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],latencyMs:[0,200],pitch:[-12,12],character:[0,100],duration:[0,100],density:[0,100],chorus:[0,100],cycle:[4,32],stepLength:[1,4],offset:[0,15]};
+  const settings={},ranges={bars:[1,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],latencyMs:[0,200],pitch:[-12,12],rootNote:[36,84],pitchOctave:[-1,1],character:[0,100],duration:[0,100],density:[0,100],chorus:[0,100],cycle:[4,32],stepLength:[1,4],offset:[0,15]};
   for(const [key,range] of Object.entries(ranges))if(input[key]!==undefined)settings[key]=number(input[key],...range);
   for(const key of ['mute','solo','monitor','copyrightConfirmed','instantRestart','reverse'])if(input[key]!==undefined){if(typeof input[key]!=='boolean')throw Error('Invalid Track 09 flag');settings[key]=input[key]}
-  for(const [key,allowed] of Object.entries({bars:[1,2,4,8],stepLength:[1,2,4],mode:['loop','slice'],sliceCount:[4,8,16],slicePattern:['beat','chrono','shuffle','arp','arpeggio','custom'],delayTime:['1/16','1/8','1/8d','1/4']}))if(input[key]!==undefined){if(!allowed.includes(input[key]))throw Error('Invalid Track 09 option');settings[key]=input[key]}
+  for(const [key,allowed] of Object.entries({bars:[1,2,4,8],stepLength:[1,2,4],mode:['loop','slice','pitch'],sliceCount:[4,8,16],slicePattern:['beat','chrono','shuffle','arp','arpeggio','custom'],delayTime:['1/16','1/8','1/8d','1/4']}))if(input[key]!==undefined){if(!allowed.includes(input[key]))throw Error('Invalid Track 09 option');settings[key]=input[key]}
   if(settings.trimStart!==undefined&&settings.trimEnd!==undefined&&settings.trimStart>=settings.trimEnd)throw Error('Invalid audio trim');
+  for(const key of ['rootNote','pitchOctave'])if(settings[key]!==undefined&&!Number.isInteger(settings[key]))throw Error('Invalid pitch note');
+  if(input.pitchSteps!==undefined){if(!Array.isArray(input.pitchSteps)||input.pitchSteps.length!==16||input.pitchSteps.some(n=>!Number.isInteger(n)||n< -1||n>7))throw Error('Invalid pitch steps');settings.pitchSteps=[...input.pitchSteps]}
   if(input.sliceSteps!==undefined){if(!Array.isArray(input.sliceSteps)||input.sliceSteps.length!==16||input.sliceSteps.some(n=>!Number.isInteger(n)||n< -1||n>15))throw Error('Invalid slice steps');settings.sliceSteps=[...input.sliceSteps]}
   return {version:1,layerIds,settings};
  }
