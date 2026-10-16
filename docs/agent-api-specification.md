@@ -1,16 +1,16 @@
 # HALO External Agent API and WebMCP Site Tools
 
-Implemented contract — 2026-10-16. Source of truth: `src/agent.js`, `src/site-tools.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
+Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
 
 ## External-agent workflow
 
 The user asks Codex to open HALO and compose or edit music. The agent discovers Site Tools, calls `halo_get_context`, reads real catalog/roles/state/notes, composes original parts, validates a batch, inspects its preview, applies it and reads back the result. Corrections are made by the external agent using returned validation errors. There is no mood-preset planner or automatic inference/repair client in HALO. No manual JSON exchange is required; structured arguments travel through browser tools. Manual editing remains available.
 
-The AI / Agents tab is informational and bilingual: native availability, external-agent example and page-context fallback. No provider, endpoint, model, token, chat or connect controls.
+The AI / Agents tab is informational and bilingual: WebMCP availability, Chrome flag instructions and two client workflows. No provider, endpoint, model, token, chat or connect controls.
 
 ## Automatic discovery and lifecycle
 
-`HaloBrowserTools.install(HaloAgentAPI, environment)` runs at workspace initialization regardless of the selected tab. It prefers `document.modelContext.registerTool(descriptor,{signal})`; older `navigator.modelContext.registerTool` is used only if present. Each descriptor includes JSON input schema, description, annotations and execute. Native execution returns MCP text content containing JSON `{ok:true,result}` or `{ok:false,error}` with `isError:true`. Validation itself returns `{valid:false,error}` for an invalid transaction. Registration errors are caught and shown in status; fallback remains available. AbortController removes owned registrations on ordinary page teardown; BFCache pagehide preserves them. Other site tools are never cleared. No browser feature is simulated or security policy bypassed.
+`HaloBrowserTools.install(internalAPI, environment)` runs at workspace initialization regardless of the selected tab. It uses only `document.modelContext.registerTool(descriptor,{signal})`; no legacy navigator adapter is used. Each descriptor includes JSON input schema, description, annotations and execute. Native execution returns MCP text content containing JSON `{ok:true,result}` or `{ok:false,error}` with `isError:true`. Validation itself returns `{valid:false,error}` for an invalid transaction. Registration errors are caught and shown in status; agent commands remain unavailable. AbortController removes owned registrations on ordinary page teardown; BFCache pagehide preserves them. Other site tools are never cleared. No browser feature is simulated or security policy bypassed.
 
 Primary references: [Chrome imperative WebMCP API](https://developer.chrome.com/docs/ai/webmcp/imperative-api), [WebMCP proposal](https://github.com/webmachinelearning/webmcp). Browser/agent support is required; ordinary browsers still play HALO without WebMCP.
 
@@ -30,23 +30,11 @@ Primary references: [Chrome imperative WebMCP API](https://developer.chrome.com/
 
 The browser may decorate tool names in discovery. Use the returned names. Musical edits load paused; native tools do not grant microphone permission or override audio policy. Autosave uses existing local project persistence. Preview is a non-mutating diff; user/agent review happens outside an embedded chat.
 
-## Page-context fallback
+## WebMCP-only access
 
-With actual page JavaScript access, use `window.HaloSiteTools.listTools()` and `await window.HaloSiteTools.callTool(name,args)`. Results are the unwrapped data (native execution adds the content envelope). `getStatus()`, `ready`, `subscribe(fn)` and `dispose()` expose bridge lifecycle. Direct `window.HaloAgentAPI` also remains available; call `setEnabled(true)` before direct writes. Read-only DOM evaluation does not provide this capability. No separate service, backend, extension, API key or runtime network dependency is required.
+Only `document.modelContext.registerTool` is supported. There is no legacy navigator adapter, public `window.HaloSiteTools` command dispatcher or `window.HaloAgentAPI` instance. The musical API remains internal to the workspace and WebMCP callbacks. Unsupported browsers keep manual playback/editing but cannot receive agent commands. Browser registration does not prove that a particular agent can discover/call tools.
 
-Example agent-side page-context transaction (not a manual user step):
-
-```js
-const bridge = window.HaloSiteTools;
-const {revision} = await bridge.callTool('halo_get_state');
-const transaction = {schemaVersion:1, baseRevision:revision, operations:[
-  {op:'track.patch', trackIndex:5, values:{space:40}}
-]};
-const check = await bridge.callTool('halo_validate_operations',{transaction});
-if (!check.valid) throw Error(check.error);
-await bridge.callTool('halo_preview_operations',{transaction});
-await bridge.callTool('halo_apply_operations',{transaction});
-```
+For local Chrome testing open `chrome://flags/#enable-webmcp-testing`, select Enabled, relaunch and reopen HALO. The flag does not connect an agent to the browser. See [client workflow](webmcp-clients.md) for two step-by-step cases and verification boundaries.
 
 ## Internal API and batch protocol
 
@@ -88,4 +76,6 @@ HALO issues no model/network requests and stores no agent credentials. Reading e
 
 ## Verification
 
-See [WebMCP acceptance record](regression-webmcp-2026-10-16.md). Native Site Tools were discovered and called by Codex on the real local app, composing a new original G-major eight-bar score. This is not a mock model response. Public Pages still needs deployment of this change; the current published build has no tools. The fallback has automated contract coverage but no live end-to-end verification in the current read-only page-evaluation environment. Physical mobile and Safari/iOS remain untested.
+See [WebMCP acceptance record](regression-webmcp-2026-10-16.md). Native Site Tools were discovered and called by Codex on the real local app, composing a new original G-major eight-bar score. This is not a mock model response. Public Pages still needs deployment of this change; the current published build has no tools. The page-context fallback was removed; current Windows acceptance is recorded separately in regression-webmcp-windows-2026-10-16.md. Physical mobile and Safari/iOS remain untested.
+
+History loading may normalize the selected phrase master/Track 09 metadata. Undo/Redo compares against the actual canonical state returned by that load, and still rejects later manual edits. See the Windows regression report for the verified cross-format round trip.

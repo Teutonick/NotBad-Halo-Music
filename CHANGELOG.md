@@ -1,6 +1,10 @@
+## 2026-10-16 — WebMCP-only agent access
+
+Removed page-context command fallback, exposed API instance and legacy navigator registration. Simplified RU/EN availability and added Chrome flag guidance plus two step-by-step client cases with honest verification status. Fixed false Redo conflicts after history-load normalization; manual changes still block conflicting history. Windows native acceptance is recorded separately.
+
 ## 2026-10-16 — External browser agents / WebMCP
 
-Replaced the embedded AI client with automatic browser-native Site Tools over HaloAgentAPI. AI / Agents now reports compatibility and external-agent instructions, with no provider, model, token or chat controls. Batch validation/preview/application, session Undo/Redo, playback request and portable project export share existing project state. Page-context fallback remains available; no service or runtime dependency added. Native Codex browser composition verified locally; public deployment and live fallback acceptance remain distinct pending checks. See docs/regression-webmcp-2026-10-16.md.
+Replaced the embedded AI client with automatic browser-native Site Tools over HaloAgentAPI. AI / Agents now reports compatibility and external-agent instructions, with no provider, model, token or chat controls. Batch validation/preview/application, session Undo/Redo, playback request and portable project export share existing project state. Page-context fallback was subsequently removed (see above); no service or runtime dependency added. Native Codex browser composition verified locally; public deployment and live fallback acceptance remain distinct pending checks. See docs/regression-webmcp-2026-10-16.md.
 
 ## 2026-10-16 — AI Composer vertical workflow (superseded above)
 

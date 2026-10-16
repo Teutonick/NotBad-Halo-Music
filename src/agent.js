@@ -21,7 +21,7 @@
   }
   function capabilities(){
    const R=env.sounds.roles;
-   return {version:2,transport:'External browser agents through WebMCP Site Tools or the page-context API; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4'],phrases:32,sections:32,totalBars:128,bytes:524288,operations:256},
+   return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4'],phrases:32,sections:32,totalBars:128,bytes:524288,operations:256},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},
@@ -61,12 +61,12 @@
    });
    return {state:current,capabilities:copy(capabilities()),music,history:{undo:undo.length,redo:redo.length}};
   }
-  async function history(from,to,side){const h=from.at(-1);if(!h)throw Error('NO_HISTORY');const current=state(),expected=side==='before'?h.after:h.before;if(JSON.stringify(current.project)!==JSON.stringify(expected.project)||JSON.stringify(current.visual)!==JSON.stringify(expected.visual))throw Error('CONFLICT_REVISION_MISMATCH');const result=await write(h[side].project,h[side].visual);from.pop();to.push(h);return result}
+  async function history(from,to,side){const h=from.at(-1);if(!h)throw Error('NO_HISTORY');const current=state(),expected=side==='before'?h.after:h.before;if(JSON.stringify(current.project)!==JSON.stringify(expected.project)||JSON.stringify(current.visual)!==JSON.stringify(expected.visual))throw Error('CONFLICT_REVISION_MISMATCH');const result=await write(h[side].project,h[side].visual);h[side]=copy(result);from.pop();to.push(h);return result}
   return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after')};
  }
  function panel(host,api,language){
   if(root.HaloBrowserTools)return root.HaloBrowserTools.panel(host,api,language);
-  host.textContent=language()==='ru'?'API агента: window.HaloAgentAPI':'Agent API: window.HaloAgentAPI';
+  host.textContent=language()==='ru'?'WebMCP недоступен.':'WebMCP unavailable.';
  }
  const api={create,panel};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloAgent=api;
 })(globalThis);

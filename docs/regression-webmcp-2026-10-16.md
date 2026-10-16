@@ -1,3 +1,5 @@
+> Historical Mac acceptance before the WebMCP-only change. Page-context fallback described below has been removed. Current Windows evidence: [report](regression-webmcp-windows-2026-10-16.md).
+
 # External-agent / WebMCP acceptance — 2026-10-16
 
 ## Environment and scope

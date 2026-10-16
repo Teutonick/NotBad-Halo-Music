@@ -9,7 +9,7 @@ function app(loop,agentTest=false){
  let current=P.capture(tracks,4,81,2,0,S,M),reset=false;
  const env={language:()=> 'en',snapshot:()=>{const p=Song.copy(current);if(loop)p.liveLoop=loop.capturePhrase();return p},load:async p=>{current=Song.copy(p);loop?.restorePhrase(p.liveLoop)},toast:s=>messages.push(s),download(){},tracks:[],pulse(){},setTracks(){},finish(){},rewind(){},resetting:()=>reset};
  const sandbox={document:doc,HaloLiveLoop:loop,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloProject:P,HaloSounds:S,TextEncoder,Blob,setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:'',href:'https://example.com/halo/'},navigator:{}};
- if(agentTest){sandbox.HaloAgent=require('../src/agent.js');sandbox.navigator.userActivation={hasBeenActive:false};}
+ if(agentTest){sandbox.HaloAgent={...require('../src/agent.js'),create(env){const api=require('../src/agent.js').create(env);sandbox.testAgent=api;return api}};sandbox.navigator.userActivation={hasBeenActive:false};}
  sandbox.window=sandbox;sandbox.addEventListener=(k,f)=>events[k]=f;vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/song-ui.js','utf8'),sandbox);const ui=sandbox.HaloSongUI.install(env);
  const dock=get('bottom').children[0],blocks=dock.children[1].children[0];
  const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
@@ -171,7 +171,7 @@ test('song UI switches phrase-owned Track 09 before its audio tick and restart r
 test('external playback reports required activation without entering a hanging audio resume; later calls remain available',async()=>{
  const a=app(null,true);let starts=0,playing=false;
  a.env.isPlaying=()=>playing;a.env.startPlayback=async()=>{starts++;playing=true};a.env.pausePlayback=async()=>{playing=false};
- const api=a.sandbox.HaloAgentAPI;api.setEnabled(true);
+ const api=a.sandbox.testAgent;api.setEnabled(true);
  assert.equal((await api.setPlayback({playing:true})).reason,'AUDIO_GESTURE_REQUIRED');assert.equal(starts,0);
  a.sandbox.navigator.userActivation.hasBeenActive=true;
  assert.equal((await api.setPlayback({playing:true})).playing,true);assert.equal(starts,1);

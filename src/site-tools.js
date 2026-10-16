@@ -1,6 +1,7 @@
 /* Browser-native WebMCP bridge over the one existing musical API. No network. */
 (function(root){
  'use strict';
+ const bridges=new WeakMap();
  const clone=x=>JSON.parse(JSON.stringify(x));
  const empty={type:'object',properties:{},additionalProperties:false};
  const transaction={type:'object',required:['schemaVersion','baseRevision','operations'],additionalProperties:false,properties:{schemaVersion:{type:'integer',const:1},baseRevision:{type:'integer',minimum:0},operations:{type:'array',minItems:1,maxItems:256,items:{type:'object',required:['op'],properties:{op:{type:'string',enum:['track.patch','phrase.patch','master.patch','project.replace','composition.replace','visual.patch']},trackIndex:{type:'integer',minimum:0,maximum:7},phraseId:{type:'integer',minimum:1},values:{type:'object'},project:{type:'object'}},additionalProperties:false}}}};
@@ -30,11 +31,10 @@
   async function callTool(name,args={},options={}){
    if(disposed)throw Error('SITE_TOOLS_DISPOSED');if(options.signal?.aborted)throw Error('CANCELLED');
    const def=definitions.get(name);if(!def)throw Error('UNKNOWN_TOOL');check(args,def.inputSchema);
-   // Native callers and context callers share the same validation and state.
+   // Only registered WebMCP callbacks dispatch musical commands.
    return clone(await def.run(args));
   }
-  function descriptors(){return [...definitions.values()].map(({run,...d})=>clone(d))}
-  function context(){const doc=env.document||root.document,nav=env.navigator||root.navigator;for(const [surface,mc] of [['document.modelContext',doc?.modelContext],['navigator.modelContext',nav?.modelContext]])if(typeof mc?.registerTool==='function')return {surface,mc};return null}
+  function context(){const mc=(env.document||root.document)?.modelContext;return typeof mc?.registerTool==='function'?{surface:'document.modelContext',mc}:null}
   async function register(){
    const serial=++generation;controller?.abort();controller=null;
    const selected=context();status={state:selected?'registering':'unsupported',surface:selected?.surface||null,registered:[],errors:[]};announce();
@@ -57,20 +57,30 @@
   function hide(event){if(event?.persisted)return;dispose()}
   function dispose(){if(disposed)return;disposed=true;generation++;controller?.abort();controller=null;env.removeEventListener?.('pagehide',hide);listeners.clear()}
   env.addEventListener?.('pagehide',hide);
-  const bridge={version:1,listTools:descriptors,callTool,getStatus:()=>clone(status),subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn)},dispose,ready:null};
-  bridge.ready=register();return bridge;
+  const bridge={version:1,getStatus:()=>clone(status),subscribe(fn){listeners.add(fn);return()=>listeners.delete(fn)},dispose,ready:null};
+  bridges.set(api,bridge);bridge.ready=register();return bridge;
  }
  function panel(host,api,language){
-  const tr=(ru,en)=>language()==='ru'?ru:en,bridge=root.HaloSiteTools;
+  const tr=(ru,en)=>language()==='ru'?ru:en,bridge=bridges.get(api);
   host._haloAgentUnsubscribe?.();host.replaceChildren();
   function el(tag,text){const n=document.createElement(tag);n.textContent=text;host.append(n);return n}
   el('strong',tr('AI / АГЕНТЫ','AI / AGENTS'));
   const status=el('p','');status.setAttribute('role','status');
-  function update(){const s=bridge?.getStatus();status.textContent=s?.state==='registered'?tr('WebMCP: инструменты доступны браузерному агенту.','WebMCP: tools registered for browser agents.'):s?.state==='failed'?tr('WebMCP: регистрация не завершена. Доступен API контекста страницы.','WebMCP: registration failed. The page-context API is available.'):s?.state==='registering'?tr('WebMCP: регистрация инструментов…','WebMCP: registering tools…'):tr('WebMCP недоступен в этом браузере. API контекста страницы доступен; агенту нужен доступ к JavaScript страницы.','WebMCP is unavailable in this browser. The page-context API is available; the agent needs page JavaScript access.')}
+  function update(){const s=bridge?.getStatus();status.textContent=s?.state==='registered'?tr('WebMCP доступен. Инструменты HALO зарегистрированы.','WebMCP available. HALO tools are registered.'):tr('WebMCP недоступен.','WebMCP unavailable.')}
   update();if(bridge)host._haloAgentUnsubscribe=bridge.subscribe(update);
-  el('p',tr('Откройте этот HALO во внешнем агенте (например, Codex) и попросите: «Сочини оригинальный новогодний джингл на 8 тактов из встроенных звуков, создай свои ноты, бас, гармонию и эффекты». Агент читает каталог, сочиняет и применяет команды непосредственно в этой вкладке.','Open this HALO in an external agent such as Codex and ask: “Compose an original eight-bar New Year jingle with built-in sounds, your own notes, bass, harmony and effects.” The agent reads the catalog, composes and applies commands directly in this tab.'));
-  el('p',tr('Настраивать модель, ключ или чат внутри HALO не нужно. Совместимость зависит от браузера и агента. Воспроизведение может потребовать обычного нажатия Play из-за правил браузерного аудио.','No model, key or chat setup in HALO. Compatibility depends on the browser and agent. Browser audio policy may still require an ordinary Play gesture.'));
-  el('p',tr('Для агента: начните с halo_get_context. Резервный интерфейс: window.HaloSiteTools.listTools(), callTool(name, args) и window.HaloAgentAPI. Пакеты проверяются до применения; доступны Undo/Redo. Аудиозаписи Track 09 не предоставляются.','For agents: start with halo_get_context. Fallback: window.HaloSiteTools.listTools(), callTool(name, args) and window.HaloAgentAPI. Batches validate before application; Undo/Redo are available. Track 09 recordings are not exposed.'));
+  el('p',tr('Как включить в Chrome: откройте chrome://flags/#enable-webmcp-testing, выберите Enabled, перезапустите браузер и снова откройте HALO. Если флага нет, эта версия браузера не предоставляет такой способ включения.','Enable in Chrome: open chrome://flags/#enable-webmcp-testing, select Enabled, relaunch the browser and reopen HALO. If the flag is absent, this browser version does not offer this activation method.'));
+  el('p',tr('Статус выше подтверждает регистрацию в этой вкладке. Для работы агент должен обнаружить и вызвать инструменты WebMCP именно этой вкладки.','The status above confirms registration in this tab. To work, the agent must discover and call this tab’s WebMCP tools.'));
+  function steps(title,items){el('strong',title);const list=el('ol','');for(const text of items){const item=document.createElement('li');item.textContent=text;list.append(item)}}
+  steps(tr('1. Codex / Claude / Antigravity','1. Codex / Claude / Antigravity'),[
+   tr('Запустите агент с браузерным подключением, поддерживающим WebMCP. Откройте HALO в браузере этого подключения. Для локальной проверки: http://127.0.0.1:8766/.','Start the agent with a browser connection that supports WebMCP. Open HALO in that connection’s browser. For a local check: http://127.0.0.1:8766/.'),
+   tr('Попросите: «Открой http://127.0.0.1:8766/ и через WebMCP вызови halo_get_context. Сообщи число дорожек и доступные звуки. Если инструментов нет, остановись и сообщи об этом».','Ask: “Open http://127.0.0.1:8766/ and call halo_get_context through WebMCP. Report the track count and available sounds. If no tools are available, stop and report it.”'),
+   tr('После успешного чтения: «Через WebMCP сочини и примени оригинальный новогодний джингл на 8 тактов: своя мелодия колокольчиков, бас, гармония и мягкая перкуссия. Сначала проверь и просмотри пакет изменений, затем примени и прочитай результат».','After a successful read: “Through WebMCP, compose and apply an original eight-bar New Year jingle: your own bell melody, bass, harmony and soft percussion. Validate and preview the batch first, then apply it and read back the result.”')]);
+  steps(tr('2. Bionic','2. Bionic'),[
+   tr('Откройте HALO в управляемой агентом вкладке Bionic. В этой вкладке должен отображаться статус «WebMCP доступен».','Open HALO in the Bionic tab controlled by its agent. This tab must show “WebMCP available”.'),
+   tr('В чате агента для этой вкладки попросите: «Через WebMCP вызови halo_get_context на открытой странице HALO. Если инструменты не обнаружены, остановись и сообщи об этом».','In the agent chat for this tab, ask: “Call halo_get_context through WebMCP on the open HALO page. If tools are not discovered, stop and report it.”'),
+   tr('После успешного чтения используйте запрос про джингл из первого примера. Для опубликованного HALO замените локальный адрес его HTTPS-адресом.','After a successful read, use the jingle request from the first example. For a published HALO, replace the local address with its HTTPS URL.')]);
+  el('p',tr('Примеры описывают порядок проверки. Поддержка зависит от конкретного браузерного подключения агента; Claude, Antigravity и Bionic пока не проверены нами. Флаг Chrome включает браузерный API, но сам не подключает агента к вкладке.','These examples describe the verification workflow. Support depends on the agent’s specific browser connection; Claude, Antigravity and Bionic have not yet been verified by us. The Chrome flag enables the browser API but does not itself connect an agent to the tab.'));
+  el('p',tr('После применения нажмите Play для прослушивания. Изменения сохраняются локально; доступны Undo/Redo через WebMCP. Аудиозаписи Track 09 агенту не передаются.','After application, press Play to listen. Changes save locally; Undo/Redo are available through WebMCP. Track 09 recordings are not provided to the agent.'));
  }
  const api={install,panel};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloBrowserTools=api;
 })(globalThis);
