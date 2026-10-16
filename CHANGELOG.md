@@ -1,6 +1,9 @@
 ## 2026-10-16 — File Bridge and Integration Mode Switcher
 
 Added dual agent integration modes (WebMCP and File Bridge) to the AI / Agents tab, selectable via a switcher and saved in `localStorage['halo-agent-bridge-mode']`.
+- **Mode Switcher Polish:** Active mode button adopts high-contrast light styling (`#e8f7f5` background, `#071822` text, white border, soft glow); inactive button remains translucent dark.
+- **Concise WebMCP Guidance:** Streamlined in-app panel to concise enablement steps (`chrome://flags/#enable-webmcp-testing`), explicitly emphasizing support exclusively on platforms featuring embedded browsers with WebMCP (e.g., Codex).
+- **File Bridge Window Layout (`src/file-bridge.js`, `index.html`):** Increased agent panel max/min height in File Bridge mode (`max-height: min(500px, 60vh); min-height: 280px;`) and dynamic dock tab stretching so synchronization controls (`⟳`, `⯈`, `✕`, status, and pending request banner) fit comfortably without clipping.
 - **File Bridge (`src/file-bridge.js`):** Integrates desktop Chrome and Edge native File System Access API (`window.showDirectoryPicker`) without external dependencies or backends.
 - **Dynamic Agent Context Exporter:** Exports five live context files to `HALO-Bridge/`: `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and `project-state.json`.
 - **Strict User Review Gate:** Incoming agent commands in `requests/` are validated against schema, limits, and base revision, and presented in the UI with explicit «Apply Changes» and «Reject» buttons. No silent auto-application by default.

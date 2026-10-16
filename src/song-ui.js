@@ -124,7 +124,9 @@
     tracks.hidden=!isInst;panel.hidden=!isComp;loopPanel.hidden=!isLoop;agentPanel.hidden=tab!=='agents';if(tab==='agents'&&agent)root.HaloAgent.panel(agentPanel,agent,env.language);
     bottom.classList.toggle('composition-view',isComp);
     bottom.classList.toggle('live-loop-view',isLoop);
+    bottom.classList.toggle('agent-view',tab==='agents');
     document.body?.classList.toggle('song-view',isComp);
+    try{window.dispatchEvent(new Event('resize'));}catch{}
     for(const [b,label,active] of [
       [instrumentsButton,tr('Инструменты','Instruments'),isInst],
       [compositionButton,tr('Композиция','Composition'),isComp],

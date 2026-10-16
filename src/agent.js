@@ -85,16 +85,23 @@
   bar.append(label);
 
   const btnWebmcp=document.createElement('button');
-  btnWebmcp.className='glass-btn'+(mode==='webmcp'?' active':'');
-  btnWebmcp.style.cssText='font-size:10px;padding:3px 12px;min-height:28px;';
+  btnWebmcp.className='glass-btn';
   btnWebmcp.textContent='WebMCP';
-  btnWebmcp.setAttribute('aria-pressed',String(mode==='webmcp'));
 
   const btnFile=document.createElement('button');
-  btnFile.className='glass-btn'+(mode==='file'?' active':'');
-  btnFile.style.cssText='font-size:10px;padding:3px 12px;min-height:28px;';
+  btnFile.className='glass-btn';
   btnFile.textContent='File Bridge';
-  btnFile.setAttribute('aria-pressed',String(mode==='file'));
+
+  function updateButtons(m){
+    const activeStyle='font-size:10px;padding:4px 14px;min-height:28px;background:#e8f7f5;color:#071822;border:1px solid #ffffff;font-weight:700;border-radius:999px;cursor:pointer;box-shadow:0 0 14px rgba(232,247,245,.45);transition:all .18s ease;';
+    const inactiveStyle='font-size:10px;padding:4px 14px;min-height:28px;background:rgba(12,22,38,.65);color:#8ea7b7;border:1px solid rgba(186,215,231,.2);font-weight:500;border-radius:999px;cursor:pointer;transition:all .18s ease;';
+    btnWebmcp.style.cssText=m==='webmcp'?activeStyle:inactiveStyle;
+    btnFile.style.cssText=m==='file'?activeStyle:inactiveStyle;
+    btnWebmcp.classList.toggle('active',m==='webmcp');
+    btnWebmcp.setAttribute('aria-pressed',String(m==='webmcp'));
+    btnFile.classList.toggle('active',m==='file');
+    btnFile.setAttribute('aria-pressed',String(m==='file'));
+  }
 
   bar.append(btnWebmcp,btnFile);
   host.append(bar);
@@ -106,10 +113,8 @@
   function renderView(m){
    mode=m;
    try{localStorage.setItem('halo-agent-bridge-mode',m);}catch{}
-   btnWebmcp.classList.toggle('active',m==='webmcp');
-   btnWebmcp.setAttribute('aria-pressed',String(m==='webmcp'));
-   btnFile.classList.toggle('active',m==='file');
-   btnFile.setAttribute('aria-pressed',String(m==='file'));
+   host.classList.toggle('filebridge-mode',m==='file');
+   updateButtons(m);
    view._haloCleanup?.();
    view.replaceChildren();
 
@@ -120,6 +125,7 @@
     if(root.HaloFileBridge)root.HaloFileBridge.panel(view,api,language);
     else view.textContent=tr('File Bridge недоступен.','File Bridge unavailable.');
    }
+   try{window.dispatchEvent(new Event('resize'));}catch{}
   }
 
   btnWebmcp.onclick=()=>renderView('webmcp');

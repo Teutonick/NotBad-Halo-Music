@@ -63,24 +63,30 @@
  function panel(host,api,language){
   const tr=(ru,en)=>language()==='ru'?ru:en,bridge=bridges.get(api);
   host._haloAgentUnsubscribe?.();host.replaceChildren();
-  function el(tag,text){const n=document.createElement(tag);n.textContent=text;host.append(n);return n}
-  el('strong',tr('AI / АГЕНТЫ','AI / AGENTS'));
-  const status=el('p','');status.setAttribute('role','status');
-  function update(){const s=bridge?.getStatus();status.textContent=s?.state==='registered'?tr('WebMCP доступен. Инструменты HALO зарегистрированы.','WebMCP available. HALO tools are registered.'):tr('WebMCP недоступен.','WebMCP unavailable.')}
+  function el(tag,text,style=''){const n=document.createElement(tag);n.textContent=text;if(style)n.style.cssText=style;host.append(n);return n}
+
+  el('strong',tr('WebMCP Site Tools','WebMCP Site Tools'),'display:block;font-size:11px;margin-bottom:4px;color:#d6f6ec;');
+  const status=el('p','','margin:2px 0 8px;font-size:11px;');status.setAttribute('role','status');
+  function update(){
+   const s=bridge?.getStatus();
+   if(s?.state==='registered'){
+    status.innerHTML='<span style="color:#7ef0dc;font-weight:600;">✓ '+tr('WebMCP доступен. Инструменты HALO зарегистрированы в этой вкладке.','WebMCP available. HALO tools are registered in this tab.')+'</span>';
+   }else{
+    status.innerHTML='<span style="color:#f8a39a;">⚠ '+tr('WebMCP недоступен в этом браузере.','WebMCP unavailable in this browser.')+'</span>';
+   }
+  }
   update();if(bridge)host._haloAgentUnsubscribe=bridge.subscribe(update);
-  el('p',tr('Как включить в Chrome: откройте chrome://flags/#enable-webmcp-testing, выберите Enabled, перезапустите браузер и снова откройте HALO. Если флага нет, эта версия браузера не предоставляет такой способ включения.','Enable in Chrome: open chrome://flags/#enable-webmcp-testing, select Enabled, relaunch the browser and reopen HALO. If the flag is absent, this browser version does not offer this activation method.'));
-  el('p',tr('Статус выше подтверждает регистрацию в этой вкладке. Для работы агент должен обнаружить и вызвать инструменты WebMCP именно этой вкладки.','The status above confirms registration in this tab. To work, the agent must discover and call this tab’s WebMCP tools.'));
-  function steps(title,items){el('strong',title);const list=el('ol','');for(const text of items){const item=document.createElement('li');item.textContent=text;list.append(item)}}
-  steps(tr('1. Codex / Claude / Antigravity','1. Codex / Claude / Antigravity'),[
-   tr('Запустите агент с браузерным подключением, поддерживающим WebMCP. Откройте HALO в браузере этого подключения. Для локальной проверки: http://127.0.0.1:8766/.','Start the agent with a browser connection that supports WebMCP. Open HALO in that connection’s browser. For a local check: http://127.0.0.1:8766/.'),
-   tr('Попросите: «Открой http://127.0.0.1:8766/ и через WebMCP вызови halo_get_context. Сообщи число дорожек и доступные звуки. Если инструментов нет, остановись и сообщи об этом».','Ask: “Open http://127.0.0.1:8766/ and call halo_get_context through WebMCP. Report the track count and available sounds. If no tools are available, stop and report it.”'),
-   tr('После успешного чтения: «Через WebMCP сочини и примени оригинальный новогодний джингл на 8 тактов: своя мелодия колокольчиков, бас, гармония и мягкая перкуссия. Сначала проверь и просмотри пакет изменений, затем примени и прочитай результат».','After a successful read: “Through WebMCP, compose and apply an original eight-bar New Year jingle: your own bell melody, bass, harmony and soft percussion. Validate and preview the batch first, then apply it and read back the result.”')]);
-  steps(tr('2. Bionic','2. Bionic'),[
-   tr('Откройте HALO в управляемой агентом вкладке Bionic. В этой вкладке должен отображаться статус «WebMCP доступен».','Open HALO in the Bionic tab controlled by its agent. This tab must show “WebMCP available”.'),
-   tr('В чате агента для этой вкладки попросите: «Через WebMCP вызови halo_get_context на открытой странице HALO. Если инструменты не обнаружены, остановись и сообщи об этом».','In the agent chat for this tab, ask: “Call halo_get_context through WebMCP on the open HALO page. If tools are not discovered, stop and report it.”'),
-   tr('После успешного чтения используйте запрос про джингл из первого примера. Для опубликованного HALO замените локальный адрес его HTTPS-адресом.','After a successful read, use the jingle request from the first example. For a published HALO, replace the local address with its HTTPS URL.')]);
-  el('p',tr('Примеры описывают порядок проверки. Поддержка зависит от конкретного браузерного подключения агента; Claude, Antigravity и Bionic пока не проверены нами. Флаг Chrome включает браузерный API, но сам не подключает агента к вкладке.','These examples describe the verification workflow. Support depends on the agent’s specific browser connection; Claude, Antigravity and Bionic have not yet been verified by us. The Chrome flag enables the browser API but does not itself connect an agent to the tab.'));
-  el('p',tr('После применения нажмите Play для прослушивания. Изменения сохраняются локально; доступны Undo/Redo через WebMCP. Аудиозаписи Track 09 агенту не передаются.','After application, press Play to listen. Changes save locally; Undo/Redo are available through WebMCP. Track 09 recordings are not provided to the agent.'));
+
+  const infoBox=document.createElement('div');
+  infoBox.style.cssText='font-size:10.5px;line-height:1.55;color:#b2cbdb;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:9px 12px;margin-bottom:8px;';
+  infoBox.innerHTML=`
+   <div style="margin-bottom:6px;"><strong>${tr('Как включить в Chrome:','How to enable in Chrome:')}</strong> ${tr('откройте <code>chrome://flags/#enable-webmcp-testing</code>, выберите <strong>Enabled</strong>, перезапустите браузер и откройте HALO.','open <code>chrome://flags/#enable-webmcp-testing</code>, select <strong>Enabled</strong>, relaunch Chrome and reopen HALO.')}</div>
+   <div style="margin-bottom:6px;color:#a8dcd4;"><strong>${tr('Поддерживаемые платформы:','Supported platforms:')}</strong> ${tr('поддерживаются только те платформы, которые имеют собственный встроенный браузер с поддержкой протокола WebMCP (например, <strong>Codex</strong>).','supported only on platforms that have their own browser with WebMCP support (for example, <strong>Codex</strong>).')}</div>
+   <div style="font-size:10px;color:#89a8ba;">${tr('Пример запроса для Codex: «Открой http://127.0.0.1:8766/ и через WebMCP вызови halo_get_context. Сочини и примени оригинальный новогодний джингл на 8 тактов через halo_apply_operations».','Example prompt for Codex: “Open http://127.0.0.1:8766/ and call halo_get_context through WebMCP. Compose and apply an original eight-bar New Year jingle via halo_apply_operations.”')}</div>
+  `;
+  host.append(infoBox);
+
+  el('p',tr('После применения изменений нажмите Play для прослушивания. Результат сохраняется локально в проекте; доступны Undo/Redo через WebMCP.','After applying changes, press Play to listen. The result is autosaved locally in the project; Undo/Redo are available via WebMCP.'),'font-size:10px;color:#7e9cae;margin:4px 0;');
  }
  const api={install,panel};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloBrowserTools=api;
 })(globalThis);

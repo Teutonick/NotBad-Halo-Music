@@ -726,20 +726,20 @@ HALO-Bridge/
       } else {
         const btnSync = document.createElement('button');
         btnSync.className = 'glass-btn';
-        btnSync.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;';
+        btnSync.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(20,44,70,.7);border-color:#75dfd6;color:#d8fff8;cursor:pointer;';
         btnSync.textContent = tr('⟳ Обновить файлы', '⟳ Sync Files');
         btnSync.title = tr('Перезаписать AGENT_GUIDE.md, capabilities.json, instruments.json, music-rules.json и project-state.json', 'Rewrite AGENT_GUIDE.md, capabilities.json, instruments.json, music-rules.json and project-state.json');
         btnSync.onclick = () => bridge.syncFiles();
 
         const btnCheck = document.createElement('button');
         btnCheck.className = 'glass-btn';
-        btnCheck.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;';
+        btnCheck.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(20,44,70,.7);border-color:#75dfd6;color:#d8fff8;cursor:pointer;';
         btnCheck.textContent = tr('⯈ Проверить requests/', '⯈ Check requests/');
         btnCheck.onclick = () => bridge.checkFolder();
 
         const btnDisconnect = document.createElement('button');
         btnDisconnect.className = 'glass-btn';
-        btnDisconnect.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;opacity:.7;';
+        btnDisconnect.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(70,25,25,.55);border-color:#f8a39a;color:#ffdada;cursor:pointer;';
         btnDisconnect.textContent = tr('✕ Отключить', '✕ Disconnect');
         btnDisconnect.onclick = () => bridge.disconnect();
 
