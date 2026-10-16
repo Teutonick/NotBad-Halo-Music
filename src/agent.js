@@ -65,8 +65,68 @@
   return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after')};
  }
  function panel(host,api,language){
-  if(root.HaloBrowserTools)return root.HaloBrowserTools.panel(host,api,language);
-  host.textContent=language()==='ru'?'WebMCP недоступен.':'WebMCP unavailable.';
+  const tr=(ru,en)=>language()==='ru'?ru:en;
+  host._haloAgentUnsubscribe?.();
+  host.replaceChildren();
+
+  let mode='webmcp';
+  try{
+   const saved=localStorage.getItem('halo-agent-bridge-mode');
+   if(saved==='file'||saved==='webmcp')mode=saved;
+  }catch{}
+
+  const bar=document.createElement('div');
+  bar.className='agent-mode-switcher';
+  bar.style.cssText='display:flex;align-items:center;gap:8px;margin-bottom:12px;';
+
+  const label=document.createElement('span');
+  label.style.cssText='font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:#8cabb9;';
+  label.textContent=tr('Режим интеграции:','Integration mode:');
+  bar.append(label);
+
+  const btnWebmcp=document.createElement('button');
+  btnWebmcp.className='glass-btn'+(mode==='webmcp'?' active':'');
+  btnWebmcp.style.cssText='font-size:10px;padding:3px 12px;min-height:28px;';
+  btnWebmcp.textContent='WebMCP';
+  btnWebmcp.setAttribute('aria-pressed',String(mode==='webmcp'));
+
+  const btnFile=document.createElement('button');
+  btnFile.className='glass-btn'+(mode==='file'?' active':'');
+  btnFile.style.cssText='font-size:10px;padding:3px 12px;min-height:28px;';
+  btnFile.textContent='File Bridge';
+  btnFile.setAttribute('aria-pressed',String(mode==='file'));
+
+  bar.append(btnWebmcp,btnFile);
+  host.append(bar);
+
+  const view=document.createElement('div');
+  view.className='agent-mode-view';
+  host.append(view);
+
+  function renderView(m){
+   mode=m;
+   try{localStorage.setItem('halo-agent-bridge-mode',m);}catch{}
+   btnWebmcp.classList.toggle('active',m==='webmcp');
+   btnWebmcp.setAttribute('aria-pressed',String(m==='webmcp'));
+   btnFile.classList.toggle('active',m==='file');
+   btnFile.setAttribute('aria-pressed',String(m==='file'));
+   view._haloCleanup?.();
+   view.replaceChildren();
+
+   if(m==='webmcp'){
+    if(root.HaloBrowserTools)root.HaloBrowserTools.panel(view,api,language);
+    else view.textContent=tr('WebMCP недоступен.','WebMCP unavailable.');
+   }else{
+    if(root.HaloFileBridge)root.HaloFileBridge.panel(view,api,language);
+    else view.textContent=tr('File Bridge недоступен.','File Bridge unavailable.');
+   }
+  }
+
+  btnWebmcp.onclick=()=>renderView('webmcp');
+  btnFile.onclick=()=>renderView('file');
+  renderView(mode);
+
+  host._haloAgentUnsubscribe=()=>{view._haloCleanup?.()};
  }
  const api={create,panel};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloAgent=api;
 })(globalThis);

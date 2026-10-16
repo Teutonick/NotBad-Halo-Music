@@ -28,7 +28,7 @@ HALO is a browser music and relaxation constructor. Shape a soundscape, find a p
 | **Track 09: Live Loop & Jam** | An optional 9th audio layer synchronized to the transport: record microphone takes with pre-roll, import audio files, loop in 1/2/4/8 bars, trim waveforms, and overdub non-destructively. |
 | **Keep what you make** | Edit phrase steps, shape timbres and spatial effects, enable background playback for uninterrupted listening across tabs and apps, save projects, share compact links and export WAV. MP3 is available when the browser provides a compatible native codec. |
 
-**The core generator needs no AI.** Original motifs, ensemble rules and seeded variation run locally. External browser agents such as Codex can also compose and edit through WebMCP Site Tools. HALO creates every sound locally.
+**The core generator needs no AI.** Original motifs, ensemble rules and seeded variation run locally. External agents such as Codex, Antigravity or Bionic can also compose and edit through WebMCP Site Tools or the local File Bridge. HALO creates every sound locally.
 
 ## From silence to sound
 

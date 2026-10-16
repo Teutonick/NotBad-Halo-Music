@@ -1,0 +1,375 @@
+{
+  "schemaVersion": 1,
+  "engine": "NotBad Halo Music Constructor",
+  "version": 2,
+  "transport": "Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools",
+  "limits": {
+    "bpm": [
+      30,
+      200
+    ],
+    "bars": [
+      4,
+      8
+    ],
+    "tracks": 8,
+    "stepsPerBar": 16,
+    "timeSignatures": [
+      "4/4"
+    ],
+    "phrases": 32,
+    "sections": 32,
+    "totalBars": 128,
+    "bytes": 524288,
+    "operations": 256
+  },
+  "operations": [
+    {
+      "op": "track.patch",
+      "description": "Update specific parameters, steps, and notes of a voice slot (0..7)",
+      "required": [
+        "op",
+        "trackIndex",
+        "values"
+      ],
+      "optional": [
+        "phraseId (required in multi-phrase compositions)"
+      ],
+      "allowedValues": [
+        "instrument",
+        "sound",
+        "generator",
+        "on",
+        "steps",
+        "exact",
+        "sequence",
+        "noteEvents",
+        "noteTranspose",
+        "level",
+        "density",
+        "character",
+        "duration",
+        "space",
+        "delay",
+        "delayTime",
+        "chorus"
+      ]
+    },
+    {
+      "op": "phrase.patch",
+      "description": "Update phrase properties: bars, startStep, seed, key, liveLoop",
+      "required": [
+        "op",
+        "values"
+      ],
+      "allowedValues": [
+        "bars",
+        "startStep",
+        "seed",
+        "key",
+        "liveLoop"
+      ]
+    },
+    {
+      "op": "master.patch",
+      "description": "Update master tempo (30..200 BPM), volume (0..100%), 3-band EQ (-9..9 dB) and stereo width (0..100%)",
+      "required": [
+        "op",
+        "values"
+      ],
+      "allowedValues": [
+        "tempo",
+        "masterVolume",
+        "mix"
+      ]
+    },
+    {
+      "op": "project.replace",
+      "description": "Replace the entire single-phrase project snapshot",
+      "required": [
+        "op",
+        "project"
+      ]
+    },
+    {
+      "op": "composition.replace",
+      "description": "Replace the entire multi-phrase song structure",
+      "required": [
+        "op",
+        "project"
+      ]
+    },
+    {
+      "op": "visual.patch",
+      "description": "Update visual scene (ORBIT/BLOOM/CURRENT), motion (DRIFT/IN TIME/PHRASE), effects (CLASSIC/COSMIC/HYPER)",
+      "required": [
+        "op",
+        "values"
+      ]
+    }
+  ],
+  "trackFields": [
+    "instrument",
+    "sound",
+    "generator",
+    "on",
+    "steps",
+    "exact",
+    "sequence",
+    "noteEvents",
+    "noteTranspose",
+    "level",
+    "density",
+    "character",
+    "duration",
+    "space",
+    "delay",
+    "delayTime",
+    "chorus"
+  ],
+  "phraseFields": [
+    "bars",
+    "startStep",
+    "seed",
+    "key",
+    "liveLoop"
+  ],
+  "masterFields": [
+    "tempo",
+    "masterVolume",
+    "mix"
+  ],
+  "parameters": {
+    "voice": {
+      "range": [
+        0,
+        100
+      ],
+      "fields": [
+        "level",
+        "density",
+        "character",
+        "duration",
+        "space",
+        "delay",
+        "chorus"
+      ],
+      "density": "Generated probability only; exact steps bypass density",
+      "duration": "Per-track envelope, bounded by role; no per-note duration",
+      "sequence": {
+        "length": [
+          4,
+          32
+        ],
+        "stepLength": [
+          1,
+          2,
+          4
+        ],
+        "offset": "integer 0..length-1; exact steps bypass cycle"
+      }
+    },
+    "master": {
+      "masterVolume": [
+        0,
+        100
+      ],
+      "defaultVolume": 50,
+      "mix": {
+        "low": [
+          -9,
+          9
+        ],
+        "mid": [
+          -9,
+          9
+        ],
+        "high": [
+          -9,
+          9
+        ],
+        "width": [
+          0,
+          100
+        ]
+      },
+      "eqHz": [
+        120,
+        1000,
+        6000
+      ],
+      "pan": "Core pan fixed per slot scaled by width; bass/pulse near center",
+      "dynamics": "Fixed peak-protection compressor, not editable"
+    },
+    "fx": {
+      "space": "Shared 2.8 s convolution reverb send",
+      "delay": "Shared BPM-synced feedback",
+      "delayTime": [
+        "1/16",
+        "1/8",
+        "1/8d",
+        "1/4"
+      ],
+      "chorus": "Shared stereo chorus send"
+    }
+  },
+  "visuals": {
+    "scene": [
+      "ORBIT",
+      "BLOOM",
+      "CURRENT"
+    ],
+    "motion": [
+      "DRIFT",
+      "IN TIME",
+      "PHRASE"
+    ],
+    "effects": [
+      "CLASSIC",
+      "COSMIC",
+      "HYPER"
+    ],
+    "writable": [],
+    "geometry": "Fixed slot index i, radius=(135+24*i)*responsiveScale; melody/arpeggio/harmony are outer slots. Track 09 outermost. No orbit reorder/radius/speed/phase/direction setters. Scenes only in DRIFT; shared clock owns notes. PHRASE markers show actual scheduled steps. Visual-only operations must never change music."
+  },
+  "track09": {
+    "audioSentToModel": false,
+    "settings": "Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.",
+    "ranges": {
+      "bars": [
+        1,
+        2,
+        4,
+        8
+      ],
+      "level": [
+        0,
+        100
+      ],
+      "pan": [
+        -100,
+        100
+      ],
+      "space": [
+        0,
+        100
+      ],
+      "delay": [
+        0,
+        100
+      ],
+      "chorus": [
+        0,
+        100
+      ],
+      "character": [
+        0,
+        100
+      ],
+      "duration": [
+        0,
+        100
+      ],
+      "density": [
+        0,
+        100
+      ],
+      "pitch": [
+        -12,
+        12
+      ],
+      "rootNote": [
+        36,
+        84
+      ],
+      "pitchOctave": [
+        -1,
+        0,
+        1
+      ],
+      "trimStart": [
+        0,
+        0.95
+      ],
+      "trimEnd": [
+        0.01,
+        1
+      ],
+      "offsetSec": [
+        0,
+        120
+      ],
+      "cycle": [
+        4,
+        32
+      ],
+      "stepLength": [
+        1,
+        2,
+        4
+      ],
+      "offset": [
+        0,
+        15
+      ]
+    },
+    "modes": [
+      "loop",
+      "slice",
+      "pitch"
+    ],
+    "patterns": "16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest",
+    "flags": [
+      "mute",
+      "solo",
+      "reverse",
+      "instantRestart"
+    ],
+    "unsupported": [
+      "upload",
+      "record",
+      "enable monitoring",
+      "read PCM"
+    ]
+  },
+  "composition": {
+    "schema": {
+      "format": "halo-composition",
+      "version": 1,
+      "tempo": "30..200",
+      "masterVolume": "0..100",
+      "mix": "same as master",
+      "repeat": "boolean",
+      "phrases": [
+        {
+          "id": "unique integer 1..1000000",
+          "label": "optional 1..10 letters/digits",
+          "project": "complete version-1 project"
+        }
+      ],
+      "sections": [
+        {
+          "phrase": "existing phrase ID",
+          "name": [
+            "intro",
+            "verse",
+            "verse2",
+            "chorus",
+            "bridge",
+            "outro",
+            "phrase"
+          ],
+          "repeats": "1..8",
+          "fade": [
+            "none",
+            "in",
+            "out"
+          ]
+        }
+      ]
+    },
+    "durationSeconds": "totalBars * 240 / tempo (4/4)",
+    "repeatedReferences": "Same phrase ID shares edits; new ID+deep copy creates independent variation",
+    "transitions": "Section boundary, optional one-phrase fade in/out; no crossfade"
+  }
+}

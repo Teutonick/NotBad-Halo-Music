@@ -1,0 +1,855 @@
+/* HALO File Bridge for desktop Chrome/Edge via native File System Access API. Zero server, 100% static. */
+(function(root){
+  'use strict';
+  const bridges = new WeakMap();
+
+  function clone(x){ return JSON.parse(JSON.stringify(x)); }
+
+  function generateCapabilities(caps){
+    return {
+      schemaVersion: 1,
+      engine: 'NotBad Halo Music Constructor',
+      version: caps.version || 2,
+      transport: 'Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools',
+      limits: caps.limits,
+      operations: [
+        {
+          op: 'track.patch',
+          description: 'Update specific parameters, steps, and notes of a voice slot (0..7)',
+          required: ['op', 'trackIndex', 'values'],
+          optional: ['phraseId (required in multi-phrase compositions)'],
+          allowedValues: caps.trackFields
+        },
+        {
+          op: 'phrase.patch',
+          description: 'Update phrase properties: bars, startStep, seed, key, liveLoop',
+          required: ['op', 'values'],
+          allowedValues: caps.phraseFields
+        },
+        {
+          op: 'master.patch',
+          description: 'Update master tempo (30..200 BPM), volume (0..100%), 3-band EQ (-9..9 dB) and stereo width (0..100%)',
+          required: ['op', 'values'],
+          allowedValues: caps.masterFields
+        },
+        {
+          op: 'project.replace',
+          description: 'Replace the entire single-phrase project snapshot',
+          required: ['op', 'project']
+        },
+        {
+          op: 'composition.replace',
+          description: 'Replace the entire multi-phrase song structure',
+          required: ['op', 'project']
+        },
+        {
+          op: 'visual.patch',
+          description: 'Update visual scene (ORBIT/BLOOM/CURRENT), motion (DRIFT/IN TIME/PHRASE), effects (CLASSIC/COSMIC/HYPER)',
+          required: ['op', 'values']
+        }
+      ],
+      trackFields: caps.trackFields,
+      phraseFields: caps.phraseFields,
+      masterFields: caps.masterFields,
+      parameters: caps.parameters,
+      visuals: caps.visuals,
+      track09: caps.track09,
+      composition: caps.composition
+    };
+  }
+
+  function generateInstruments(caps){
+    function findCompatible(catalog, worldName) {
+      if (!catalog) return [];
+      const res = [];
+      for (const [slotKey, bank] of Object.entries(catalog)) {
+        for (const s of (bank.sounds || [])) {
+          res.push({
+            world: worldName,
+            instrument: slotKey,
+            sound: s.id,
+            name: s.name,
+            compatibleRoles: s.playback?.compatibleRoles || [],
+            affinityRoles: s.playback?.affinityRoles || [],
+            noteRange: s.playback?.range || [24, 96]
+          });
+        }
+      }
+      return res;
+    }
+
+    const allSounds = [
+      ...findCompatible(caps.catalog?.ambient, 'ambient'),
+      ...findCompatible(caps.catalog?.reactor, 'reactor')
+    ];
+
+    const roles = (caps.roles || []).map((r, i) => ({
+      trackIndex: i,
+      slot: r.slot,
+      role: r.id,
+      name: r.label,
+      description: r.description,
+      policy: r.policy,
+      noteRange: { minMidi: r.minMidi || 24, maxMidi: r.maxMidi || 96 },
+      allowedBanks: ['ambient', 'reactor'],
+      compatibleSounds: allSounds
+        .filter(s => s.compatibleRoles.includes(r.id))
+        .map(s => ({
+          world: s.world,
+          instrument: s.instrument,
+          sound: s.sound,
+          name: s.name,
+          affinity: s.affinityRoles.includes(r.id),
+          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
+        }))
+    }));
+
+    const parameterGlossary = {
+      character: {
+        range: [0, 100],
+        musicalMeaning: {
+          melodic_and_bells: 'Controls spectral brightness, overtone richness and chime brilliance (higher = brighter crystalline chime; lower = soft mellow fundamental)',
+          bass_and_sub: 'Controls harmonic saturation, drive and warmth (higher = warm saturated growl; lower = pure sub fundamental pulse)',
+          percussion_and_drums: 'Controls transient snap, click bite, and attack sharpness (higher = punchy attack; lower = soft thud)',
+          pads_and_strings: 'Controls filter resonance and high-frequency presence'
+        }
+      },
+      duration: {
+        range: [0, 100],
+        musicalMeaning: 'Voice envelope release / decay time (0 = short staccato or muted pluck, 100 = sustained ringing tails and ambient washes). Bounded by role acoustic policy.'
+      },
+      space: {
+        range: [0, 100],
+        musicalMeaning: 'Send level into shared 2.8s convolution reverb bus for depth, distance, and cosmic wash.'
+      },
+      delay: {
+        range: [0, 100],
+        musicalMeaning: 'Send level into BPM-synchronized stereo feedback delay.'
+      },
+      delayTime: {
+        options: ['1/16', '1/8', '1/8d', '1/4'],
+        musicalMeaning: 'Delay tap division. 1/8d provides dotted-eighth polyrhythmic groove; 1/16 gives tight slapback; 1/8 and 1/4 create spacious echoes.'
+      },
+      chorus: {
+        range: [0, 100],
+        musicalMeaning: 'Stereo chorus modulation send for shimmering pitch detuning and width expansion.'
+      },
+      level: {
+        range: [0, 100],
+        musicalMeaning: 'Individual voice gain level (0..100%).'
+      },
+      density: {
+        range: [0, 100],
+        musicalMeaning: 'Algorithmic note probability for procedural generation. Bypassed when exact=true.'
+      }
+    };
+
+    return {
+      schemaVersion: 1,
+      description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
+      tracks: roles,
+      parameterGlossary,
+      soundWorlds: {
+        ambient: {
+          description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
+          catalog: caps.catalog?.ambient || {}
+        },
+        reactor: {
+          description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
+          catalog: caps.catalog?.reactor || {}
+        }
+      }
+    };
+  }
+
+  function generateMusicRules(caps){
+    return {
+      schemaVersion: 1,
+      description: 'HALO Musical Rules, Transport, Time Signatures, Rhythmic Grid, and Harmony Guidelines.',
+      timeSignature: '4/4',
+      tempo: { min: 30, max: 200, default: 72 },
+      grid: {
+        stepsPerBar: 16,
+        stepDuration: '1 sixteenth note (1/16)',
+        quarterNotes: [0, 4, 8, 12],
+        eighthNotes: [0, 2, 4, 6, 8, 10, 12, 14],
+        sixteenthNotes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+        rests: 'A rest or pause is created simply by omitting the step index from the "steps" array.'
+      },
+      phraseLengths: {
+        allowedBars: [4, 8],
+        stepsIn4Bars: 64,
+        stepsIn8Bars: 128,
+        maxSongBars: 128
+      },
+      keysAndScales: {
+        circleOfFifths: caps.harmony?.keys || [],
+        scales: caps.harmony?.scales || {
+          minor: [0, 2, 3, 5, 7, 8, 10],
+          major: [0, 2, 4, 5, 7, 9, 11]
+        }
+      },
+      compositionGuidelines: {
+        generatorMode: 'Set "generator": 3 and "exact": true for deterministic manual note scheduling.',
+        stepsAndNoteEvents: 'The "steps" array contains the integer step indices where notes trigger (0..bars*16-1). The "noteEvents" array contains objects "{ step: N, notes: [MIDI...] }". Every step with pitched notes must match an entry in "steps".',
+        noteTranspose: 'Set "noteTranspose" to the key\'s offset (from harmony.keys[key].offset) so that noteEvents MIDI numbers are played as literal pitches.',
+        rolePolyphonyConstraints: {
+          bass: 'Mono: maximum 1 note per step (MIDI 24..60)',
+          lead: 'Mono or duo: 1 to 2 notes per step (MIDI 48..96)',
+          harmony: 'Polyphonic: up to 4 notes per step (MIDI 36..84)',
+          arpeggio: 'Mono: 1 note per step, fast and short (MIDI 48..84)',
+          pulse_and_percussion: 'Rhythmic: empty notes array "notes: []" triggers the percussive timbre'
+        }
+      }
+    };
+  }
+
+  function generateProjectState(state, context){
+    return {
+      schemaVersion: 1,
+      revision: state.revision,
+      exportedAt: new Date().toISOString(),
+      project: state.project,
+      visual: state.visual || null,
+      music: context?.music || [],
+      history: context?.history || { undo: 0, redo: 0 }
+    };
+  }
+
+  function generateAgentGuide(caps, state){
+    return `# HALO Agent Guide / Руководство для AI-агента
+
+HALO — браузерный музыкальный конструктор релаксации (8 голосов, 4/4, общая сетка 16 шагов на такт).
+HALO is a browser relaxation music constructor (8 voices, 4/4 time signature, shared 16-step grid).
+
+## Архитектура папки / Folder Structure
+
+\`\`\`
+HALO-Bridge/
+├── AGENT_GUIDE.md        # Эта инструкция / This guide
+├── capabilities.json     # Возможности движка, пределы, операции / Capabilities, limits, operations
+├── instruments.json      # 8 голосов, пресеты, совместимость, смысл параметров / Instruments & parameters
+├── music-rules.json      # Ритмическая сетка, размеры, тональности, гармония / Music rules & grid
+├── project-state.json    # Текущая композиция, ноты, ревизия / Current project state & revision
+├── requests/             # Папка для команд агента / Agent requests folder (e.g. request-001.json)
+└── responses/            # Папка для ответов HALO / HALO responses folder (e.g. request-001.result.json)
+\`\`\`
+
+## Правила работы / Agent Rules
+
+1. **project-state.json — только для чтения:**
+   Агент читает текущее состояние и ревизию проекта (\`revision\`). Изменять проект напрямую в этом файле запрещено.
+2. **Все изменения отправляются через requests/:**
+   Создайте новый JSON-файл в папке \`requests/\` (например, \`requests/request-001.json\`).
+3. **Обязательные поля пакета:**
+   Каждый пакет ОБЯЗАН содержать:
+   - \`requestId\`: уникальный строковый идентификатор запроса (например, "request-001")
+   - \`schemaVersion\`: 1
+   - \`baseRevision\`: число, совпадающее с текущей ревизией из \`project-state.json\`
+   - \`operations\`: массив операций (до 256 операций)
+4. **Белый список операций (Allowlist):**
+   Разрешены только следующие операции:
+   - \`track.patch\` — изменение дорожки (trackIndex: 0..7, values: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus })
+   - \`phrase.patch\` — изменение фразы (bars, startStep, seed, key)
+   - \`master.patch\` — изменение мастера (tempo: 30..200, masterVolume: 0..100, mix: { low, mid, high, width })
+   - \`project.replace\` — полная замена однофразового проекта
+   - \`composition.replace\` — полная замена многофразовой композиции
+   - \`visual.patch\` — визуальный режим (scene, motion, effects)
+   Никаких скриптов, сторонних URL, файлов или команд ОС.
+5. **Подтверждение пользователя:**
+   Команды в HALO не применяются скрытно: HALO читает файл, валидирует его, показывает пользователю предпросмотр изменений и ожидает подтверждения.
+6. **Ответ в responses/:**
+   После обработки HALO записывает результат в \`responses/<requestId>.result.json\`:
+   - При успехе: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
+   - При ошибке или отклонении: \`{ "ok": false, "id": "request-001", "error": "...", "currentRevision": 42 }\`
+7. **Идемпотентность и актуальность:**
+   Повторная обработка уже выполненного пакета запрещена. Устаревшие ревизии отклоняются с ошибкой \`CONFLICT_REVISION_MISMATCH\`.
+
+## Пример запроса (requests/request-001.json) / Example Request
+
+\`\`\`json
+{
+  "requestId": "request-001",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "track.patch",
+      "trackIndex": 5,
+      "values": {
+        "exact": true,
+        "steps": [0, 4, 8, 12],
+        "noteEvents": [
+          { "step": 0, "notes": [72] },
+          { "step": 4, "notes": [76] },
+          { "step": 8, "notes": [79] },
+          { "step": 12, "notes": [76] }
+        ],
+        "character": 65,
+        "space": 40
+      }
+    }
+  ]
+}
+\`\`\`
+`;
+  }
+
+  function getContextFiles(api){
+    const caps = api.getCapabilities();
+    const state = api.getProjectState();
+    const context = api.getContext();
+    return {
+      'AGENT_GUIDE.md': generateAgentGuide(caps, state),
+      'capabilities.json': JSON.stringify(generateCapabilities(caps), null, 2),
+      'instruments.json': JSON.stringify(generateInstruments(caps), null, 2),
+      'music-rules.json': JSON.stringify(generateMusicRules(caps), null, 2),
+      'project-state.json': JSON.stringify(generateProjectState(state, context), null, 2)
+    };
+  }
+
+  function parseAndValidateRequest(api, textContent, fallbackId){
+    let parsed;
+    try {
+      parsed = typeof textContent === 'string' ? JSON.parse(textContent) : textContent;
+    } catch(e) {
+      return { ok: false, error: 'INVALID_JSON: ' + e.message, id: fallbackId };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, error: 'INVALID_REQUEST_OBJECT', id: fallbackId };
+    }
+
+    const transaction = parsed.transaction || parsed;
+    const requestId = String(parsed.requestId || transaction.requestId || fallbackId);
+
+    if (transaction.schemaVersion !== 1) {
+      return { ok: false, error: 'INVALID_SCHEMA_VERSION: schemaVersion must be 1', id: requestId };
+    }
+    if (typeof transaction.baseRevision !== 'number') {
+      return { ok: false, error: 'MISSING_BASE_REVISION: baseRevision number is required', id: requestId };
+    }
+    if (!Array.isArray(transaction.operations) || !transaction.operations.length) {
+      return { ok: false, error: 'INVALID_OPERATIONS: operations must be a non-empty array', id: requestId };
+    }
+
+    const currentRevision = api.getProjectState().revision;
+    if (transaction.baseRevision !== currentRevision) {
+      return {
+        ok: false,
+        error: `CONFLICT_REVISION_MISMATCH: expected revision ${currentRevision}, request was based on ${transaction.baseRevision}`,
+        id: requestId,
+        currentRevision
+      };
+    }
+
+    let preview;
+    try {
+      preview = api.previewOperations(transaction);
+    } catch(err) {
+      return { ok: false, error: err.message, id: requestId, currentRevision };
+    }
+
+    return {
+      ok: true,
+      id: requestId,
+      transaction,
+      preview,
+      currentRevision
+    };
+  }
+
+  async function processRequest(api, textContent, fallbackId){
+    const validated = parseAndValidateRequest(api, textContent, fallbackId);
+    if (!validated.ok) return validated;
+
+    try {
+      api.setEnabled(true);
+      const result = await api.applyOperations(validated.transaction);
+      return {
+        ok: true,
+        id: validated.id,
+        appliedRevision: result.revision,
+        currentRevision: result.revision,
+        project: result.project,
+        timestamp: new Date().toISOString()
+      };
+    } catch(e) {
+      return {
+        ok: false,
+        id: validated.id,
+        error: e.message,
+        currentRevision: api.getProjectState().revision
+      };
+    }
+  }
+
+  // --- Browser File System Access API integration ---
+
+  async function writeFsFile(dirHandle, filename, textContent){
+    const fileHandle = await dirHandle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(textContent);
+    await writable.close();
+  }
+
+  async function readFsFile(fileHandle){
+    const file = await fileHandle.getFile();
+    return await file.text();
+  }
+
+  async function syncAllContext(dirHandle, api){
+    const files = getContextFiles(api);
+    for (const [name, content] of Object.entries(files)){
+      await writeFsFile(dirHandle, name, content);
+    }
+  }
+
+  async function syncStateOnly(dirHandle, api){
+    const state = api.getProjectState();
+    const context = api.getContext();
+    const content = JSON.stringify(generateProjectState(state, context), null, 2);
+    await writeFsFile(dirHandle, 'project-state.json', content);
+  }
+
+  function createBridge(api, env = {}){
+    let dirHandle = null;
+    let pollInterval = null;
+    const listeners = new Set();
+    const processedIds = new Set();
+
+    const state = {
+      connected: false,
+      directoryName: '',
+      lastSync: null,
+      lastCheck: null,
+      pending: null,
+      lastResult: null,
+      error: null,
+      busy: false,
+      autoApply: false,
+      supported: typeof env.window?.showDirectoryPicker === 'function' || typeof root.showDirectoryPicker === 'function'
+    };
+
+    function notify(){
+      for (const fn of listeners) {
+        try { fn(clone(state)); } catch {}
+      }
+    }
+
+    async function checkFolder(){
+      if (!dirHandle || state.busy) return;
+      state.busy = true;
+      try {
+        const reqDir = await dirHandle.getDirectoryHandle('requests', { create: true });
+        const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
+
+        // Scan existing responses to populate processedIds
+        for await (const [name, handle] of resDir.entries()){
+          if (handle.kind === 'file' && name.endsWith('.result.json')){
+            const id = name.replace(/\.result\.json$/i, '');
+            processedIds.add(id);
+          }
+        }
+
+        // If there's already a pending request awaiting user confirmation, don't pick another one yet
+        if (state.pending) {
+          state.lastCheck = new Date().toISOString();
+          notify();
+          return;
+        }
+
+        for await (const [name, handle] of reqDir.entries()){
+          if (handle.kind !== 'file' || !name.endsWith('.json')) continue;
+          const baseId = name.replace(/\.json$/i, '');
+          if (processedIds.has(baseId)) continue;
+
+          const text = await readFsFile(handle);
+          const parsed = parseAndValidateRequest(api, text, baseId);
+
+          if (!parsed.ok) {
+            // Immediate error response
+            const errRes = {
+              ok: false,
+              id: parsed.id,
+              error: parsed.error,
+              currentRevision: parsed.currentRevision || api.getProjectState().revision,
+              timestamp: new Date().toISOString()
+            };
+            await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(errRes, null, 2));
+            processedIds.add(baseId);
+            state.lastResult = errRes;
+            notify();
+            continue;
+          }
+
+          // Rule 1: Never apply automatically by default
+          if (!state.autoApply) {
+            state.pending = {
+              id: parsed.id,
+              filename: name,
+              transaction: parsed.transaction,
+              preview: parsed.preview,
+              baseId
+            };
+            notify();
+            break; // Wait for user decision
+          } else {
+            api.setEnabled(true);
+            const applied = await api.applyOperations(parsed.transaction);
+            const okRes = {
+              ok: true,
+              id: parsed.id,
+              appliedRevision: applied.revision,
+              currentRevision: applied.revision,
+              timestamp: new Date().toISOString()
+            };
+            await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
+            await syncStateOnly(dirHandle, api);
+            processedIds.add(baseId);
+            state.lastResult = okRes;
+            notify();
+          }
+        }
+        state.lastCheck = new Date().toISOString();
+        state.error = null;
+      } catch(err) {
+        state.error = err.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    async function applyPending(){
+      if (!state.pending || !dirHandle) return;
+      const p = state.pending;
+      state.busy = true;
+      try {
+        const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
+        api.setEnabled(true);
+        const applied = await api.applyOperations(p.transaction);
+        const okRes = {
+          ok: true,
+          id: p.id,
+          appliedRevision: applied.revision,
+          currentRevision: applied.revision,
+          timestamp: new Date().toISOString()
+        };
+        await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(okRes, null, 2));
+        await syncStateOnly(dirHandle, api);
+        processedIds.add(p.baseId);
+        state.lastResult = okRes;
+        state.pending = null;
+      } catch(e) {
+        state.error = e.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    async function rejectPending(){
+      if (!state.pending || !dirHandle) return;
+      const p = state.pending;
+      state.busy = true;
+      try {
+        const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
+        const rejRes = {
+          ok: false,
+          id: p.id,
+          error: 'REJECTED_BY_USER',
+          currentRevision: api.getProjectState().revision,
+          timestamp: new Date().toISOString()
+        };
+        await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(rejRes, null, 2));
+        processedIds.add(p.baseId);
+        state.lastResult = rejRes;
+        state.pending = null;
+      } catch(e) {
+        state.error = e.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    async function connect(handle){
+      dirHandle = handle;
+      state.connected = true;
+      state.directoryName = handle.name || 'HALO-Bridge';
+      state.error = null;
+      state.busy = true;
+      notify();
+      try {
+        // Ensure subfolders
+        await dirHandle.getDirectoryHandle('requests', { create: true });
+        await dirHandle.getDirectoryHandle('responses', { create: true });
+        // Sync context
+        await syncAllContext(dirHandle, api);
+        state.lastSync = new Date().toISOString();
+        // Start polling
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = setInterval(checkFolder, 1500);
+        await checkFolder();
+      } catch(e) {
+        state.error = e.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    function disconnect(){
+      if (pollInterval) clearInterval(pollInterval);
+      pollInterval = null;
+      dirHandle = null;
+      state.connected = false;
+      state.directoryName = '';
+      state.pending = null;
+      notify();
+    }
+
+    async function syncFiles(){
+      if (!dirHandle) return;
+      state.busy = true;
+      notify();
+      try {
+        await syncAllContext(dirHandle, api);
+        state.lastSync = new Date().toISOString();
+      } catch(e) {
+        state.error = e.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    return {
+      connect,
+      disconnect,
+      syncFiles,
+      checkFolder,
+      applyPending,
+      rejectPending,
+      setAutoApply(v){ state.autoApply = !!v; notify(); },
+      getStatus: () => clone(state),
+      subscribe(fn){
+        listeners.add(fn);
+        fn(clone(state));
+        return () => listeners.delete(fn);
+      },
+      dispose(){
+        disconnect();
+        listeners.clear();
+      }
+    };
+  }
+
+  // --- UI Renderer ---
+
+  function renderFileBridgePanel(host, api, language){
+    const tr = (ru, en) => language() === 'ru' ? ru : en;
+    let bridge = bridges.get(api);
+    if (!bridge) {
+      bridge = createBridge(api, { window: root });
+      bridges.set(api, bridge);
+    }
+
+    host.replaceChildren();
+
+    function el(tag, text, css){
+      const n = document.createElement(tag);
+      if (text) n.textContent = text;
+      if (css) n.style.cssText = css;
+      host.append(n);
+      return n;
+    }
+
+    el('strong', tr('HALO File Bridge — подключение через локальную папку', 'HALO File Bridge — Local Folder Connection'), 'display:block;font-size:12px;margin-bottom:6px;');
+
+    el('p', tr(
+      'Экспортирует технический паспорт музыкального движка и снимок текущей композиции в локальную папку HALO-Bridge. AI-агенты (Antigravity, Bionic, Codex, Claude) читают файлы, создают команды в requests/, а HALO валидирует их и ожидает вашего подтверждения перед применением.',
+      'Exports the music engine technical passport and current composition snapshot into a local HALO-Bridge folder. AI agents (Antigravity, Bionic, Codex, Claude) read these files, write commands into requests/, and HALO validates them and awaits your confirmation before applying.'
+    ), 'font-size:11px;color:#9bb2c2;margin-bottom:12px;');
+
+    const statusBox = document.createElement('div');
+    statusBox.style.cssText = 'background:rgba(12,24,42,.7);border:1px solid rgba(139,232,227,.2);border-radius:10px;padding:12px;margin-bottom:14px;';
+    host.append(statusBox);
+
+    const pendingBox = document.createElement('div');
+    pendingBox.style.cssText = 'display:none;background:rgba(35,52,78,.9);border:1px solid #75dfd6;border-radius:10px;padding:12px;margin-bottom:14px;';
+    host.append(pendingBox);
+
+    function updateView(s){
+      statusBox.replaceChildren();
+
+      const topRow = document.createElement('div');
+      topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;';
+      statusBox.append(topRow);
+
+      const statusBadge = document.createElement('span');
+      statusBadge.style.cssText = 'font-size:11px;font-weight:550;letter-spacing:.05em;display:flex;align-items:center;gap:6px;';
+      if (s.connected) {
+        statusBadge.innerHTML = `<span style="color:#7ef0dc;">●</span> ${tr('Папка подключена:','Folder connected:')} <span style="color:#fff;">${s.directoryName}</span>`;
+      } else {
+        statusBadge.innerHTML = `<span style="color:#8ca2b3;">○</span> ${tr('Папка не подключена','Folder disconnected')}`;
+      }
+      topRow.append(statusBadge);
+
+      const actionGroup = document.createElement('div');
+      actionGroup.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap;';
+      topRow.append(actionGroup);
+
+      if (!s.connected) {
+        if (s.supported) {
+          const btnConnect = document.createElement('button');
+          btnConnect.className = 'glass-btn';
+          btnConnect.style.cssText = 'font-size:10px;padding:4px 12px;min-height:30px;border-color:rgba(139,232,227,.4);';
+          btnConnect.textContent = tr('📁 Подключить папку HALO-Bridge', '📁 Connect HALO-Bridge Folder');
+          btnConnect.onclick = async () => {
+            try {
+              const picker = root.showDirectoryPicker;
+              if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
+              const handle = await picker({ mode: 'readwrite' });
+              await bridge.connect(handle);
+            } catch(e) {
+              if (e.name !== 'AbortError') alert(e.message);
+            }
+          };
+          actionGroup.append(btnConnect);
+        } else {
+          const warn = document.createElement('span');
+          warn.style.cssText = 'color:#f8b595;font-size:10px;';
+          warn.textContent = tr('Требуется настольный Chrome или Edge с File System Access API.', 'Desktop Chrome or Edge with File System Access API required.');
+          actionGroup.append(warn);
+        }
+      } else {
+        const btnSync = document.createElement('button');
+        btnSync.className = 'glass-btn';
+        btnSync.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;';
+        btnSync.textContent = tr('⟳ Обновить файлы', '⟳ Sync Files');
+        btnSync.title = tr('Перезаписать AGENT_GUIDE.md, capabilities.json, instruments.json, music-rules.json и project-state.json', 'Rewrite AGENT_GUIDE.md, capabilities.json, instruments.json, music-rules.json and project-state.json');
+        btnSync.onclick = () => bridge.syncFiles();
+
+        const btnCheck = document.createElement('button');
+        btnCheck.className = 'glass-btn';
+        btnCheck.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;';
+        btnCheck.textContent = tr('⯈ Проверить requests/', '⯈ Check requests/');
+        btnCheck.onclick = () => bridge.checkFolder();
+
+        const btnDisconnect = document.createElement('button');
+        btnDisconnect.className = 'glass-btn';
+        btnDisconnect.style.cssText = 'font-size:9px;padding:2px 8px;min-height:26px;opacity:.7;';
+        btnDisconnect.textContent = tr('✕ Отключить', '✕ Disconnect');
+        btnDisconnect.onclick = () => bridge.disconnect();
+
+        actionGroup.append(btnSync, btnCheck, btnDisconnect);
+      }
+
+      // Details info
+      const meta = document.createElement('div');
+      meta.style.cssText = 'font-size:10px;color:#8ba2b3;line-height:1.5;';
+      if (s.connected) {
+        meta.innerHTML = `
+          <div>${tr('Ревизия проекта:','Project revision:')} <strong>${api.getProjectState().revision}</strong> · ${tr('Опрос requests/ каждые 1.5с: активен','Polling requests/ every 1.5s: active')}</div>
+          ${s.lastSync ? `<div>${tr('Последний экспорт паспорта:','Last passport sync:')} ${new Date(s.lastSync).toLocaleTimeString()}</div>` : ''}
+          ${s.lastResult ? `<div style="margin-top:4px;color:${s.lastResult.ok ? '#8fe5d2' : '#f8a39a'};">${s.lastResult.ok ? '✓ ' + tr('Команда успешно обработана: ','Command applied: ') + s.lastResult.id : '⚠ ' + tr('Ошибка команды ','Command error ') + s.lastResult.id + ': ' + s.lastResult.error}</div>` : ''}
+          ${s.error ? `<div style="color:#f89a9a;margin-top:4px;">⚠ ${s.error}</div>` : ''}
+        `;
+      } else {
+        meta.textContent = tr(
+          'Создайте на диске папку HALO-Bridge и нажмите кнопку подключения. HALO создаст технический паспорт движка и папки requests/ и responses/.',
+          'Create a HALO-Bridge folder on your disk and press connect. HALO will generate the engine passport and the requests/ and responses/ subdirectories.'
+        );
+      }
+      statusBox.append(meta);
+
+      // Pending Request Banner
+      if (s.pending) {
+        pendingBox.style.display = 'block';
+        pendingBox.replaceChildren();
+
+        const pHead = document.createElement('div');
+        pHead.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
+        pHead.innerHTML = `<strong style="color:#d8ffff;font-size:11px;">🔔 ${tr('Входящий запрос от агента:','Incoming agent request:')} <span style="color:#7ef0dc;">${s.pending.id}</span></strong><span style="font-size:10px;color:#a2bacb;">Base rev: ${s.pending.transaction.baseRevision}</span>`;
+        pendingBox.append(pHead);
+
+        const pOps = document.createElement('ul');
+        pOps.style.cssText = 'margin:6px 0 10px 18px;padding:0;font-size:10px;color:#cbe2ee;';
+        for (const o of (s.pending.transaction.operations || [])){
+          const li = document.createElement('li');
+          if (o.op === 'track.patch') {
+            li.textContent = `track.patch: Track 0${(o.trackIndex||0)+1} (${Object.keys(o.values||{}).join(', ')})`;
+          } else if (o.op === 'master.patch') {
+            li.textContent = `master.patch: ${Object.keys(o.values||{}).join(', ')}`;
+          } else if (o.op === 'phrase.patch') {
+            li.textContent = `phrase.patch: ${Object.keys(o.values||{}).join(', ')}`;
+          } else {
+            li.textContent = `${o.op}`;
+          }
+          pOps.append(li);
+        }
+        pendingBox.append(pOps);
+
+        const pButtons = document.createElement('div');
+        pButtons.style.cssText = 'display:flex;gap:8px;';
+
+        const btnApply = document.createElement('button');
+        btnApply.className = 'glass-btn';
+        btnApply.style.cssText = 'font-size:10px;padding:4px 14px;background:rgba(42,120,105,.6);border-color:#7df0dc;color:#fff;font-weight:600;';
+        btnApply.textContent = tr('✓ Применить изменения', '✓ Apply Changes');
+        btnApply.onclick = () => bridge.applyPending();
+
+        const btnReject = document.createElement('button');
+        btnReject.className = 'glass-btn';
+        btnReject.style.cssText = 'font-size:10px;padding:4px 12px;background:rgba(100,40,40,.5);border-color:#f8a39a;color:#fdd;';
+        btnReject.textContent = tr('✕ Отклонить', '✕ Reject');
+        btnReject.onclick = () => bridge.rejectPending();
+
+        pButtons.append(btnApply, btnReject);
+        pendingBox.append(pButtons);
+      } else {
+        pendingBox.style.display = 'none';
+        pendingBox.replaceChildren();
+      }
+    }
+
+    const unsub = bridge.subscribe(updateView);
+    host._haloCleanup = () => { unsub(); };
+
+    // Structure info
+    const guideHead = el('strong', tr('Структура папки HALO-Bridge', 'HALO-Bridge Folder Structure'), 'display:block;font-size:11px;margin-top:14px;margin-bottom:6px;');
+    const list = el('ul', '', 'font-size:10px;line-height:1.6;color:#a8c0cf;margin:0 0 12px 18px;padding:0;');
+    list.innerHTML = `
+      <li><code>AGENT_GUIDE.md</code> — ${tr('Инструкция агенту: правила создания музыки и форматы команд','Agent instructions: music creation rules and request schema')}</li>
+      <li><code>capabilities.json</code> — ${tr('Паспорт движка: операции, параметры, FX, мастер, лимиты','Engine passport: operations, parameters, FX, master, limits')}</li>
+      <li><code>instruments.json</code> — ${tr('8 голосов, пресеты, совместимость и звуковой смысл каждого параметра','8 voices, presets, compatibility, and sonic meaning of each parameter')}</li>
+      <li><code>music-rules.json</code> — ${tr('Сетка 16 шагов 4/4, 24 тональности квинтового круга, гаммы, полифония','16-step 4/4 grid, 24 Circle of Fifths keys, scales, polyphony')}</li>
+      <li><code>project-state.json</code> — ${tr('Снимок текущей композиции (ревизия, ноты, фразы) — только для чтения','Snapshot of active composition (revision, notes, phrases) — read-only')}</li>
+      <li><code>requests/</code> — ${tr('Папка входящих команд агента (например, request-001.json)','Incoming agent command folder (e.g. request-001.json)')}</li>
+      <li><code>responses/</code> — ${tr('Папка ответов HALO (например, request-001.result.json)','HALO response folder (e.g. request-001.result.json)')}</li>
+    `;
+
+    el('strong', tr('Пример запроса для агента (Bionic / Antigravity / Codex):', 'Example prompt for agent (Bionic / Antigravity / Codex):'), 'display:block;font-size:11px;margin-bottom:4px;');
+    const promptBox = el('div', tr(
+      '«Прочитай AGENT_GUIDE.md в папке HALO-Bridge. Изучи возможности HALO и текущий проект в project-state.json. Сочини оригинальный новогодний джингл на 8 тактов, используя только встроенные инструменты. Запиши команду в папку requests/ и проверь, что ответ в responses/ подтвердил применение».',
+      '“Read AGENT_GUIDE.md in the HALO-Bridge folder. Study HALO capabilities and the current project in project-state.json. Compose an original eight-bar New Year jingle using only built-in sounds. Write your request file to the requests/ folder and verify the response in responses/ confirms application.”'
+    ), 'font-size:10px;line-height:1.5;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#d5ebf5;user-select:all;');
+  }
+
+  const api = {
+    generateCapabilities,
+    generateInstruments,
+    generateMusicRules,
+    generateProjectState,
+    generateAgentGuide,
+    getContextFiles,
+    parseAndValidateRequest,
+    processRequest,
+    createBridge,
+    panel: renderFileBridgePanel
+  };
+
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.HaloFileBridge = api;
+})(globalThis);

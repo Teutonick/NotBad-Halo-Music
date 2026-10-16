@@ -111,3 +111,13 @@ Decorative backgrounds must share the world center and scale across viewport cha
 Visual-only mode hides UI and drawn labels without changing music, geometry or editor state. Persist it, provide click/tap-anywhere and Escape recovery, and consume the restoring pointer event so it cannot toggle a voice or hidden control.
 
 Do not introduce fonts, images, media or third-party libraries that require paid, restrictive or separately acquired licensing. Use original resources or verified freely redistributable resources, documenting provenance and terms. Product promotion must stay unobtrusive, localized, text-only and free of tracking or unsolicited external resource loading.
+
+## Autonomous HALO Bridge Interaction Protocol
+
+When the user mentions, links, or points to a HALO folder (such as `temp/`, `HALO-Bridge/`, or any directory containing `AGENT_GUIDE.md` / `project-state.json`) and asks to compose, modify, or arrange music in HALO — even with a brief prompt like *"Вот папка от HALO, сочини новогодний джингл на 8 тактов"*:
+1. **Implicit automatic discovery**: Immediately inspect `project-state.json`, `instruments.json`, `capabilities.json`, and `music-rules.json` in that directory without waiting for explicit instructions.
+2. **Current revision**: Read `"revision"` from `project-state.json` and use it as `baseRevision`.
+3. **Sound and role constraints**: Choose sounds, bank slots, and MIDI note ranges strictly from `instruments.json` adhering to role policies and harmony from `music-rules.json`.
+4. **Valid operations**: Construct a batch with unique `requestId` (e.g. `req-<timestamp>`), `schemaVersion: 1`, `baseRevision`, and allowlisted operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`).
+5. **Execution gate**: Write the request file to `<folder>/requests/<requestId>.json`. Notify the user that the proposal has been placed in `requests/` and is waiting for their review and approval in the HALO web interface.
+

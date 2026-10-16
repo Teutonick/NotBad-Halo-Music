@@ -1,18 +1,33 @@
-# HALO External Agent API and WebMCP Site Tools
+# HALO External Agent API, WebMCP Site Tools and File Bridge
 
-Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
+Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/file-bridge.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
+
+## Integration Modes
+
+The AI / Agents tab provides an integration mode switcher saved in `localStorage['halo-agent-bridge-mode']`:
+1. **WebMCP (Browser Site Tools):** Uses native `document.modelContext.registerTool` for browsers/agents with direct in-app WebMCP connections (e.g. Codex in-app browser).
+2. **File Bridge (Local Folder HALO-Bridge):** Uses desktop Chrome and Edge native `window.showDirectoryPicker` to connect to a local folder, export the technical engine passport and project state, and process agent requests from `requests/` with user confirmation.
 
 ## External-agent workflow
 
-The user asks Codex to open HALO and compose or edit music. The agent discovers Site Tools, calls `halo_get_context`, reads real catalog/roles/state/notes, composes original parts, validates a batch, inspects its preview, applies it and reads back the result. Corrections are made by the external agent using returned validation errors. There is no mood-preset planner or automatic inference/repair client in HALO. No manual JSON exchange is required; structured arguments travel through browser tools. Manual editing remains available.
+The user asks an external agent (Codex, Antigravity, Bionic, Claude) to compose or edit music.
+- In **WebMCP mode**: The agent discovers Site Tools, calls `halo_get_context`, reads catalog/roles/state/notes, composes original parts, validates a batch, inspects its preview, applies it and reads back the result.
+- In **File Bridge mode**: HALO exports `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and `project-state.json` into the connected `HALO-Bridge/` folder. The agent reads `project-state.json` and rule files, writes a request JSON into `requests/request-*.json`. HALO discovers the request, validates it, and displays an explicit confirmation banner. Upon user approval, HALO applies the transaction, writes `responses/request-*.result.json`, and updates `project-state.json`.
 
-The AI / Agents tab is informational and bilingual: WebMCP availability, Chrome flag instructions and two client workflows. No provider, endpoint, model, token, chat or connect controls.
+There is no mood-preset planner or automatic inference/repair client in HALO. Manual editing remains available.
 
-## Automatic discovery and lifecycle
+## Strict File Bridge Rules
 
-`HaloBrowserTools.install(internalAPI, environment)` runs at workspace initialization regardless of the selected tab. It uses only `document.modelContext.registerTool(descriptor,{signal})`; no legacy navigator adapter is used. Each descriptor includes JSON input schema, description, annotations and execute. Native execution returns MCP text content containing JSON `{ok:true,result}` or `{ok:false,error}` with `isError:true`. Validation itself returns `{valid:false,error}` for an invalid transaction. Registration errors are caught and shown in status; agent commands remain unavailable. AbortController removes owned registrations on ordinary page teardown; BFCache pagehide preserves them. Other site tools are never cleared. No browser feature is simulated or security policy bypassed.
+1. **No Silent Auto-Apply by Default:** Incoming commands from `requests/` are never applied automatically without user confirmation. HALO shows the proposed changes and provides «Apply Changes» and «Reject» actions.
+2. **Batch Protocol:** Every request requires `requestId`, `schemaVersion: 1`, `baseRevision`, and an allowlisted operations array. Reprocessing processed batches is prohibited; stale revisions are rejected with `CONFLICT_REVISION_MISMATCH`.
+3. **Allowlist & Privacy:** Only valid HALO operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`) are accepted in `requests/`. No scripts, external URLs, or OS commands. `project-state.json` is strictly read-only.
+4. **Desktop Chrome/Edge Native API:** File Bridge relies on `window.showDirectoryPicker({ mode: 'readwrite' })` without server dependencies or external libraries. Works statically on GitHub Pages.
 
-Primary references: [Chrome imperative WebMCP API](https://developer.chrome.com/docs/ai/webmcp/imperative-api), [WebMCP proposal](https://github.com/webmachinelearning/webmcp). Browser/agent support is required; ordinary browsers still play HALO without WebMCP.
+## Automatic discovery and WebMCP lifecycle
+
+`HaloBrowserTools.install(internalAPI, environment)` runs at workspace initialization. It uses `document.modelContext.registerTool(descriptor,{signal})`; no legacy navigator adapter is used. Each descriptor includes JSON input schema, description, annotations and execute. Native execution returns MCP text content containing JSON `{ok:true,result}` or `{ok:false,error}` with `isError:true`. Validation itself returns `{valid:false,error}` for an invalid transaction. AbortController removes owned registrations on ordinary page teardown; BFCache pagehide preserves them.
+
+Primary references: [Chrome imperative WebMCP API](https://developer.chrome.com/docs/ai/webmcp/imperative-api), [WebMCP proposal](https://github.com/webmachinelearning/webmcp).
 
 ## Tools
 
@@ -30,11 +45,10 @@ Primary references: [Chrome imperative WebMCP API](https://developer.chrome.com/
 
 The browser may decorate tool names in discovery. Use the returned names. Musical edits load paused; native tools do not grant microphone permission or override audio policy. Autosave uses existing local project persistence. Preview is a non-mutating diff; user/agent review happens outside an embedded chat.
 
-## WebMCP-only access
+## Connection Transports
 
-Only `document.modelContext.registerTool` is supported. There is no legacy navigator adapter, public `window.HaloSiteTools` command dispatcher or `window.HaloAgentAPI` instance. The musical API remains internal to the workspace and WebMCP callbacks. Unsupported browsers keep manual playback/editing but cannot receive agent commands. Browser registration does not prove that a particular agent can discover/call tools.
-
-For local Chrome testing open `chrome://flags/#enable-webmcp-testing`, select Enabled, relaunch and reopen HALO. The flag does not connect an agent to the browser. See [client workflow](webmcp-clients.md) for two step-by-step cases and verification boundaries.
+1. **WebMCP:** Supported via `document.modelContext.registerTool`. For local Chrome testing open `chrome://flags/#enable-webmcp-testing`, select Enabled, relaunch and reopen HALO.
+2. **File Bridge:** Supported via `window.showDirectoryPicker({ mode: 'readwrite' })`. User chooses a local `HALO-Bridge` folder; HALO writes context and monitors `requests/` / `responses/`.
 
 ## Internal API and batch protocol
 

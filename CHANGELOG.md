@@ -1,3 +1,12 @@
+## 2026-10-16 — File Bridge and Integration Mode Switcher
+
+Added dual agent integration modes (WebMCP and File Bridge) to the AI / Agents tab, selectable via a switcher and saved in `localStorage['halo-agent-bridge-mode']`.
+- **File Bridge (`src/file-bridge.js`):** Integrates desktop Chrome and Edge native File System Access API (`window.showDirectoryPicker`) without external dependencies or backends.
+- **Dynamic Agent Context Exporter:** Exports five live context files to `HALO-Bridge/`: `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and `project-state.json`.
+- **Strict User Review Gate:** Incoming agent commands in `requests/` are validated against schema, limits, and base revision, and presented in the UI with explicit «Apply Changes» and «Reject» buttons. No silent auto-application by default.
+- **Queue and Idempotency:** Results written to `responses/<requestId>.result.json`. Stale revisions and repeated requests rejected.
+- Added public static `capabilities.json` at repository root for GitHub Pages static inspection.
+
 ## 2026-10-16 — WebMCP-only agent access
 
 Removed page-context command fallback, exposed API instance and legacy navigator registration. Simplified RU/EN availability and added Chrome flag guidance plus two step-by-step client cases with honest verification status. Fixed false Redo conflicts after history-load normalization; manual changes still block conflicting history. Windows native acceptance is recorded separately.

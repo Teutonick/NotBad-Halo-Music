@@ -1,16 +1,23 @@
-### Implemented — 2026-10-16: WebMCP only
+### Implemented — 2026-10-16: File Bridge and Integration Mode Switcher
 
-Agent access uses only document.modelContext WebMCP registration. Removed public page-context command dispatch, exposed musical API instance and legacy navigator adapter. Internal engine remains shared with the original transport. RU/EN panel now shows available/unavailable, Chrome flag instructions and two client workflows. Claude / Antigravity / Bionic are explicitly unverified; see docs/webmcp-clients.md and docs/regression-webmcp-windows-2026-10-16.md (paths relative to repository root). Undo/Redo remembers the canonical state returned after history loading, avoiding false conflicts from load normalization while retaining manual-edit conflict protection. No dependencies, assets, timing or deployment-path changes.
+- Dual agent integration modes in AI / Agents tab: **WebMCP** and **File Bridge**, persisted in `localStorage['halo-agent-bridge-mode']`.
+- **File Bridge (`src/file-bridge.js`):** Desktop Chrome and Edge native `window.showDirectoryPicker` integration without servers, polyfills, or external libraries. Fully static on GitHub Pages.
+- Automatic context export into `HALO-Bridge/`: `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and read-only `project-state.json`.
+- Strict incoming request protocol via `requests/*.json` and `responses/*.result.json`:
+  - No silent auto-apply: requests are validated, revision-checked, and presented in the UI with explicit «Apply Changes» and «Reject» buttons.
+  - Required fields: `requestId`, `schemaVersion: 1`, `baseRevision`, and allowlisted operations array (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`).
+  - Stale revisions rejected (`CONFLICT_REVISION_MISMATCH`), repeated request reprocessing prohibited.
+  - Public static `capabilities.json` added at repository root for external HTTP inspection.
 
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-### Implemented — 2026-10-16: external agents and WebMCP Site Tools
+### Implemented — 2026-10-16: external agents, WebMCP Site Tools and File Bridge
 
-- HALO is controlled by external agents such as Codex. The fourth **AI / Agents** tab only explains browser availability and the workflow. Embedded chat, provider/model/endpoint/key controls and LLM clients were removed.
-- `src/site-tools.js` automatically registers ten WebMCP tools over the internal musical API: context, capabilities, state, batch validation/preview/application, Undo/Redo, playback and portable project export. Only `document.modelContext.registerTool` is supported. Registration failures disable agent access and are reported as unavailable. No polyfill, backend, MCP server, extension, runtime dependency or network request is added.
+- HALO is controlled by external agents such as Codex, Antigravity, Bionic, Claude. The fourth **AI / Agents** tab provides an integration mode switcher between WebMCP and File Bridge. Embedded chat, provider/model/endpoint/key controls and LLM clients were removed.
+- `src/site-tools.js` registers ten WebMCP tools over the internal musical API: context, capabilities, state, batch validation/preview/application, Undo/Redo, playback and portable project export.
+- `src/file-bridge.js` manages local folder synchronization via desktop Chrome/Edge `window.showDirectoryPicker`.
 - Registry v2 retains the complete built-in catalog, metadata for 130 local recordings, defaults, resolved notes, roles, bounds, FX/master, composition and visual limits. Track 09 PCM, recordings, device IDs and capture permissions are not exposed. External agents control their own model/data policies; HALO has no LLM connection or key storage.
 - Supported: exact MIDI, 4/8-bar phrases, 4/4, eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: 3/4, per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
-- Actual local Codex browser discovery and native WebMCP batch composition, validation, preview, apply, Undo/Redo and export succeeded. Published Pages still serves the earlier build; updated public acceptance awaits deployment. Page-context fallback has been removed. See the current Windows acceptance report for this environment. See `docs/regression-webmcp-2026-10-16.md`.
 
 
 
