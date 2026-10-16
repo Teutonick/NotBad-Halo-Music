@@ -125,7 +125,7 @@
     if(root.HaloFileBridge)root.HaloFileBridge.panel(view,api,language);
     else view.textContent=tr('File Bridge недоступен.','File Bridge unavailable.');
    }
-   try{window.dispatchEvent(new Event('resize'));}catch{}
+   try{window.HaloLayout?.();}catch{}
   }
 
   btnWebmcp.onclick=()=>renderView('webmcp');

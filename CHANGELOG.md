@@ -1,6 +1,8 @@
 ## 2026-10-16 — File Bridge and Integration Mode Switcher
 
 Added dual agent integration modes (WebMCP and File Bridge) to the AI / Agents tab, selectable via a switcher and saved in `localStorage['halo-agent-bridge-mode']`.
+- **Dock Tabs & Hint Layout Alignment (`index.html`):** Shifted `.hint` left padding to 46px (`44px` on mobile <= 700px) aligning directly with Column 2 (Track 01) so the 4 workstation mode buttons never overlap or run over the instruction text ("НАЖМИТЕ НА ГОЛОС..."). Refined button min-height to 25px and gap to 3px for balanced vertical proportions.
+- **Canvas Stability & Idempotent Resize:** Eliminated orbit flickering and micro-refresh on track toggling or UI button clicks by making resize() strictly idempotent and replacing synthetic window resize events with targeted layout recalculation.
 - **Mode Switcher Polish:** Active mode button adopts high-contrast light styling (`#e8f7f5` background, `#071822` text, white border, soft glow); inactive button remains translucent dark.
 - **Concise WebMCP Guidance:** Streamlined in-app panel to concise enablement steps (`chrome://flags/#enable-webmcp-testing`), explicitly emphasizing support exclusively on platforms featuring embedded browsers with WebMCP (e.g., Codex).
 - **File Bridge Window Layout (`src/file-bridge.js`, `index.html`):** Increased agent panel max/min height in File Bridge mode (`max-height: min(500px, 60vh); min-height: 280px;`) and dynamic dock tab stretching so synchronization controls (`⟳`, `⯈`, `✕`, status, and pending request banner) fit comfortably without clipping.

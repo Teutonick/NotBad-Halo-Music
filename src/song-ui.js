@@ -126,7 +126,7 @@
     bottom.classList.toggle('live-loop-view',isLoop);
     bottom.classList.toggle('agent-view',tab==='agents');
     document.body?.classList.toggle('song-view',isComp);
-    try{window.dispatchEvent(new Event('resize'));}catch{}
+    try{window.HaloLayout?.();}catch{}
     for(const [b,label,active] of [
       [instrumentsButton,tr('Инструменты','Instruments'),isInst],
       [compositionButton,tr('Композиция','Composition'),isComp],
