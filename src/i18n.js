@@ -1,6 +1,7 @@
 (function(root){
  'use strict';
  const pairs=[
+ ["AI-композитор дополнительно сохраняет здесь адрес, модель, текст запроса и область правок. API-ключ не сохраняется: он остаётся только в памяти до отключения или перезагрузки. По кнопке Создать / Изменить текст, каталог и музыкальное состояние отправляются выбранной вами LLM; аудиозаписи Track 09 не отправляются.", "AI Composer also saves the endpoint, model, prompt and edit scope here. API keys are not saved: they remain only in memory until disconnect or reload. Create / Modify sends text, catalog and musical state to your selected LLM; Track 09 recordings are never sent."],
  ['Collapse workspace to transport','Свернуть рабочее окно до транспорта'],['Expand workspace','Развернуть рабочее окно'],['Microphone and audio devices','Микрофон и аудиоустройства'],['Move audio input window with arrow keys','Перемещайте окно аудиовхода стрелками'],['Close audio input','Закрыть аудиовход'],['Audio input','Аудиовход'],
  ['Invalid root note','Некорректная исходная нота'],['Invalid pitch octave','Некорректная октава семпла'],['Invalid pitch pattern','Некорректный нотный рисунок семпла'],['Invalid pitch note','Некорректная нота семпла'],['Invalid pitch steps','Некорректные шаги семпла'],
  ['Phrase name: 1–10 letters or digits, no spaces','Имя фразы: 1–10 букв или цифр, без пробелов'],['Shared data exceeds size limit','Данные ссылки превышают допустимый размер'],

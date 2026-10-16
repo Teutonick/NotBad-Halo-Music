@@ -1,3 +1,7 @@
+## 2026-10-16 — AI Composer vertical workflow
+
+Added optional OpenRouter/existing-local-model connection, natural-language musical planning, bounded command repair, local audition, reviewed application and session history. Expanded the live capability registry, protected targeted edits and kept user audio local. Original eight-bar control jingle saved from HALO. Cloud/model quality acceptance is separate from fixture-based UI verification; 4/4 and fixed orbit limits remain.
+
 # Changelog
 
 ### 2026-10-15 — Compact editors

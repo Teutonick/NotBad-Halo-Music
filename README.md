@@ -28,7 +28,7 @@ HALO is a browser music and relaxation constructor. Shape a soundscape, find a p
 | **Track 09: Live Loop & Jam** | An optional 9th audio layer synchronized to the transport: record microphone takes with pre-roll, import audio files, loop in 1/2/4/8 bars, trim waveforms, and overdub non-destructively. |
 | **Keep what you make** | Edit phrase steps, shape timbres and spatial effects, enable background playback for uninterrupted listening across tabs and apps, save projects, share compact links and export WAV. MP3 is available when the browser provides a compatible native codec. |
 
-**Generative, without generative AI.** Original motifs, ensemble rules and seeded variation run locally. No model, prompt, account or API key stands between you and the music.
+**The core generator needs no AI.** Original motifs, ensemble rules and seeded variation run locally. The optional **Agents** tab adds a text-based AI composer using your chosen OpenRouter model or an existing local compatible endpoint. HALO still creates every sound itself.
 
 ## From silence to sound
 
@@ -107,3 +107,12 @@ Track 09 SOLO smoothly silences the eight core voices without changing their mut
 
 
 DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4/8/16/32 and STEP 1/16, 1/8, 1/4 beside the pattern grid (16 cells; CYCLE 32 repeats them twice). DURATION selects a fraction of natural slice/sample-window playback length, accounting for pitch; PITCH is no longer capped at one step. Rests let notes ring; a new trigger gently chokes the previous voice. PITCH remains bounded by the phrase end in live/offline playback. No slice time stretching is introduced.
+
+
+### Compose with words (optional)
+
+In **Agents**, choose OpenRouter or an already running local OpenAI-compatible API, enter a model and your own key if needed, then **Connect**. Describe the music, choose an optional edit scope and press **Create / Modify**. Review the plan, **Audition proposal**, **Apply**, then Play or SAVE. Undo/Redo let you return to earlier applied variants. No JSON handling is needed.
+
+Prompts, musical notes/settings and the built-in catalog go directly to the chosen LLM. Track 09 recordings never do. Audio synthesis/rendering stays in HALO. Connection settings and prompt persist locally; the key lives only in memory until disconnect/reload. Cloud inference may cost money. Local CORS/HTTPS/network permissions must allow your browser; no mandatory installation or server is added to HALO. Direct OpenAI secret keys and unverified custom cloud APIs are unsupported.
+
+Only 4/4 and fixed orbit order are implemented: the assistant must explain requests for a true waltz or orbit rearrangement instead of claiming success. See [connection and protocol details](docs/agent-api-specification.md), [verification limits](docs/regression-ai-composer-2026-10-16.md) and the [original New Year control project](examples/ai/new-year-jingle.halo.json).

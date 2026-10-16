@@ -562,3 +562,12 @@ test('HaloRetriggerPhrase quantized restarts the entire phrase, all instruments,
 });
 
 
+
+test('AI provider/model scope selects retain normal keyboard navigation without musical shortcuts',()=>{
+ const a=app(),play=a.document.getElementById('play');
+ let prevented=false;
+ for(const key of ['6',' '])a.events.keydown({target:{tagName:'SELECT'},key,code:key===' '?'Space':'Digit6',preventDefault(){prevented=true}});
+ assert.equal(prevented,false);
+ assert.equal(play.classList.contains('is-playing'),false);
+ assert.equal(a.calls.filter(c=>c[0]==='update').length,0);
+});

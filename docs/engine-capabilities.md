@@ -1,3 +1,14 @@
+# Optional AI Music Composer — current shipped expansion
+
+### Implemented — 2026-10-16: optional AI Music Composer
+
+- The fourth Agents tab now connects to OpenRouter or an existing loopback OpenAI-compatible API, reads a model list where available, and accepts natural-language music requests. No manual JSON transfer is required; developer JSON tools remain secondary.
+- `src/ai-composer.js` sends text-only actual capabilities/state and resolved notes, requires a musical plan plus real declarative commands, validates through the existing `HaloAgentAPI`, and allows two bounded repair calls. Track-only, melody/notes/instrument preservation and visual-only scopes are checked against copies before approval. New pitched parts require exact MIDI events, not generator randomization.
+- `src/ai-composer-ui.js` provides plan/diff review, local first-phrase audio audition (at most 32 s), explicit Apply, Discard and session Undo/Redo. Applying pauses via the existing loader; manual controls remain available. UI connection state survives tab/language changes; endpoint/model/prompt/scope persist locally, keys remain memory-only. No credentials or connection preferences enter projects/links.
+- Registry v2 exposes startup defaults, key definitions, real resolved notes, role limits, routing, supported visuals and metadata for all 130 existing CC0 recordings (`src/sample-catalog.js`, tested against the rights manifest). No recordings/PCM/device information are sent to the LLM. Musical `visual.patch` is separate: scene/motion/effect changes do not reload audio or alter transport/editor drafts. Fixed orbit geometry/order remains unsupported, as do 3/4, per-note duration/velocity and audio analysis.
+- GitHub Pages remains a zero-build relative classic-script site; no backend, MCP server, runtime dependency, model/audio download or remote music generator was added. OpenRouter cloud text inference is optional and may be billed by the provider; direct OpenAI secret-key browser use and unverified custom cloud endpoints are not offered. CORS/local-network rules remain enforced.
+- Verification: automated contracts and a full browser flow on a temporary HTTP fixture serving a Codex-authored **original eight-bar New Year jingle**. That fixture is not an LLM or a product component. Live model quality/provider credentials, physical mobile and Safari/iOS require separate acceptance. See `docs/regression-ai-composer-2026-10-16.md` and the current section of `docs/agent-api-specification.md`.
+
 # HALO Engine Capabilities & Technical Specification
 
 ### Compact workspace controls — 2026-10-15

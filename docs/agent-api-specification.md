@@ -1,3 +1,94 @@
+# HALO AI Composer and Agent API — implemented contract (2026-10-16)
+
+This section describes the shipped code (`src/agent.js`, `src/ai-composer.js`, `src/ai-composer-ui.js`). The historical proposal below is **not** a list of callable methods or supported providers.
+
+## User workflow
+
+Agents is the fourth workspace tab. Choose **Local model** (default base `http://127.0.0.1:11434/v1`), **OpenRouter** (`https://openrouter.ai/api/v1`), or **Other local endpoint**, enter/select a model and optionally a session key, then Connect. HALO reads `/models` if implemented. With a manually entered model, a 404/405 or unsupported model-list shape permits proceeding; `/chat/completions` compatibility is checked at the first composition request. A successful model list alone does not verify inference quality.
+
+Write a natural-language request and select an optional scope: request-based, preserve melody, preserve notes (sound/master only), only one core track, or visuals only. Create / Modify pauses existing live playback, reads fresh state and sends text-only context to the chosen LLM. The response includes a musical plan and a declarative transaction. Invalid JSON, unsupported commands, incompatible patches and scope violations receive up to **two repair attempts** (three inference calls total), on the same base revision. No random/generative fallback substitutes for a failed plan. Unsupported requests may return an explanation with `transaction:null`.
+
+Review the plan, limitations and computed changes. Audition renders only the first phrase locally (8 bars, or 4 at BPM <60, at most 32 seconds), without applying it; press the native audio player's Play control. The full arrangement duration is shown separately. Apply is explicit, uses the existing project loader, pauses playback and releases live input hardware. Press ordinary Play to hear/edit the applied project, and SAVE to retain a portable project. Undo/Redo operate on ten applied session transactions. Discard leaves music unchanged. JSON remains an optional developer disclosure, never part of the normal prompt workflow.
+
+## Provider and privacy boundaries
+
+- No mandatory backend, MCP server, extension, installation, model download, music service or external instrument is added. Local models must already exist and serve a compatible API.
+- Requests: `GET <base>/models`; `POST <base>/chat/completions`, `{model,messages,stream:false,max_tokens:12000}`. No remote tools, audio modalities or sample URLs are requested. Response: `choices[0].message.content` containing the plan JSON. Models must support enough context/output for the requested score; truncated output fails explicitly.
+- Named cloud provider: OpenRouter. Custom endpoints are restricted to `localhost`, `127.0.0.1`, `[::1]`, via HTTP/HTTPS. Credentials, query strings and fragments in base URLs are rejected. The named cloud URL is fixed to HTTPS OpenRouter. Direct OpenAI secret-key browser use and unverified custom cloud providers are not offered.
+- CORS must allow the exact HALO page Origin (Pages origin is `https://teutonick.github.io`, without the repository path). HTTPS, file origins, local-network permissions and mixed-content rules remain browser/server controlled. No `no-cors`, CORS proxy, redirect forwarding or security bypass. Browser failures report actionable CORS/network, HTTP status, timeout or model errors. No guarantee of every model/service/browser.
+- Endpoint, model, prompt and chosen scope persist in bounded `halo-ai-composer-v1` localStorage. Keys and connection status are **memory-only**, cleared by Disconnect/reload, never added to project/share/autosave/context/logs. Browser scripts/extensions can still access a key in memory. Use a user-controlled, limited OpenRouter key.
+- Model data: prompt, actual catalog, key/scale/harmonic context, current project/settings, resolved per-track notes, visual state and up to four applied prior snapshots (bounded to 512 KiB). No Track 09 PCM, Blob, waveform, device IDs, capture permission or audio content enters this path. Only existing local layer IDs/settings travel as metadata. HALO's audio generation stays local; cloud text retention is controlled by the chosen provider.
+- Request timeout 120 s per call; Cancel aborts requests; Disconnect aborts and forgets the key. Request JSON bound 1.5 MiB, model response 512 KiB (model list 8 MiB, first 1000 IDs); redirects rejected, credentials omitted, referrer suppressed. No automatic retries of HTTP/auth/network errors.
+
+## Musical planner result
+
+```json
+{
+  "summary":"User-language summary",
+  "plan":{
+    "mode":"edit",
+    "intent":"Musical objective",
+    "tracks":[5],
+    "preserve":["notes"],
+    "tempoAndKey":"Current key and tempo retained",
+    "harmony":"Current harmony retained",
+    "rhythm":"Current rhythm retained",
+    "development":"No arrangement rewrite",
+    "limitations":[]
+  },
+  "transaction":{
+    "schemaVersion":1,
+    "baseRevision":1,
+    "operations":[{"op":"track.patch","trackIndex":5,"values":{"space":55}}]
+  }
+}
+```
+
+Modes: `create`, `edit`, `arrange`, `visual`. Track indices 0..7. Preserve flags: `melody`, `notes`, `instruments`. `transaction:null` explains unsupported requests without changes. The planner is an LLM instructed with actual capabilities, not a list of mood presets. For new music it must write exact steps and MIDI notes for each active pitched voice. The deterministic layer validates structure, roles and bounds, and enforces declared/user-selected scope; it cannot certify musical originality or artistic quality.
+
+Edit plans prohibit whole-project replacement and harmonic metadata changes; undeclared core tracks remain identical. The track-only scope also protects masters and Track 09. Preserve-melody protects slot 5 pitch/rhythm/instrument; preserve-notes protects noteEvents, steps, source transposition, cycles, density, generator and exact flags. Visual-only protects the entire musical project and does not call the audio loader. Input settings/local audio references are protected; absent Track 09 metadata in a new project is copied from the current phrase before validation. A changed project or view revision rejects a stale response/proposal; there is no silent rebase. Auto-pattern/key preferences survive agent musical loading, and visual changes preserve transport and editor drafts.
+
+## Browser Agent API
+
+`window.HaloAgentAPI` remains available for agents with browser access. No HTTP/MCP endpoint or discovery service is installed. Reading is available without write permission; explicit UI Apply/Undo/Redo authorizes the session write gate. The gate prevents accidents and is not a security sandbox for scripts already executing in the page.
+
+Methods:
+
+- `getCapabilities()` → registry version 2: actual sound banks, all 130 built-in recording metadata entries (no PCM), eight role policies, startup defaults, keys/scales, bounds, FX/master routing, visual writable fields, Track 09 limitations, composition schema.
+- `getProjectState()` → `{revision,project,visual}`. Revision changes when canonical musical/visual state changes.
+- `getContext()` → `{state,capabilities,music,history}`. `music` contains resolved per-step MIDI events, actual selected-patch voice policies and generated bar harmony for each phrase. `history` exposes undo/redo counts; the composer separately retains four recent applied snapshots in memory.
+- `isEnabled()`, `setEnabled(boolean)`.
+- `previewOperations(request)` → `{baseRevision,before,after,visualBefore,visualAfter,playback}` on copies; `validateOperations(request)` → `{valid,error?}`.
+- Async `applyOperations(request)`, `undo()`, `redo()` → fresh state. History is bounded, conflict-checked, session-only; later manual musical edits prevent blind history overwrites.
+
+Requests use `{schemaVersion:1,baseRevision,operations:[...]}`, at most 256 operations / 512 KiB. Unknown project/track/event fields (including invented time signatures or per-note velocity) are rejected rather than silently stripped. Supported operations only:
+
+| Operation | Payload |
+| --- | --- |
+| `track.patch` | `trackIndex:0..7`, `phraseId` required for songs, `values` from the track allowlist |
+| `phrase.patch` | `phraseId` required for songs, `values:{bars?,startStep?,seed?,key?,liveLoop?}` |
+| `master.patch` | `values:{tempo?,masterVolume?,mix?}`; song and phrase masters update together |
+| `project.replace`, `composition.replace` | `project`: complete valid version-1 musical project/composition |
+| `visual.patch` | `values:{scene?,motion?,effects?}`; enums from registry; scene changes require DRIFT |
+
+Track fields: `instrument` (bank), `sound` (catalog ID), `generator`, `on`, `steps`, `exact`, `sequence`, `noteEvents`, `noteTranspose`, `level`, `density`, `character`, `duration`, `space`, `delay`, `delayTime`, `chorus`. Slot names/roles remain fixed. Patch objects replace each supplied field; supply the full `sequence`, `mix`, `liveLoop` or note list rather than nested partial objects. Changing bars requires compatible steps/events in the same transaction. Repeated sections reference the same phrase; create a new phrase ID for an independent variation.
+
+## Real musical constraints
+
+Only **4/4**, 4/8-bar phrases, 16 steps/bar. Eighths are steps 0,2,4,...; pauses are absent steps. BPM 30–200, normalized controls 0–100, EQ −9..9 dB, width 0–100. Sequence length 4–32, stepLength 1/2/4, offset 0..length−1; exact steps bypass density/cycle generation. Up to 32 phrases/sections, 128 total bars; duration = bars×240/BPM.
+
+For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` must reference a step, be unique, and contain at most four notes, additionally limited by role/sample register and role maxNotes. Set `noteTranspose` to the key's **offset**, not its index, for literal MIDI pitches. Bass is mono; arpeggio is mono and short. Empty note lists on unpitched percussion still trigger its sound. No per-note velocity, duration, swing/microtiming or independent chromatic-score engine is added. No acoustic listening/analysis is claimed by the planner.
+
+Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. Requests for a true waltz or arbitrary orbit rearrangement receive an honest limitation/alternative rather than false success.
+
+## Verification and control score
+
+See [regression evidence](regression-ai-composer-2026-10-16.md). The saved original control score is [new-year-jingle.halo.json](../examples/ai/new-year-jingle.halo.json): eight bars, F major, 112 BPM, seven active roles, independently written notes and rhythm, built-in procedural sounds only. No ready-made phrase/ensemble was used. A temporary test HTTP fixture served this Codex-authored plan to verify the full browser UI path; it is not a live third-party LLM and is not part of HALO. Real paid-provider/local-model inference quality remains to be accepted with the user's model/key.
+
+---
+
+## Historical design proposal (not the implemented operation catalog)
+
 # HALO — Universal Agent API & AI Composer Specification
 
 ### Local workspace UI state — 2026-10-15
