@@ -28,7 +28,7 @@ HALO is a browser music and relaxation constructor. Shape a soundscape, find a p
 | **Track 09: Live Loop & Jam** | An optional 9th audio layer synchronized to the transport: record microphone takes with pre-roll, import audio files, loop in 1/2/4/8 bars, trim waveforms, and overdub non-destructively. |
 | **Keep what you make** | Edit phrase steps, shape timbres and spatial effects, enable background playback for uninterrupted listening across tabs and apps, save projects, share compact links and export WAV. MP3 is available when the browser provides a compatible native codec. |
 
-**The core generator needs no AI.** Original motifs, ensemble rules and seeded variation run locally. The optional **Agents** tab adds a text-based AI composer using your chosen OpenRouter model or an existing local compatible endpoint. HALO still creates every sound itself.
+**The core generator needs no AI.** Original motifs, ensemble rules and seeded variation run locally. External browser agents such as Codex can also compose and edit through WebMCP Site Tools or the page-context API. HALO creates every sound locally.
 
 ## From silence to sound
 
@@ -109,10 +109,10 @@ Track 09 SOLO smoothly silences the eight core voices without changing their mut
 DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4/8/16/32 and STEP 1/16, 1/8, 1/4 beside the pattern grid (16 cells; CYCLE 32 repeats them twice). DURATION selects a fraction of natural slice/sample-window playback length, accounting for pitch; PITCH is no longer capped at one step. Rests let notes ring; a new trigger gently chokes the previous voice. PITCH remains bounded by the phrase end in live/offline playback. No slice time stretching is introduced.
 
 
-### Compose with words (optional)
+### Compose with an external agent
 
-In **Agents**, choose OpenRouter or an already running local OpenAI-compatible API, enter a model and your own key if needed, then **Connect**. Describe the music, choose an optional edit scope and press **Create / Modify**. Review the plan, **Audition proposal**, **Apply**, then Play or SAVE. Undo/Redo let you return to earlier applied variants. No JSON handling is needed.
+Open HALO in a browser available to Codex and ask: “Compose an original eight-bar New Year jingle with built-in sounds, your own notes, bass, harmony and effects.” A WebMCP-capable agent discovers HALO tools automatically, reads `halo_get_context`, writes a bounded transaction, validates/previews it and applies it to the open score. No model, API key, chat or manual JSON transfer inside HALO.
 
-Prompts, musical notes/settings and the built-in catalog go directly to the chosen LLM. Track 09 recordings never do. Audio synthesis/rendering stays in HALO. Connection settings and prompt persist locally; the key lives only in memory until disconnect/reload. Cloud inference may cost money. Local CORS/HTTPS/network permissions must allow your browser; no mandatory installation or server is added to HALO. Direct OpenAI secret keys and unverified custom cloud APIs are unsupported.
+**AI / Agents** reports native tool registration. Without WebMCP, agents need actual page JavaScript access to `window.HaloSiteTools` or `window.HaloAgentAPI`; read-only DOM access is insufficient. Browser compatibility and agent permissions matter. Playback can require a normal user Play gesture. Project edits autosave locally; the export tool returns a portable project for the agent to save.
 
-Only 4/4 and fixed orbit order are implemented: the assistant must explain requests for a true waltz or orbit rearrangement instead of claiming success. See [connection and protocol details](docs/agent-api-specification.md), [verification limits](docs/regression-ai-composer-2026-10-16.md) and the [original New Year control project](examples/ai/new-year-jingle.halo.json).
+Only 4/4, 4/8-bar phrases and fixed orbit order are implemented. Track 09 recordings are not exposed. See [tools and protocol](docs/agent-api-specification.md), [actual verification](docs/regression-webmcp-2026-10-16.md), and the [new WebMCP control project](artifacts/webmcp/new-year-jingle.halo.json). The published site must be updated before public tools become available.

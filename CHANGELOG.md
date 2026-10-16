@@ -1,4 +1,8 @@
-## 2026-10-16 — AI Composer vertical workflow
+## 2026-10-16 — External browser agents / WebMCP
+
+Replaced the embedded AI client with automatic browser-native Site Tools over HaloAgentAPI. AI / Agents now reports compatibility and external-agent instructions, with no provider, model, token or chat controls. Batch validation/preview/application, session Undo/Redo, playback request and portable project export share existing project state. Page-context fallback remains available; no service or runtime dependency added. Native Codex browser composition verified locally; public deployment and live fallback acceptance remain distinct pending checks. See docs/regression-webmcp-2026-10-16.md.
+
+## 2026-10-16 — AI Composer vertical workflow (superseded above)
 
 Added optional OpenRouter/existing-local-model connection, natural-language musical planning, bounded command repair, local audition, reviewed application and session history. Expanded the live capability registry, protected targeted edits and kept user audio local. Original eight-bar control jingle saved from HALO. Cloud/model quality acceptance is separate from fixture-based UI verification; 4/4 and fixed orbit limits remain.
 

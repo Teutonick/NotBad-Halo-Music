@@ -1,3 +1,5 @@
+> Historical evidence for the removed embedded AI client. Superseded by [external-agent acceptance](regression-webmcp-2026-10-16.md); this is not evidence for WebMCP.
+
 # AI Composer acceptance evidence — 2026-10-16
 
 ## Implemented and checked

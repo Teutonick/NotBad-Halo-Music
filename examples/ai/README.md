@@ -1,3 +1,5 @@
+> Earlier embedded-client control score, retained as a historical music example. Current external-agent acceptance uses [the native WebMCP score](../../artifacts/webmcp/new-year-jingle.halo.json).
+
 # Original AI control score: Snow lights / Снежные огоньки
 
 `new-year-jingle.halo.json` is the project actually saved with HALO's SAVE button during the 2026-10-16 acceptance check. Load it through HALO's normal LOAD action, then Play. No AI connection is required to play or edit it.

@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const Song=require('../src/song.js'),P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js');
-function app(loop){
+function app(loop,agentTest=false){
  const nodes=new Map(),events={},storage=new Map(),messages=[];let dropTarget=null;
  function node(tag){const classes=new Set();const n={tagName:(tag||'div').toUpperCase(),parent:null,children:[],dataset:{},style:{setProperty(){}},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle(x,on){if(on)classes.add(x);else classes.delete(x)},has:x=>classes.has(x)},append(...x){x.forEach(c=>{if(c&&typeof c==='object')c.parent=n});this.children.push(...x)},insertBefore(x){if(x&&typeof x==='object')x.parent=n;this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(k,v){this[k]=v},contains(x){return this===x||this.children.some(c=>c.contains(x))},getBoundingClientRect:()=>({left:0,right:900}),setPointerCapture(){},hasPointerCapture(){return true},releasePointerCapture(){},closest(sel){let cur=this;while(cur){if(sel==='[data-section]'&&cur.dataset?.section!==undefined)return cur;if((sel==='button'||sel.includes('button'))&&cur.tagName==='BUTTON')return cur;if((sel==='input'||sel.includes('input'))&&cur.tagName==='INPUT')return cur;cur=cur.parent}return null}};return n}
  const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
@@ -9,10 +9,11 @@ function app(loop){
  let current=P.capture(tracks,4,81,2,0,S,M),reset=false;
  const env={language:()=> 'en',snapshot:()=>{const p=Song.copy(current);if(loop)p.liveLoop=loop.capturePhrase();return p},load:async p=>{current=Song.copy(p);loop?.restorePhrase(p.liveLoop)},toast:s=>messages.push(s),download(){},tracks:[],pulse(){},setTracks(){},finish(){},rewind(){},resetting:()=>reset};
  const sandbox={document:doc,HaloLiveLoop:loop,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloProject:P,HaloSounds:S,TextEncoder,Blob,setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:'',href:'https://example.com/halo/'},navigator:{}};
+ if(agentTest){sandbox.HaloAgent=require('../src/agent.js');sandbox.navigator.userActivation={hasBeenActive:false};}
  sandbox.window=sandbox;sandbox.addEventListener=(k,f)=>events[k]=f;vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/song-ui.js','utf8'),sandbox);const ui=sandbox.HaloSongUI.install(env);
  const dock=get('bottom').children[0],blocks=dock.children[1].children[0];
  const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
- return {ui,env,blocks,target:i=>dropTarget=blocks.children[i],click:async(label,i)=>{const parent=i===undefined?get('bottom'):blocks.children[i],b=descendants(parent).find(x=>x['aria-label']===label)||descendants(parent).find(x=>x['aria-label']?.startsWith(label));assert.ok(b,'Missing action '+label);await b.onclick()},select:async i=>blocks.children[i].onclick(),move:async(i,dir)=>blocks.children[i].children[0].onkeydown({altKey:true,key:dir,preventDefault(){}}),instruments:async()=>dock.children[0].children[0].onclick(),composition:async()=>dock.children[0].children[1].onclick(),saved:()=>JSON.parse(storage.get('halo-composition-v1')),current:()=>current,events,messages,name:(i,value)=>{const input=blocks.children[i].children.find(c=>c.className==='song-name-input');input.value=value;input.onkeydown({key:'Enter',stopPropagation(){},preventDefault(){}})},reset:()=>reset=true};
+ return {sandbox,ui,env,blocks,target:i=>dropTarget=blocks.children[i],click:async(label,i)=>{const parent=i===undefined?get('bottom'):blocks.children[i],b=descendants(parent).find(x=>x['aria-label']===label)||descendants(parent).find(x=>x['aria-label']?.startsWith(label));assert.ok(b,'Missing action '+label);await b.onclick()},select:async i=>blocks.children[i].onclick(),move:async(i,dir)=>blocks.children[i].children[0].onkeydown({altKey:true,key:dir,preventDefault(){}}),instruments:async()=>dock.children[0].children[0].onclick(),composition:async()=>dock.children[0].children[1].onclick(),saved:()=>JSON.parse(storage.get('halo-composition-v1')),current:()=>current,events,messages,name:(i,value)=>{const input=blocks.children[i].children.find(c=>c.className==='song-name-input');input.value=value;input.onkeydown({key:'Enter',stopPropagation(){},preventDefault(){}})},reset:()=>reset=true};
 }
 test('UI assembly keeps intro sparse; repeat and variation preserve reference semantics',async()=>{
  const a=app();await a.click('Build composition');assert.ok(a.current().tracks.filter(t=>t.on).length<8);assert.equal(a.saved().song.sections.length,8);
@@ -165,4 +166,14 @@ test('song UI switches phrase-owned Track 09 before its audio tick and restart r
  a.ui.tick(0,0,l.audio);assert.equal(calls.at(-1).kind,'tick');assert.equal(calls.at(-1).pitch,7);
  a.ui.tick(8,64,l.audio);assert.equal(calls.at(-2).kind,'restore');assert.equal(calls.at(-2).time,8);assert.equal(calls.at(-1).pitch,-5);assert.equal(calls.at(-1).step,0);
  state.settings.pitch=-3;changed();a.ui.onPhraseRestart();a.ui.tick(9,0,l.audio);assert.equal(calls.at(-1).pitch,-3,'Restart cannot restore stale processing');
+});
+
+test('external playback reports required activation without entering a hanging audio resume; later calls remain available',async()=>{
+ const a=app(null,true);let starts=0,playing=false;
+ a.env.isPlaying=()=>playing;a.env.startPlayback=async()=>{starts++;playing=true};a.env.pausePlayback=async()=>{playing=false};
+ const api=a.sandbox.HaloAgentAPI;api.setEnabled(true);
+ assert.equal((await api.setPlayback({playing:true})).reason,'AUDIO_GESTURE_REQUIRED');assert.equal(starts,0);
+ a.sandbox.navigator.userActivation.hasBeenActive=true;
+ assert.equal((await api.setPlayback({playing:true})).playing,true);assert.equal(starts,1);
+ assert.equal((await api.setPlayback({playing:false})).playing,false);
 });

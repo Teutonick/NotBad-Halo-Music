@@ -1,15 +1,14 @@
-# Optional AI Music Composer — current shipped expansion
-
-### Implemented — 2026-10-16: optional AI Music Composer
-
-- The fourth Agents tab now connects to OpenRouter or an existing loopback OpenAI-compatible API, reads a model list where available, and accepts natural-language music requests. No manual JSON transfer is required; developer JSON tools remain secondary.
-- `src/ai-composer.js` sends text-only actual capabilities/state and resolved notes, requires a musical plan plus real declarative commands, validates through the existing `HaloAgentAPI`, and allows two bounded repair calls. Track-only, melody/notes/instrument preservation and visual-only scopes are checked against copies before approval. New pitched parts require exact MIDI events, not generator randomization.
-- `src/ai-composer-ui.js` provides plan/diff review, local first-phrase audio audition (at most 32 s), explicit Apply, Discard and session Undo/Redo. Applying pauses via the existing loader; manual controls remain available. UI connection state survives tab/language changes; endpoint/model/prompt/scope persist locally, keys remain memory-only. No credentials or connection preferences enter projects/links.
-- Registry v2 exposes startup defaults, key definitions, real resolved notes, role limits, routing, supported visuals and metadata for all 130 existing CC0 recordings (`src/sample-catalog.js`, tested against the rights manifest). No recordings/PCM/device information are sent to the LLM. Musical `visual.patch` is separate: scene/motion/effect changes do not reload audio or alter transport/editor drafts. Fixed orbit geometry/order remains unsupported, as do 3/4, per-note duration/velocity and audio analysis.
-- GitHub Pages remains a zero-build relative classic-script site; no backend, MCP server, runtime dependency, model/audio download or remote music generator was added. OpenRouter cloud text inference is optional and may be billed by the provider; direct OpenAI secret-key browser use and unverified custom cloud endpoints are not offered. CORS/local-network rules remain enforced.
-- Verification: automated contracts and a full browser flow on a temporary HTTP fixture serving a Codex-authored **original eight-bar New Year jingle**. That fixture is not an LLM or a product component. Live model quality/provider credentials, physical mobile and Safari/iOS require separate acceptance. See `docs/regression-ai-composer-2026-10-16.md` and the current section of `docs/agent-api-specification.md`.
-
 # HALO Engine Capabilities & Technical Specification
+
+### Implemented — 2026-10-16: external agents and WebMCP Site Tools
+
+- HALO is controlled by external agents such as Codex. The fourth **AI / Agents** tab only explains browser availability and the workflow. Embedded chat, provider/model/endpoint/key controls and LLM clients were removed.
+- `src/site-tools.js` automatically registers ten WebMCP tools over the existing `window.HaloAgentAPI`: context, capabilities, state, batch validation/preview/application, Undo/Redo, playback and portable project export. Current `document.modelContext.registerTool` is preferred; legacy `navigator.modelContext` is feature-detected. Registration failures leave the page-context bridge available and are reported honestly. No polyfill, backend, MCP server, extension, runtime dependency or network request is added.
+- `window.HaloSiteTools.listTools()` and async `callTool(name,args)` provide the same tools for agents with real page-JavaScript access. All edits use the same project, strict validation, revision checks and ten-entry session history. Preview computes copies; it is not audio audition. Explicit tool calls authorize the API write gate. Musical application pauses playback; visual-only edits preserve music/transport. Browser audio may require a user gesture.
+- Registry v2 retains the complete built-in catalog, metadata for 130 local recordings, defaults, resolved notes, roles, bounds, FX/master, composition and visual limits. Track 09 PCM, recordings, device IDs and capture permissions are not exposed. External agents control their own model/data policies; HALO has no LLM connection or key storage.
+- Supported: exact MIDI, 4/8-bar phrases, 4/4, eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: 3/4, per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
+- Actual local Codex browser discovery and native WebMCP batch composition, validation, preview, apply, Undo/Redo and export succeeded. Published Pages still serves the earlier build; updated public acceptance awaits deployment. Page-context fallback has unit coverage, but this Codex browser exposes read-only DOM evaluation and cannot execute that fallback live. See `docs/regression-webmcp-2026-10-16.md`.
+
 
 ### Compact workspace controls — 2026-10-15
 
