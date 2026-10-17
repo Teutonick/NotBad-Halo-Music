@@ -185,14 +185,18 @@
             bars: 4,
             steps: 48,
             downbeats: [0, 4, 8],
-            feel: 'Graceful 3/4 waltz (ONE-two-three, ONE-two-three)'
+            orchestration: 'Boom - Chak - Chak: kick & bass on downbeat (step 0), snare, keys & chords on afterbeats (steps 4 & 8)',
+            feel: 'Graceful 3/4 waltz (ONE-two-three, ONE-two-three)',
+            accents: { downbeat: { steps: [0], velocity: 0.88 }, afterbeats: { steps: [4, 8], velocity: 0.78 } }
           },
           swing8Bars: {
             bars: 8,
             steps: 96,
             compoundBeats: [0, 6],
             eighthNotes: [0, 2, 4, 6, 8, 10],
-            feel: 'Compound 6/8 rocking pirate swing (ONE-two-three, TWO-two-three)'
+            orchestration: 'Hans Zimmer / compound pirate groove: two compound beats (steps 0 and 6), heavy backbeat on 6, rolling eighths, dactylic gallop riffs [0, 3, 4, 6, 9, 10]',
+            feel: 'Compound 6/8 rocking pirate swing (ONE-two-three, TWO-two-three)',
+            accents: { compoundBeat: { steps: [0], velocity: 0.90 }, compoundBackbeat: { steps: [6], velocity: 0.86 } }
           },
           description: '12 sixteenth steps per bar. In 4 bars, forms a 3/4 waltz; in 8 bars, forms a rocking 6/8 pirate swing.'
         }

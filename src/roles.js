@@ -57,11 +57,13 @@
   return {...sound,id:'role3:'+role+':'+sound.id,engine,ambient:role==='texture'&&engine==='noise',lead:role==='melody'&&sound.lead};
  }
  const cache=new Map();
- function plan(track,sound,seed,bars=4){
-  const s=sequence(track.sequence),role=forTrack(track).id,key=[track.setup,track.name,track.instrument,sound.id,seed,bars,s.length,s.stepLength,s.offset,track.arrangement?.count||1,track.arrangement?.ordinal||0].join(':');
+ function plan(track,sound,seed,bars=4,timeSignature=track.timeSignature||'4/4'){
+  const timeSig=timeSignature==='3/4'?'3/4':'4/4';
+  const spb=timeSig==='3/4'?12:16;
+  const s=sequence(track.sequence),role=forTrack(track).id,key=[track.setup,track.name,track.instrument,sound.id,seed,bars,timeSig,s.length,s.stepLength,s.offset,track.arrangement?.count||1,track.arrangement?.ordinal||0].join(':');
   if(cache.has(key))return cache.get(key);
-  const virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars),period=bars*s.length*s.stepLength,entries=new Map();
-  base.steps.forEach((step,i)=>{const mapped=mod((Math.floor(step/16)*s.length+Math.floor(step%16*s.length/16)-s.offset)*s.stepLength,period);if(!entries.has(mapped))entries.set(mapped,{original:step,accent:base.accents[i]})});
+  const virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars,timeSig),period=bars*s.length*s.stepLength,entries=new Map();
+  base.steps.forEach((step,i)=>{const mapped=mod((Math.floor(step/spb)*s.length+Math.floor((step%spb)*s.length/spb)-s.offset)*s.stepLength,period);if(!entries.has(mapped))entries.set(mapped,{original:step,accent:base.accents[i]})});
   const steps=[...entries.keys()].sort((a,b)=>a-b);
   const result=Object.freeze({...base,version:3,trackRole:role,period,steps:Object.freeze(steps),accents:Object.freeze(steps.map(step=>entries.get(step).accent)),origins:Object.freeze(Object.fromEntries([...entries].map(([step,e])=>[step,e.original])))});
   if(cache.size>=256)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
@@ -73,17 +75,23 @@
   if(role==='bass'){low=Math.max(min,26);high=Math.min(max,Math.max(low+12,49))}
   return [...new Set(notes.map(n=>fold(n,low,high)))].slice(0,byId[role].maxNotes);
  }
- function notes(track,sound,bar,local,seed,transpose,bars=4,absoluteStep=bar*16+local,mode='minor'){
+ function notes(track,sound,bar,local,seed,transpose,bars=4,absoluteStep=undefined,mode='minor',timeSignature=track.timeSignature||'4/4'){
   if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
+  const timeSig=timeSignature==='3/4'?'3/4':'4/4';
+  const spb=timeSig==='3/4'?12:16;
+  if(absoluteStep===undefined)absoluteStep=bar*spb+local;
   const role=forTrack(track).id,m=metadata(sound);if(!m.pitched)return [];
   if(['pulse','accent','percussion'].includes(role))return [m.referenceNote];
-  const clock=track.manualSteps?mod(absoluteStep,track.manualBars*16):absoluteStep,p=plan(track,sound,seed,bars),pos=position(track,clock,bars),virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars);
-  const original=p.origins[mod(clock,p.period)]??(pos.cell*16+Math.floor(pos.local*16/pos.sequence.length));
-  const within=base.steps.filter(n=>Math.floor(n/16)===pos.cell).map(n=>n%16),ordinal=Math.max(0,within.filter(n=>n<=original%16).length-1);
+  const clock=track.manualSteps?mod(absoluteStep,(track.manualBars||bars)*spb):absoluteStep,p=plan(track,sound,seed,bars,timeSig),pos=position(track,clock,bars),virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars,timeSig);
+  const original=p.origins[mod(clock,p.period)]??(pos.cell*spb+Math.floor(pos.local*spb/pos.sequence.length));
+  const within=base.steps.filter(n=>Math.floor(n/spb)===pos.cell).map(n=>n%spb),ordinal=Math.max(0,within.filter(n=>n<=original%spb).length-1);
   const chord=F.chordFor(track.setup,seed,bar,bars,transpose,mode),answer=pos.cell>=4||pos.cell%4===3;
-  const degree=pos.cell===bars-1&&original%16>=(within.at(-1)??15)?0:base.degrees[(ordinal+(answer?pos.cell%3:0))%base.degrees.length];
+  const degree=pos.cell===bars-1&&original%spb>=(within.at(-1)??(spb-1))?0:base.degrees[(ordinal+(answer?pos.cell%3:0))%base.degrees.length];
   const pitch=chord[degree%4],world=track.setup==='reactor';let result;
-  if(role==='bass')result=[original%4===0?chord[0]-12:pitch-12];
+  if(role==='bass'){
+   const isRoot=timeSig==='3/4'?(bars===8?(original%6===0):(original%4===0)):(original%4===0);
+   result=[isRoot?chord[0]-12:pitch-12];
+  }
   else if(role==='texture')result=[chord[0]+(world?12:-12)];
   else if(role==='harmony')result=chord.map((_,i)=>chord[(i+degree)%4]+(world?12:0));
   else if(role==='arpeggio')result=[pitch+12];
@@ -91,7 +99,7 @@
   else {const n=pitch+24+(answer&&sound.lead&&ordinal%3===0?12:0);result=[n,...(sound.octave?[n+12]:[])]}
   return constrain(result,sound,role);
  }
- function velocity(track,sound,step,seed,bars=4){const p=plan(track,sound,seed,bars),i=p.steps.indexOf(mod(step,p.period));return i<0?.72:p.accents[i]}
+ function velocity(track,sound,step,seed,bars=4,timeSignature=track.timeSignature||'4/4'){const p=plan(track,sound,seed,bars,timeSignature),i=p.steps.indexOf(mod(step,p.period));return i<0?.72:p.accents[i]}
  function voicePolicy(track,sound){
   const role=forTrack(track),short=['pulse','accent','percussion'].includes(role.id);
   return {maxNotes:role.maxNotes,voices:role.voices,short,attack:short?.003:role.id==='arpeggio'?.008:role.id==='bass'?.012:null,maxDuration:short?(role.id==='percussion'?.35:.8):role.id==='arpeggio'?.65:8,naturalGuitar:!short&&role.id!=='arpeggio'&&sound.engine==='guitar'};

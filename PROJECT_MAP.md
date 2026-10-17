@@ -15,6 +15,14 @@
   - All phrases in a composition must share the same `setup`.
   - Detailed acoustic profiles for agents: `ambient` (procedural synthesis, warm sub-bass, lush reverb) vs `reactor` (32 presets, 130 authentic CC0 acoustic/electric recordings).
 
+### Authentic 3/4 Waltz & 6/8 Pirate Swing Pattern Generation — 2026-10-17
+
+- Authored two new world-standard rhythm pattern catalogs in `src/phrases.js`: `catalog3_4_waltz` (4 bars = 48 steps) and `catalog6_8_swing` (8 bars = 96 steps), with 10 authentic, mutually harmonized rhythmic motif patterns per role across all 14 roles.
+- **3/4 Waltz (4 bars, 48 steps):** "Boom - Chak - Chak" orchestration with kick/bass on downbeat (step 0), snare/keys/chords on afterbeats (steps 4 and 8), lyrical waltz melodies, and dynamic accents on 0 (.88) and 4/8 (.78).
+- **6/8 Pirate Swing (8 bars, 96 steps):** Swashbuckling sea shanty / compound groove (*Pirates of the Caribbean* style) with compound beats on 0 and 6, heavy backbeat on 6, rolling eighths `[0, 2, 4, 6, 8, 10]`, dactylic gallop riffs `[0, 3, 4, 6, 9, 10]`, and dynamic accents on 0 (.90) and 6 (.86).
+- **Adaptive Polymetric Cycles (`src/sounds.js`):** Added `cycleProfiles3_4` and `cycleProfiles6_8` for tasteful polyrhythms (12, 6, 24, 9 steps with 3-beat hemiola for waltz; 12, 6, 24, 8 steps for 6/8 swing) and dotted delay `1/8d` prioritization.
+- Synchronized «СОЗДАТЬ» (GENERATE), transport, roles, `index.html` (both RU and EN manuals), `docs/engine-capabilities.md`, `docs/agent-api-specification.md`, `src/file-bridge.js`, and `temp/` folder artifacts. All 224 automated unit tests pass cleanly.
+
 ### 3/4 Waltz & 6/8 Pirate Swing Time Signatures — 2026-10-17
 
 - Added native support for `timeSignature: '4/4' | '3/4'` across transport, scheduler, note generation, pattern editor, visual orbits, project serialization, offline WAV/MP3 export, and agent APIs.

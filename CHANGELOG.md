@@ -1,6 +1,11 @@
 ## [Unreleased] - 2026-10-17
 
 ### Added
+- **Authentic 3/4 Waltz & 6/8 Pirate Swing Pattern Generation (`src/phrases.js`, `src/sounds.js`):** Authored two world-standard rhythmic motif catalogs: `catalog3_4_waltz` (4 bars = 48 steps) and `catalog6_8_swing` (8 bars = 96 steps) with 10 authentic, mutually orchestrated rhythmic patterns per role across all 14 roles.
+  - 3/4 Waltz features classic "Boom-Chak-Chak" orchestration (kick & bass on downbeat 1, chords & snare on afterbeats 2 and 3, lyrical cascading melodies) and metric dynamic accents (.88 / .78).
+  - 6/8 Pirate Swing features swashbuckling compound groove (two compound beats on steps 0 and 6, heavy backbeat on 6, rolling eighths `[0, 2, 4, 6, 8, 10]`, dactylic gallop riffs `[0, 3, 4, 6, 9, 10]`, and dynamic accents .90 / .86).
+  - Added meter-adaptive polymetric cycle profiles `cycleProfiles3_4` and `cycleProfiles6_8` (12, 6, 24, 9, 8 steps) and dotted delay `1/8d` prioritization.
+  - Fully synchronized «СОЗДАТЬ» (GENERATE), transport, roles, `index.html` (both RU and EN manuals), `docs/engine-capabilities.md`, `docs/agent-api-specification.md`, `src/file-bridge.js`, and `temp/` folder artifacts. All 224 automated unit tests pass cleanly.
 - **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected folder handles are securely remembered across page reloads in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`). Reconnection restores automatically if permission was retained, or in a single click via «🔓 Reconnect «[Folder]»» without reopening the file picker, alongside «📁 Choose other» and «✕ Forget».
 - **Composition Safety Limit (`src/song.js`):** Added engine-level hard cap of **maximum 15 unique phrases** (`MAX_PHRASES = 15`) and 32 sections (`MAX_SECTIONS = 32`) to prevent runaway memory/loop states.
 - **Agent API Canon for Compositions:** Enriched agent guidelines and capabilities specification (`docs/agent-api-specification.md`, `AGENT_GUIDE.md`): HALO defaults to single phrases/loops, but can construct complete multi-section arrangements (*Intro → Verse → Chorus → Verse 2 → Bridge → Outro*) with section repeats when explicitly requested.

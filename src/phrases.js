@@ -46,6 +46,38 @@
   lead:[[2,7,11],[3,10,15],[1,6,9,14],[2,5,11,15],[3,7,10],[1,9,13],[2,6,11,14],[3,10,12,15],[1,5,9],[2,7,13,15]],
   keys:[[0,4,8,12],[0,6,11],[0,8],[2,6,10,14],[0,3,7,10,14],[0,5,8,13],[1,4,9,12],[0,2,8,10],[0,7,12],[2,5,8,11,14]]
  };
+ const rhythms3_4_waltz={
+  accent:[[0,8],[4],[0,4,8],[2,8],[0,6,10],[4,10],[0,2,8],[3,7,11],[0,4,10],[2,6,8,11]],
+  bed:[[0],[0,6],[2],[0,8],[4],[0,4],[6],[2,8],[0,10],[4,8]],
+  bass:[[0],[0,4],[0,8],[0,4,8],[0,6],[0,4,7],[0,2,4],[0,8,10],[0,6,8],[0,4,8,10]],
+  pluck:[[0,2,4,6,8,10],[4,6,8,10],[0,4,8],[2,4,8,10],[0,3,6,9],[0,2,6,8],[4,8],[0,4,6,10],[2,6,8,11],[0,2,4,7,8,10]],
+  rhythm:[[0,2,4,6,8,10],[2,4,6,8,10],[0,4,8],[4,8],[0,3,6,9],[0,4,6,8,10],[2,6,10],[0,2,6,8],[4,7,8,11],[0,4,7,10]],
+  texture:[[0],[4],[0,6],[2,8],[6],[0,8],[3,9],[0,10],[4,8],[0,4,8]],
+  wood:[[2,6,10],[0,4,8],[4,8],[0,2,6,8],[2,4,8,10],[0,6],[4,7,10],[1,5,9],[0,4,7,8],[2,8,11]],
+  kick:[[0],[0,8],[0,4],[0,6],[0,8,10],[0,4,8],[0,2],[0,7],[0,4,10],[0,2,8]],
+  snare:[[4,8],[4],[8],[4,8,11],[4,7,8],[4,10],[2,4,8],[8,10],[4,6,8],[2,8,11]],
+  metal:[[0,4,8],[4,8],[0,2,4,6,8,10],[0,4,6,8,10],[2,4,6,8,10],[0,3,4,7,8,11],[0,8],[4,8,10],[0,2,4,8],[0,4,7,8,10]],
+  tom:[[0,8],[8,10],[6,10],[4,8,10],[0,4],[2,6,10],[7,9,11],[0,10],[4,8],[6,8,10,11]],
+  riff:[[0,4,8],[0,2,4,8],[0,4,6,8],[0,3,6,9],[2,4,7,10],[0,6,10],[0,2,6,8,10],[0,4,7,11],[2,6,8],[0,4,8,10]],
+  lead:[[0,4,8],[2,4,8,10],[0,3,6,8],[0,2,6,9],[4,6,8,11],[0,4,7,10],[2,5,8],[0,6,8,10],[1,4,8,10],[0,2,4,8,11]],
+  keys:[[4,8],[0,4,8],[4,6,8],[2,4,8,10],[0,6,8],[4,8,11],[0,4,8,10],[4,7,9],[0,2,4,8],[2,6,10]]
+ };
+ const rhythms6_8_swing={
+  accent:[[0,6],[6],[0,4,6],[2,6,10],[0,3,6,9],[4,6,10],[0,2,6,8],[0,6,10],[2,8,11],[0,4,6,8,10]],
+  bed:[[0,6],[0],[0,4,6],[2,6,8],[0,8],[4,6,10],[0,3,6],[2,8,10],[0,6,10],[0,4,8]],
+  bass:[[0,6],[0,4,6,10],[0,2,4,6,8,10],[0,3,6,9],[0,4,6],[0,6,8,10],[0,2,6],[0,4,6,9],[0,5,6,10],[0,2,4,6,8]],
+  pluck:[[0,2,4,6,8,10],[0,4,6,10],[2,4,8,10],[0,3,6,8,10],[4,6,8,10],[0,2,6,8],[0,4,8,10],[2,6,9,11],[0,2,4,6,10],[0,6,8,10]],
+  rhythm:[[0,2,4,6,8,10],[0,4,6,10],[2,4,8,10],[0,3,6,9],[4,6,10],[0,2,6,8],[0,6],[2,6,10],[0,4,8,10],[0,2,4,6,7,10]],
+  texture:[[0],[6],[0,6],[2,8],[4,10],[0,4],[3,9],[0,8],[6,11],[0,6,10]],
+  wood:[[0,2,4,6,8,10],[0,4,6,10],[2,4,8,10],[4,6,10],[0,3,6,9],[0,2,6],[2,6,8,10],[0,6,10,11],[4,7,10],[0,2,4,7,10]],
+  kick:[[0,6],[0,4,6],[0,6,10],[0,3,6],[0,4,6,10],[0,2,6],[0,6,8],[0,2,4,6],[0,5,6,11],[0,4,6,8,10]],
+  snare:[[6],[6,10],[4,6],[6,11],[0,6],[2,6,10],[4,6,10],[6,8,10],[2,4,6,10],[0,3,6,9]],
+  metal:[[0,2,4,6,8,10],[0,4,6,10],[0,6],[2,4,8,10],[0,3,6,9],[0,2,6,8],[0,2,4,6,8,11],[4,6,10],[0,2,4,6,7,8,10],[0,6,10]],
+  tom:[[0,4,6,10],[6,10,11],[0,6],[4,6,8,10],[2,4,6,10],[0,2,6],[6,8,10],[0,3,6,9],[0,4,6,8,10],[4,6,10,11]],
+  riff:[[0,3,4,6,9,10],[0,2,4,6,8,10],[0,4,6,10],[0,6],[0,2,6,8],[0,3,6,8,11],[0,4,6,9],[2,4,6,8,10],[0,5,6,10],[0,2,4,6,8]],
+  lead:[[0,2,4,6,8],[0,4,6,10],[0,3,6,8,10],[2,4,6,9,11],[0,2,6,8,10],[0,4,6,8],[1,4,6,10],[0,3,4,6,9,10],[2,5,8,11],[0,2,4,6,8,10]],
+  keys:[[0,4,6,10],[0,6],[0,2,4,6,8,10],[2,4,6,8,10],[0,3,6,9],[4,6,10],[0,2,6,8],[0,4,6,8,11],[0,6,9,11],[2,6,10]]
+ };
  const contours={
   accent:[[0,2,1],[3,1,0],[0,1,3,2],[2,0,1],[0,3],[1,2,0],[3,2,1],[0,2,3],[1,0,2],[2,3,0]],
   bed:[[0,1,2],[1,2,3],[0,2,3],[2,0,1],[3,1,2],[0,1,3],[1,0,2],[2,3,1],[3,2,0],[0,3,2]],
@@ -57,8 +89,19 @@
   keys:[[0,1,2,3],[0,2,3,1],[0,3,1,2],[3,2,1,0],[0,1,3,2],[2,0,1,3],[1,3,0,2],[0,2,1,3],[3,0,2,1],[1,2,0,3]]
  };
  const familyNames=[['Ground','Опора'],['Answer','Ответ'],['Broken','Ломаная'],['Climb','Подъём'],['Return','Возврат'],['Pendulum','Маятник'],['Steps','Ступени'],['Echo','Эхо'],['Space','Пространство'],['Turn','Поворот']];
- const catalog=Object.fromEntries(Object.entries(rhythms).map(([role,rows])=>[role,rows.map((steps,i)=>Object.freeze({id:role+'-'+i,en:familyNames[i][0],ru:familyNames[i][1],steps:Object.freeze(steps),degrees:Object.freeze((contours[role]||[[0]])[i%((contours[role]||[[0]]).length)])}))]));
+ function makeCatalog(sourceRhythms){
+  return Object.fromEntries(Object.entries(sourceRhythms).map(([role,rows])=>[role,rows.map((steps,i)=>Object.freeze({id:role+'-'+i,en:familyNames[i][0],ru:familyNames[i][1],steps:Object.freeze(steps),degrees:Object.freeze((contours[role]||[[0]])[i%((contours[role]||[[0]]).length)])}))]));
+ }
+ const catalog=makeCatalog(rhythms);
+ const catalog3_4_waltz=makeCatalog(rhythms3_4_waltz);
+ const catalog6_8_swing=makeCatalog(rhythms6_8_swing);
  Object.values(catalog).forEach(Object.freeze);Object.freeze(catalog);
+ Object.values(catalog3_4_waltz).forEach(Object.freeze);Object.freeze(catalog3_4_waltz);
+ Object.values(catalog6_8_swing).forEach(Object.freeze);Object.freeze(catalog6_8_swing);
+ function getCatalog(timeSignature='4/4',bars=4){
+  if(timeSignature==='3/4')return bars===8?catalog6_8_swing:catalog3_4_waltz;
+  return catalog;
+ }
  Object.values(profiles).forEach(list=>{list.forEach(profile=>{Object.freeze(profile[3]);Object.freeze(profile)});Object.freeze(list)});Object.freeze(profiles);
  const unpitched=new Set(['kick','snare','metal','tom','rhythm','texture']);
  function roleFor(track,sound){
@@ -95,43 +138,56 @@
   return [0,2,4,6].map(n=>tonic+currentScale[(degree+n)%7]+12*Math.floor((degree+n)/7)+transpose);
  }
  const cache=new Map();
- function plan(track,sound,seed,bars=4){
+ function plan(track,sound,seed,bars=4,timeSignature=track.timeSignature||'4/4'){
   bars=bars===8?8:4;
+  timeSignature=timeSignature==='3/4'?'3/4':'4/4';
+  const spb=timeSignature==='3/4'?12:16;
+  const isWaltz=timeSignature==='3/4'&&bars===4;
+  const isSwing=timeSignature==='3/4'&&bars===8;
+  const cat=getCatalog(timeSignature,bars);
   const role=roleFor(track,sound),assignment=track.arrangement||{count:1,ordinal:0},lane=slots.indexOf(track.name);
-  const key=[track.setup,track.instrument||track.name,sound.id,lane,seed,bars,assignment.count,assignment.ordinal].join(':');
+  const key=[track.setup,track.instrument||track.name,sound.id,lane,seed,bars,timeSignature,assignment.count,assignment.ordinal].join(':');
   if(cache.has(key))return cache.get(key);
-  const profile=ensemble(track.setup,seed),family=(profile[4]+lane*3+assignment.ordinal*2+Math.floor((seed-1)/10)*7)%10,motif=catalog[role][family];
+  const profile=ensemble(track.setup,seed),family=(profile[4]+lane*3+assignment.ordinal*2+Math.floor((seed-1)/10)*7)%10,motif=cat[role][family];
   const steps=[],accents=[];
   for(let bar=0;bar<bars;bar++){
-   let local=[...(bar>=4?catalog[role][(family+1)%10].steps:motif.steps)];
+   let local=[...(bar>=4?cat[role][(family+1)%10].steps:motif.steps)];
    const answer=bar%4===3||bar>=4;
    if(['bed','texture'].includes(role)){
     // Long voices leave breathing room; duplicates share alternating bars.
     const spacing=Math.min(bars,Math.max(2,assignment.count));
     if(bar%spacing!==assignment.ordinal%spacing)local=[];
-   }else if(role==='metal'&&sound.sparse)local=[(bar%2)*8];
+   }else if(role==='metal'&&sound.sparse)local=[(bar%2)*(isSwing?6:isWaltz?4:8)];
    else if(answer){
-    const addition=role==='lead'?15:role==='tom'?15:role==='snare'?14:13;
+    const addition=isSwing?(role==='lead'?10:role==='tom'?11:role==='snare'?10:8):isWaltz?(role==='lead'?10:role==='tom'?10:role==='snare'?8:9):(role==='lead'?15:role==='tom'?15:role==='snare'?14:13);
     if((seed+bar)%2===0)local.push(addition);else if(local.length>2)local.splice(local.length-1,1);
    }
    if(track.setup!=='reactor'&&['rhythm','metal','tom'].includes(role)&&local.length>4)local=local.filter((_,i)=>i%2===0);
    // Repeated roles distribute activity but never forcibly mute a slot.
    if(assignment.count>1)local=local.filter((step,i)=>i%assignment.count===assignment.ordinal||i===0);
    local=[...new Set(local)].sort((a,b)=>a-b);
-   for(const step of local){steps.push(bar*16+step);accents.push(step%4===0?.86:step>=12&&answer?.77:.64)}
+   for(const step of local){
+    steps.push(bar*spb+step);
+    let acc;
+    if(isSwing)acc=step===0?.90:step===6?.86:step%2===0?.76:.64;
+    else if(isWaltz)acc=step===0?.88:(step===4||step===8)?.78:.64;
+    else acc=step%4===0?.86:step>=12&&answer?.77:.64;
+    accents.push(acc);
+   }
   }
-  const result=Object.freeze({version:VERSION,role,ensemble:profile[0],family:motif.id,bars,steps:Object.freeze(steps),accents:Object.freeze(accents),degrees:motif.degrees});
+  const result=Object.freeze({version:VERSION,role,ensemble:profile[0],family:motif.id,bars,timeSignature,steps:Object.freeze(steps),accents:Object.freeze(accents),degrees:motif.degrees});
   if(cache.size>=256)cache.delete(cache.keys().next().value);cache.set(key,result);return result;
  }
  function fold(note,low,high){while(note<low)note+=12;while(note>high)note-=12;return note}
- function notes(track,sound,bar,local,seed,transpose=0,bars=4,mode='minor'){
+ function notes(track,sound,bar,local,seed,transpose=0,bars=4,mode='minor',timeSignature=track.timeSignature||'4/4'){
   if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
-  const p=plan(track,sound,seed,bars),role=p.role;if(unpitched.has(role))return [];
+  const spb=timeSignature==='3/4'?12:16;
+  const p=plan(track,sound,seed,bars,timeSignature),role=p.role;if(unpitched.has(role))return [];
   const chord=chordFor(track.setup,seed,bar,bars,transpose,mode);
-  const within=p.steps.filter(step=>Math.floor(step/16)===bar%bars).map(step=>step%16);
+  const within=p.steps.filter(step=>Math.floor(step/spb)===bar%bars).map(step=>step%spb);
   const ordinal=Math.max(0,within.filter(step=>step<=local).length-1);
   const answer=bar>=4||(bar%4===3),contour=p.degrees;
-  const degree=bar%bars===bars-1&&local>=(within.at(-1)??15)?0:contour[(ordinal+(answer?bar%3:0))%contour.length];
+  const degree=bar%bars===bars-1&&local>=(within.at(-1)??(spb-1))?0:contour[(ordinal+(answer?bar%3:0))%contour.length];
   const pitch=chord[degree%4],world=track.setup==='reactor';
   if(role==='bass')return [fold(pitch-12,26,world?45:49)];
   if(role==='riff'){
@@ -145,7 +201,7 @@
   if(role==='keys'&&!sound.arp&&p.family.endsWith('2'))return chord.slice(0,3).map(n=>fold(n+12,42,86));
   return [fold(pitch+(world?24:role==='wood'?0:12),world?40:48,world?85:88)];
  }
- function velocity(track,sound,step,seed,bars=4){const p=plan(track,sound,seed,bars),i=p.steps.indexOf(step%(p.bars*16));return i<0?.72:p.accents[i]}
- const api={VERSION,slots,catalog,profiles,matrix,roleMatrix,roleFor,assignments,ensemble,chordFor,plan,notes,velocity};
+ function velocity(track,sound,step,seed,bars=4,timeSignature=track.timeSignature||'4/4'){const spb=timeSignature==='3/4'?12:16;const p=plan(track,sound,seed,bars,timeSignature),i=p.steps.indexOf(step%(p.bars*spb));return i<0?.72:p.accents[i]}
+ const api={VERSION,slots,catalog,catalog3_4_waltz,catalog6_8_swing,getCatalog,profiles,matrix,roleMatrix,roleFor,assignments,ensemble,chordFor,plan,notes,velocity};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloPhrases=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

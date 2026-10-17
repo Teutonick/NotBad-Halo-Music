@@ -147,8 +147,9 @@
     return [chord[pick] + (track.name === 'MOSS' ? 0 : 12)];
   }
   const densityCache=new WeakMap();
-  function generatedSteps(track,index,seed,bars){
-    const p=track.generator===3?roles.plan(track,soundFor(track),seed,bars):phrases.plan(track,soundFor(track),seed,bars),key=index+':'+track.density;
+  function generatedSteps(track,index,seed,bars=track.phraseBars||4,timeSignature=track.timeSignature||'4/4'){
+    const spb=timeSignature==='3/4'?12:16;
+    const p=track.generator===3?roles.plan(track,soundFor(track),seed,bars,timeSignature):phrases.plan(track,soundFor(track),seed,bars,timeSignature),key=index+':'+track.density+':'+bars+':'+timeSignature;
     let cache=densityCache.get(p);if(!cache){cache=new Map();densityCache.set(p,cache)}
     if(cache.has(key))return cache.get(key);
     const roleId=track.generator===3?roles.forTrack(track).id:p.role;
@@ -156,7 +157,8 @@
     const steps=track.density>0?p.steps.filter((step,i)=>{
       if(track.density>=100)return true;
       if(step===0&&isFoundation)return true;
-      if(step%16===0&&isFoundation&&track.density>=35)return true;
+      if(step%spb===0&&isFoundation&&track.density>=35)return true;
+      if(timeSignature==='3/4'&&bars===8&&step%spb===6&&isFoundation&&track.density>=50)return true;
       const accent=p.accents?p.accents[i]:.7;
       const factor=accent>=.85?1.25:accent>=.75?1.05:.82;
       return random01(index*97+step*31+seed*191)<=Math.min(1,(track.density/100)*factor);
@@ -169,8 +171,8 @@
     const spb=timeSignature==='3/4'?12:16;
     const mb=(track.manualBars||bars)*spb;
     if(track.manualSteps)return track.on&&track.manualSteps.includes(track.generator===3?roles.mod(step,mb):step%mb);
-    if(track.generator===3)return track.on&&generatedSteps(track,index,seed,bars).includes(roles.mod(step,roles.plan(track,soundFor(track),seed,bars).period));
-    if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars).includes(step%(bars*spb));
+    if(track.generator===3)return track.on&&generatedSteps(track,index,seed,bars,timeSignature).includes(roles.mod(step,roles.plan(track,soundFor(track),seed,bars,timeSignature).period));
+    if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars,timeSignature).includes(step%(bars*spb));
     const bar = Math.floor(step / spb);
     if(track.setup==='reactor'){
       return track.on&&track.density>0&&patternFor({...track,variation:seed},bars,timeSignature).includes(step%spb)&&
@@ -181,9 +183,9 @@
       random01(index * 97 + step * 31 + seed * 191) <= track.density / 100;
   }
   const rhythmCache=new Map();
-  function patternFor(track,bars=track.phraseBars||4) {
-    if(track.generator===3)return roles.plan(track,soundFor(track),track.variation||1,bars).steps;
-    if(track.generator===2)return phrases.plan(track,soundFor(track),track.variation||1,bars).steps;
+  function patternFor(track,bars=track.phraseBars||4,timeSignature=track.timeSignature||'4/4') {
+    if(track.generator===3)return roles.plan(track,soundFor(track),track.variation||1,bars,timeSignature).steps;
+    if(track.generator===2)return phrases.plan(track,soundFor(track),track.variation||1,bars,timeSignature).steps;
     const base=soundFor(track).pattern||track.pattern;
     if(track.setup==='reactor'){
       const variation=track.variation||1,s=soundFor(track);
@@ -227,8 +229,30 @@
     arpeggio:   [{length:16,stepLength:1,weight:50},{length:12,stepLength:1,weight:18},{length:8,stepLength:1,weight:12},{length:14,stepLength:1,weight:10},{length:6,stepLength:1,weight:6},{length:8,stepLength:2,weight:4}],
     harmony:    [{length:16,stepLength:1,weight:60},{length:8,stepLength:2,weight:18},{length:16,stepLength:2,weight:12},{length:8,stepLength:4,weight:10}]
   };
-  function pickSequence(roleId,seed,index){
-    const profiles=cycleProfiles[roleId]||[{length:16,stepLength:1,weight:100}];
+  const cycleProfiles3_4={
+    pulse:      [{length:12,stepLength:1,weight:85},{length:6,stepLength:2,weight:10},{length:24,stepLength:1,weight:5}],
+    accent:     [{length:12,stepLength:1,weight:85},{length:6,stepLength:1,weight:10},{length:24,stepLength:1,weight:5}],
+    percussion: [{length:12,stepLength:1,weight:65},{length:6,stepLength:1,weight:15},{length:9,stepLength:1,weight:10},{length:12,stepLength:2,weight:10}],
+    texture:    [{length:12,stepLength:1,weight:55},{length:6,stepLength:2,weight:20},{length:12,stepLength:2,weight:15},{length:6,stepLength:4,weight:10}],
+    bass:       [{length:12,stepLength:1,weight:80},{length:6,stepLength:2,weight:12},{length:24,stepLength:1,weight:8}],
+    melody:     [{length:12,stepLength:1,weight:75},{length:12,stepLength:2,weight:15},{length:24,stepLength:1,weight:10}],
+    arpeggio:   [{length:12,stepLength:1,weight:55},{length:6,stepLength:1,weight:20},{length:9,stepLength:1,weight:15},{length:6,stepLength:2,weight:10}],
+    harmony:    [{length:12,stepLength:1,weight:65},{length:6,stepLength:2,weight:18},{length:12,stepLength:2,weight:12},{length:6,stepLength:4,weight:5}]
+  };
+  const cycleProfiles6_8={
+    pulse:      [{length:12,stepLength:1,weight:85},{length:6,stepLength:1,weight:10},{length:24,stepLength:1,weight:5}],
+    accent:     [{length:12,stepLength:1,weight:85},{length:6,stepLength:1,weight:10},{length:24,stepLength:1,weight:5}],
+    percussion: [{length:12,stepLength:1,weight:60},{length:6,stepLength:1,weight:18},{length:8,stepLength:1,weight:12},{length:12,stepLength:2,weight:10}],
+    texture:    [{length:12,stepLength:1,weight:55},{length:6,stepLength:2,weight:20},{length:12,stepLength:2,weight:15},{length:6,stepLength:4,weight:10}],
+    bass:       [{length:12,stepLength:1,weight:80},{length:6,stepLength:1,weight:12},{length:24,stepLength:1,weight:8}],
+    melody:     [{length:12,stepLength:1,weight:75},{length:12,stepLength:2,weight:15},{length:24,stepLength:1,weight:10}],
+    arpeggio:   [{length:12,stepLength:1,weight:55},{length:6,stepLength:1,weight:20},{length:8,stepLength:1,weight:15},{length:6,stepLength:2,weight:10}],
+    harmony:    [{length:12,stepLength:1,weight:65},{length:6,stepLength:2,weight:18},{length:12,stepLength:2,weight:12},{length:6,stepLength:4,weight:5}]
+  };
+  function pickSequence(roleId,seed,index,bars=4,timeSignature='4/4'){
+    const is3_4=timeSignature==='3/4';
+    const profileMap=is3_4?(bars===8?cycleProfiles6_8:cycleProfiles3_4):cycleProfiles;
+    const profiles=profileMap[roleId]||[{length:is3_4?12:16,stepLength:1,weight:100}];
     const total=profiles.reduce((sum,p)=>sum+p.weight,0);
     const r=random01(seed*4111+index*137)*total;
     let acc=0,chosen=profiles[0];
@@ -239,12 +263,12 @@
     }
     return roles.sequence({length:chosen.length,stepLength:chosen.stepLength,offset});
   }
-  function randomizeTrack(track,index,seed){
+  function randomizeTrack(track,index,seed,bars=track.phraseBars||4,timeSignature=track.timeSignature||'4/4'){
     const sounds=roles.pool(track,banksFor(track.setup),true).filter(choice=>choice.sound.id!==track.sound);
     const choice=sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)];
     const roleId=roles.forTrack(track).id;
-    const seq=pickSequence(roleId,seed,index);
-    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:seq};
+    const seq=pickSequence(roleId,seed,index,bars,timeSignature);
+    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:seq,phraseBars:bars,timeSignature};
     ['character','duration','density','level','space'].forEach((key,i)=>{
       const isWildcard=random01(seed*733+index*59+i*29)<0.16;
       const corridor=(!isWildcard&&roleCorridors[roleId]?.[key])||[20,100];
@@ -261,7 +285,7 @@
     [0,1,7,6,2,3],
     [0,6,2,7,3,1]
   ];
-  function randomizeArrangement(tracks,seed){
+  function randomizeArrangement(tracks,seed,bars=4,timeSignature='4/4'){
     const keep=new Set([4,5]);
     const count=4+(seed%3);
     const archetype=arrangementArchetypes[(seed+Math.floor(seed/7))%arrangementArchetypes.length];
@@ -276,6 +300,7 @@
       const enabled=pool.find(i=>keep.has(i)),disabled=pool.find(i=>!keep.has(i));
       if(enabled!==undefined&&disabled!==undefined){keep.delete(enabled);keep.add(disabled);}
     }
+    const delayOptions=timeSignature==='3/4'?(bars===8?['1/8d','1/8','1/4']:['1/8','1/4','1/8d']):['1/8','1/8d','1/4'];
     return tracks.map((t,i)=>{
       const role=roles.forTrack(t).id;
       const amount=(salt,max)=>{const r=random01(seed*997+i*67+salt);return r<.28?0:Math.round((r-.28)/.72*max)};
@@ -284,13 +309,13 @@
         space:amount(101,['pulse','bass'].includes(role)?16:50),
         delay:amount(211,['pulse','bass','accent'].includes(role)?10:role==='arpeggio'?40:35),
         chorus:['pulse','bass','accent','percussion'].includes(role)?0:amount(307,30),
-        delayTime:['1/8','1/8d','1/4'][(seed+i)%3]
+        delayTime:delayOptions[(seed+i)%delayOptions.length]
       };
     });
   }
   function arrange(tracks){const types=tracks.map(t=>t.generator===3?roles.forTrack(t).id:phrases.roleFor(t,soundFor(t))),assignments=types.map((role,i)=>({role,count:types.filter(r=>r===role).length,ordinal:types.slice(0,i).filter(r=>r===role).length}));tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator>=2?1/Math.sqrt(assignments[i].count):1});return assignments}
-  function velocityFor(track,index,step,seed,bars=4){return track.generator===3?roles.velocity(track,soundFor(track),step,seed,bars):track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
-  function cycleLength(track,bars=4,timeSignature='4/4'){const spb=timeSignature==='3/4'?12:16;return track.manualSteps?track.manualBars*spb:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars).period:track.generator===2?bars*spb:spb}
+  function velocityFor(track,index,step,seed,bars=4,timeSignature=track.timeSignature||'4/4'){return track.generator===3?roles.velocity(track,soundFor(track),step,seed,bars,timeSignature):track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars,timeSignature):.67+random01(step*19+index*41+seed*11)*.15}
+  function cycleLength(track,bars=4,timeSignature='4/4'){const spb=timeSignature==='3/4'?12:16;return track.manualSteps?track.manualBars*spb:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars,timeSignature).period:track.generator===2?bars*spb:spb}
   function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
   function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
   const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
