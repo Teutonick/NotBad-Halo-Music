@@ -1,4 +1,21 @@
 
+### Revision Reset Guarantees, project.patch & Bank Alias Resolution — 2026-10-17
+
+- **Baseline Revision Counter Reset (`src/agent.js`, `src/file-bridge.js`):**
+  - Resolved `CONFLICT_REVISION_MISMATCH: expected revision 13, request was based on 1` that occurred after users clicked «Сбросить локальные изменения» ("Reset Local Changes"): `resetProject()` in `src/agent.js` now resets the internal accumulator `revision = 0; last = '';`, guaranteeing that a fresh/reset project always begins at `revision: 1`.
+  - In `src/file-bridge.js`, `resetLocalChanges()` now completely purges `processedContent`, `processedIds`, and `appliedIds`.
+  - When `state.pending` receives a new valid proposal, `state.lastResult` and `state.error` are cleared immediately, eliminating lingering stale error banners.
+  - Enhanced `generateErrorGuidance` for `CONFLICT_REVISION_MISMATCH` with the exact current revision and actionable fix instructions.
+- **Support for `project.patch` and Partial `project.replace` (`src/agent.js`):**
+  - Added `project.patch` as an allowlisted operation across agent capabilities, preview, and apply pipeline, enabling partial updates to project-level parameters (`setup`, `world`, `bars`, `tempo`, `masterVolume`, `mix`, `timeSignature`, etc.).
+  - Partial payload tolerance in `project.replace`: if an external model sends `values` or top-level settings without full 8 tracks, the engine gracefully treats it as a non-breaking project patch instead of throwing `MISSING_PAYLOAD`.
+- **Bank and Role Alias Resolution & Cross-Bank Preset Auto-Detection (`src/project.js`):**
+  - Added slot/bank alias mapping: maps intuitive musical labels (`BASS`, `KEYS`, `LEAD`, `RIFF`, `PERC`, `KICK`, `SNARE`, `BELL`, etc.) to canonical slots (`GLASS`..`AURA`).
+  - Cross-bank sound auto-detection: if a valid sound is assigned under another slot of the active setup, HALO automatically adjusts `instrument` to the owning bank slot instead of throwing an error.
+- **Test Suite & Documentation:**
+  - Added automated tests in `tests/agent.test.cjs` and `tests/project.test.cjs`. All 235 tests pass.
+  - Synchronized bilingual manual (`index.html`), `docs/engine-capabilities.md`, and `docs/agent-api-specification.md`.
+
 ### Vibe & Sound Setup Availability and AI Self-Correction Protocol — 2026-10-17
 
 - **Vibe & Setup Sound Availability (`src/sounds.js`, `src/roles.js`, `src/file-bridge.js`):**

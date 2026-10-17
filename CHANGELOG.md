@@ -1,6 +1,11 @@
 ## [Unreleased] - 2026-10-17
 
 ### Fixed
+- **Revision Mismatch on Reset, project.patch & Bank Aliases (`src/agent.js`, `src/file-bridge.js`, `src/project.js`):**
+  - Resolved `CONFLICT_REVISION_MISMATCH: expected revision 13, request was based on 1` after clicking «Сбросить локальные изменения»: `resetProject()` in `src/agent.js` now resets the internal revision accumulator `revision = 0; last = '';`, guaranteeing that a fresh/reset project baseline always begins at `revision: 1`.
+  - Added `project.patch` as an allowlisted operation across agent capabilities, preview, and apply pipeline, and added tolerance for partial `project.replace` (treating `values` or omitted tracks gracefully as project patches instead of throwing `MISSING_PAYLOAD`).
+  - Added automatic bank/slot alias mapping (`BASS`, `KEYS`, `LEAD`, `RIFF`, `PERC`, `KICK`, `SNARE`, `BELL`, etc.) and cross-bank sound auto-detection in `src/project.js`, allowing LLMs to reference roles intuitively without validation failures.
+  - In `src/file-bridge.js`, `resetLocalChanges()` now fully purges `processedContent`, `processedIds`, and `appliedIds`, and populating `state.pending` clears stale error banners immediately.
 - **Sound & Vibe Setup Availability and Error Self-Correction (`src/sounds.js`, `src/roles.js`, `src/project.js`, `src/agent.js`, `src/file-bridge.js`):**
   - Resolved issue where an external AI was unable to self-correct upon encountering `INVALID_SOUND: sound "reactor-dry-kick" is not available for slot "GLASS" in world "ambient"`:
     - Added explicit `setups` array on all presets and exposed `soundsBySetup` in `instruments.json` to clearly communicate vibe-dependent instrument catalogs. Supported future multi-setup instruments (`setups: ['ambient', 'reactor']`).

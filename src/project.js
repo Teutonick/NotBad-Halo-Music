@@ -49,13 +49,32 @@
   const names=Object.keys(banks),seen=new Set();
   for(const t of data.tracks){
    if(!t||typeof t!=='object')throw Error('INVALID_TRACK: track entry must be an object');
-   const instrument=t.instrument??t.name,generator=t.generator??1;
-   if(!names.includes(t.name))throw Error('INVALID_TRACK_SLOT: unknown track name "'+t.name+'". Valid slot names are: ['+names.join(', ')+']');
+   let instrument=t.instrument??t.name,generator=t.generator??1;
+   let trackName=t.name;
+   const aliasMap={
+     'PULSE':'GLASS','BELL':'GLASS','KICK':'GLASS',
+     'ACCENT':'TIDAL','PAD':'TIDAL','SNARE':'TIDAL',
+     'PERC':'ROOT','PERCUSSION':'ROOT','CLICK':'ROOT','METAL':'ROOT','HATS':'ROOT',
+     'TEXTURE':'EMBER','NOISE':'EMBER','TOMS':'EMBER',
+     'BASS':setup==='ambient'?'ROOT':'RAIN','SUB':setup==='ambient'?'ROOT':'RAIN',
+     'MELODY':'VEIL','LEAD':'VEIL','BOW':'VEIL','RIFF':'VEIL',
+     'ARPEGGIO':'MOSS','ARP':'MOSS','PLUCK':'MOSS','KEYS':'MOSS','PIANO':'MOSS',
+     'HARMONY':'AURA','CHORD':'AURA','DRONE':'AURA','PADS':'AURA'
+   };
+   if(typeof instrument==='string'&&!names.includes(instrument)){
+     const upper=instrument.toUpperCase();
+     if(aliasMap[upper]&&names.includes(aliasMap[upper])) instrument=aliasMap[upper];
+   }
+   if(typeof trackName==='string'&&!names.includes(trackName)){
+     const upper=trackName.toUpperCase();
+     if(aliasMap[upper]&&names.includes(aliasMap[upper])) trackName=aliasMap[upper];
+   }
+   if(!names.includes(trackName))throw Error('INVALID_TRACK_SLOT: unknown track name "'+t.name+'". Valid slot names are: ['+names.join(', ')+']');
    if(!names.includes(instrument))throw Error('INVALID_INSTRUMENT: unknown instrument "'+instrument+'". Valid instruments in "'+setup+'": ['+names.join(', ')+']');
    if(![1,2,3].includes(generator))throw Error('INVALID_GENERATOR: generator must be 1, 2, or 3');
-   if(seen.has(t.name))throw Error('DUPLICATE_TRACK: duplicate track slot "'+t.name+'"');
-   seen.add(t.name);
-   if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+t.name+'" requires boolean "on" flag');
+   if(seen.has(trackName))throw Error('DUPLICATE_TRACK: duplicate track slot "'+trackName+'"');
+   seen.add(trackName);
+   if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+trackName+'" requires boolean "on" flag');
    let soundId=t.sound;
    let soundObj=banks[instrument]?.sounds.find(s=>
      s.id===soundId||
@@ -63,6 +82,21 @@
      (s.id.startsWith(setup+'-')&&s.id.slice(setup.length+1)===soundId)||
      (typeof soundId==='string'&&soundId.startsWith(setup+'-')&&s.id===soundId.slice(setup.length+1))
    );
+   if(!soundObj){
+     for(const [bName, b] of Object.entries(banks)){
+       const found = b.sounds.find(s=>
+         s.id===soundId||
+         s.id===(setup+'-'+soundId)||
+         (s.id.startsWith(setup+'-')&&s.id.slice(setup.length+1)===soundId)||
+         (typeof soundId==='string'&&soundId.startsWith(setup+'-')&&s.id===soundId.slice(setup.length+1))
+       );
+       if(found){
+         instrument=bName;
+         soundObj=found;
+         break;
+       }
+     }
+   }
    if(!soundObj){
      const otherWorld=setup==='ambient'?'reactor':'ambient';
      const otherBanks=sounds.banksFor(otherWorld);
@@ -80,8 +114,8 @@
    }
    soundId=soundObj.id;
    if(!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(t.steps).size!==t.steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
-   const clean={name:t.name,instrument,generator,sound:soundId,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
-   if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
+   const clean={name:trackName,instrument,generator,sound:soundId,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
+   if(generator===3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';

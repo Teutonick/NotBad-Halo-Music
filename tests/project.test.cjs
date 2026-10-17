@@ -155,3 +155,28 @@ test('3/4 waltz and 6/8 pirate swing meter validation, clamping, and roundtrip',
   badMeter.timeSignature = '5/4';
   assert.throws(() => P.validate(badMeter, S));
 });
+
+test('bank and role aliases resolve to canonical slots and cross-bank sounds auto-resolve within setup', () => {
+  const base = P.capture(tracks, 4, 100, 2, 0, S, M);
+  const proj = JSON.parse(JSON.stringify(base));
+
+  // Change track 0 to use alias 'BELL' and sound 'bell' (canonical GLASS)
+  proj.tracks[0].name = 'BELL';
+  proj.tracks[0].instrument = 'BELL';
+  proj.tracks[0].sound = 'bell';
+
+  // Change track 2 (ROOT) to use alias 'BASS' and sound 'round' (canonical ROOT in ambient)
+  proj.tracks[2].name = 'BASS';
+  proj.tracks[2].instrument = 'BASS';
+  proj.tracks[2].sound = 'round';
+
+  // Change track 6 to specify instrument GLASS but sound 'harp' (which belongs to EMBER in ambient)
+  proj.tracks[6].instrument = 'GLASS';
+  proj.tracks[6].sound = 'harp';
+
+  const validated = P.validate(proj, S);
+  assert.equal(validated.tracks[0].instrument, 'GLASS');
+  assert.equal(validated.tracks[2].instrument, 'ROOT');
+  assert.equal(validated.tracks[6].instrument, 'EMBER'); // Auto-resolved to EMBER
+});
+

@@ -69,12 +69,13 @@ Requests use `{schemaVersion:1,baseRevision,operations:[...]}`, at most 256 oper
 | Operation | Payload |
 | --- | --- |
 | `track.patch` | `trackIndex:0..7`, `phraseId` required for songs, `values` from the track allowlist |
-| `phrase.patch` | `phraseId` required for songs, `values:{bars?,startStep?,seed?,key?,liveLoop?,timeSignature?}` |
+| `phrase.patch` | `phraseId` required for songs, `values:{bars?,startStep?,seed?,key?,liveLoop?,timeSignature?,setup?,world?,soundWorld?}` |
+| `project.patch` | `values:{setup?,world?,soundWorld?,bars?,startStep?,timeSignature?,tempo?,masterVolume?,mix?,seed?,key?,liveLoop?}` |
 | `master.patch` | `values:{tempo?,masterVolume?,mix?}`; song and phrase masters update together |
-| `project.replace`, `composition.replace` | `project`: complete valid version-1 musical project/composition |
+| `project.replace`, `composition.replace` | `project`: complete valid version-1 musical project/composition (partial replacements or `values` objects are gracefully handled as project patches) |
 | `visual.patch` | `values:{scene?,motion?,effects?}`; enums from registry; scene changes require DRIFT |
 
-Track fields: `instrument` (bank), `sound` (catalog ID), `generator`, `on`, `steps`, `exact`, `sequence`, `noteEvents`, `noteTranspose`, `level`, `density`, `character`, `duration`, `space`, `delay`, `delayTime`, `chorus`. Slot names/roles remain fixed. Patch objects replace each supplied field; supply the full `sequence`, `mix`, `liveLoop` or note list rather than nested partial objects. Changing bars requires compatible steps/events in the same transaction. Repeated sections reference the same phrase; create a new phrase ID for an independent variation.
+Track fields: `instrument` (bank), `sound` (catalog ID), `generator`, `on`, `steps`, `exact`, `sequence`, `noteEvents`, `noteTranspose`, `level`, `density`, `character`, `duration`, `space`, `delay`, `delayTime`, `chorus`. Canonical slot names (`GLASS`..`AURA`) remain fixed, but intuitive aliases (`BASS`, `KEYS`, `LEAD`, `RIFF`, `PERC`, `KICK`, `SNARE`, `BELL`, etc.) and cross-bank preset auto-detection are automatically resolved. Patch objects replace each supplied field; supply the full `sequence`, `mix`, `liveLoop` or note list rather than nested partial objects. Resetting local changes or calling `resetProject()` resets the baseline project revision counter to `revision: 1`. Changing bars requires compatible steps/events in the same transaction. Repeated sections reference the same phrase; create a new phrase ID for an independent variation.
 
 ## Real musical constraints
 

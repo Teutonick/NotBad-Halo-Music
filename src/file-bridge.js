@@ -677,7 +677,9 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     const msg = String(errorMessage || '');
 
     if (msg.includes('CONFLICT_REVISION_MISMATCH')) {
-      help = 'Base revision is outdated. Read "revision" from project-state.json and set "baseRevision" in your request to match it.';
+      const match = msg.match(/expected revision (\d+)/);
+      const rev = match ? match[1] : '';
+      help = `Base revision is outdated. The project is currently at revision ${rev || 'N'}. Read "revision" from project-state.json and set "baseRevision": ${rev ? Number(rev) : 1} in your request.`;
     } else if (msg.includes('INVALID_TRACKS_COUNT')) {
       help = 'operation "project.replace" requires all 8 tracks in the "tracks" array: [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. If you only want to modify specific tracks, use one or more "track.patch" operations instead.';
     } else if (msg.includes('UNKNOWN_FIELD')) {
@@ -960,6 +962,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
               preview: parsed.preview,
               baseId
             };
+            state.lastResult = null;
+            state.error = null;
             notify();
             break; // Wait for user decision
           } else {
@@ -1173,6 +1177,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         } catch {}
 
         processedIds.clear();
+        processedContent.clear();
+        appliedIds.clear();
         consecutiveErrors = 0;
         state.pending = null;
         state.lastResult = null;

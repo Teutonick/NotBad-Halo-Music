@@ -1,3 +1,17 @@
+### Implemented — 2026-10-17: Revision Reset Guarantees, project.patch & Bank Alias Resolution
+
+- **Project Revision Baseline Reset (`src/agent.js`, `src/file-bridge.js`):**
+  - Resetting local changes or calling `resetProject()` resets the internal revision accumulator back to 0 (`revision = 0; last = '';`), ensuring the restored baseline project is always at `revision: 1`.
+  - Fixes `CONFLICT_REVISION_MISMATCH` where resetting a project that had advanced to high revision numbers (e.g. 13) left external AI models assuming a clean project started at `baseRevision: 1`.
+  - Error guidance in `generateErrorGuidance` now explicitly reports the exact required revision number: `The project is currently at revision ${rev}. Read "revision" from project-state.json and set "baseRevision": ${rev} in your request.`
+  - `resetLocalChanges()` now fully purges `processedContent`, `processedIds`, and `appliedIds`, and populating `state.pending` clears stale error banners (`state.lastResult = null; state.error = null;`).
+- **Support for `project.patch` and Partial `project.replace` (`src/agent.js`):**
+  - Added `project.patch` as an allowlisted operation in `capabilities()` and `preview()` for partial modifications of project-level properties (`setup`, `world`, `bars`, `tempo`, `masterVolume`, `mix`, `timeSignature`, etc.).
+  - Partial `project.replace` tolerance: if an external model submits `project.replace` with `values` or top-level properties instead of the full 8-track array, the engine gracefully treats it as a project patch instead of throwing `MISSING_PAYLOAD`.
+- **Role and Bank Alias Resolution & Auto-Locating Sounds (`src/project.js`):**
+  - Added comprehensive slot/bank alias mapping in `validateTrack` supporting intuitive musical labels (`BASS`, `KEYS`, `LEAD`, `RIFF`, `PERC`, `KICK`, `SNARE`, `BELL`, etc.) mapping directly to canonical orbit slots (`GLASS`..`AURA`).
+  - Automatic cross-bank sound resolution: if a sound belongs to another bank of the active setup (e.g. `sound: "harp"` specified under `GLASS`), the track's canonical slot/instrument is automatically updated to the bank owning that sound (`MOSS` or `EMBER`).
+
 ### Implemented — 2026-10-17: Sound World & Vibe Setup Availability and AI Self-Correction Protocol
 
 - **Vibe & Setup Sound Availability (`src/sounds.js`, `src/roles.js`, `src/file-bridge.js`):**

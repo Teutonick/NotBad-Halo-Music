@@ -65,3 +65,44 @@ test('resetProject resets to clean ambient state with startStep: 0, generator: 3
   assert.equal(captured.startStep,0);
 });
 
+test('resetProject resets revision counter so next request starts at revision 1',async()=>{
+  const {api}=fixture();
+  api.setEnabled(true);
+  // Apply a couple operations to advance revision
+  await api.applyOperations(request(api,[{op:'master.patch',values:{tempo:80}}]));
+  await api.applyOperations(request(api,[{op:'master.patch',values:{tempo:84}}]));
+  assert.ok(api.getProjectState().revision > 1);
+
+  // Reset project
+  await api.resetProject();
+  assert.equal(api.getProjectState().revision, 1);
+
+  // A request based on revision 1 should succeed cleanly
+  const nextReq = { schemaVersion: 1, baseRevision: 1, operations: [{ op: 'master.patch', values: { tempo: 90 } }] };
+  const res = await api.applyOperations(nextReq);
+  assert.equal(res.project.tempo, 90);
+  assert.equal(api.getProjectState().revision, 2);
+});
+
+test('project.patch and partial project.replace update top-level project settings gracefully',async()=>{
+  const {api}=fixture();
+  api.setEnabled(true);
+
+  // Test project.patch
+  const r1 = request(api, [{ op: 'project.patch', values: { tempo: 104, bars: 8 } }]);
+  const res1 = await api.applyOperations(r1);
+  assert.equal(res1.project.tempo, 104);
+  assert.equal(res1.project.bars, 8);
+
+  // Test partial project.replace with values object
+  const r2 = request(api, [{ op: 'project.replace', values: { tempo: 110 } }]);
+  const res2 = await api.applyOperations(r2);
+  assert.equal(res2.project.tempo, 110);
+
+  // Test partial project.replace with flat object omitting tracks
+  const r3 = request(api, [{ op: 'project.replace', tempo: 95 }]);
+  const res3 = await api.applyOperations(r3);
+  assert.equal(res3.project.tempo, 95);
+});
+
+
