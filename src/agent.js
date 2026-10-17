@@ -17,7 +17,7 @@
    if(p.format!=='notbad-halo-project'&&p.format!=='halo-project')throw Error('UNSUPPORTED_FORMAT: expected "notbad-halo-project" or "halo-project"');
    if(p.mix)only(p.mix,['low','mid','high','width'],'mix');
    if(Array.isArray(p.tracks))for(const t of p.tracks){only(t,['name','role',...fields],'track');if(t.sequence)only(t.sequence,['length','stepLength','offset'],'sequence');if(t.delayTime!==undefined&&!['1/16','1/8','1/8d','1/4'].includes(t.delayTime))throw Error('INVALID_DELAY_TIME');if(Array.isArray(t.noteEvents))for(const e of t.noteEvents)only(e,['step','notes'],'noteEvent')}
-   if(p.liveLoop){only(p.liveLoop,['version','layerIds','settings'],'liveLoop');only(p.liveLoop.settings,['bars','level','pan','space','delay','trimStart','trimEnd','offsetSec','latencyMs','pitch','rootNote','pitchOctave','character','duration','density','chorus','cycle','stepLength','offset','mute','solo','monitor','copyrightConfirmed','instantRestart','reverse','mode','sliceCount','slicePattern','delayTime','pitchSteps','sliceSteps'],'liveLoop.settings')}
+   if(p.liveLoop){only(p.liveLoop,['version','layerIds','settings'],'liveLoop');only(p.liveLoop.settings,['bars','level','pan','space','delay','trimStart','trimEnd','offsetSec','latencyMs','pitch','rootNote','pitchOctave','character','duration','density','chorus','cycle','stepLength','offset','mute','solo','monitor','copyrightConfirmed','instantRestart','reverse','mode','sliceCount','slicePattern','delayTime','pitchSteps','sliceSteps','slicePoints'],'liveLoop.settings')}
   }
   function check(value){
    if(!value||new TextEncoder().encode(JSON.stringify(value)).length>524288)throw Error('PAYLOAD_TOO_LARGE');
@@ -49,7 +49,7 @@
     notes:'MIDI 0..127, up to four per event and limited by role.maxNotes; exact=true for generator 3. steps must include each noteEvents.step. noteTranspose is the source key OFFSET, not key index: set it to harmony.keys[key].offset to play literal MIDI. Role/sample range folds octaves. No per-note velocity/duration/microtiming. Supply explicit notes for all pitched events when composing, rather than randomizing generators. Steps are sixteenths; eighths use 0,2,4,... . Rest = absent step.',
     visuals:{...visualOptions,writable:env.visual?Object.keys(visualOptions):[],geometry:'Fixed slot index i, radius=(135+24*i)*responsiveScale; melody/arpeggio/harmony are outer slots. Track 09 outermost. No orbit reorder/radius/speed/phase/direction setters. Scenes only in DRIFT; shared clock owns notes. PHRASE markers show actual scheduled steps. Visual-only operations must never change music.'},
     composition:{schema:{format:'halo-composition',version:1,tempo:'30..200',masterVolume:'0..100',mix:'same as master',repeat:'boolean',phrases:[{id:'unique integer 1..1000000',label:'optional 1..10 letters/digits',project:'complete version-1 project'}],sections:[{phrase:'existing phrase ID',name:['intro','verse','verse2','chorus','bridge','outro','phrase'],repeats:'1..8',fade:['none','in','out']}]},durationSeconds:'totalBars * 240 / tempo (4/4)',repeatedReferences:'Same phrase ID shares edits; new ID+deep copy creates independent variation',transitions:'Section boundary, optional one-phrase fade in/out; no crossfade'},
-    track09:{audioSentToModel:false,settings:'Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.',ranges:{bars:[1,2,4,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],chorus:[0,100],character:[0,100],duration:[0,100],density:[0,100],pitch:[-12,12],rootNote:[36,84],pitchOctave:[-1,0,1],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],cycle:[4,32],stepLength:[1,2,4],offset:[0,15]},modes:['loop','slice','pitch'],patterns:'16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest',flags:['mute','solo','reverse','instantRestart'],unsupported:['upload','record','enable monitoring','read PCM']},
+    track09:{audioSentToModel:false,settings:'Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.',ranges:{bars:[1,2,4,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],chorus:[0,100],character:[0,100],duration:[0,100],density:[0,100],pitch:[-12,12],rootNote:[36,84],pitchOctave:[-1,0,1],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],cycle:[4,32],stepLength:[1,2,4],offset:[0,15]},modes:['loop','slice','pitch'],patterns:'16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest',slicePoints:'Optional array of normalized cut positions (0..1) or null for auto-transients',flags:['mute','solo','reverse','instantRestart'],unsupported:['upload','record','enable monitoring','read PCM']},
     documentation:['docs/engine-capabilities.md','docs/agent-api-specification.md']};
   }
   function patch(target,values,allowed,contextName='patch'){
@@ -74,10 +74,24 @@
         patch(next,values,allowedProjectFields,o.op);
         const s=target.setup||target.world||target.soundWorld;
         if(s)next.setup=s;
+        if(values.bars && values.startStep === undefined){
+          const spb = next.timeSignature === '3/4' ? 12 : 16;
+          const maxSteps = values.bars * spb;
+          if(next.startStep && next.startStep % maxSteps !== 0){
+            next.startStep = Math.floor(next.startStep / maxSteps) * maxSteps;
+          }
+        }
         if(next.phrases){
           for(const ph of next.phrases){
             patch(ph.project,target,allowedProjectFields,o.op);
             if(s)ph.project.setup=s;
+            if(values.bars && values.startStep === undefined){
+              const spb = ph.project.timeSignature === '3/4' ? 12 : 16;
+              const maxSteps = values.bars * spb;
+              if(ph.project.startStep && ph.project.startStep % maxSteps !== 0){
+                ph.project.startStep = Math.floor(ph.project.startStep / maxSteps) * maxSteps;
+              }
+            }
           }
         }
         continue;
@@ -91,8 +105,24 @@
       patch(p,o.values,['bars','startStep','seed','key','liveLoop','timeSignature','setup','world','soundWorld'],'phrase.patch');
       const s=o.values?.setup||o.values?.world||o.values?.soundWorld;
       if(s)p.setup=s;
+      if(o.values?.bars && o.values?.startStep === undefined){
+        const spb = p.timeSignature === '3/4' ? 12 : 16;
+        const maxSteps = o.values.bars * spb;
+        if(p.startStep && p.startStep % maxSteps !== 0){
+          p.startStep = Math.floor(p.startStep / maxSteps) * maxSteps;
+        }
+      }
     }
-    else if(o.op==='track.patch'){if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK: trackIndex must be 0..7');const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);patch(t,o.values,fields,'track.patch');if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true')}
+    else if(o.op==='track.patch'){
+      if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK: trackIndex must be 0..7');
+      const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);
+      const gen=o.values?.generator??t.generator;
+      if((o.values?.steps!==undefined||o.values?.noteEvents!==undefined)&&o.values?.exact===undefined&&gen===3){
+        t.exact=true;
+      }
+      patch(t,o.values,fields,'track.patch');
+      if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true');
+    }
     else throw Error('UNKNOWN_OPERATION');
    }
    next=check(next);return {baseRevision:before.revision,before:before.project,after:next,...(env.visual?{visualBefore:before.visual,visualAfter:visual}:{}),playback:JSON.stringify(next)===JSON.stringify(before.project)?'unchanged':'paused on apply; press Play to resume'};

@@ -16,6 +16,7 @@
   for(const key of ['rootNote','pitchOctave'])if(settings[key]!==undefined&&!Number.isInteger(settings[key]))throw Error('Invalid pitch note');
   if(input.pitchSteps!==undefined){if(!Array.isArray(input.pitchSteps)||input.pitchSteps.length!==16||input.pitchSteps.some(n=>!Number.isInteger(n)||n< -1||n>7))throw Error('Invalid pitch steps');settings.pitchSteps=[...input.pitchSteps]}
   if(input.sliceSteps!==undefined){if(!Array.isArray(input.sliceSteps)||input.sliceSteps.length!==16||input.sliceSteps.some(n=>!Number.isInteger(n)||n< -1||n>15))throw Error('Invalid slice steps');settings.sliceSteps=[...input.sliceSteps]}
+  if(input.slicePoints!==undefined){if(input.slicePoints!==null&&(!Array.isArray(input.slicePoints)||input.slicePoints.some(n=>typeof n!=='number'||!Number.isFinite(n)||n<0||n>1)))throw Error('Invalid slice points');settings.slicePoints=input.slicePoints?input.slicePoints.map(n=>Math.max(0,Math.min(1,n))):null;}
   return {version:1,layerIds,settings};
  }
  function validate(data,sounds){

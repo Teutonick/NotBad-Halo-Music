@@ -3,6 +3,66 @@
   "engine": "NotBad Halo Music Constructor",
   "version": 2,
   "transport": "Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools",
+  "references": {
+    "agentGuide": "AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)",
+    "instruments": "instruments.json (8 voices, sound catalogs by setup, note registers, role policies)",
+    "musicRules": "music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)",
+    "projectState": "project-state.json (Read-only live state snapshot, base revision, active voices)"
+  },
+  "fieldAccess": {
+    "trackPatch": {
+      "mutableValues": [
+        "instrument",
+        "sound",
+        "generator",
+        "on",
+        "steps",
+        "exact",
+        "sequence",
+        "noteEvents",
+        "noteTranspose",
+        "level",
+        "density",
+        "character",
+        "duration",
+        "space",
+        "delay",
+        "delayTime",
+        "chorus"
+      ],
+      "readOnlyProhibited": [
+        "role",
+        "name",
+        "slot",
+        "trackIndex"
+      ],
+      "rule": "Track roles and names are permanent slot identifiers fixed by trackIndex 0..7. Never include role or name inside track.patch.values. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
+    },
+    "projectPatch": {
+      "mutableValues": [
+        "tempo",
+        "masterVolume",
+        "bars",
+        "startStep",
+        "key",
+        "seed",
+        "setup",
+        "world",
+        "soundWorld",
+        "timeSignature",
+        "mix",
+        "liveLoop"
+      ],
+      "readOnlyProhibited": [
+        "revision",
+        "format",
+        "version",
+        "tracks",
+        "phrases",
+        "sections"
+      ]
+    }
+  },
   "limits": {
     "bpm": [
       30,
@@ -27,7 +87,7 @@
   "operations": [
     {
       "op": "track.patch",
-      "description": "Update specific parameters, steps, and notes of a voice slot (0..7)",
+      "description": "Update specific mutable parameters, steps, and notes of a voice slot (0..7). Do NOT include role or name in values.",
       "required": [
         "op",
         "trackIndex",
@@ -54,7 +114,14 @@
         "delay",
         "delayTime",
         "chorus"
-      ]
+      ],
+      "readOnlyProhibited": [
+        "role",
+        "name",
+        "slot",
+        "trackIndex"
+      ],
+      "rule": "role and name are immutable properties of track slots 0..7. Passing role or name inside values throws UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
     },
     {
       "op": "phrase.patch",
@@ -87,7 +154,7 @@
     },
     {
       "op": "project.patch",
-      "description": "Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world) without replacing all tracks",
+      "description": "Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world, timeSignature, mix, liveLoop) without replacing all tracks",
       "required": [
         "op",
         "values"
@@ -96,16 +163,28 @@
         "tempo",
         "masterVolume",
         "bars",
+        "startStep",
         "key",
         "seed",
         "setup",
         "world",
-        "soundWorld"
+        "soundWorld",
+        "timeSignature",
+        "mix",
+        "liveLoop"
+      ],
+      "readOnlyProhibited": [
+        "revision",
+        "format",
+        "version",
+        "tracks",
+        "phrases",
+        "sections"
       ]
     },
     {
       "op": "project.replace",
-      "description": "Replace the entire single-phrase project snapshot",
+      "description": "Replace the entire single-phrase project snapshot (must contain exactly 8 track objects covering slots 0..7)",
       "required": [
         "op",
         "project"
@@ -113,7 +192,7 @@
     },
     {
       "op": "composition.replace",
-      "description": "Replace the entire multi-phrase song structure",
+      "description": "Replace the entire multi-phrase song structure (up to 15 unique phrases, up to 32 sections)",
       "required": [
         "op",
         "project"

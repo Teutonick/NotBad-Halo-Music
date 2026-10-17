@@ -105,4 +105,19 @@ test('project.patch and partial project.replace update top-level project setting
   assert.equal(res3.project.tempo, 95);
 });
 
+test('track.patch auto-promotes exact=true when steps or noteEvents are supplied, while explicit exact=false still requires exact=true check', async () => {
+  const {api} = fixture();
+  api.setEnabled(true);
+
+  // 1. Passing steps without exact automatically sets exact=true and succeeds
+  const r1 = request(api, [{ op: 'track.patch', trackIndex: 0, values: { generator: 3, sound: 'pulse', steps: [0, 4, 8, 12] } }]);
+  const res1 = await api.applyOperations(r1);
+  assert.equal(res1.project.tracks[0].exact, true);
+  assert.deepEqual(res1.project.tracks[0].steps, [0, 4, 8, 12]);
+
+  // 2. Passing explicit exact: false while modifying steps throws EXACT_REQUIRED
+  const r2 = request(api, [{ op: 'track.patch', trackIndex: 0, values: { generator: 3, sound: 'pulse', steps: [2, 6, 10, 14], exact: false } }]);
+  assert.throws(() => api.previewOperations(r2), /EXACT_REQUIRED: manual steps modification requires exact=true/);
+});
+
 

@@ -1,3 +1,37 @@
+### Implemented — 2026-10-17: File Bridge Context Package, exact=true Auto-Promotion, startStep Alignment & 5s Verification Loop
+
+- **Automatic `exact = true` Promotion in `track.patch` (`src/agent.js`):**
+  - Resolved `EXACT_REQUIRED: manual steps modification requires exact=true` occurring when external AI agents supply custom rhythmic `steps` or `noteEvents` via `track.patch` without explicitly specifying `"exact": true`.
+  - In Generator 3, supplying custom steps or note events inherently indicates the intent to play those exact steps rather than procedural generation. When `steps` or `noteEvents` are present in `track.patch.values` and `exact` is omitted, HALO automatically sets `t.exact = true`.
+  - If a caller explicitly specifies `exact: false` while supplying custom steps, `EXACT_REQUIRED` continues to be enforced.
+- **Automatic `startStep` Phrase Alignment on `bars` Modification (`src/agent.js`):**
+  - When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted in `values`, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`).
+  - Resolves `Invalid phrase position` which previously crashed batches when projects in active playback (`startStep: 64`) were patched with `bars: 8` (`64 % 128 !== 0`).
+- **5-Second Verification Loop & Error Self-Correction (`AGENT_GUIDE.md`, `AGENTS.md`):**
+  - Specified a 4-step workflow for external agents: after writing `requests/<requestId>.json`, agents wait 4 to 5 seconds and inspect `responses/<requestId>.result.json`.
+  - If an automated validation failure occurs (`"ok": false`), the agent reads `"error"`, `"help"`, and `"instructionForAgent"`, self-corrects the batch, and rewrites the request.
+  - If no error exists after 4-5 seconds, the request is valid and queued for human approval in the HALO web UI.
+- **Cross-Referenced 5-File Technical Context Package (`src/file-bridge.js`):**
+  - Added mutual `references` manifests across all 5 exported files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`).
+  - Added `fieldAccess` mapping and `readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex']` to `capabilities.json` and `project-state.json`, preventing external LLMs from attempting to patch immutable slot identities.
+  - Enhanced `UNKNOWN_FIELD`, `EXACT_REQUIRED`, and `Invalid phrase position` error self-correction guidance in `generateErrorGuidance`.
+  - All 5 bridge context files are verified 100% English and free of Cyrillic characters.
+
+### Implemented — 2026-10-17: File Bridge Continuous State Auto-Sync & Smart Auto-Rebase Tolerance
+
+- **Continuous Project State Auto-Sync (`src/file-bridge.js`):**
+  - Resolved `CONFLICT_REVISION_MISMATCH: expected revision N, request was based on 1` caused by `project-state.json` being written only once on initial folder connection.
+  - The bridge now tracks `lastSyncedRevision`. At the beginning of every 1.5s folder check cycle (`checkFolder()`), if the in-memory project revision differs from `lastSyncedRevision`, HALO automatically writes the updated snapshot to `project-state.json` via `syncStateOnly(dirHandle, api)` and updates `state.lastSync`.
+  - Manual changes to master volume, tempo, mute states, voice parameters, or phrase boundaries in the HALO UI are immediately reflected in `project-state.json` on disk within 1.5 seconds.
+  - On validation error or rejection, `project-state.json` is also synchronized immediately so external models always inspect the actual project state rather than stale revision baselines.
+- **Smart Auto-Rebase Tolerance (`src/file-bridge.js`):**
+  - When incoming requests arrive with `baseRevision` older than `currentRevision`, HALO automatically attempts an in-memory rebase with `parseAndValidateRequest(api, text, baseId, { allowRebase: true })`.
+  - If the requested operations apply cleanly onto the current project state without conflicts, HALO accepts the batch, flags it with `rebased: true`, records `originalBaseRevision`, and presents it to the user with a green badge: `✓ Ревизия согласована (${originalBaseRevision} → ${currentRevision})` / `✓ Revision rebased`.
+  - When approved, the result in `responses/<requestId>.result.json` records `rebasedFrom: <originalBaseRevision>` alongside `appliedRevision`.
+- **1-Click Error Recovery Button (`src/file-bridge.js`):**
+  - If an error card is rendered due to revision mismatch or folder desynchronization, the File Bridge UI provides a dedicated `[⚡ Согласовать ревизию]` / `[⚡ Rebase & Retry]` button.
+  - Clicking this action immediately flushes `project-state.json`, clears cached error responses, resets error counters, and re-triggers folder evaluation.
+
 ### Implemented — 2026-10-17: 3/4 & 6/8 Meter Arranger Assembly & AudioContext Closed Guard
 
 - **Arranger 3/4 & 6/8 Meter Assembly (`src/arranger.js`, `src/song.js`, `src/song-ui.js`):**
@@ -93,6 +127,7 @@
   - Deep acoustic differentiation:
     - `ambient`: 100% procedural real-time Web Audio synthesis, pure sines, FM bells, warm sub-bass, filtered pink noise, spacious reverb (35..80%), meditative tempo (60..85 BPM).
     - `reactor`: 32 organic presets backed by 130 authentic CC0 acoustic/electric recordings (drums, overdriven rock bass, guitars, acoustic piano, brass), punchy mix (space: 10..30%), energetic tempo (90..140 BPM, or 6/8 pirate swing in 3/4 8 bars).
+- **File Bridge Technical Package Cross-Referencing & Mutability Contract (`src/file-bridge.js`):** All 5 context files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`) contain mutual cross-references and documentation manifests. Track slot properties are explicitly segregated into mutable fields (`track.patch.values`) vs immutable read-only slot identities (`role`, `name`, `slot`, `trackIndex`). Including `role` or `name` in `track.patch` is strictly rejected with actionable self-correcting error guidance, and all files provide the full 8-voice role matrix, polyphony bounds, and sound world availability.
 
 ### Implemented — 2026-10-16: File Bridge and Integration Mode Switcher
 
@@ -794,9 +829,9 @@ DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4
 - **Кнопки управления:**
   - `⟳ Обновить файлы`: Экспорт 5 файлов технического паспорта (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`).
   - `⯈ Проверить requests/`: Ручной запуск проверки новых запросов в `requests/`.
-  - `↺ Сбросить изменения`: Очистка файлов в `requests/` и `responses/`, сброс счётчиков ошибок и очереди, удаление временных ключей localStorage (`halo-pattern-v1`, `notbad-halo-autosave-v1`, `halo-composition-v1`), восстановление исходного чистого состояния проекта с сервера и повторная синхронизация 5 файлов контекста. Требует обязательного подтверждения пользователя через внутренний модальный диалог (`window.HaloConfirm`).
+  - `↺ Очистить запросы`: Безопасная очистка папки интеграции (удаление файлов в `requests/` и `responses/`), сброс счётчиков ошибок и истории обработанных запросов, и повторный экспорт актуального снимка проекта из памяти браузера в 5 файлов контекста. В отличие от глобальной кнопки «RESET WORKSPACE», очистка запросов моста НЕ затрагивает проект в браузере, не стирает `localStorage` и не сбрасывает треки и настройки пользователя. Требует обязательного подтверждения через внутренний модальный диалог (`window.HaloConfirm`).
   - `✕ Отключить`: Остановка таймера опроса, отсоединение папки и удаление сохранённого дескриптора из IndexedDB. Требует обязательного подтверждения через внутренний модальный диалог (`window.HaloConfirm`).
-- **Подсказка и восстановление при ошибках в UI:** При возникновении ошибки выполнения команды под строкой статуса отображается явное напутствие пользователю: *«Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос.»* с кнопкой быстрого сброса `[↺ Сбросить локальные изменения]`.
+- **Подсказка и восстановление при ошибках в UI:** При возникновении ошибки выполнения команды под строкой статуса отображается явное напутствие пользователю: *«Если ошибка не уходит, очистите запросы папки и попросите нейросеть повторить запрос.»* с кнопкой быстрой очистки `[↺ Очистить запросы]`.
 - **100% английские инструкции для AI:** Руководство `AGENT_GUIDE.md` и спецификации `music-rules.json` поддерживаются строго на английском языке для исключения языковых галлюцинаций и ошибок нейросетевых агентов.
 - **Защита от зацикливания:** При 3 последовательных ошибках агенту выдается `CRITICAL STOP DIRECTIVE` в поле ответа `responses/<requestId>.result.json`, предписывающий немедленно прекратить перебор параметров и запросить инструкции у человека.
 

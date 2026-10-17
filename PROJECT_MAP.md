@@ -1,4 +1,76 @@
 
+### File Bridge Context Package, exact=true Auto-Promotion, startStep Auto-Alignment & 5s Verification Loop — 2026-10-17
+
+- **Root Cause & Rationale:**
+  - When external AI agents received the exported bridge context to compose music, LLMs encountered schema friction:
+    1. Sending `"role"` or `"name"` within `track.patch.values` (triggering `UNKNOWN_FIELD`).
+    2. Providing custom rhythmic `steps` without redundantly passing `"exact": true` (triggering `EXACT_REQUIRED: manual steps modification requires exact=true`).
+    3. Patching `bars: 8` when the active project in playback had advanced to `startStep: 64`, triggering `Invalid phrase position` due to `64 % (8 * 16) !== 0`.
+    4. Rushing to end the turn immediately without checking `responses/<requestId>.result.json`, missing immediate validation feedback from HALO.
+  - External neural networks should never require manual human coaching or prompt engineering workarounds; all constraints, boundaries, and companions must be explicitly specified in the synchronized file package, and the engine should gracefully promote `exact = true` and align `startStep` when changing phrase bars.
+- **Automatic `exact = true` Promotion in `track.patch` (`src/agent.js`):**
+  - When `o.values.steps` or `o.values.noteEvents` is provided in `track.patch` and `exact` is omitted on a Generator 3 track, HALO automatically sets `t.exact = true`.
+  - Manual steps are immediately played in the audio engine without validation errors.
+  - If a caller explicitly specifies `exact: false` while supplying custom steps, `EXACT_REQUIRED` continues to be strictly enforced.
+- **Automatic `startStep` Phrase Alignment on `bars` Modification (`src/agent.js`):**
+  - When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted in `values`, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`), preventing `Invalid phrase position` during live playback loops.
+- **5-Second Verification Loop in `AGENT_GUIDE.md` & `AGENTS.md`:**
+  - Updated the agent workflow from a naive exit to a strict 4-step sequence: after writing `requests/<requestId>.json`, agents wait 4 to 5 seconds and inspect `responses/<requestId>.result.json`.
+  - If an error result exists (`"ok": false`), the agent reads `"error"`, `"help"`, and `"instructionForAgent"`, self-corrects the batch in-memory, rewrites the request, and verifies again (up to 2 retries).
+  - If no error exists after 4-5 seconds, the proposal is valid and queued for human approval in the web UI.
+- **Cross-Referencing & Documentation Manifest Architecture (`src/file-bridge.js`):**
+  - Added top-level `references` object across all 5 exported files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`), providing a unified Table of Contents and routing guide for external agents.
+  - Added `fieldAccess` mapping to `capabilities.json` and `project-state.json` detailing read-only track properties vs mutable properties.
+  - Specified `readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex']` explicitly in `capabilities.json` under `track.patch`.
+  - Added `trackPatchRules` to `instruments.json` and individual `trackPatchRule` strings on every instrument voice object.
+  - Formatted a comprehensive 8-voice role polyphony architecture matrix in `AGENT_GUIDE.md` detailing slot index, name, role, polyphony policy, default sound, typical register, and musical function.
+  - Added key transpose interval mapping table and companions manifest in `music-rules.json`.
+- **Targeted Error Guidance (`src/file-bridge.js`):**
+  - Enhanced `UNKNOWN_FIELD`, `EXACT_REQUIRED`, and `Invalid phrase position` error guidance in `generateErrorGuidance`.
+- **Strict English & Quality Verification:**
+  - Verified that all 5 bridge context files are 100% English and completely free of Cyrillic characters (`/[А-Яа-яЁё]/`) to ensure universal parsing by all external LLMs.
+  - Updated root `capabilities.json`, `docs/agent-api-specification.md`, `docs/engine-capabilities.md`, and `CHANGELOG.md`.
+  - Added automated tests in `tests/agent.test.cjs` and `tests/file-bridge.test.cjs` validating exact=true auto-promotion, startStep alignment, and mutual cross-references. All 247 unit tests pass.
+
+### File Bridge Folder-Only Reset, slicePoints Allowlist & Connection Resilience — 2026-10-17
+
+- **Folder-Only Reset (`resetLocalChanges` in `src/file-bridge.js`):**
+  - Resolved critical issue where clicking «Сбросить изменения» / «Reset Changes» inadvertently wiped browser `localStorage` and called `api.resetProject()`, discarding the user's active composition and duplicating «RESET WORKSPACE».
+  - `resetLocalChanges` now strictly operates on the connected folder: it removes files inside `requests/` and `responses/`, resets in-memory error counters/caches, and re-syncs the active in-browser project snapshot to the 5 context files on disk without modifying `localStorage` or resetting the user's in-browser composition.
+  - Renamed button to «↺ Очистить запросы» / «Clear Folder Requests» and clarified the confirmation dialog in both Russian and English.
+- **`UNKNOWN_FIELD: [slicePoints]` Resolution (`src/agent.js`, `src/project.js`):**
+  - Added `'slicePoints'` to the allowlisted properties of `liveLoop.settings` in `src/agent.js` and `capabilities.track09`.
+  - Added `slicePoints` array validation and preservation in `liveLoop(value)` in `src/project.js`.
+  - Prevents crashes during project serialization and file bridge export when Track 09 slices are custom-adjusted by user drag gestures.
+- **Double Scrollbar Elimination (`index.html`):**
+  - Removed nested `max-height: min(500px, 60vh)` and `overflow: auto` from `.agent-panel` and `.agent-panel.filebridge-mode`.
+  - Harmonized with Track 09 (`.live-loop-panel`), relying on the single outer scrollbar of `.bottom` and eliminating the awkward double scrollbar.
+- **Connection Resilience, Visible Error Banners & Console Logging (`src/file-bridge.js`):**
+  - Resolved issue where folder connection stalled after creating empty `requests/` and `responses/` directories without UI feedback when an error occurred during initial synchronization.
+  - Added visible error alerts in `updateView()` when `!s.connected && s.error`, displaying formatted monospace error text and actionable recovery guidance.
+  - Added comprehensive `[HALO File Bridge]` browser console logging across `connect()`, `syncAllContext()`, `checkFolder()`, and `resetLocalChanges()`.
+- **Test Suite & Verification:**
+  - Updated `tests/file-bridge.test.cjs` to verify that `resetLocalChanges` empties `requests/` and `responses/`, does not clear `localStorage`, and preserves in-memory project tempo and settings.
+  - All 246 unit tests pass (`node --test tests/*.test.cjs`).
+
+### File Bridge Continuous Auto-Sync & Smart Auto-Rebase Tolerance — 2026-10-17
+
+- **Continuous Project State Auto-Sync (`src/file-bridge.js`):**
+  - Resolved recurrent `CONFLICT_REVISION_MISMATCH: expected revision N, request was based on 1` caused by `project-state.json` being written only once on initial folder connection.
+  - The bridge tracks `lastSyncedRevision`. At the beginning of every 1.5s folder check cycle (`checkFolder()`), if the in-memory revision differs from `lastSyncedRevision`, HALO automatically updates `project-state.json` via `syncStateOnly(dirHandle, api)` and updates `state.lastSync`.
+  - Manual UI changes (tempo, master volume, track mutes, voice parameters, phrase boundaries) are immediately synced to disk within 1.5 seconds.
+  - On validation error or rejection, `project-state.json` is also synchronized immediately so external models always inspect the actual project state rather than stale revision baselines.
+- **Smart Auto-Rebase Tolerance (`src/file-bridge.js`):**
+  - When incoming requests arrive with `baseRevision` older than `currentRevision`, HALO automatically attempts an in-memory rebase with `parseAndValidateRequest(api, text, baseId, { allowRebase: true })`.
+  - If the requested operations apply cleanly onto the current project state without conflicts, HALO accepts the batch, flags it with `rebased: true`, records `originalBaseRevision`, and presents it to the user with a green badge: `✓ Ревизия согласована (${originalBaseRevision} → ${currentRevision})` / `✓ Revision rebased`.
+  - When approved, the result in `responses/<requestId>.result.json` records `rebasedFrom: <originalBaseRevision>` alongside `appliedRevision`.
+- **1-Click Error Recovery Button (`src/file-bridge.js`):**
+  - Added a dedicated `[⚡ Согласовать ревизию]` / `[⚡ Rebase & Retry]` button on error cards, instantly flushing `project-state.json`, clearing cached error responses, and re-triggering folder evaluation.
+- **Test Suite & Verification:**
+  - Added unit tests in `tests/file-bridge.test.cjs` covering continuous auto-sync on revision change, `parseAndValidateRequest` rebase, `checkFolder` auto-rebasing into `state.pending`, and `rebaseAndRetry()`.
+  - Synchronized in-app bilingual manual (`index.html`), `docs/engine-capabilities.md`, `docs/agent-api-specification.md`, and `CHANGELOG.md`.
+  - All 243 unit tests pass (`node --test tests/*.test.cjs`).
+
 ### Interactive Slice Dragging & Waveform Drag & Drop — 2026-10-17
 
 - **Interactive Slice Divider & Strip Dragging (`src/live-loop.js`):**

@@ -500,15 +500,82 @@ test('AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% E
   assert.equal(cyrillicRegex.test(files['AGENT_GUIDE.md']), false, 'AGENT_GUIDE.md must not contain Cyrillic characters');
   assert.equal(cyrillicRegex.test(files['music-rules.json']), false, 'music-rules.json must not contain Cyrillic characters');
 
-  // Verify Zero Localhost, Zero CLI, and No-Waiting directives
+  // Verify Zero Localhost, Zero CLI, and 5-Second Verification Loop directives
   assert.ok(files['AGENT_GUIDE.md'].includes('NO LOCALHOST, NO WEBSERVERS, NO PORTS'));
   assert.ok(files['AGENT_GUIDE.md'].includes('NO CLI OR EXECUTABLES'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('DO NOT WAIT, SLEEP, OR POLL FOR responses/'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('Strict 3-Step Agent Workflow'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('TERMINATE YOUR TURN IMMEDIATELY'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('5-SECOND ERROR VERIFICATION vs HUMAN APPROVAL'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('Strict 4-Step Agent Workflow & Verification Protocol'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('5-Second Verification & Self-Correction'));
+
+  // All 5 files must be 100% English
+  for (const filename of ['AGENT_GUIDE.md', 'capabilities.json', 'instruments.json', 'music-rules.json', 'project-state.json']) {
+    assert.equal(cyrillicRegex.test(files[filename]), false, `${filename} must not contain Cyrillic characters`);
+  }
 });
 
-test('resetLocalChanges clears requests/responses, resets project, and updates context', async () => {
+test('Context files contain mutual cross-references and explicit read-only vs mutable field specifications', async () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+
+  const caps = JSON.parse(files['capabilities.json']);
+  const inst = JSON.parse(files['instruments.json']);
+  const rules = JSON.parse(files['music-rules.json']);
+  const state = JSON.parse(files['project-state.json']);
+  const guide = files['AGENT_GUIDE.md'];
+
+  // 1. Cross-references across all JSON files
+  for (const doc of [caps, inst, rules, state]) {
+    assert.ok(doc.references, 'Every JSON file must have references object');
+    assert.ok(doc.references.agentGuide);
+    assert.ok(doc.references.capabilities || doc.references.musicRules);
+  }
+
+  // 2. Capabilities fieldAccess & readOnlyProhibited
+  assert.ok(caps.fieldAccess?.trackPatch?.readOnlyProhibited?.includes('role'));
+  assert.ok(caps.fieldAccess?.trackPatch?.readOnlyProhibited?.includes('name'));
+  const trackPatchOp = caps.operations.find(o => o.op === 'track.patch');
+  assert.ok(trackPatchOp.readOnlyProhibited.includes('role'));
+  assert.ok(trackPatchOp.readOnlyProhibited.includes('name'));
+
+  // 3. Instruments trackPatchRules
+  assert.ok(inst.trackPatchRules?.readOnlyProhibitedFields?.includes('role'));
+  assert.ok(inst.tracks[0].trackPatchRule);
+
+  // 4. Project state notice and fieldAccess
+  assert.ok(state.notice.includes('READ-ONLY'));
+  assert.ok(state.fieldAccess.readOnlyFields.includes('track.role'));
+  assert.ok(state.fieldAccess.readOnlyFields.includes('track.name'));
+
+  // 5. AGENT_GUIDE.md contains Context Map, Read-Only directive and 8 Voice table
+  assert.ok(guide.includes('Context Files Map & Documentation Architecture'));
+  assert.ok(guide.includes('CRITICAL DIRECTIVE: Read-Only vs Mutable Fields'));
+  assert.ok(guide.includes('STRICTLY PROHIBITED IN `values`'));
+  assert.ok(guide.includes('8 Voice Slots & Role Polyphony Architecture'));
+
+  // 6. Error guidance for UNKNOWN_FIELD with role/name
+  const badReq = {
+    requestId: 'bad-track-patch',
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      {
+        op: 'track.patch',
+        trackIndex: 0,
+        values: {
+          role: 'bell',
+          sound: 'bell'
+        }
+      }
+    ]
+  };
+  const res = await FileBridge.processRequest(api, JSON.stringify(badReq), 'bad-track-patch');
+  assert.equal(res.ok, false);
+  assert.ok(res.error.includes('UNKNOWN_FIELD'));
+  assert.ok(res.help.includes('read-only slot identifiers'));
+  assert.ok(res.help.includes('Remove "role" and "name" from values'));
+});
+
+test('resetLocalChanges clears requests/responses without wiping project or localStorage', async () => {
   let project = P.capture(Object.keys(S.banks).map(name=>({...S.roles.initial('ambient',name),name,setup:'ambient',on:true,level:50,density:50,character:50,duration:50,space:30,pattern:[0,4,8,12]})),4,72,1,0,S,M);
   let toastMsg = '';
   const fakeWin = {
@@ -600,21 +667,19 @@ test('resetLocalChanges clears requests/responses, resets project, and updates c
   assert.equal(reqFiles.size, 0);
   assert.equal(resFiles.size, 0);
 
-  // Verify localStorage cleared
-  assert.equal(fakeWin.localStorage.items['halo-pattern-v1'], undefined);
-  assert.equal(fakeWin.localStorage.items['halo-pattern-v1-reactor'], undefined);
-  assert.equal(fakeWin.localStorage.items['notbad-halo-autosave-v1'], undefined);
-  assert.equal(fakeWin.localStorage.items['halo-composition-v1'], undefined);
+  // Verify localStorage was NOT cleared (user project is preserved)
+  assert.equal(fakeWin.localStorage.items['halo-pattern-v1'], 'dirty');
+  assert.equal(fakeWin.localStorage.items['notbad-halo-autosave-v1'], 'dirty');
 
-  // Verify project reset back to default 72 bpm and startStep 0
-  assert.equal(api.getProjectState().project.tempo, 72);
-  assert.equal(api.getProjectState().project.startStep, 0);
+  // Verify project in browser remains intact at 135 bpm (NOT reset to 72)
+  assert.equal(api.getProjectState().project.tempo, 135);
 
-  // Verify toast
-  assert.ok(toastMsg.includes('сброшены'));
+  // Verify toast indicates folder cleaned and current project re-synced
+  assert.ok(toastMsg.includes('Папка очищена'));
 
-  // Verify context files updated
+  // Verify context files updated with current 135 bpm project
   assert.ok(rootFiles.has('project-state.json'));
+  assert.equal(JSON.parse(rootFiles.get('project-state.json')).project.tempo, 135);
   assert.ok(rootFiles.has('AGENT_GUIDE.md'));
 
   await bridge.disconnect();
@@ -790,6 +855,210 @@ test('request modification after error triggers re-validation, clears error, and
   await bridge.disconnect();
 });
 
+test('File Bridge continuously auto-syncs project-state.json and auto-rebases requests based on stale revision', async () => {
+  const {api} = createTestApp();
+  const rootFiles = new Map();
+  const reqFiles = new Map();
+  const resFiles = new Map();
 
+  function makeDir(map){
+    return {
+      async *values(){
+        for (const [name, content] of map.entries()){
+          yield {
+            name,
+            kind: 'file',
+            async getFile(){
+              return {
+                lastModified: Date.now(),
+                async text(){ return content; }
+              };
+            }
+          };
+        }
+      },
+      async getFileHandle(name, opts){
+        return {
+          async getFile(){
+            return {
+              lastModified: Date.now(),
+              async text(){ return map.get(name) || ''; }
+            };
+          },
+          async createWritable(){
+            return {
+              async write(c){ map.set(name, c); },
+              async close(){}
+            };
+          }
+        };
+      },
+      async removeEntry(name){
+        map.delete(name);
+      },
+      async *entries(){
+        for (const [k, v] of Array.from(map.entries())){
+          yield [k, { kind: 'file', getFile: async () => ({ text: async () => v }) }];
+        }
+      }
+    };
+  }
+
+  const fakeDirHandle = {
+    name: 'HALO-Bridge',
+    async getDirectoryHandle(name, opts){
+      if (name === 'requests') return makeDir(reqFiles);
+      if (name === 'responses') return makeDir(resFiles);
+      throw Error('Unknown dir');
+    },
+    async getFileHandle(name, opts){
+      return {
+        async getFile(){
+          return {
+            lastModified: Date.now(),
+            async text(){ return rootFiles.get(name) || ''; }
+          };
+        },
+        async createWritable(){
+          return {
+            async write(c){ rootFiles.set(name, c); },
+            async close(){}
+          };
+        }
+      };
+    }
+  };
+
+  const bridge = FileBridge.createBridge(api, { pollInterval: 0 });
+  await bridge.connect(fakeDirHandle);
+
+  const initialRev = api.getProjectState().revision;
+  const initialPassport = JSON.parse(rootFiles.get('project-state.json'));
+  assert.equal(initialPassport.revision, initialRev);
+
+  // 1. In-memory project changes (e.g. user changes tempo or volume in UI) -> revision increments
+  api.setEnabled(true);
+  await api.applyOperations({
+    requestId: 'change-tempo',
+    schemaVersion: 1,
+    baseRevision: initialRev,
+    operations: [{ op: 'master.patch', values: { tempo: 85 } }]
+  });
+  const updatedRev = api.getProjectState().revision;
+  assert.equal(updatedRev, initialRev + 1);
+
+  // Before checkFolder, disk passport is still initialRev
+  assert.equal(JSON.parse(rootFiles.get('project-state.json')).revision, initialRev);
+
+  // checkFolder() runs: continuous auto-sync immediately writes the new revision to disk
+  await bridge.checkFolder();
+  const autoSyncedPassport = JSON.parse(rootFiles.get('project-state.json'));
+  assert.equal(autoSyncedPassport.revision, updatedRev, 'project-state.json must be auto-synced to disk on revision change');
+  assert.equal(autoSyncedPassport.project.tempo, 85);
+
+  // 2. An agent writes a request that was composed based on the OLD initialRev (baseRevision: initialRev)
+  const staleRequest = {
+    requestId: 'req-stale-001',
+    schemaVersion: 1,
+    baseRevision: initialRev, // stale! current is updatedRev
+    operations: [
+      {
+        op: 'track.patch',
+        trackIndex: 3,
+        values: { character: 75, duration: 60 }
+      }
+    ]
+  };
+  reqFiles.set('req-stale-001.json', JSON.stringify(staleRequest));
+
+  // Without allowRebase, parseAndValidateRequest strictly rejects with CONFLICT_REVISION_MISMATCH
+  const strictCheck = FileBridge.parseAndValidateRequest(api, JSON.stringify(staleRequest), 'req-stale-001');
+  assert.equal(strictCheck.ok, false);
+  assert.match(strictCheck.error, /CONFLICT_REVISION_MISMATCH/);
+
+  // With allowRebase: true, parseAndValidateRequest rebases cleanly
+  const rebaseCheck = FileBridge.parseAndValidateRequest(api, JSON.stringify(staleRequest), 'req-stale-001', { allowRebase: true });
+  assert.equal(rebaseCheck.ok, true);
+  assert.equal(rebaseCheck.rebased, true);
+  assert.equal(rebaseCheck.originalBaseRevision, initialRev);
+  assert.equal(rebaseCheck.currentRevision, updatedRev);
+
+  // 3. checkFolder() handles the stale request: automatically rebases it and sets it as pending
+  await bridge.checkFolder();
+  const status = bridge.getStatus();
+  assert.equal(status.error, null, 'No error should be thrown on clean auto-rebase');
+  assert.ok(status.pending, 'Pending proposal must be awaiting approval');
+  assert.equal(status.pending.id, 'req-stale-001');
+  assert.equal(status.pending.rebased, true);
+  assert.equal(status.pending.originalBaseRevision, initialRev);
+
+  // 4. User approves the rebased request
+  await bridge.applyPending();
+  assert.equal(bridge.getStatus().pending, null);
+  assert.ok(resFiles.has('req-stale-001.result.json'));
+  const okRes = JSON.parse(resFiles.get('req-stale-001.result.json'));
+  assert.equal(okRes.ok, true);
+  assert.equal(okRes.appliedRevision, updatedRev + 1);
+  assert.equal(okRes.rebasedFrom, initialRev);
+  assert.equal(api.getProjectState().project.tracks[3].character, 75);
+
+  // 5. Test rebaseAndRetry() clears errors and triggers re-evaluation
+  bridge.getStatus().error = { message: 'Temporary error' };
+  await bridge.rebaseAndRetry();
+  assert.equal(bridge.getStatus().error, null);
+
+  await bridge.disconnect();
+});
+
+test('File Bridge validates and accepts track.patch with custom steps omitting exact=true', () => {
+  const {api} = createTestApp();
+  const requestPayload = {
+    requestId: 'req-jingle-test',
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      {
+        op: 'project.patch',
+        values: { tempo: 96, bars: 8 }
+      },
+      {
+        op: 'track.patch',
+        trackIndex: 0,
+        values: {
+          steps: [0, 4, 8, 12],
+          level: 60
+        }
+      }
+    ]
+  };
+
+  const check = FileBridge.parseAndValidateRequest(api, JSON.stringify(requestPayload), 'req-jingle-test');
+  assert.equal(check.ok, true);
+  assert.equal(check.preview.after.tracks[0].exact, true);
+  assert.deepEqual(check.preview.after.tracks[0].steps, [0, 4, 8, 12]);
+});
+
+test('File Bridge auto-aligns startStep to phrase boundaries when bars changes', () => {
+  const {api, getProject} = createTestApp();
+  getProject().startStep = 64;
+  getProject().bars = 4;
+
+  const requestPayload = {
+    requestId: 'req-bars-align',
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      {
+        op: 'project.patch',
+        values: { bars: 8 }
+      }
+    ]
+  };
+
+  const check = FileBridge.parseAndValidateRequest(api, JSON.stringify(requestPayload), 'req-bars-align');
+  assert.equal(check.ok, true);
+  assert.equal(check.preview.after.bars, 8);
+  assert.equal(check.preview.after.startStep, 0);
+});
 
 

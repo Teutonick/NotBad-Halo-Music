@@ -11,18 +11,37 @@
       engine: 'NotBad Halo Music Constructor',
       version: caps.version || 2,
       transport: 'Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools',
+      references: {
+        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
+        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)',
+        projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
+      },
+      fieldAccess: {
+        trackPatch: {
+          mutableValues: caps.trackFields,
+          readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex'],
+          rule: 'Track roles and names are permanent slot identifiers fixed by trackIndex 0..7. Never include role or name inside track.patch.values.'
+        },
+        projectPatch: {
+          mutableValues: ['tempo', 'masterVolume', 'bars', 'startStep', 'key', 'seed', 'setup', 'world', 'soundWorld', 'timeSignature', 'mix', 'liveLoop'],
+          readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
+        }
+      },
       limits: caps.limits,
       operations: [
         {
           op: 'track.patch',
-          description: 'Update specific parameters, steps, and notes of a voice slot (0..7)',
+          description: 'Update specific mutable parameters, steps, and notes of a voice slot (0..7). Do NOT include role or name in values.',
           required: ['op', 'trackIndex', 'values'],
           optional: ['phraseId (required in multi-phrase compositions)'],
-          allowedValues: caps.trackFields
+          allowedValues: caps.trackFields,
+          readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex'],
+          rule: 'role and name are immutable properties of track slots 0..7. Passing role or name inside values throws UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted.'
         },
         {
           op: 'phrase.patch',
-          description: 'Update phrase properties: bars, startStep, seed, key, liveLoop',
+          description: 'Update phrase properties: bars, startStep, seed, key, liveLoop, timeSignature',
           required: ['op', 'values'],
           allowedValues: caps.phraseFields
         },
@@ -34,18 +53,19 @@
         },
         {
           op: 'project.patch',
-          description: 'Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world) without replacing all tracks',
+          description: 'Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world, timeSignature, mix, liveLoop) without replacing all tracks',
           required: ['op', 'values'],
-          allowedValues: ['tempo', 'masterVolume', 'bars', 'key', 'seed', 'setup', 'world', 'soundWorld']
+          allowedValues: ['tempo', 'masterVolume', 'bars', 'startStep', 'key', 'seed', 'setup', 'world', 'soundWorld', 'timeSignature', 'mix', 'liveLoop'],
+          readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
         },
         {
           op: 'project.replace',
-          description: 'Replace the entire single-phrase project snapshot',
+          description: 'Replace the entire single-phrase project snapshot (must contain exactly 8 track objects covering slots 0..7)',
           required: ['op', 'project']
         },
         {
           op: 'composition.replace',
-          description: 'Replace the entire multi-phrase song structure',
+          description: 'Replace the entire multi-phrase song structure (up to 15 unique phrases, up to 32 sections)',
           required: ['op', 'project']
         },
         {
@@ -121,6 +141,7 @@
         policy: r.policy,
         noteRange: { minMidi: r.minMidi || 24, maxMidi: r.maxMidi || 96 },
         allowedBanks: ['ambient', 'reactor'],
+        trackPatchRule: `Use { op: 'track.patch', trackIndex: ${i}, values: { ... } }. NEVER include 'role' or 'name' in values.`,
         soundsBySetup,
         compatibleSounds: compatible.map(s => ({
           world: s.world,
@@ -178,6 +199,18 @@
     return {
       schemaVersion: 1,
       description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
+      references: {
+        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
+        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)',
+        projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
+      },
+      trackPatchRules: {
+        usage: "Target a track using { op: 'track.patch', trackIndex: 0..7, values: { ... } }.",
+        mutableFields: caps.trackFields,
+        readOnlyProhibitedFields: ['role', 'name', 'slot', 'trackIndex'],
+        warning: "CRITICAL: Do NOT include 'role' or 'name' inside track.patch.values. They are immutable slot identifiers. Passing them will fail with UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
+      },
       vibeAndSetupPolicy: {
         description: 'HALO soundscapes and motifs are strictly vibe-dependent. All 8 tracks must use sounds from the active project setup (world). In project.replace, specify "setup": "ambient" or "setup": "reactor" (or "world": "ambient"/"reactor").',
         ambient: {
@@ -211,6 +244,12 @@
     return {
       schemaVersion: 1,
       description: 'HALO Musical Rules, Transport, Time Signatures, Rhythmic Grid, and Harmony Guidelines.',
+      references: {
+        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
+        instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
+        projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
+      },
       timeSignature: '4/4',
       supportedTimeSignatures: ['4/4', '3/4'],
       timeSignatures: {
@@ -324,6 +363,18 @@
   function generateProjectState(state, context){
     return {
       schemaVersion: 1,
+      notice: 'READ-ONLY LIVE SNAPSHOT. Do not edit this file directly. Submit change requests to requests/<requestId>.json.',
+      references: {
+        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
+        instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
+        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)'
+      },
+      fieldAccess: {
+        readOnlyFields: ['revision', 'schemaVersion', 'exportedAt', 'music', 'history', 'track.name', 'track.role'],
+        trackPatchMutableValues: ['instrument', 'sound', 'generator', 'on', 'steps', 'exact', 'sequence', 'noteEvents', 'noteTranspose', 'level', 'density', 'character', 'duration', 'space', 'delay', 'delayTime', 'chorus'],
+        warning: "CRITICAL: 'role' and 'name' are read-only slot identifiers. NEVER include 'role' or 'name' inside track.patch.values!"
+      },
       revision: state.revision,
       exportedAt: new Date().toISOString(),
       project: state.project,
@@ -338,7 +389,46 @@
 
 HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-step grid per bar for 4/4 or 12-step grid for 3/4).
 
-## CRITICAL DIRECTIVE: Zero Localhost, Zero CLI, No Waiting
+## Context Files Map & Documentation Architecture
+
+Before composing, understand the roles of the 5 synchronized context files in this folder:
+
+| File | Format | Primary Role & Information Contained | When to Consult |
+| --- | --- | --- | --- |
+| \`AGENT_GUIDE.md\` | Markdown | Master operational instructions, batch envelope, schema rules, mutable vs read-only properties, and batch examples | Read first for workflow, batch envelope, and patch structure |
+| \`capabilities.json\` | JSON | Engine limits, operation schemas, field mutability allowlists, FX and master specifications | Check before creating operations to verify allowed/forbidden fields |
+| \`instruments.json\` | JSON | 8 voice slots (0..7), sound matrix by setup (\`ambient\` / \`reactor\`), MIDI note registers, role polyphony | Consult to pick compatible sounds, registers, and timbral parameters |
+| \`music-rules.json\` | JSON | Rhythmic grid (4/4 and 3/4), step indexing, Circle of Fifths keys (0..23), scales, chord polyphony | Consult for step numbers, chord notes, key transpositions, and meters |
+| \`project-state.json\` | JSON | READ-ONLY live composition snapshot: base \`revision\`, tempo, meter, active voices, and note events | Read to get \`baseRevision\` and inspect sounding tracks |
+
+## CRITICAL DIRECTIVE: Read-Only vs Mutable Fields (Strict Schema Enforcement)
+
+HALO enforces strict schema validation on all operations. Passing unrecognized or read-only properties throws fatal \`UNKNOWN_FIELD\` errors!
+
+### 1. \`track.patch\` (Targeting a single track 0..7):
+- **\`trackIndex\`**: Integer \`0..7\` (required). Specifies the target slot (0: GLASS, 1: TIDAL, 2: ROOT, 3: EMBER, 4: RAIN, 5: VEIL, 6: MOSS, 7: AURA).
+- **\`values\`**: Object containing ONLY mutable track parameters.
+  - **ALLOWED MUTABLE FIELDS**:
+    \`[ "instrument", "sound", "generator", "on", "steps", "exact", "sequence", "noteEvents", "noteTranspose", "level", "density", "character", "duration", "space", "delay", "delayTime", "chorus" ]\`
+  - **STRICTLY PROHIBITED IN \`values\`**:
+    \`role\`, \`name\`, \`slot\`, \`trackIndex\`.
+    *Why?* In HALO, \`role\` (e.g. "pulse", "bass", "melody") and \`name\` (e.g. "GLASS", "ROOT") are permanent slot identities fixed by \`trackIndex: 0..7\`. They are read-only metadata in \`project-state.json\`. If you include \`"role"\` or \`"name"\` inside \`track.patch.values\`, HALO rejects the request with:
+    \`UNKNOWN_FIELD: unexpected field(s) [role] in track.patch. Allowed fields: [instrument, sound, generator, on, steps, exact, sequence, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus]\`.
+- **MANUAL STEPS & \`exact: true\`**:
+  In Generator 3 (the default mode), tracks use procedural generation unless \`exact: true\`. When providing custom rhythm via \`steps: [0, 4, 8, ...]\` or \`noteEvents: [...]\`, include \`"exact": true\` in \`values\`. HALO also automatically sets \`exact = true\` when custom steps or noteEvents are supplied if \`exact\` is omitted, ensuring your manual pattern is played rather than ignored.
+
+### 2. \`project.patch\` (Targeting global project parameters):
+- **\`values\`**: Object containing top-level project settings.
+  - **ALLOWED MUTABLE FIELDS**:
+    \`[ "tempo", "masterVolume", "bars", "startStep", "key", "seed", "setup", "world", "soundWorld", "timeSignature", "mix", "liveLoop" ]\`
+  - **PROHIBITED IN \`project.patch\`**:
+    \`tracks\`, \`phrases\`, \`sections\`, \`revision\`, \`schemaVersion\`, \`format\`, \`version\`. (To replace tracks, use \`project.replace\` or \`track.patch\`).
+
+### 3. \`project.replace\` (Full 8-track project snapshot):
+- **\`project\`**: Complete project object. MUST contain an array of **EXACTLY 8 tracks** covering all voice slots 0..7.
+- Inside track objects of \`project.replace\`, \`name\` is required and \`role\` is optional for identification, but when patching tracks via \`track.patch\`, \`role\` is forbidden.
+
+## CRITICAL DIRECTIVE: Zero Localhost, Zero CLI, 5-Second Verification Loop
 
 1. **NO LOCALHOST, NO WEBSERVERS, NO PORTS:**
    HALO runs 100% client-side in the user's browser. There is **NO backend server, NO local HTTP daemon, NO API port** (no port 3000, 3001, 8080, 5173, etc.).
@@ -349,10 +439,13 @@ HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-s
    - **DO NOT** run \`halo\`, \`halo.exe\`, \`where.exe halo\`, \`halo bridge run\`, \`npm\`, \`node\`, or \`python\` to run HALO or execute requests.
 3. **NO BROWSER LAUNCHING:**
    - **DO NOT** launch Chrome, Edge, Playwright, Puppeteer, or attempt to open \`file://\` or \`localhost\` URLs. HALO is already open in the user's browser and connects to this folder via the native Web File System Access API.
-4. **DO NOT WAIT, SLEEP, OR POLL FOR responses/:**
-   - HALO uses strict **Human-in-the-Loop** confirmation. When a request is written to \`requests/\`, HALO displays a visual diff to the human user in the browser. The response in \`responses/\` is created **ONLY AFTER THE USER PHYSICALLY CLICKS "Approve"** in the web UI.
-   - Because user approval takes human time, a response file will **NEVER** appear synchronously during the agent's turn.
-   - If the user prompt says "check that response confirms application", understand this as an asynchronous instruction: write the request file, inform the user that it awaits their approval in HALO, and **TERMINATE YOUR TURN IMMEDIATELY**. Never loop or wait for the response file!
+4. **5-SECOND ERROR VERIFICATION vs HUMAN APPROVAL:**
+   - HALO polls \`requests/\` every 1.5 seconds.
+   - **When a request fails validation**, HALO writes an immediate error response to \`responses/<requestId>.result.json\` within 1.5–3 seconds.
+   - **When a request is valid**, HALO creates a pending proposal in the web UI and waits for the human user to click "Approve".
+   - Therefore, after writing your request, **wait 4 to 5 seconds and inspect \`responses/<requestId>.result.json\`**:
+     - If an error result exists (\`"ok": false\`), read \`error\` and \`help\`, fix the request, and rewrite it.
+     - If NO error exists after 4–5 seconds, the request is valid and queued for human approval! Only then finish your turn.
 
 ## CRITICAL TOKEN BUDGET & COMPACT BATCH DIRECTIVE
 
@@ -366,7 +459,7 @@ HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-s
      - Tracks that you do not patch will continue playing their default harmonically coherent roles!
    - This keeps your request payload under 1.5 KB, safe, instant, and completely immune to tool-call buffer truncation.
 
-## Strict 3-Step Agent Workflow (No Deviations)
+## Strict 4-Step Agent Workflow & Verification Protocol
 
 1. **Step 1: Read Context (Read-Only)**
    - Read \`project-state.json\` to get current \`revision\`, active voices, tempo, key, and meter.
@@ -377,10 +470,19 @@ HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-s
    - Compose musical content tailored to the user's prompt.
    - Validate JSON envelope: \`requestId\`, \`schemaVersion: 1\`, \`baseRevision\` (matching current \`revision\` from \`project-state.json\`), and valid \`operations\`.
    - Ensure \`project.replace\` has exactly 8 tracks; sound IDs have no world prefixes; notes are within role MIDI boundaries.
-3. **Step 3: Write File & FINISH**
+3. **Step 3: Write Request File to requests/<requestId>.json**
    - Save the request JSON file to \`requests/<requestId>.json\`.
-   - **STOP IMMEDIATELY AND END YOUR TURN.**
-   - Output a clear message to the user: *"Request <requestId>.json has been generated and written to requests/. Please switch to your HALO browser tab and click 'Approve' to apply the changes."*
+4. **Step 4: 5-Second Verification & Self-Correction (DO NOT Rush to Report Done!)**
+   - Wait 4 to 5 seconds and read \`responses/<requestId>.result.json\`:
+     - **CASE A: ERROR DETECTED (\`"ok": false\`):**
+       - Read \`"error"\`, \`"help"\`, and \`"instructionForAgent"\`.
+       - Understand the exact issue (e.g. unknown field, setup mismatch, unaligned steps).
+       - Correct your batch in-memory, overwrite \`requests/<requestId>.json\` (or create a new request file), and check \`responses/\` again.
+       - Maximum 2 self-correction retries allowed. Do NOT leave the user with an unresolved error!
+     - **CASE B: SUCCESS / PENDING APPROVAL (No error result, or \`"ok": true\`):**
+       - The request passed validation! HALO has accepted the proposal and queued it for human review in the web UI.
+       - **ONLY NOW** output your summary to the user and terminate your turn:
+         *"Request <requestId>.json has been validated by HALO and is awaiting your approval in the web UI. Please switch to your HALO browser tab and click 'Approve' to apply the changes."*
 
 ## Folder Structure
 
@@ -409,10 +511,10 @@ HALO-Bridge/
    - \`operations\`: Array of allowlisted operations (up to 256 operations)
 4. **Allowlisted Operations:**
    Only the following operations are permitted:
-   - \`track.patch\` — Modify parameters and note events for a single track (\`trackIndex\`: 0..7, \`values\`: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus, instrument, sound })
+   - \`track.patch\` — Modify parameters and note events for a single track (\`trackIndex\`: 0..7, \`values\`: ONLY mutable fields { instrument, sound, generator, on, steps, exact, sequence, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus }; never include \`role\` or \`name\`)
    - \`phrase.patch\` — Modify phrase settings (\`bars\`: 4|8, \`startStep\`, \`seed\`, \`key\`, \`liveLoop\`, \`timeSignature\`: "4/4"|"3/4")
    - \`master.patch\` — Master bus controls (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`mix\`: { low, mid, high, width })
-   - \`project.patch\` — Modify top-level project settings (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`bars\`: 4|8, \`key\`: 0..23, \`seed\`, \`setup\`: "ambient"|"reactor") without modifying tracks
+   - \`project.patch\` — Modify top-level project settings (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`bars\`: 4|8, \`startStep\`, \`key\`: 0..23, \`seed\`, \`setup\`: "ambient"|"reactor", \`timeSignature\`, \`mix\`, \`liveLoop\`) without modifying tracks
    - \`project.replace\` — Full replacement of a single-phrase project (including sound world \`"setup": "ambient" | "reactor"\`)
    - \`composition.replace\` — Full replacement of a multi-phrase song/composition (up to 15 phrases)
    - \`visual.patch\` — Visual scene, motion, and effect modes (\`scene\`: ORBIT/BLOOM/CURRENT, \`motion\`: DRIFT/IN TIME/PHRASE, \`effects\`: CLASSIC/COSMIC/HYPER)
@@ -423,8 +525,8 @@ HALO-Bridge/
    HALO writes a response to \`responses/<requestId>.result.json\` only after human review in the web UI:
    - On success: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
    - On rejection or failure: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
-7. **Idempotence & Revision Freshness:**
-   Re-processing previously applied requests is disallowed. Stale revisions are rejected with \`CONFLICT_REVISION_MISMATCH\`.
+7. **Idempotence & Continuous State Sync:**
+   HALO continuously synchronizes \`project-state.json\` to disk whenever in-memory settings, tempo, or playback state change (every 1.5s polling tick). Re-processing previously applied requests is disallowed. If incoming operations are based on an earlier revision but do not conflict with subsequent changes, HALO automatically rebases and presents them for user review in the web UI. Always read \`project-state.json\` to get the latest \`revision\` before generating a request.
 
 ## Anti-Looping Protocol & Error Handling
 
@@ -505,6 +607,18 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
   - 6: PERC (cymbals, tambourine, hi-hats, acoustic shaker)
   - 7: TEXTURE (ambient guitar feedback, electric sub wash)
 
+### 8 Voice Slots & Role Polyphony Architecture:
+| Slot (\`trackIndex\`) | Slot Name | Fixed Role | Polyphony Limit | Register | Recommended Ambient Sound | Recommended Reactor Sound |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0 | GLASS | Pulse / Anchor | 1 note (or unpitched) | Reference | bell, chime, pulse | kick, beat |
+| 1 | TIDAL | Accent / Backbeat | 1-2 notes (or unpitched) | Reference | air, breath, wood | snare, rim, clap |
+| 2 | ROOT | Bass / Sub Foundation | Strictly 1 note (mono) | Low (MIDI 24..60) | round, sub, pulse | rock-bass, sub-bass |
+| 3 | EMBER | Pluck / Rhythm Chord | 1-2 notes | Mid (MIDI 36..72) | string, harp, kalimba | guitar-mute, chord |
+| 4 | RAIN | Percussion / Shaker | Empty notes \`[]\` | Noise/Transient | shaker, noise, click | hat, shaker, tamb |
+| 5 | VEIL | Lead Melody | 1-2 notes | High (MIDI 48..96) | bow, crystal, vibe | lead-synth, guitar-lead |
+| 6 | MOSS | Arpeggio / Counterpoint | Strictly 1 note (mono) | Mid/High (MIDI 48..84) | marimba, wood, sine | organ, rhodes, arp |
+| 7 | AURA | Harmony / Pad Bed | Up to 4 notes (poly) | Broad (MIDI 36..84) | wind, drone, pad | texture, guitar-pad |
+
 ### Sound World & Setup Rules:
 - **Vibe-Dependent Sounds:** Instruments and motifs are strictly setup-dependent. In \`instruments.json\`, examine \`soundsBySetup\` for your active setup (\`"ambient"\` or \`"reactor"\`).
 - **AMBIENT setup (\`"setup": "ambient"\`):** Uses procedural synthesis (bells, vibes, crystal, pads, subs, wood percussion, organic noise). Do NOT use acoustic rock drums (kicks, snares, hats, toms) or electric guitars here.
@@ -516,11 +630,12 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
 ## Error Self-Correction Workflow
 If a command execution returns \`"ok": false\` in \`responses/<requestId>.result.json\`:
 1. **Carefully read \`"error"\` and \`"help"\`:** The error message explicitly states the problem and how to resolve it.
-2. **Setup Mismatch Error:** If the error says \`INVALID_SOUND: sound "..." belongs to the "REACTOR" setup... but current project setup is "ambient"\`:
+2. **Revision Mismatch Error:** If an error indicates \`CONFLICT_REVISION_MISMATCH\`, HALO has automatically synchronized the latest \`project-state.json\` to disk. Re-read \`project-state.json\`, update \`baseRevision\`, and write the request again. Alternatively, the user can click "⚡ Rebase & Retry" in the web UI.
+3. **Setup Mismatch Error:** If the error says \`INVALID_SOUND: sound "..." belongs to the "REACTOR" setup... but current project setup is "ambient"\`:
    - **Option A:** Change \`"setup": "reactor"\` (or \`"world": "reactor"\`) in your \`project.replace\` payload.
    - **Option B:** Replace the requested sound with a sound available in \`"ambient"\` for that track (consult \`soundsBySetup.ambient\` in \`instruments.json\`).
-3. **Overwrite and Re-Submit:** You can overwrite the same file in \`requests/\` or write a new one with a fresh \`requestId\`. HALO automatically detects file modifications and re-evaluates immediately.
-4. **Action Directive:** Do NOT sit idle or wait for errors to vanish on their own. Once you write the corrected request, terminate your turn and ask the user to click "Approve" in HALO.
+4. **Overwrite and Re-Submit:** You can overwrite the same file in \`requests/\` or write a new one with a fresh \`requestId\`. HALO automatically detects file modifications and re-evaluates immediately.
+5. **Action Directive:** Do NOT sit idle or wait for errors to vanish on their own. Once you write the corrected request, terminate your turn and ask the user to click "Approve" in HALO.
 
 ## Example Requests
 
@@ -706,7 +821,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     };
   }
 
-  function parseAndValidateRequest(api, textContent, fallbackId){
+  function parseAndValidateRequest(api, textContent, fallbackId, options = {}){
     let parsed;
     try {
       parsed = typeof textContent === 'string' ? JSON.parse(textContent) : textContent;
@@ -731,7 +846,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     }
 
     const currentRevision = api.getProjectState().revision;
-    if (transaction.baseRevision !== currentRevision) {
+    const isRevisionMismatch = transaction.baseRevision !== currentRevision;
+    if (isRevisionMismatch && !options.allowRebase) {
       return {
         ok: false,
         error: `CONFLICT_REVISION_MISMATCH: expected revision ${currentRevision}, request was based on ${transaction.baseRevision}`,
@@ -740,9 +856,11 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       };
     }
 
+    const effectiveTransaction = isRevisionMismatch ? { ...transaction, baseRevision: currentRevision } : transaction;
+
     let preview;
     try {
-      preview = api.previewOperations(transaction);
+      preview = api.previewOperations(effectiveTransaction);
     } catch(err) {
       return { ok: false, error: err.message, id: requestId, currentRevision };
     }
@@ -750,9 +868,11 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     return {
       ok: true,
       id: requestId,
-      transaction,
+      transaction: effectiveTransaction,
       preview,
-      currentRevision
+      currentRevision,
+      rebased: isRevisionMismatch,
+      originalBaseRevision: isRevisionMismatch ? transaction.baseRevision : undefined
     };
   }
 
@@ -763,11 +883,15 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     if (msg.includes('CONFLICT_REVISION_MISMATCH')) {
       const match = msg.match(/expected revision (\d+)/);
       const rev = match ? match[1] : '';
-      help = `Base revision is outdated. The project is currently at revision ${rev || 'N'}. Read "revision" from project-state.json and set "baseRevision": ${rev ? Number(rev) : 1} in your request.`;
+      help = `Base revision is outdated. The project is currently at revision ${rev || 'N'}. project-state.json has been automatically updated on disk. Set "baseRevision": ${rev ? Number(rev) : 1} in your request or click «⚡ Rebase & Retry» in HALO.`;
     } else if (msg.includes('INVALID_TRACKS_COUNT')) {
       help = 'operation "project.replace" requires all 8 tracks in the "tracks" array: [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. If you only want to modify specific tracks, use one or more "track.patch" operations instead.';
     } else if (msg.includes('UNKNOWN_FIELD')) {
-      help = 'An unexpected property was found. Consult capabilities.json and AGENT_GUIDE.md for allowed fields. Do not invent custom properties.';
+      if (msg.includes('track.patch') && (msg.includes('role') || msg.includes('name') || msg.includes('slot'))) {
+        help = 'In "track.patch", "role" and "name" are permanent read-only slot identifiers and MUST NOT be included in "values". Allowed fields in track.patch.values: [instrument, sound, generator, on, steps, exact, sequence, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus]. Remove "role" and "name" from values.';
+      } else {
+        help = 'An unexpected property was found: ' + msg + '. Consult capabilities.json and AGENT_GUIDE.md for allowed fields. In track.patch, only mutable voice parameters are allowed (role and name are read-only slot identifiers).';
+      }
     } else if (msg.includes('INVALID_SOUND')) {
       if (msg.includes('belongs to the "REACTOR" setup') || msg.includes('belongs to the "AMBIENT" setup')) {
         help = 'Sound setup/vibe mismatch: ' + msg + ' To use this sound, set "setup": "reactor" (or "world": "reactor") in project.replace, or choose sounds available in the current setup from instruments.json.';
@@ -783,7 +907,9 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     } else if (msg.includes('UNSUPPORTED_TIME_SIGNATURE')) {
       help = 'Time signature must be "4/4" or "3/4".';
     } else if (msg.includes('EXACT_REQUIRED')) {
-      help = 'Generator 3 requires "exact": true when providing custom steps or noteEvents.';
+      help = 'Generator 3 requires "exact": true when providing custom steps or noteEvents. Add "exact": true to your track.patch values (or omit "exact": false).';
+    } else if (msg.includes('Invalid phrase position') || msg.includes('phrase position')) {
+      help = 'Phrase startStep must be aligned to phrase boundaries (multiples of bars * stepsPerBar). In single-phrase mode, omit startStep or set startStep: 0.';
     } else if (msg.includes('PHRASE_NOT_FOUND')) {
       help = 'The specified phraseId was not found in the composition phrases array.';
     } else if (msg.includes('MISSING_PAYLOAD')) {
@@ -802,8 +928,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     return { help, instructionForAgent };
   }
 
-  async function processRequest(api, textContent, fallbackId){
-    const validated = parseAndValidateRequest(api, textContent, fallbackId);
+  async function processRequest(api, textContent, fallbackId, options = {}){
+    const validated = parseAndValidateRequest(api, textContent, fallbackId, options);
     if (!validated.ok) {
       const guidance = generateErrorGuidance(validated.error, 1);
       return {
@@ -822,6 +948,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         appliedRevision: result.revision,
         currentRevision: result.revision,
         project: result.project,
+        ...(validated.rebased ? { rebasedFrom: validated.originalBaseRevision } : {}),
         timestamp: new Date().toISOString()
       };
     } catch(e) {
@@ -852,9 +979,17 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
   }
 
   async function syncAllContext(dirHandle, api){
-    const files = getContextFiles(api);
-    for (const [name, content] of Object.entries(files)){
-      await writeFsFile(dirHandle, name, content);
+    console.log('[HALO File Bridge] syncAllContext start', { dir: dirHandle?.name });
+    try {
+      const files = getContextFiles(api);
+      console.log('[HALO File Bridge] getContextFiles successfully prepared', Object.keys(files));
+      for (const [name, content] of Object.entries(files)){
+        await writeFsFile(dirHandle, name, content);
+      }
+      console.log('[HALO File Bridge] all 5 context files written successfully to', dirHandle?.name);
+    } catch(err) {
+      console.error('[HALO File Bridge] syncAllContext failed:', err);
+      throw err;
     }
   }
 
@@ -958,6 +1093,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     let dirHandle = null;
     let pollInterval = null;
     let consecutiveErrors = 0;
+    let lastSyncedRevision = null;
     const listeners = new Set();
     const processedIds = new Set();
     const processedContent = new Map();
@@ -988,6 +1124,18 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       if (!dirHandle || state.busy) return;
       state.busy = true;
       try {
+        // Continuous auto-sync: keep project-state.json fresh on disk whenever in-memory revision changes
+        const currentRev = api.getProjectState().revision;
+        if (lastSyncedRevision === null || currentRev !== lastSyncedRevision) {
+          try {
+            await syncStateOnly(dirHandle, api);
+            lastSyncedRevision = currentRev;
+            state.lastSync = new Date().toISOString();
+          } catch(syncErr) {
+            console.warn('File Bridge auto-sync warning:', syncErr);
+          }
+        }
+
         const reqDir = await dirHandle.getDirectoryHandle('requests', { create: true });
         const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
 
@@ -1024,10 +1172,23 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           }
 
           processedContent.set(baseId, text);
-          const parsed = parseAndValidateRequest(api, text, baseId);
+          let parsed = parseAndValidateRequest(api, text, baseId);
+
+          if (!parsed.ok && parsed.error && parsed.error.includes('CONFLICT_REVISION_MISMATCH')) {
+            const rebaseAttempt = parseAndValidateRequest(api, text, baseId, { allowRebase: true });
+            if (rebaseAttempt.ok) {
+              parsed = rebaseAttempt;
+            }
+          }
 
           if (!parsed.ok) {
             consecutiveErrors++;
+            try {
+              await syncStateOnly(dirHandle, api);
+              lastSyncedRevision = api.getProjectState().revision;
+              state.lastSync = new Date().toISOString();
+            } catch {}
+
             const guidance = generateErrorGuidance(parsed.error, consecutiveErrors);
             const errRes = {
               ok: false,
@@ -1064,7 +1225,9 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
               filename: name,
               transaction: parsed.transaction,
               preview: parsed.preview,
-              baseId
+              baseId,
+              rebased: !!parsed.rebased,
+              originalBaseRevision: parsed.originalBaseRevision
             };
             state.lastResult = null;
             state.error = null;
@@ -1080,6 +1243,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
               id: parsed.id,
               appliedRevision: applied.revision,
               currentRevision: applied.revision,
+              ...(parsed.rebased ? { rebasedFrom: parsed.originalBaseRevision } : {}),
               timestamp: new Date().toISOString()
             };
             await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
@@ -1087,6 +1251,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
               await writeFsFile(resDir, `${baseId}.result.json`, JSON.stringify(okRes, null, 2));
             }
             await syncStateOnly(dirHandle, api);
+            lastSyncedRevision = applied.revision;
+            state.lastSync = new Date().toISOString();
             processedIds.add(baseId);
             state.lastResult = okRes;
             notify();
@@ -1115,6 +1281,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           id: p.id,
           appliedRevision: applied.revision,
           currentRevision: applied.revision,
+          ...(p.rebased ? { rebasedFrom: p.originalBaseRevision } : {}),
           timestamp: new Date().toISOString()
         };
         await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(okRes, null, 2));
@@ -1122,6 +1289,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           await writeFsFile(resDir, `${p.baseId}.result.json`, JSON.stringify(okRes, null, 2));
         }
         await syncStateOnly(dirHandle, api);
+        lastSyncedRevision = applied.revision;
+        state.lastSync = new Date().toISOString();
         appliedIds.add(p.baseId);
         appliedIds.add(p.id);
         processedIds.add(p.baseId);
@@ -1170,12 +1339,14 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     }
 
     async function connect(handle){
+      console.log('[HALO File Bridge] connect() called with:', handle?.name);
       const validHandle = asDirectoryHandle(handle);
       if (!validHandle) {
         state.error = 'Invalid directory handle: missing getDirectoryHandle or getFileHandle';
         state.connected = false;
         dirHandle = null;
         if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        console.error('[HALO File Bridge] connect(): invalid directory handle', handle);
         notify();
         return;
       }
@@ -1187,13 +1358,17 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       notify();
       try {
         await storeDirectoryHandle(validHandle, win);
+        console.log('[HALO File Bridge] stored folder handle in IndexedDB');
         // Ensure subfolders
         await dirHandle.getDirectoryHandle('requests', { create: true });
         await dirHandle.getDirectoryHandle('responses', { create: true });
+        console.log('[HALO File Bridge] ensured requests/ and responses/ directories');
         // Sync context
         await syncAllContext(dirHandle, api);
+        lastSyncedRevision = api.getProjectState().revision;
         state.lastSync = new Date().toISOString();
         state.connected = true;
+        console.log('[HALO File Bridge] connected successfully, revision:', lastSyncedRevision);
         // Start polling
         if (pollInterval) clearInterval(pollInterval);
         const intervalMs = env.pollInterval !== undefined ? env.pollInterval : 1500;
@@ -1203,7 +1378,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         }
         await checkFolder();
       } catch(e) {
-        state.error = e.message;
+        console.error('[HALO File Bridge] connect() failed with exception:', e);
+        state.error = (e && e.message) ? e.message : String(e);
         state.connected = false;
         dirHandle = null;
         if (pollInterval) {
@@ -1274,6 +1450,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       notify();
       try {
         await syncAllContext(dirHandle, api);
+        lastSyncedRevision = api.getProjectState().revision;
         state.lastSync = new Date().toISOString();
       } catch(e) {
         state.error = e.message;
@@ -1285,6 +1462,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
 
     async function resetLocalChanges(lang = 'ru'){
       if (!dirHandle) return;
+      console.log('[HALO File Bridge] resetLocalChanges initiated on folder:', dirHandle.name);
       state.busy = true;
       notify();
       try {
@@ -1293,13 +1471,19 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           for await (const [name] of reqDir.entries()){
             try { await reqDir.removeEntry(name); } catch {}
           }
-        } catch {}
+          console.log('[HALO File Bridge] cleared requests/ folder');
+        } catch(e) {
+          console.warn('[HALO File Bridge] note on cleaning requests/:', e?.message);
+        }
         try {
           const resDir = await dirHandle.getDirectoryHandle('responses', { create: false });
           for await (const [name] of resDir.entries()){
             try { await resDir.removeEntry(name); } catch {}
           }
-        } catch {}
+          console.log('[HALO File Bridge] cleared responses/ folder');
+        } catch(e) {
+          console.warn('[HALO File Bridge] note on cleaning responses/:', e?.message);
+        }
 
         processedIds.clear();
         processedContent.clear();
@@ -1309,24 +1493,45 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         state.lastResult = null;
         state.error = null;
 
-        try {
-          win?.localStorage?.removeItem?.('halo-pattern-v1');
-          win?.localStorage?.removeItem?.('halo-pattern-v1-reactor');
-          win?.localStorage?.removeItem?.('notbad-halo-autosave-v1');
-          win?.localStorage?.removeItem?.('halo-composition-v1');
-        } catch {}
-
-        if (typeof api.resetProject === 'function') {
-          await api.resetProject();
-        }
-
+        // Re-export current project state without resetting project or touching localStorage
         await syncAllContext(dirHandle, api);
+        lastSyncedRevision = api.getProjectState().revision;
         state.lastSync = new Date().toISOString();
+        console.log('[HALO File Bridge] resynced context files with current project, revision:', lastSyncedRevision);
 
         const isRu = lang === 'ru';
+        const msg = isRu ? 'Папка очищена, текущий проект синхронизирован' : 'Folder cleaned, current project re-synced';
         if (typeof win?.toast === 'function') {
-          win.toast(isRu ? 'Локальные изменения сброшены, проект возвращен к исходному состоянию' : 'Local changes cleared, project restored to default');
+          win.toast(msg);
+        } else if (typeof win?.HaloNotification === 'function') {
+          win.HaloNotification(msg);
         }
+      } catch(e) {
+        console.error('[HALO File Bridge] resetLocalChanges failed:', e);
+        state.error = (e && e.message) ? e.message : String(e);
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
+    async function rebaseAndRetry(){
+      if (!dirHandle) return;
+      state.busy = true;
+      notify();
+      try {
+        await syncStateOnly(dirHandle, api);
+        lastSyncedRevision = api.getProjectState().revision;
+        state.lastSync = new Date().toISOString();
+
+        if (state.lastResult?.id) {
+          processedContent.delete(state.lastResult.id);
+          processedIds.delete(state.lastResult.id);
+        }
+        state.error = null;
+        state.lastResult = null;
+        consecutiveErrors = 0;
+        await checkFolder();
       } catch(e) {
         state.error = e.message;
       } finally {
@@ -1345,6 +1550,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       checkFolder,
       applyPending,
       rejectPending,
+      rebaseAndRetry,
       setAutoApply(v){ state.autoApply = !!v; notify(); },
       getStatus: () => clone(state),
       subscribe(fn){
@@ -1522,19 +1728,19 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         const btnReset = document.createElement('button');
         btnReset.className = 'glass-btn';
         btnReset.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(80,35,35,.5);border-color:#f8a39a;color:#ffdada;cursor:pointer;';
-        btnReset.textContent = tr('↺ Сбросить изменения', '↺ Reset Changes');
-        btnReset.title = tr('Очистить requests/, responses/ и вернуть проект к исходному состоянию', 'Clear requests/, responses/ and restore clean default project');
+        btnReset.textContent = tr('↺ Очистить запросы', '↺ Reset Requests');
+        btnReset.title = tr('Очистить requests/, responses/ и заново синхронизировать текущий проект в папку', 'Clear requests/, responses/ and re-sync current project into folder');
         btnReset.onclick = async () => {
           const isRu = language() === 'ru';
           const confirmed = await (typeof win.HaloConfirm === 'function' ? win.HaloConfirm({
-            title: isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?',
+            title: isRu ? 'Очистить запросы в папке?' : 'Clear Folder Requests?',
             message: isRu
-              ? 'Удалить все локальные изменения проекта и очистить папки requests/ и responses/? Проект вернётся к исходной версии с сервера, а команды агента будут сброшены.'
-              : 'Discard all local project changes and clear requests/ and responses/ folders? The project will be restored to clean defaults, and agent commands will be reset.',
-            confirmText: isRu ? 'Сбросить изменения' : 'Reset Changes',
+              ? 'Очистить папки requests/ и responses/ и заново выгрузить текущий проект в папку? Ваш проект в браузере останется без изменений.'
+              : 'Clear requests/ and responses/ folders and re-export current project? Your browser project will remain unchanged.',
+            confirmText: isRu ? 'Очистить папку' : 'Clear Folder',
             cancelText: isRu ? 'Отмена' : 'Cancel',
-            danger: true
-          }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?') : true));
+            danger: false
+          }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Очистить запросы в папке?' : 'Clear folder requests?') : true));
           if (confirmed) {
             await bridge.resetLocalChanges(language());
           }
@@ -1579,27 +1785,51 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           errSuggest.style.cssText = 'margin-top:8px;padding:8px 10px;background:rgba(230,80,60,.12);border:1px solid rgba(248,163,154,.35);border-radius:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;';
           const errText = document.createElement('span');
           errText.style.cssText = 'font-size:10px;color:#ffd8d4;line-height:1.4;flex:1;min-width:200px;';
-          errText.textContent = tr('Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос.', 'If the error persists, reset local changes and ask the AI agent to repeat the request.');
+          const isRevMismatch = String(s.error || s.lastResult?.error || '').includes('CONFLICT_REVISION_MISMATCH');
+          if (isRevMismatch) {
+            errText.textContent = tr(
+              'Несовпадение ревизий: проект в браузере изменился. Нажмите «Согласовать ревизию», чтобы обновить снимок и применить команду агента.',
+              'Revision mismatch: project in browser changed. Click "Rebase & Retry" to refresh passport and apply agent command.'
+            );
+          } else {
+            errText.textContent = tr('Если ошибка не уходит, очистите запросы папки и попросите нейросеть повторить запрос.', 'If the error persists, clear folder requests and ask the AI agent to repeat the request.');
+          }
+
+          const btnGroup = document.createElement('div');
+          btnGroup.style.cssText = 'display:flex;gap:6px;align-items:center;flex-wrap:wrap;';
+
+          if (isRevMismatch) {
+            const btnRebase = document.createElement('button');
+            btnRebase.className = 'glass-btn';
+            btnRebase.style.cssText = 'font-size:10px;padding:3px 10px;min-height:26px;background:rgba(30,110,95,.6);border-color:#7df0dc;color:#d8fff8;cursor:pointer;white-space:nowrap;font-weight:600;';
+            btnRebase.textContent = tr('⚡ Согласовать ревизию', '⚡ Rebase & Retry');
+            btnRebase.title = tr('Обновить снимок на диске и повторно оценить запрос агента', 'Refresh snapshot on disk and re-evaluate agent request');
+            btnRebase.onclick = () => bridge.rebaseAndRetry();
+            btnGroup.append(btnRebase);
+          }
+
           const errBtn = document.createElement('button');
           errBtn.className = 'glass-btn';
           errBtn.style.cssText = 'font-size:10px;padding:3px 10px;min-height:26px;background:rgba(180,60,50,.4);border-color:#f8a39a;color:#ffdada;cursor:pointer;white-space:nowrap;';
-          errBtn.textContent = tr('↺ Сбросить локальные изменения', '↺ Reset Local Changes');
+          errBtn.textContent = tr('↺ Очистить запросы в папке', '↺ Clear Folder Requests');
+          errBtn.title = tr('Очистить папки requests/ и responses/ и заново выгрузить текущий проект в папку', 'Clear requests/ and responses/ and re-export current project');
           errBtn.onclick = async () => {
             const isRu = language() === 'ru';
             const confirmed = await (typeof win.HaloConfirm === 'function' ? win.HaloConfirm({
-              title: isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?',
+              title: isRu ? 'Очистить запросы в папке?' : 'Clear Folder Requests?',
               message: isRu
-                ? 'Удалить все локальные изменения проекта и очистить папки requests/ и responses/? Проект вернётся к исходной версии с сервера, а команды агента будут сброшены.'
-                : 'Discard all local project changes and clear requests/ and responses/ folders? The project will be restored to clean defaults, and agent commands will be reset.',
-              confirmText: isRu ? 'Сбросить изменения' : 'Reset Changes',
+                ? 'Очистить папки requests/ и responses/ и заново выгрузить текущий проект в папку? Ваш проект в браузере останется без изменений.'
+                : 'Clear requests/ and responses/ folders and re-export current project? Your browser project will remain unchanged.',
+              confirmText: isRu ? 'Очистить папку' : 'Clear Folder',
               cancelText: isRu ? 'Отмена' : 'Cancel',
-              danger: true
-            }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?') : true));
+              danger: false
+            }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Очистить запросы в папке?' : 'Clear folder requests?') : true));
             if (confirmed) {
               await bridge.resetLocalChanges(language());
             }
           };
-          errSuggest.append(errText, errBtn);
+          btnGroup.append(errBtn);
+          errSuggest.append(errText, btnGroup);
           meta.append(errSuggest);
         }
       } else if (s.savedDirectory) {
@@ -1615,14 +1845,38 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       }
       statusBox.append(meta);
 
+      if (!s.connected && s.error) {
+        const connErrCard = document.createElement('div');
+        connErrCard.style.cssText = 'margin-top:8px;padding:8px 12px;background:rgba(230,80,60,.16);border:1px solid rgba(248,163,154,.45);border-radius:8px;color:#ffd8d4;font-size:11px;line-height:1.45;';
+        connErrCard.innerHTML = `
+          <div style="font-weight:600;display:flex;align-items:center;gap:6px;margin-bottom:4px;color:#ffb8b0;">
+            <span>⚠</span> ${tr('Ошибка подключения папки:','Folder connection error:')}
+          </div>
+          <div style="font-family:monospace;font-size:10px;background:rgba(0,0,0,.3);padding:4px 8px;border-radius:4px;margin-bottom:6px;word-break:break-all;">
+            ${s.error}
+          </div>
+          <div style="font-size:10px;color:#c9dce8;">
+            ${tr('Проверьте права доступа к папке или выберите другую папку. Подробный стек ошибки выведен в консоль браузера (F12).','Check folder permissions or choose another directory. Detailed error stack is available in browser console (F12).')}
+          </div>
+        `;
+        statusBox.append(connErrCard);
+      }
+
       // Pending Request Banner
       if (s.pending) {
         pendingBox.style.display = 'block';
         pendingBox.replaceChildren();
 
         const pHead = document.createElement('div');
-        pHead.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;';
-        pHead.innerHTML = `<strong style="color:#d8ffff;font-size:11px;">🔔 ${tr('Входящий запрос от агента:','Incoming agent request:')} <span style="color:#7ef0dc;">${s.pending.id}</span></strong><span style="font-size:10px;color:#a2bacb;">Base rev: ${s.pending.transaction.baseRevision}</span>`;
+        pHead.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px;';
+        const rebaseBadge = s.pending.rebased ? `<span style="font-size:9.5px;padding:2px 7px;background:rgba(126,240,220,.15);border:1px solid #7ef0dc;color:#a8fbeb;border-radius:999px;">${tr(`✓ Ревизия согласована (${s.pending.originalBaseRevision} → ${s.pending.transaction.baseRevision})`, `✓ Auto-rebased (${s.pending.originalBaseRevision} → ${s.pending.transaction.baseRevision})`)}</span>` : '';
+        pHead.innerHTML = `
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong style="color:#d8ffff;font-size:11px;">🔔 ${tr('Входящий запрос от агента:','Incoming agent request:')} <span style="color:#7ef0dc;">${s.pending.id}</span></strong>
+            ${rebaseBadge}
+          </div>
+          <span style="font-size:10px;color:#a2bacb;">Base rev: ${s.pending.transaction.baseRevision}</span>
+        `;
         pendingBox.append(pHead);
 
         const pOps = document.createElement('ul');
