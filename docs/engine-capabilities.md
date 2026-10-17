@@ -1,3 +1,16 @@
+### Implemented — 2026-10-17: 3/4 & 6/8 Meter Arranger Assembly & AudioContext Closed Guard
+
+- **Arranger 3/4 & 6/8 Meter Assembly (`src/arranger.js`, `src/song.js`, `src/song-ui.js`):**
+  - Resolved `INVALID_STEPS: steps for track "GLASS" must be unique integers between 0 and 47` occurring when assembling compositions («Собрать композицию») with 3/4 meter (3/4 waltz and 6/8 pirate swing).
+  - Dynamically computes steps per bar (`spb = timeSignature === '3/4' ? 12 : 16`) across all section development phases (`intro`, `verse`, `chorus`, `bridge`, `outro`).
+  - Constrains step bounds in 4-bar intro/outro (`p.bars * spb = 48`) to indices 0..47 instead of hardcoded 0..63.
+  - Updates note pitch resolution (`pitch(i, step)`) to use `Math.floor(step / spb)` and `step % spb` with active `timeSignature`.
+  - Preserves `timeSignature: '3/4'` at the root of `halo-composition` across `Arranger.build()`, `Song.validate()`, and `song-ui.js` state.
+  - Updated `visualGain(step)` in `src/song-ui.js` to compute phrase step length dynamically using each phrase's time signature.
+- **Closed AudioContext Node Connection Guard (`src/live-loop.js`):**
+  - Resolved browser console warnings: `Connecting nodes after the context has been closed is not useful.`
+  - `updateMixerNodes(at)` in `src/live-loop.js` now verifies `activeAudio.ctx.state !== 'closed'` before creating or connecting mixer and delay send nodes.
+
 ### Implemented — 2026-10-17: Revision Reset Guarantees, project.patch & Bank Alias Resolution
 
 - **Project Revision Baseline Reset (`src/agent.js`, `src/file-bridge.js`):**

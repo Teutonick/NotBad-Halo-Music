@@ -1,6 +1,14 @@
 ## [Unreleased] - 2026-10-17
 
 ### Fixed
+- **Arranger 3/4 & 6/8 Meter Assembly & AudioContext Closed Guard (`src/arranger.js`, `src/song.js`, `src/song-ui.js`, `src/live-loop.js`):**
+  - Resolved `INVALID_STEPS: steps for track "GLASS" must be unique integers between 0 and 47` occurring when building compositions («Собрать композицию») with 3/4 meter (3/4 waltz and 6/8 pirate swing):
+    - `src/arranger.js` now dynamically calculates steps per bar (`spb = timeSignature === '3/4' ? 12 : 16`), bounding 4-bar intro/outro steps strictly to 0..47 (`p.bars * spb = 48`) instead of hardcoding 16 steps per bar (which retained and generated steps up to 63).
+    - Preserved `timeSignature` throughout `develop(kind)`, `Arranger.build()`, and `Song.validate()` at the root of `halo-composition`.
+    - Updated note pitch calculations in `arranger.js` to use `spb` and forward `timeSignature` to `sounds.notesFor(...)`.
+    - Fixed `visualGain(step)` in `src/song-ui.js` to compute phrase step bounds dynamically per phrase's time signature.
+  - Resolved console warnings `Connecting nodes after the context has been closed is not useful`:
+    - `updateMixerNodes(at)` in `src/live-loop.js` now explicitly checks `activeAudio.ctx.state !== 'closed'` before creating or connecting mixer and delay send nodes.
 - **File Bridge Directory Handle Hardening & Reconnect Crash (`src/file-bridge.js`):**
   - Resolved `dirHandle.getDirectoryHandle is not a function` error when clicking «🔓 Возобновить доступ к «...»» ("Reconnect"):
     - Added `asDirectoryHandle(obj)` validation helper verifying that `getDirectoryHandle` and `getFileHandle` are native functions.

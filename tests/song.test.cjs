@@ -111,3 +111,36 @@ test('composition enforces safety limit of maximum 15 phrases', () => {
  assert.throws(() => Song.validate(song16, P, S), /Invalid composition/);
 });
 
+test('3/4 meter arrangements build and validate correctly across ambient and reactor worlds', () => {
+ for (const setup of ['ambient', 'reactor']) {
+  for (const bars of [4, 8]) {
+   const ts = Object.keys(S.banksFor(setup)).map(name => ({
+    ...S.roles.initial(setup, name),
+    name,
+    setup,
+    on: ['VEIL', 'RAIN', 'GLASS'].includes(name),
+    level: 65,
+    density: 50,
+    character: 50,
+    duration: 50,
+    space: 20
+   }));
+   const p = P.capture(ts, bars, 84, 1, 0, S, M, 50, undefined, 0, '3/4');
+   assert.equal(p.timeSignature, '3/4');
+   const song = Song.validate(Song.build(p), P, S);
+   assert.equal(song.timeSignature, '3/4');
+   assert.equal(Song.bars(song), 56);
+   for (const phrase of song.phrases) {
+    const spb = phrase.project.timeSignature === '3/4' ? 12 : 16;
+    const maxStep = phrase.project.bars * spb;
+    for (const track of phrase.project.tracks) {
+     for (const st of track.steps) {
+      assert.ok(st >= 0 && st < maxStep, `step ${st} must be < ${maxStep}`);
+     }
+    }
+   }
+  }
+ }
+});
+
+

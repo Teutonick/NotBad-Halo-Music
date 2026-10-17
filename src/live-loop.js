@@ -914,7 +914,7 @@
 
   function updateMixerNodes(at) {
     activeAudio?.setCoreMuted?.(settings.solo===true,at);
-    if (!trackGain || !activeAudio || !activeAudio.ctx) return;
+    if (!trackGain || !activeAudio || !activeAudio.ctx || activeAudio.ctx.state === 'closed') return;
     const now = at || activeAudio.ctx.currentTime;
     const vol = settings.mute ? 0 : (settings.level / 100) * 1.5;
     trackGain.gain.setTargetAtTime(vol, now, 0.04);
@@ -926,7 +926,9 @@
       if (activeAudio.delayTaps && activeAudio.delayTaps[tapDiv]) {
         try {
           delaySend.disconnect();
-          delaySend.connect(activeAudio.delayTaps[tapDiv]);
+          if (activeAudio.ctx.state !== 'closed') {
+            delaySend.connect(activeAudio.delayTaps[tapDiv]);
+          }
         } catch (_) {}
       }
     }
