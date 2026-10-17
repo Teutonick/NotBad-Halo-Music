@@ -333,9 +333,22 @@ HALO-Bridge/
 6. **Ответ в responses/:**
    После обработки HALO записывает результат в \`responses/<requestId>.result.json\`:
    - При успехе: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
-   - При ошибке или отклонении: \`{ "ok": false, "id": "request-001", "error": "...", "currentRevision": 42 }\`
+   - При ошибке или отклонении: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
 7. **Идемпотентность и актуальность:**
    Повторная обработка уже выполненного пакета запрещена. Устаревшие ревизии отклоняются с ошибкой \`CONFLICT_REVISION_MISMATCH\`.
+
+## Защита от зацикливания и правила обработки ошибок / Anti-Looping & Error Handling
+
+1. **Не угадывайте параметры (Do not guess parameters):**
+   Все имена полей, операции, диапазоны и форматы строго зафиксированы в \`capabilities.json\`, \`instruments.json\` и \`music-rules.json\`. Не придумывайте несуществующие свойства.
+2. **Лимит 2 попыток (Max 2 retries):**
+   Если запрос завершился ошибкой, внимательно прочитайте поля \`"error"\` и \`"help"\` в файле ответа \`responses/<requestId>.result.json\`. Если повторная попытка снова дает сбой, **ОСТАНОВИТЕСЬ НЕМЕДЛЕННО**. Сообщите пользователю точный текст ошибки и спросите разъяснений вместо бесконечных попыток подбора параметров.
+3. **Строго 8 дорожек в project.replace:**
+   Операция \`project.replace\` всегда требует массив ровно из 8 дорожек: \`[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]\`. Не отправляйте урезанный массив из 4 дорожек! Если вы хотите изменить только 1–4 инструмента, используйте операции \`track.patch\` для нужных дорожек!
+4. **Имена звуков без префиксов мира:**
+   Имена звуков берутся строго из \`instruments.json\` (например, \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Не добавляйте префиксы вроде \`"ambient-bell"\`!
+5. **Фраза или Песня:**
+   Для запросов «сочини джингл/мелодию/мотив на 8 тактов» создавайте одну фразу через \`track.patch\` или \`project.replace\` (\`bars: 8\`). Не создавайте \`composition.replace\`, если вас не просили написать полную многочастную композицию!
 
 ## Политика создания: Фраза vs Композиция / Phrase vs Full Composition
 
@@ -471,6 +484,43 @@ HALO содержит два принципиально разных звуко�
   ]
 }
 \`\`\`
+*(Примечание: в \`composition.replace\` в качестве ключа полезной нагрузки поддерживается как \`"project"\`, так и \`"composition"\`).*
+
+### Пример 3: Замена однофразового проекта на 8 тактов (project.replace)
+*Важно: для \`project.replace\` массив \`tracks\` ОБЯЗАН содержать ровно 8 дорожек (все голоса [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]). Для изменения меньшего числа инструментов используйте \`track.patch\`.*
+\`\`\`json
+{
+  "requestId": "request-003",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "project.replace",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "ambient",
+        "bars": 8,
+        "tempo": 76,
+        "masterVolume": 58,
+        "mix": { "low": 0, "mid": 0, "high": 0, "width": 35 },
+        "seed": 1,
+        "key": 0,
+        "tracks": [
+          { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "bell", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 65, "density": 70, "character": 50, "duration": 50, "space": 40 },
+          { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "pad", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 60, "space": 50 },
+          { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "round", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 60, "density": 60, "character": 50, "duration": 50, "space": 30 },
+          { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "piano", "on": true, "exact": true, "steps": [2, 6, 10, 14], "level": 60, "density": 60, "character": 55, "duration": 50, "space": 35 },
+          { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "shaker", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14], "level": 50, "density": 70, "character": 60, "duration": 40, "space": 25 },
+          { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "bow", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 65, "space": 55 },
+          { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "pluck", "on": true, "exact": true, "steps": [4, 12], "level": 55, "density": 50, "character": 50, "duration": 45, "space": 35 },
+          { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "drone", "on": true, "exact": true, "steps": [0], "level": 55, "density": 50, "character": 40, "duration": 70, "space": 60 }
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
 `;
   }
 
@@ -537,9 +587,56 @@ HALO содержит два принципиально разных звуко�
     };
   }
 
+  function generateErrorGuidance(errorMessage, consecutiveCount = 1){
+    let help = 'Review your request schema against capabilities.json, instruments.json and AGENT_GUIDE.md.';
+    const msg = String(errorMessage || '');
+
+    if (msg.includes('CONFLICT_REVISION_MISMATCH')) {
+      help = 'Base revision is outdated. Read "revision" from project-state.json and set "baseRevision" in your request to match it.';
+    } else if (msg.includes('INVALID_TRACKS_COUNT')) {
+      help = 'operation "project.replace" requires all 8 tracks in the "tracks" array: [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. If you only want to modify specific tracks, use one or more "track.patch" operations instead.';
+    } else if (msg.includes('UNKNOWN_FIELD')) {
+      help = 'An unexpected property was found. Consult capabilities.json and AGENT_GUIDE.md for allowed fields. Do not invent custom properties.';
+    } else if (msg.includes('INVALID_SOUND')) {
+      help = 'Sound ID not found. Sound names must match instruments.json exactly (e.g. "bell", "piano", "sine", "shaker" without world prefixes like "ambient-").';
+    } else if (msg.includes('UNSUPPORTED_FORMAT')) {
+      help = 'For single-phrase project, format must be "notbad-halo-project" or "halo-project". For multi-phrase songs, format must be "halo-composition".';
+    } else if (msg.includes('INVALID_BARS')) {
+      help = 'Phrase length must be either 4 or 8 bars.';
+    } else if (msg.includes('UNSUPPORTED_SETUP')) {
+      help = 'Setup must be either "ambient" (procedural synthesis) or "reactor" (CC0 acoustic/rock samples).';
+    } else if (msg.includes('UNSUPPORTED_TIME_SIGNATURE')) {
+      help = 'Time signature must be "4/4" or "3/4".';
+    } else if (msg.includes('EXACT_REQUIRED')) {
+      help = 'Generator 3 requires "exact": true when providing custom steps or noteEvents.';
+    } else if (msg.includes('PHRASE_NOT_FOUND')) {
+      help = 'The specified phraseId was not found in the composition phrases array.';
+    } else if (msg.includes('MISSING_PAYLOAD')) {
+      help = 'Provide the payload object ("project" or "composition") inside the operation.';
+    } else if (msg.includes('REJECTED_BY_USER')) {
+      help = 'The user reviewed the proposal preview in HALO and clicked "Reject". Ask the user for their preferred direction before proposing changes.';
+    }
+
+    let instructionForAgent;
+    if (consecutiveCount >= 3) {
+      instructionForAgent = `CRITICAL STOP DIRECTIVE: ${consecutiveCount} consecutive request failures detected. STOP YOUR RETRY LOOP IMMEDIATELY. Do not guess parameters or attempt brute-force trial and error. Stop and report the exact error to the user, and ask for clarification, or consult AGENT_GUIDE.md and instruments.json.`;
+    } else {
+      instructionForAgent = 'Review the error and help above. Do not guess parameters. Consult instruments.json and AGENT_GUIDE.md. Maximum 2 retry attempts allowed.';
+    }
+
+    return { help, instructionForAgent };
+  }
+
   async function processRequest(api, textContent, fallbackId){
     const validated = parseAndValidateRequest(api, textContent, fallbackId);
-    if (!validated.ok) return validated;
+    if (!validated.ok) {
+      const guidance = generateErrorGuidance(validated.error, 1);
+      return {
+        ...validated,
+        help: guidance.help,
+        instructionForAgent: guidance.instructionForAgent
+      };
+    }
 
     try {
       api.setEnabled(true);
@@ -553,10 +650,13 @@ HALO содержит два принципиально разных звуко�
         timestamp: new Date().toISOString()
       };
     } catch(e) {
+      const guidance = generateErrorGuidance(e.message, 1);
       return {
         ok: false,
         id: validated.id,
         error: e.message,
+        help: guidance.help,
+        instructionForAgent: guidance.instructionForAgent,
         currentRevision: api.getProjectState().revision
       };
     }
@@ -662,6 +762,7 @@ HALO содержит два принципиально разных звуко�
   function createBridge(api, env = {}){
     let dirHandle = null;
     let pollInterval = null;
+    let consecutiveErrors = 0;
     const listeners = new Set();
     const processedIds = new Set();
     const win = env.window || root;
@@ -717,11 +818,15 @@ HALO содержит два принципиально разных звуко�
           const parsed = parseAndValidateRequest(api, text, baseId);
 
           if (!parsed.ok) {
-            // Immediate error response
+            consecutiveErrors++;
+            const guidance = generateErrorGuidance(parsed.error, consecutiveErrors);
             const errRes = {
               ok: false,
               id: parsed.id,
               error: parsed.error,
+              help: guidance.help,
+              instructionForAgent: guidance.instructionForAgent,
+              consecutiveErrors,
               currentRevision: parsed.currentRevision || api.getProjectState().revision,
               timestamp: new Date().toISOString()
             };
@@ -746,6 +851,7 @@ HALO содержит два принципиально разных звуко�
           } else {
             api.setEnabled(true);
             const applied = await api.applyOperations(parsed.transaction);
+            consecutiveErrors = 0;
             const okRes = {
               ok: true,
               id: parsed.id,
@@ -778,6 +884,7 @@ HALO содержит два принципиально разных звуко�
         const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
         api.setEnabled(true);
         const applied = await api.applyOperations(p.transaction);
+        consecutiveErrors = 0;
         const okRes = {
           ok: true,
           id: p.id,
@@ -804,10 +911,15 @@ HALO содержит два принципиально разных звуко�
       state.busy = true;
       try {
         const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
+        consecutiveErrors++;
+        const guidance = generateErrorGuidance('REJECTED_BY_USER', consecutiveErrors);
         const rejRes = {
           ok: false,
           id: p.id,
           error: 'REJECTED_BY_USER',
+          help: guidance.help,
+          instructionForAgent: guidance.instructionForAgent,
+          consecutiveErrors,
           currentRevision: api.getProjectState().revision,
           timestamp: new Date().toISOString()
         };

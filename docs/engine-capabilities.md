@@ -462,15 +462,39 @@ $$K_{\text{next}} = (K + 1) \pmod{24}$$
   - `texture` / `ember`: кинематографичные наплывы на границы тактов и взрывные синкопы.
 - **Динамические акценты:** первичный составной импульс 0 (velocity 0.90), вторичный бэкбит 6 (velocity 0.86).
 
+### 7.6. Защита от зацикливания ИИ-агентов, валидация полей и диагностика ошибок (Anti-Looping Protocol & Error Guidance)
+Взаимодействие с внешними LLM-агентами (Codex, Antigravity, Bionic, Claude) через File Bridge и WebMCP снабжено надежным защитным контуром, исключающим тупиковые циклы перебора параметров:
+
+1. **Защита от бесконечных циклов (Anti-Looping Circuit Breaker):**
+   - Движок отслеживает счетчик последовательных ошибок `consecutiveErrors`.
+   - При успешном применении запроса счетчик сбрасывается в `0`.
+   - Если внешний агент совершает 3 последовательные ошибки валидации (`consecutiveErrors >= 3`), файл ответа `responses/<requestId>.result.json` возвращает жесткую директиву останова:
+     `CRITICAL STOP DIRECTIVE: 3 consecutive request failures detected. STOP YOUR RETRY LOOP IMMEDIATELY. Do not guess parameters or invent new schemas. Formulate a brief, helpful question to the human user explaining what you are trying to compose and asking them to confirm or clarify the tracks/instrument settings.`
+   - Это гарантирует, что запутавшаяся нейросеть не уходит в «исследовательскую работу» и не спамит файловую систему сотнями ошибочных мутаций.
+
+2. **Контекстное руководство для агента в ответе (`help` и `instructionForAgent`):**
+   - Каждый ошибочный ответ `responses/<requestId>.result.json` снабжается полями `help` (техническое объяснение сути сбоя) и `instructionForAgent` (четкая пошаговая инструкция, что исправить).
+   - При ошибке количества треков агент получает указание использовать `track.patch` для точечных изменений либо передать все 8 треков `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`.
+   - При неверном имени пресета возвращается полный список допустимых пресетов для текущего мира.
+
+3. **Диагностика неожиданных полей (`UNKNOWN_FIELD`):**
+   - Вместо туманного `UNKNOWN_PARAMETER: <path>` движок выводит точный список недопустимых ключей: `UNKNOWN_FIELD: unexpected field(s) ["foo", "bar"] in composition. Allowed fields: ["format", "version", "phrases", "sections", ...]`.
+
+4. **Толерантность схемы проекта и композиции:**
+   - **Алиасы формата проекта:** поддерживаются как `'notbad-halo-project'`, так и `'halo-project'`.
+   - **Алиасы полезной нагрузки операций:** для операций `project.replace` и `composition.replace` данные принимаются как из поля `o.project`, так и из `o.composition`.
+   - **Автоматическая очистка префиксов пресетов:** если агент указывает пресет с префиксом мира (например, `'ambient-bell'` вместо `'bell'`), префикс автоматически отсекается.
+   - **Метаданные верхнего уровня в `halo-composition`:** поддерживаются поля `setup`, `timeSignature`, `bars`, `name`, `title`, `label` на верхнем уровне структуры композиции; если они опущены в отдельных фразах, они автоматически наследуются из заголовка.
+
 ---
 
 ## 8. Форматы сохранения и URL-шеринг (Persistence)
 
 ### 8.1. Формат `notbad-halo-project` (v1)
-Максимальный размер: 64 КиБ. Строгая валидация полей через `HaloProject.validate()`.
+Максимальный размер: 64 КиБ. Строгая валидация полей через `HaloProject.validate()`. Допускается имя формата `'notbad-halo-project'` или `'halo-project'`.
 
 ### 8.2. Формат `halo-composition` (v1)
-Максимальный размер: 512 КиБ. Хранит массив `phrases` и порядок секций `sections`.
+Максимальный размер: 512 КиБ. Хранит массив `phrases` и порядок секций `sections`. Толерантен к метаданным верхнего уровня (`setup`, `timeSignature`, `bars`).
 
 ### 8.3. Сжатый URL-токен
 Использует поток сжатия `CompressionStream('deflate-raw')` с кодированием в безопасный алфавит Base64URL (`#loop=` или `#song=`). Ограничение длины URL: не более 24 000 символов.

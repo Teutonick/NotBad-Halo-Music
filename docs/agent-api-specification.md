@@ -102,6 +102,29 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
 - On page reload: if browser permission is retained (`queryPermission` returns `'granted'`), the bridge reconnects automatically without prompt.
 - If re-confirmation is required by browser policy, the bridge displays the saved directory name with a 1-click `🔓 Reconnect` button, eliminating the need to browse folders on disk. Disconnecting explicitly (`✕ Disconnect`) removes the handle from IndexedDB.
 
+### Anti-Looping Circuit Breaker & Error Guidance Protocol
+- **Error Response Schema (`responses/<requestId>.result.json`):**
+  When a request fails validation, the result file contains:
+  ```json
+  {
+    "ok": false,
+    "requestId": "req-...",
+    "error": "Error description...",
+    "help": "Contextual parameter explanation...",
+    "instructionForAgent": "Actionable step-by-step guidance...",
+    "consecutiveErrors": 1
+  }
+  ```
+- **Circuit Breaker (3 Consecutive Errors):**
+  If an agent fails 3 times in a row (`consecutiveErrors >= 3`), HALO issues a `CRITICAL STOP DIRECTIVE` in both `error` and `instructionForAgent`:
+  `CRITICAL STOP DIRECTIVE: 3 consecutive request failures detected. STOP YOUR RETRY LOOP IMMEDIATELY. Do not guess parameters or invent new schemas. Formulate a brief, helpful question to the human user explaining what you are trying to compose and asking them to confirm or clarify the tracks/instrument settings.`
+- **Schema & Preset Tolerances:**
+  - `format`: accepts `'halo-project'` as well as `'notbad-halo-project'`.
+  - Operations payload: accepts either `o.project` or `o.composition` for both `project.replace` and `composition.replace`.
+  - Preset names: world prefixes (e.g. `'ambient-bell'`) are automatically stripped to canonical sound IDs (`'bell'`).
+  - Top-level composition metadata: `setup`, `timeSignature`, `bars`, `name`, `title`, `label` are tolerated and inherited to phrases if omitted.
+  - Track count: `project.replace` requires all 8 tracks `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`. If modifying fewer tracks, use `track.patch`.
+
 Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. 3/4 waltz and 6/8 rocking swing are fully implemented natively on transport and step grids. Arbitrary orbit reordering remains unsupported.
 
 ## Privacy, authorization and limits

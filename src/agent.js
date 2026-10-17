@@ -7,16 +7,35 @@
  function create(env){
   let enabled=false,busy=false,last='',revision=0,undo=[],redo=[];
   function state(){const value={project:check(env.read()),...(env.visual?{visual:env.visual()}:{} )},text=JSON.stringify(value);if(text!==last){revision++;last=text}return {revision,...copy(value)}}
-  function only(value,allowed,path){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k)))throw Error('UNKNOWN_PARAMETER: '+path)}
+  function only(value,allowed,path){
+   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('INVALID_TYPE: expected object for '+path);
+   const unknown=Object.keys(value).filter(k=>!allowed.includes(k));
+   if(unknown.length>0)throw Error('UNKNOWN_FIELD: unexpected field(s) ['+unknown.join(', ')+'] in '+path+'. Allowed fields: ['+allowed.join(', ')+']');
+  }
   function strictProject(p){
    only(p,['format','version','setup','bars','startStep','tempo','masterVolume','mix','seed','key','tracks','liveLoop','timeSignature'],'project');
+   if(p.format!=='notbad-halo-project'&&p.format!=='halo-project')throw Error('UNSUPPORTED_FORMAT: expected "notbad-halo-project" or "halo-project"');
    if(p.mix)only(p.mix,['low','mid','high','width'],'mix');
    if(Array.isArray(p.tracks))for(const t of p.tracks){only(t,['name','role',...fields],'track');if(t.sequence)only(t.sequence,['length','stepLength','offset'],'sequence');if(t.delayTime!==undefined&&!['1/16','1/8','1/8d','1/4'].includes(t.delayTime))throw Error('INVALID_DELAY_TIME');if(Array.isArray(t.noteEvents))for(const e of t.noteEvents)only(e,['step','notes'],'noteEvent')}
    if(p.liveLoop){only(p.liveLoop,['version','layerIds','settings'],'liveLoop');only(p.liveLoop.settings,['bars','level','pan','space','delay','trimStart','trimEnd','offsetSec','latencyMs','pitch','rootNote','pitchOctave','character','duration','density','chorus','cycle','stepLength','offset','mute','solo','monitor','copyrightConfirmed','instantRestart','reverse','mode','sliceCount','slicePattern','delayTime','pitchSteps','sliceSteps'],'liveLoop.settings')}
   }
   function check(value){
    if(!value||new TextEncoder().encode(JSON.stringify(value)).length>524288)throw Error('PAYLOAD_TOO_LARGE');
-   if(value.format==='halo-composition'){only(value,['format','version','repeat','tempo','masterVolume','mix','phrases','sections'],'composition');if(value.mix)only(value.mix,['low','mid','high','width'],'mix');if(Array.isArray(value.phrases))for(const p of value.phrases){only(p,['id','label','project'],'phrase');strictProject(p.project)}if(Array.isArray(value.sections))for(const s of value.sections)only(s,['phrase','repeats','name','fade'],'section');return env.song.validate(value,env.project,env.sounds)}
+   if(value.format==='halo-composition'){
+     only(value,['format','version','repeat','tempo','masterVolume','mix','phrases','sections','setup','timeSignature','bars','name','title','label'],'composition');
+     if(value.mix)only(value.mix,['low','mid','high','width'],'mix');
+     if(Array.isArray(value.phrases))for(const p of value.phrases){
+       only(p,['id','label','project'],'phrase');
+       if(p.project){
+         if(!p.project.setup&&value.setup)p.project.setup=value.setup;
+         if(!p.project.timeSignature&&value.timeSignature)p.project.timeSignature=value.timeSignature;
+         if(!p.project.bars&&value.bars)p.project.bars=value.bars;
+       }
+       strictProject(p.project);
+     }
+     if(Array.isArray(value.sections))for(const s of value.sections)only(s,['phrase','repeats','name','fade'],'section');
+     return env.song.validate(value,env.project,env.sounds);
+   }
    strictProject(value);return env.project.validate(value,env.sounds);
   }
   function capabilities(){
@@ -32,19 +51,29 @@
     track09:{audioSentToModel:false,settings:'Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.',ranges:{bars:[1,2,4,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],chorus:[0,100],character:[0,100],duration:[0,100],density:[0,100],pitch:[-12,12],rootNote:[36,84],pitchOctave:[-1,0,1],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],cycle:[4,32],stepLength:[1,2,4],offset:[0,15]},modes:['loop','slice','pitch'],patterns:'16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest',flags:['mute','solo','reverse','instantRestart'],unsupported:['upload','record','enable monitoring','read PCM']},
     documentation:['docs/engine-capabilities.md','docs/agent-api-specification.md']};
   }
-  function patch(target,values,allowed){if(!values||typeof values!=='object'||Array.isArray(values)||Object.keys(values).some(k=>!allowed.includes(k)))throw Error('UNKNOWN_PARAMETER');Object.assign(target,copy(values))}
+  function patch(target,values,allowed,contextName='patch'){
+   if(!values||typeof values!=='object'||Array.isArray(values))throw Error('INVALID_TYPE: expected object for '+contextName);
+   const unknown=Object.keys(values).filter(k=>!allowed.includes(k));
+   if(unknown.length>0)throw Error('UNKNOWN_FIELD: unexpected field(s) ['+unknown.join(', ')+'] in '+contextName+'. Allowed fields: ['+allowed.join(', ')+']');
+   Object.assign(target,copy(values));
+  }
   function preview(request){
    const before=state();if(!request||request.schemaVersion!==1||request.baseRevision!==before.revision)throw Error('CONFLICT_REVISION_MISMATCH');
    if(new TextEncoder().encode(JSON.stringify(request)).length>524288||!Array.isArray(request.operations)||!request.operations.length||request.operations.length>256)throw Error('INVALID_TRANSACTION');
    let next=copy(before.project),visual=copy(before.visual||{});
    for(const o of request.operations){
     if(!o||typeof o!=='object')throw Error('UNKNOWN_OPERATION');
-    if(o.op==='visual.patch'){if(!env.visual)throw Error('VISUAL_UNAVAILABLE');patch(visual,o.values,Object.keys(visualOptions));for(const k of Object.keys(visualOptions))if(!visualOptions[k].includes(visual[k]))throw Error('INVALID_VISUAL');if(o.values.scene!==undefined&&visual.motion!=='DRIFT')throw Error('SCENE_REQUIRES_DRIFT');continue}
-    if(o.op==='project.replace'||o.op==='composition.replace'){next=check(o.project);continue}
-    if(o.op==='master.patch'){patch(next,o.values,['tempo','masterVolume','mix']);if(next.phrases)for(const p of next.phrases)patch(p.project,o.values,['tempo','masterVolume','mix']);continue}
+    if(o.op==='visual.patch'){if(!env.visual)throw Error('VISUAL_UNAVAILABLE');patch(visual,o.values,Object.keys(visualOptions),'visual.patch');for(const k of Object.keys(visualOptions))if(!visualOptions[k].includes(visual[k]))throw Error('INVALID_VISUAL');if(o.values.scene!==undefined&&visual.motion!=='DRIFT')throw Error('SCENE_REQUIRES_DRIFT');continue}
+    if(o.op==='project.replace'||o.op==='composition.replace'){
+      const target=o.project||o.composition;
+      if(!target)throw Error('MISSING_PAYLOAD: "'+o.op+'" requires "project" or "composition" object');
+      next=check(target);
+      continue;
+    }
+    if(o.op==='master.patch'){patch(next,o.values,['tempo','masterVolume','mix'],'master.patch');if(next.phrases)for(const p of next.phrases)patch(p.project,o.values,['tempo','masterVolume','mix'],'master.patch');continue}
     const p=next.phrases?next.phrases.find(p=>p.id===o.phraseId)?.project:next;if(!p)throw Error('PHRASE_NOT_FOUND');
-    if(o.op==='phrase.patch')patch(p,o.values,['bars','startStep','seed','key','liveLoop','timeSignature']);
-    else if(o.op==='track.patch'){if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK');const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);patch(t,o.values,fields);if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED')}
+    if(o.op==='phrase.patch')patch(p,o.values,['bars','startStep','seed','key','liveLoop','timeSignature'],'phrase.patch');
+    else if(o.op==='track.patch'){if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK: trackIndex must be 0..7');const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);patch(t,o.values,fields,'track.patch');if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true')}
     else throw Error('UNKNOWN_OPERATION');
    }
    next=check(next);return {baseRevision:before.revision,before:before.project,after:next,...(env.visual?{visualBefore:before.visual,visualAfter:visual}:{}),playback:JSON.stringify(next)===JSON.stringify(before.project)?'unchanged':'paused on apply; press Play to resume'};

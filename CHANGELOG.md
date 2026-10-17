@@ -1,6 +1,15 @@
 ## [Unreleased] - 2026-10-17
 
 ### Added
+- **AI Agent Anti-Looping Circuit Breaker & Error Guidance (`src/file-bridge.js`):** Tracked `consecutiveErrors` per session; upon 3 consecutive validation failures, HALO injects an explicit `CRITICAL STOP DIRECTIVE` instructing external LLMs (Codex, Antigravity, Bionic, Claude) to immediately cease parameter guessing and retry loops, and formulate a clarifying question for the user instead.
+- **Actionable Error Diagnostics (`src/agent.js`, `src/file-bridge.js`):** Included contextual `help` and `instructionForAgent` in `responses/<requestId>.result.json`. Replaced vague `UNKNOWN_PARAMETER` with precise field-level diagnostics `UNKNOWN_FIELD: unexpected field(s) [...] in <path>. Allowed fields: [...]`.
+- **Project & Preset Schema Tolerances (`src/agent.js`, `src/project.js`):**
+  - Accepted format alias `'halo-project'` alongside `'notbad-halo-project'`.
+  - Accepted operations payload under either `o.project` or `o.composition` for both `project.replace` and `composition.replace`.
+  - Automatically stripped sound world prefixes from preset names (e.g. `'ambient-bell'` → `'bell'`).
+  - Tolerated top-level metadata in `halo-composition` (`setup`, `timeSignature`, `bars`, `name`, `title`, `label`), automatically inheriting them to child phrases.
+  - Added descriptive `INVALID_TRACKS_COUNT` validation explaining that `project.replace` requires all 8 tracks `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`, recommending `track.patch` for partial edits.
+- **Toast Notification Placement Polish (`index.html`):** Repositioned `#toast` popup from `top: 90px` to `top: clamp(160px, 36vh, 38vh)` with backdrop blur and high z-index, hovering above the universe center and eliminating overlap with top toolbar buttons (`FILE SAVE LOAD MP3 WAV SHARE`). Removed hardcoded inline `style.top` override in motion toggle.
 - **Authentic 3/4 Waltz & 6/8 Pirate Swing Pattern Generation (`src/phrases.js`, `src/sounds.js`):** Authored two world-standard rhythmic motif catalogs: `catalog3_4_waltz` (4 bars = 48 steps) and `catalog6_8_swing` (8 bars = 96 steps) with 10 authentic, mutually orchestrated rhythmic patterns per role across all 14 roles.
   - 3/4 Waltz features classic "Boom-Chak-Chak" orchestration (kick & bass on downbeat 1, chords & snare on afterbeats 2 and 3, lyrical cascading melodies) and metric dynamic accents (.88 / .78).
   - 6/8 Pirate Swing features swashbuckling compound groove (two compound beats on steps 0 and 6, heavy backbeat on 6, rolling eighths `[0, 2, 4, 6, 8, 10]`, dactylic gallop riffs `[0, 3, 4, 6, 9, 10]`, and dynamic accents .90 / .86).

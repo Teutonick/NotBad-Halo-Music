@@ -1,4 +1,17 @@
 
+### Toast Repositioning, AI Loop Prevention & Schema Tolerance — 2026-10-17
+
+- **Toast Notification Placement (`index.html`):** Informational toast alerts (`#toast`) repositioned from `top: 90px` to `top: clamp(160px, 36vh, 38vh)` with `backdrop-filter: blur(12px)` and `z-index: 60`, hovering elegantly above the orbital center and completely eliminating overlap with top toolbar buttons (`FILE SAVE LOAD MP3 WAV SHARE`). Removed hardcoded inline `style.top` override in motion toggle.
+- **Anti-Looping Circuit Breaker (`src/file-bridge.js`):** Tracked `consecutiveErrors` per session. On 3 consecutive request failures (`consecutiveErrors >= 3`), HALO injects an explicit `CRITICAL STOP DIRECTIVE` instructing the external AI agent to immediately abort retry loops, stop guessing parameters, and ask the user for clarification.
+- **Actionable Error Guidance (`src/file-bridge.js`):** Responses in `responses/<requestId>.result.json` include `help` and `instructionForAgent`, explaining failure causes and prescribing exact recovery steps (e.g., using `track.patch` for partial updates or listing valid sound presets).
+- **Precise Field Diagnostics (`src/agent.js`):** Replaced vague `UNKNOWN_PARAMETER` error with granular `UNKNOWN_FIELD: unexpected field(s) [...] in <path>. Allowed fields: [...]`.
+- **Project & Preset Schema Tolerances (`src/agent.js`, `src/project.js`):**
+  - Accepted format alias `'halo-project'` alongside `'notbad-halo-project'`.
+  - Accepted operations payload under either `o.project` or `o.composition` for `project.replace` and `composition.replace`.
+  - Automatically stripped sound world prefixes (e.g., `'ambient-bell'` → `'bell'`).
+  - Tolerated top-level composition metadata (`setup`, `timeSignature`, `bars`, `name`, `title`, `label`) and inherited them down to phrases if omitted.
+  - Added descriptive `INVALID_TRACKS_COUNT` error explaining that `project.replace` requires all 8 tracks `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`, recommending `track.patch` for partial edits.
+
 ### File Bridge Persistence, Composition Safety Cap & Sound Worlds API — 2026-10-17
 
 - **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected desktop Chrome/Edge `FileSystemDirectoryHandle` is stored in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`).

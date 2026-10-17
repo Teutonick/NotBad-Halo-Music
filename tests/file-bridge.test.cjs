@@ -348,3 +348,93 @@ test('processRequest applies full multi-phrase composition and switches world to
   assert.equal(updatedState.project.phrases[0].project.setup, 'reactor');
 });
 
+test('project.replace supports halo-project alias, strips setup prefix on sounds, and defaults seed/key', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  // 8 tracks with "ambient-" sound prefix and format: "halo-project"
+  const tracks = Object.keys(S.banks).map(name => {
+    const init = S.roles.initial('ambient', name);
+    return {
+      name,
+      instrument: init.instrument,
+      generator: 3,
+      sound: 'ambient-' + init.sound,
+      on: true,
+      exact: true,
+      steps: [0, 4, 8, 12],
+      level: 60,
+      density: 50,
+      character: 50,
+      duration: 50,
+      space: 30
+    };
+  });
+
+  const req = {
+    requestId: 'project-alias-001',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [
+      {
+        op: 'project.replace',
+        project: {
+          format: 'halo-project',
+          version: 1,
+          setup: 'ambient',
+          bars: 8,
+          tempo: 76,
+          masterVolume: 55,
+          tracks
+        }
+      }
+    ]
+  };
+
+  const res = await FileBridge.processRequest(api, JSON.stringify(req), 'project-alias-001');
+  assert.equal(res.ok, true);
+  assert.equal(res.appliedRevision, rev + 1);
+
+  const current = api.getProjectState().project;
+  assert.equal(current.bars, 8);
+  assert.equal(current.tempo, 76);
+  assert.equal(current.tracks[0].sound, 'pulse'); // stripped "ambient-" prefix from "ambient-pulse"
+  assert.equal(current.seed, 1); // defaulted
+  assert.equal(current.key, 0); // defaulted
+});
+
+test('processRequest enriches errors with help and instructionForAgent, preventing blind retry loops', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  // Request with only 4 tracks instead of 8
+  const badReq = {
+    requestId: 'bad-req-001',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [
+      {
+        op: 'project.replace',
+        project: {
+          format: 'halo-project',
+          version: 1,
+          setup: 'ambient',
+          bars: 8,
+          tempo: 76,
+          tracks: [
+            { name: 'GLASS', sound: 'bell', on: true, steps: [0] },
+            { name: 'ROOT', sound: 'round', on: true, steps: [0] }
+          ]
+        }
+      }
+    ]
+  };
+
+  const res = await FileBridge.processRequest(api, JSON.stringify(badReq), 'bad-req-001');
+  assert.equal(res.ok, false);
+  assert.ok(res.error.includes('INVALID_TRACKS_COUNT'));
+  assert.ok(res.help.includes('requires all 8 tracks'));
+  assert.ok(res.instructionForAgent.includes('Maximum 2 retry attempts allowed'));
+});
+
+

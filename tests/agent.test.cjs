@@ -16,3 +16,25 @@ test('Redo accepts normalization performed by Undo but still rejects subsequent 
  await api.redo();assert.equal(api.getProjectState().project.tempo,96);
  await api.undo();value.masterVolume=33;await assert.rejects(api.redo(),/CONFLICT/);
 });
+
+test('composition.replace tolerates top-level metadata, composition payload alias, and reports specific unknown fields',async()=>{
+  const {api}=fixture();
+  const p=api.getProjectState().project,c=song.build(p);
+  // Add top-level metadata: setup, timeSignature, bars, title
+  c.setup='ambient';
+  c.timeSignature='4/4';
+  c.bars=4;
+  c.title='New Year Jingle';
+  api.setEnabled(true);
+
+  // Test payload alias: "composition" instead of "project"
+  const req=request(api,[{op:'composition.replace',composition:c}]);
+  const res=await api.applyOperations(req);
+  assert.equal(res.project.format,'halo-composition');
+  assert.equal(res.project.phrases.length,c.phrases.length);
+
+  // Test specific unknown field error message
+  c.unexpectedField='invalid';
+  assert.throws(()=>api.previewOperations(request(api,[{op:'composition.replace',composition:c}])),/UNKNOWN_FIELD: unexpected field\(s\) \[unexpectedField\] in composition/);
+});
+

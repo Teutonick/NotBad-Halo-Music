@@ -19,7 +19,11 @@
   return {version:1,layerIds,settings};
  }
  function validate(data,sounds){
-  if(!data||data.format!=='notbad-halo-project'||data.version!==1||![4,8].includes(data.bars))throw Error('Unsupported project');
+  if(!data||typeof data!=='object'||Array.isArray(data))throw Error('INVALID_PROJECT: project payload must be an object');
+  const format=data.format;
+  if(format!=='notbad-halo-project'&&format!=='halo-project')throw Error('UNSUPPORTED_FORMAT: project format must be "notbad-halo-project" or "halo-project" (received: "'+format+'")');
+  if(data.version!==1)throw Error('UNSUPPORTED_VERSION: project version must be 1 (received: '+data.version+')');
+  if(![4,8].includes(data.bars))throw Error('INVALID_BARS: phrase length must be 4 or 8 bars (received: '+data.bars+')');
   if(data.setup!==undefined&&!['ambient','reactor'].includes(data.setup))throw Error('Unsupported setup');
   if(data.timeSignature!==undefined&&!['4/4','3/4'].includes(data.timeSignature))throw Error('Unsupported time signature');
   const timeSignature=data.timeSignature==='3/4'?'3/4':'4/4';
@@ -27,15 +31,31 @@
   const maxPhraseSteps=data.bars*stepsPerBar;
   const setup=data.setup||'ambient',banks=sounds.banksFor(setup);
   const startStep=number(data.startStep??0,0,1000000000);if(!Number.isInteger(startStep)||startStep%maxPhraseSteps!==0)throw Error('Invalid phrase position');
-  const result={format:data.format,version:1,setup,bars:data.bars,startStep,tempo:number(data.tempo,30,200),masterVolume:number(data.masterVolume??50,0,100),mix:mixSettings(data.mix),seed:number(data.seed,1,1000000000),key:number(data.key,0,23),tracks:[]};
-   if(timeSignature==='3/4')result.timeSignature='3/4';
-  if(!Number.isInteger(result.seed)||!Number.isInteger(result.key)||!Array.isArray(data.tracks)||data.tracks.length!==8)throw Error('Invalid project state');
+  const seed=data.seed!==undefined?number(data.seed,1,1000000000):1;
+  const key=data.key!==undefined?number(data.key,0,23):0;
+  if(!Number.isInteger(seed)||!Number.isInteger(key))throw Error('INVALID_HARMONY: seed and key must be integers (key: 0..23, seed: integer)');
+  if(!Array.isArray(data.tracks)||data.tracks.length!==8)throw Error('INVALID_TRACKS_COUNT: exactly 8 tracks required in "tracks" array (received: '+(Array.isArray(data.tracks)?data.tracks.length:'non-array')+'). All 8 voice slots must be specified: [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. To modify fewer tracks, use "track.patch".');
+  const result={format:data.format,version:1,setup,bars:data.bars,startStep,tempo:number(data.tempo,30,200),masterVolume:number(data.masterVolume??50,0,100),mix:mixSettings(data.mix),seed,key,tracks:[]};
+  if(timeSignature==='3/4')result.timeSignature='3/4';
   const names=Object.keys(banks),seen=new Set();
   for(const t of data.tracks){
-   const instrument=t?.instrument??t?.name,generator=t?.generator??1;
-   if(!t||!names.includes(t.name)||!names.includes(instrument)||![1,2,3].includes(generator)||seen.has(t.name)||typeof t.on!=='boolean'||!banks[instrument].sounds.some(s=>s.id===t.sound)||!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(t.steps).size!==t.steps.length)throw Error('Invalid track');
-   seen.add(t.name);const clean={name:t.name,instrument,generator,sound:t.sound,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
-   if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(t,banks[instrument].sounds.find(s=>s.id===t.sound)))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
+   if(!t||typeof t!=='object')throw Error('INVALID_TRACK: track entry must be an object');
+   const instrument=t.instrument??t.name,generator=t.generator??1;
+   if(!names.includes(t.name))throw Error('INVALID_TRACK_SLOT: unknown track name "'+t.name+'". Valid slot names are: ['+names.join(', ')+']');
+   if(!names.includes(instrument))throw Error('INVALID_INSTRUMENT: unknown instrument "'+instrument+'". Valid instruments in "'+setup+'": ['+names.join(', ')+']');
+   if(![1,2,3].includes(generator))throw Error('INVALID_GENERATOR: generator must be 1, 2, or 3');
+   if(seen.has(t.name))throw Error('DUPLICATE_TRACK: duplicate track slot "'+t.name+'"');
+   seen.add(t.name);
+   if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+t.name+'" requires boolean "on" flag');
+   let soundId=t.sound;
+   if(typeof soundId==='string'&&soundId.startsWith(setup+'-')){
+     const stripped=soundId.slice(setup.length+1);
+     if(banks[instrument].sounds.some(s=>s.id===stripped))soundId=stripped;
+   }
+   if(!banks[instrument].sounds.some(s=>s.id===soundId))throw Error('INVALID_SOUND: sound "'+t.sound+'" is not available for slot "'+instrument+'" in world "'+setup+'". Available sounds: ['+banks[instrument].sounds.map(s=>s.id).join(', ')+']');
+   if(!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(t.steps).size!==t.steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
+   const clean={name:t.name,instrument,generator,sound:soundId,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
+   if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,banks[instrument].sounds.find(s=>s.id===soundId)))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';
