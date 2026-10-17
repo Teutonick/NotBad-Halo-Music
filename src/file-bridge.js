@@ -256,7 +256,7 @@
       },
       songFormAndComposition: {
         defaultMode: 'single_phrase',
-        policy: 'HALO works with individual 4/8-bar phrases by default unless a full composition/song is explicitly requested ("песня", "полная композиция", "аранжировка").',
+        policy: 'HALO works with individual 4/8-bar phrases by default unless a full composition/song is explicitly requested ("song", "full composition", "arrangement").',
         limits: {
           maxPhrases: 15,
           maxSections: 32,
@@ -289,138 +289,137 @@
   }
 
   function generateAgentGuide(caps, state){
-    return `# HALO Agent Guide / Руководство для AI-агента
+    return `# HALO Agent Guide / AI Instruction Manual
 
-HALO — браузерный музыкальный конструктор релаксации (8 голосов, сетка 16 шагов на такт, 4/4 и 3/4).
-HALO is a browser relaxation music constructor (8 voices, 16-step grid per bar, 4/4 and 3/4).
+HALO is a browser relaxation music constructor (8 voices, 16-step grid per bar for 4/4 or 12-step grid for 3/4).
 
-## Архитектура папки / Folder Structure
+## Folder Structure
 
 \`\`\`
 HALO-Bridge/
-├── AGENT_GUIDE.md        # Эта инструкция / This guide
-├── capabilities.json     # Возможности движка, пределы, операции / Capabilities, limits, operations
-├── instruments.json      # 8 голосов, пресеты, совместимость, смысл параметров / Instruments & parameters
-├── music-rules.json      # Ритмическая сетка, размеры, тональности, гармония / Music rules & grid
-├── project-state.json    # Текущая композиция, ноты, ревизия / Current project state & revision
-├── requests/             # Папка для команд агента / Agent requests folder (e.g. request-001.json)
-└── responses/            # Папка для ответов HALO / HALO responses folder (e.g. request-001.result.json)
+├── AGENT_GUIDE.md        # This instruction manual
+├── capabilities.json     # Engine capabilities, limits, supported operations
+├── instruments.json      # 8 voices, presets, compatibility, parameter meanings
+├── music-rules.json      # Rhythmic grid, meters, time signatures, harmony
+├── project-state.json    # Current project state, note events, base revision
+├── requests/             # Folder for incoming agent command batches (e.g. request-001.json)
+└── responses/            # Folder for HALO execution results (e.g. request-001.result.json)
 \`\`\`
 
-## Правила работы / Agent Rules
+## Agent Operational Rules
 
-1. **project-state.json — только для чтения:**
-   Агент читает текущее состояние и ревизию проекта (\`revision\`). Изменять проект напрямую в этом файле запрещено.
-2. **Все изменения отправляются через requests/:**
-   Создайте новый JSON-файл в папке \`requests/\` (например, \`requests/request-001.json\`).
-3. **Обязательные поля пакета:**
-   Каждый пакет ОБЯЗАН содержать:
-   - \`requestId\`: уникальный строковый идентификатор запроса (например, "request-001")
+1. **project-state.json is Read-Only:**
+   The agent reads current project state, active notes, and the base revision (\`revision\`). Never modify this file directly.
+2. **All Changes Must Be Placed in requests/:**
+   Create a new JSON file inside the \`requests/\` directory (e.g., \`requests/request-001.json\`).
+3. **Mandatory Batch Envelope Fields:**
+   Every command batch MUST include:
+   - \`requestId\`: Unique string identifier (e.g., "request-001")
    - \`schemaVersion\`: 1
-   - \`baseRevision\`: число, совпадающее с текущей ревизией из \`project-state.json\`
-   - \`operations\`: массив операций (до 256 операций)
-4. **Белый список операций (Allowlist):**
-   Разрешены только следующие операции:
-   - \`track.patch\` — изменение параметров и нот дорожки (trackIndex: 0..7, values: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus, instrument, sound })
-   - \`phrase.patch\` — изменение фразы (bars: 4|8, startStep, seed, key, liveLoop, timeSignature: "4/4"|"3/4")
-   - \`master.patch\` — изменение мастера (tempo: 30..200, masterVolume: 0..100, mix: { low, mid, high, width })
-   - \`project.replace\` — полная замена однофразового проекта (включая выбор мира "setup": "ambient" | "reactor")
-   - \`composition.replace\` — полная замена многофразовой композиции (до 15 фраз)
-   - \`visual.patch\` — визуальный режим (scene: ORBIT/BLOOM/CURRENT, motion: DRIFT/IN TIME/PHRASE, effects: CLASSIC/COSMIC/HYPER)
-   Никаких скриптов, сторонних URL, файлов или команд ОС.
-5. **Подтверждение пользователя:**
-   Команды в HALO не применяются скрытно: HALO читает файл, валидирует его, показывает пользователю предпросмотр изменений и ожидает подтверждения.
-6. **Ответ в responses/:**
-   После обработки HALO записывает результат в \`responses/<requestId>.result.json\`:
-   - При успехе: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
-   - При ошибке или отклонении: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
-7. **Идемпотентность и актуальность:**
-   Повторная обработка уже выполненного пакета запрещена. Устаревшие ревизии отклоняются с ошибкой \`CONFLICT_REVISION_MISMATCH\`.
+   - \`baseRevision\`: Integer matching the current \`revision\` from \`project-state.json\`
+   - \`operations\`: Array of allowlisted operations (up to 256 operations)
+4. **Allowlisted Operations:**
+   Only the following operations are permitted:
+   - \`track.patch\` — Modify parameters and note events for a single track (\`trackIndex\`: 0..7, \`values\`: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus, instrument, sound })
+   - \`phrase.patch\` — Modify phrase settings (\`bars\`: 4|8, \`startStep\`, \`seed\`, \`key\`, \`liveLoop\`, \`timeSignature\`: "4/4"|"3/4")
+   - \`master.patch\` — Master bus controls (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`mix\`: { low, mid, high, width })
+   - \`project.replace\` — Full replacement of a single-phrase project (including sound world \`"setup": "ambient" | "reactor"\`)
+   - \`composition.replace\` — Full replacement of a multi-phrase song/composition (up to 15 phrases)
+   - \`visual.patch\` — Visual scene, motion, and effect modes (\`scene\`: ORBIT/BLOOM/CURRENT, \`motion\`: DRIFT/IN TIME/PHRASE, \`effects\`: CLASSIC/COSMIC/HYPER)
+   No arbitrary scripts, remote URLs, shell commands, or unverified keys are allowed.
+5. **Human-in-the-Loop Approval:**
+   Commands in HALO are never applied secretly in the background: HALO reads the request, validates it against schemas, displays a visual diff/preview to the human user, and waits for user confirmation.
+6. **Execution Feedback in responses/:**
+   After processing, HALO writes a response to \`responses/<requestId>.result.json\`:
+   - On success: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
+   - On rejection or failure: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
+7. **Idempotence & Revision Freshness:**
+   Re-processing previously applied requests is disallowed. Stale revisions are rejected with \`CONFLICT_REVISION_MISMATCH\`.
 
-## Защита от зацикливания и правила обработки ошибок / Anti-Looping & Error Handling
+## Anti-Looping Protocol & Error Handling
 
-1. **Не угадывайте параметры (Do not guess parameters):**
-   Все имена полей, операции, диапазоны и форматы строго зафиксированы в \`capabilities.json\`, \`instruments.json\` и \`music-rules.json\`. Не придумывайте несуществующие свойства.
-2. **Лимит 2 попыток (Max 2 retries):**
-   Если запрос завершился ошибкой, внимательно прочитайте поля \`"error"\` и \`"help"\` в файле ответа \`responses/<requestId>.result.json\`. Если повторная попытка снова дает сбой, **ОСТАНОВИТЕСЬ НЕМЕДЛЕННО**. Сообщите пользователю точный текст ошибки и спросите разъяснений вместо бесконечных попыток подбора параметров.
-3. **Строго 8 дорожек в project.replace:**
-   Операция \`project.replace\` всегда требует массив ровно из 8 дорожек: \`[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]\`. Не отправляйте урезанный массив из 4 дорожек! Если вы хотите изменить только 1–4 инструмента, используйте операции \`track.patch\` для нужных дорожек!
-4. **Имена звуков без префиксов мира:**
-   Имена звуков берутся строго из \`instruments.json\` (например, \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Не добавляйте префиксы вроде \`"ambient-bell"\`!
-5. **Фраза или Песня:**
-   Для запросов «сочини джингл/мелодию/мотив на 8 тактов» создавайте одну фразу через \`track.patch\` или \`project.replace\` (\`bars: 8\`). Не создавайте \`composition.replace\`, если вас не просили написать полную многочастную композицию!
+1. **Never Guess Parameters:**
+   All property names, operations, valid ranges, and enum values are strictly specified in \`capabilities.json\`, \`instruments.json\`, and \`music-rules.json\`. Do not invent non-existent properties (such as guessing \`"composition"\` inside \`project.replace\` or wrapping operations in unapproved keys).
+2. **Maximum 2 Retries:**
+   If a command batch fails, carefully inspect \`"error"\`, \`"help"\`, and \`"instructionForAgent"\` in \`responses/<requestId>.result.json\`. If a revised attempt fails again, **STOP IMMEDIATELY**. Report the exact error text to the human user and ask for guidance instead of endlessly guessing parameters.
+3. **Exactly 8 Tracks in project.replace:**
+   The \`project.replace\` operation ALWAYS requires an array of exactly 8 track objects: \`[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]\`. Do not provide a truncated 4-track array. To modify 1–4 specific instruments, use individual \`track.patch\` operations!
+4. **Sound Identifiers Have No World Prefix:**
+   Sound names must match the catalogs in \`instruments.json\` (e.g., \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Do NOT prefix with world names like \`"ambient-bell"\`.
+5. **Phrase vs Song Mode:**
+   For prompts like "compose an 8-bar holiday jingle / pirate theme / ambient groove", operate on a single phrase using \`track.patch\` or \`project.replace\` (\`bars: 8\`). Do NOT create a \`composition.replace\` unless the user explicitly requested a complete multi-section song.
 
-## Политика создания: Фраза vs Композиция / Phrase vs Full Composition
+## Composition Policy: Single Phrase vs Full Composition
 
-- **РЕЖИМ ПО УМОЛЧАНИЮ — КОНКРЕТНАЯ ФРАЗА (DEFAULT: SINGLE PHRASE):**
-  Если в запросе пользователя нет прямого указания написать целую композицию или песню (например: «сочини новогодний джингл на 8 тактов», «напиши тему пиратов», «сделай грув», «добавь бас»), агент работает **исключительно с текущей фразой / лупом** через \`track.patch\` или \`project.replace\`.
-- **ЦЕЛАЯ КОМПОЗИЦИЯ (FULL COMPOSITION):**
-  Создается **ТОЛЬКО** когда пользователь прямо просит: *«сочини песню»*, *«напиши целую композицию»*, *«сделай полную аранжировку с интро и припевом»*.
-  В этом случае используется операция \`composition.replace\`.
+- **DEFAULT MODE: SINGLE PHRASE:**
+  Unless the user explicitly specifies a full multi-part song or arrangement (e.g. "compose a full song", "write a complete composition with intro and chorus"), the agent works **exclusively with the current phrase/loop** via \`track.patch\` or \`project.replace\`.
+- **FULL COMPOSITION (Multi-section Song):**
+  Created **ONLY** when the user explicitly requests: *"compose a song"*, *"write a complete composition"*, *"create a full arrangement with intro, verses, and chorus"*.
+  In this scenario, use \`composition.replace\`.
 
-### Каноны построения формы композиции / Song Form Canons:
-1. **Intro (Вступление, 1..2 повтора):**
-   Разреженная текстура. Пэд, колокольчики, шелест дождя или тихий пульс. Без тяжелого баса и перегруженных риффов. Устанавливает тональность и дыхание.
-2. **Verse (Куплет, 1..2 повтора):**
-   Вступает ритмический грув и бас. Излагается основная гармоническая последовательность и сдержанный мелодический мотив.
-3. **Chorus (Припев, 1..2 повтора):**
-   Кульминация энергии. Все ключевые дорожки активны (lead, harmony, chord, bass, beat). Повышенная яркость (\`character\`: 60..80) и громкость. Яркий запоминающийся хук.
-4. **Verse 2 (Второй куплет, 1..2 повтора):**
-   Развитие первого куплета. Добавляются контрапунктные арпеджио или вариации барабанов.
-5. **Bridge (Бридж, 1..2 повтора):**
-   Контрастный эпизод: смена гармонии, разрежение или синкопирование ритма, фильтрация частот. Подготовка к финальному припеву.
-6. **Outro (Финал / Кода, 1..2 повтора, fade: "out"):**
-   Постепенное растворение инструментов, хвосты реверберации, затухание в тишину.
+### Song Form Canons:
+1. **Intro (1..2 repeats):**
+   Sparse texture. Atmospheric pads, celestial bells, gentle rain, or subtle pulse. No heavy bass or overdriven lead riffs. Establishes the key and acoustic breathing room.
+2. **Verse (1..2 repeats):**
+   Rhythmic groove and bassline enter. Establishes the primary harmonic progression and understated melodic motif.
+3. **Chorus / Climax (1..2 repeats):**
+   Peak energy and density. All primary voices active (lead, harmony, chord, bass, beat). Elevated brightness (\`character\`: 60..80) and level. Memorable melodic hook.
+4. **Verse 2 (1..2 repeats):**
+   Melodic or rhythmic variation upon Verse 1, counterpoint arpeggios or drum fills.
+5. **Bridge (1..2 repeats):**
+   Harmonic or rhythmic contrast: key modulation, altered density, filtered frequencies, or syncopated breakdown leading into the final chorus.
+6. **Outro / Coda (1..2 repeats, fade: "out"):**
+   Gradual instrumental dissolution, ringing reverb tails, gentle fade into silence.
 
-### Ограничения композиции / Composition Limits:
-- **МАКСИМУМ 15 УНИКАЛЬНЫХ ФРАЗ (\`phrases.length <= 15\`):**
-  Строгий защитный лимит движка HALO. Попытка передать более 15 фраз будет отклонена валидатором.
-- **Повторы секций (\`repeats: 1..8\`):**
-  Используйте повторы одной и той же фразы через поле \`repeats\` секции (например, \`{ "phrase": 2, "name": "chorus", "repeats": 2 }\`), а также ссылайтесь на один и тот же ID фразы в разных секциях.
-- **Суммарный хронометраж:** не более 128 тактов (MAX_BARS = 128).
-- **Секции:** до 32 секций в массиве \`sections\`.
+### Composition Engine Limits:
+- **MAXIMUM 15 UNIQUE PHRASES (\`phrases.length <= 15\`):**
+  Strict engine safeguard. Batches exceeding 15 phrases are rejected.
+- **Section Repeats (\`repeats: 1..8\`):**
+  Reuse phrases by setting \`repeats\` in section objects (e.g., \`{ "phrase": 2, "name": "chorus", "repeats": 2 }\`), and reference the same phrase ID across multiple sections (e.g. verse 1 and verse 2 sharing phrase 2).
+- **Total Song Duration:** Maximum 128 bars (\`MAX_BARS = 128\`).
+- **Sections:** Up to 32 sections in the \`sections\` array.
 
-## Звуковые миры: AMBIENT vs REACTOR / Sound Worlds: AMBIENT vs REACTOR
+## Sound Worlds: AMBIENT vs REACTOR
 
-HALO содержит два принципиально разных звуковых мира, переключаемых свойством \`"setup": "ambient" | "reactor"\`:
+HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "reactor"\`:
 
-### 1. AMBIENT (Медитативный, эфирный, космический)
-- **Синтез:** 100% процедурный чистый Web Audio синтез в реальном времени.
-- **Вайб:** Спокойствие, созерцание, медитация, космос, органическое дыхание.
-- **Темп:** 60..85 BPM (по умолчанию 72 BPM).
-- **Пространство:** Глубокая реверберация (\`space\`: 35..80%), стереохорус, мягкие огибающие.
-- **8 голосов по умолчанию:**
-  - 0: GLASS (хрустальные колокольчики, чистые обертоны)
-  - 1: TIDAL (дышащие мягкие атмосферные пэды)
-  - 2: ROOT (глубокий аналоговый суб-бас)
-  - 3: EMBER (теплые щипковые тембры)
-  - 4: RAIN (шум дождя, щелчки, нежный ритм)
-  - 5: VEIL (бархатные смычковые струнные)
-  - 6: MOSS (деревянная маримба / перкуссия)
-  - 7: AURA (окружающий космический фон / дрон)
+### 1. AMBIENT (Meditative, Ethereal, Cosmic)
+- **Synthesis:** 100% real-time procedural Web Audio synthesis (pure sines, FM, soft filters, cosmic pink noise).
+- **Vibe:** Calm, contemplative, meditative, spacious, organic breathing.
+- **Tempo:** 60..85 BPM (default 72 BPM).
+- **Acoustic Space:** Deep 2.8s convolution reverb (\`space\`: 35..80%), stereo chorus, soft attack/decay envelopes.
+- **8 Default Voices:**
+  - 0: GLASS (celestial crystal bells, clean overtone spectrum)
+  - 1: TIDAL (breathing soft atmospheric pads)
+  - 2: ROOT (deep analog sub-bass foundation)
+  - 3: EMBER (warm plucked harp/kalimba/piano timbres)
+  - 4: RAIN (gentle rainfall texture, soft transient clicks)
+  - 5: VEIL (velvet bowed strings and cello warmth)
+  - 6: MOSS (slow wooden marimba, mellow tuned percussion)
+  - 7: AURA (environmental background drone, cosmic wash)
 
-### 2. REACTOR (Драйвовый, энергичный, рок/акустический)
-- **Сэмплы:** 32 органических пресета на базе 130 аутентичных CC0-аудиозаписей живых инструментов.
-- **Вайб:** Драйв, рок, плотный грув, акустическое присутствие, напор.
-- **Темп:** 90..140 BPM (по умолчанию 100 BPM; для 6/8 pirate swing используйте 3/4 8 bars).
-- **Пространство:** Плотный, сфокусированный микс (\`space\`: 10..30%), быстрый панч, четкие транзиенты.
-- **8 голосов по умолчанию:**
-  - 0: BEAT (живой панчевый кик и рабочий барабан)
-  - 1: BASS (перегруженный роковый бас с овердрайвом)
-  - 2: KEYS (акустическое фортепиано / Rhodes)
-  - 3: CHORD (глушеная ритм-гитара / палм-мьют)
-  - 4: RIFF (электрогитара с перегрузом / лид)
-  - 5: LEAD (аналоговый синтезаторный лид / духовые)
-  - 6: PERC (живые тарелки, хэт, шейкер)
-  - 7: TEXTURE (гитарный фидбек, атмосферный низкочастотный слой)
+### 2. REACTOR (Driving, Energetic, Organic Rock & Acoustic)
+- **Samples:** 32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.
+- **Vibe:** Punchy, energetic drive, acoustic presence, rhythmic momentum.
+- **Tempo:** 90..140 BPM (default 100 BPM; for 6/8 pirate swing use 3/4 meter with 8 bars).
+- **Acoustic Space:** Focused, punchy mix (\`space\`: 10..30%), rapid transients, tight stereo imaging.
+- **8 Default Voices:**
+  - 0: BEAT (punchy acoustic kick and snare backbeat)
+  - 1: BASS (overdriven rock bass with tube warmth)
+  - 2: KEYS (acoustic grand piano / vintage Rhodes)
+  - 3: CHORD (palm-muted rhythm guitar)
+  - 4: RIFF (distorted electric guitar lead)
+  - 5: LEAD (analog synthesizer lead / warm brass)
+  - 6: PERC (cymbals, tambourine, hi-hats, acoustic shaker)
+  - 7: TEXTURE (ambient guitar feedback, electric sub wash)
 
-### Правила миров / World Rules:
-- Инструменты из каталога \`instruments.json\` могут назначаться на любую дорожку, но общее акустическое оформление, сэмплерный движок и эстетика задаются полем \`"setup"\`.
-- **Единый мир:** Все фразы одной композиции обязаны иметь один и тот же \`setup\` (смешивание AMBIENT и REACTOR внутри одной песни не поддерживается).
+### Sound World Rules:
+- Instruments from \`instruments.json\` may be assigned to any track slot, but the default sound environment and sample engine are governed by \`"setup"\`.
+- **Single World per Composition:** All phrases in a composition must share the same \`setup\` world (mixing AMBIENT and REACTOR within the same song is unsupported).
 
-## Примеры запросов / Example Requests
+## Example Requests
 
-### Пример 1: Изменение дорожки фразы (track.patch)
+### Example 1: Track Note & Parameter Modification (track.patch)
 \`\`\`json
 {
   "requestId": "request-001",
@@ -447,7 +446,7 @@ HALO содержит два принципиально разных звуко�
 }
 \`\`\`
 
-### Пример 2: Создание полной композиции (composition.replace)
+### Example 2: Full Multi-section Composition (composition.replace)
 \`\`\`json
 {
   "requestId": "request-002",
@@ -464,11 +463,11 @@ HALO содержит два принципиально разных звуко�
         "mix": { "low": 0, "mid": 0, "high": 0, "width": 35 },
         "repeat": true,
         "phrases": [
-          { "id": 1, "label": "Intro", "project": { /* полный объект проекта phrase 1 */ } },
-          { "id": 2, "label": "Verse", "project": { /* полный объект проекта phrase 2 */ } },
-          { "id": 3, "label": "Chorus", "project": { /* полный объект проекта phrase 3 */ } },
-          { "id": 4, "label": "Bridge", "project": { /* полный объект проекта phrase 4 */ } },
-          { "id": 5, "label": "Outro", "project": { /* полный объект проекта phrase 5 */ } }
+          { "id": 1, "label": "Intro", "project": { /* full single-phrase project object */ } },
+          { "id": 2, "label": "Verse", "project": { /* full single-phrase project object */ } },
+          { "id": 3, "label": "Chorus", "project": { /* full single-phrase project object */ } },
+          { "id": 4, "label": "Bridge", "project": { /* full single-phrase project object */ } },
+          { "id": 5, "label": "Outro", "project": { /* full single-phrase project object */ } }
         ],
         "sections": [
           { "phrase": 1, "name": "intro", "repeats": 1, "fade": "none" },
@@ -484,10 +483,10 @@ HALO содержит два принципиально разных звуко�
   ]
 }
 \`\`\`
-*(Примечание: в \`composition.replace\` в качестве ключа полезной нагрузки поддерживается как \`"project"\`, так и \`"composition"\`).*
+*(Note: \`composition.replace\` accepts payload under either \`"project"\` or \`"composition"\` key).*
 
-### Пример 3: Замена однофразового проекта на 8 тактов (project.replace)
-*Важно: для \`project.replace\` массив \`tracks\` ОБЯЗАН содержать ровно 8 дорожек (все голоса [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]). Для изменения меньшего числа инструментов используйте \`track.patch\`.*
+### Example 3: Single-Phrase 8-Bar Project Replacement (project.replace)
+*Important: for \`project.replace\`, the \`tracks\` array MUST contain exactly 8 track objects covering all voice slots [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. To update fewer tracks, use \`track.patch\`.*
 \`\`\`json
 {
   "requestId": "request-003",
@@ -1024,9 +1023,59 @@ HALO содержит два принципиально разных звуко�
       }
     }
 
+    async function resetLocalChanges(lang = 'ru'){
+      if (!dirHandle) return;
+      state.busy = true;
+      notify();
+      try {
+        try {
+          const reqDir = await dirHandle.getDirectoryHandle('requests', { create: false });
+          for await (const [name] of reqDir.entries()){
+            try { await reqDir.removeEntry(name); } catch {}
+          }
+        } catch {}
+        try {
+          const resDir = await dirHandle.getDirectoryHandle('responses', { create: false });
+          for await (const [name] of resDir.entries()){
+            try { await resDir.removeEntry(name); } catch {}
+          }
+        } catch {}
+
+        processedIds.clear();
+        consecutiveErrors = 0;
+        state.pending = null;
+        state.lastResult = null;
+        state.error = null;
+
+        try {
+          win?.localStorage?.removeItem?.('halo-pattern-v1');
+          win?.localStorage?.removeItem?.('notbad-halo-autosave-v1');
+          win?.localStorage?.removeItem?.('halo-composition-v1');
+        } catch {}
+
+        if (typeof api.resetProject === 'function') {
+          await api.resetProject();
+        }
+
+        await syncAllContext(dirHandle, api);
+        state.lastSync = new Date().toISOString();
+
+        const isRu = lang === 'ru';
+        if (typeof win?.toast === 'function') {
+          win.toast(isRu ? 'Локальные изменения сброшены, проект возвращен к исходному состоянию' : 'Local changes cleared, project restored to default');
+        }
+      } catch(e) {
+        state.error = e.message;
+      } finally {
+        state.busy = false;
+        notify();
+      }
+    }
+
     return {
       connect,
       disconnect,
+      resetLocalChanges,
       tryRestore,
       forgetSavedDirectory,
       syncFiles,
@@ -1053,6 +1102,7 @@ HALO содержит два принципиально разных звуко�
 
   function renderFileBridgePanel(host, api, language){
     const tr = (ru, en) => language() === 'ru' ? ru : en;
+    const win = root.window || root;
     let bridge = bridges.get(api);
     if (!bridge) {
       bridge = createBridge(api, { window: root });
@@ -1192,25 +1242,89 @@ HALO содержит два принципиально разных звуко�
         btnCheck.textContent = tr('⯈ Проверить requests/', '⯈ Check requests/');
         btnCheck.onclick = () => bridge.checkFolder();
 
+        const btnReset = document.createElement('button');
+        btnReset.className = 'glass-btn';
+        btnReset.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(80,35,35,.5);border-color:#f8a39a;color:#ffdada;cursor:pointer;';
+        btnReset.textContent = tr('↺ Сбросить изменения', '↺ Reset Changes');
+        btnReset.title = tr('Очистить requests/, responses/ и вернуть проект к исходному состоянию', 'Clear requests/, responses/ and restore clean default project');
+        btnReset.onclick = async () => {
+          const isRu = language() === 'ru';
+          const confirmed = await (typeof win.HaloConfirm === 'function' ? win.HaloConfirm({
+            title: isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?',
+            message: isRu
+              ? 'Удалить все локальные изменения проекта и очистить папки requests/ и responses/? Проект вернётся к исходной версии с сервера, а команды агента будут сброшены.'
+              : 'Discard all local project changes and clear requests/ and responses/ folders? The project will be restored to clean defaults, and agent commands will be reset.',
+            confirmText: isRu ? 'Сбросить изменения' : 'Reset Changes',
+            cancelText: isRu ? 'Отмена' : 'Cancel',
+            danger: true
+          }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?') : true));
+          if (confirmed) {
+            await bridge.resetLocalChanges(language());
+          }
+        };
+
         const btnDisconnect = document.createElement('button');
         btnDisconnect.className = 'glass-btn';
         btnDisconnect.style.cssText = 'font-size:10px;padding:3px 10px;min-height:28px;background:rgba(70,25,25,.55);border-color:#f8a39a;color:#ffdada;cursor:pointer;';
         btnDisconnect.textContent = tr('✕ Отключить', '✕ Disconnect');
-        btnDisconnect.onclick = () => bridge.disconnect();
+        btnDisconnect.onclick = async () => {
+          const isRu = language() === 'ru';
+          const confirmed = await (typeof win.HaloConfirm === 'function' ? win.HaloConfirm({
+            title: isRu ? 'Отключить папку?' : 'Disconnect Folder?',
+            message: isRu
+              ? `Отключить синхронизацию с папкой «${s.directoryName}»? Опрос команд агента будет остановлен.`
+              : `Disconnect synchronization with folder «${s.directoryName}»? Polling for agent commands will be stopped.`,
+            confirmText: isRu ? 'Отключить' : 'Disconnect',
+            cancelText: isRu ? 'Отмена' : 'Cancel',
+            danger: false
+          }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Отключить папку?' : 'Disconnect folder?') : true));
+          if (confirmed) {
+            await bridge.disconnect();
+          }
+        };
 
-        actionGroup.append(btnSync, btnCheck, btnDisconnect);
+        actionGroup.append(btnSync, btnCheck, btnReset, btnDisconnect);
       }
 
       // Details info
       const meta = document.createElement('div');
       meta.style.cssText = 'font-size:10px;color:#8ba2b3;line-height:1.5;';
       if (s.connected) {
+        const hasError = (s.lastResult && !s.lastResult.ok) || !!s.error;
         meta.innerHTML = `
           <div>${tr('Ревизия проекта:','Project revision:')} <strong>${api.getProjectState().revision}</strong> · ${tr('Опрос requests/ каждые 1.5с: активен','Polling requests/ every 1.5s: active')}</div>
           ${s.lastSync ? `<div>${tr('Последний экспорт паспорта:','Last passport sync:')} ${new Date(s.lastSync).toLocaleTimeString()}</div>` : ''}
           ${s.lastResult ? `<div style="margin-top:4px;color:${s.lastResult.ok ? '#8fe5d2' : '#f8a39a'};">${s.lastResult.ok ? '✓ ' + tr('Команда успешно обработана: ','Command applied: ') + s.lastResult.id : '⚠ ' + tr('Ошибка команды ','Command error ') + s.lastResult.id + ': ' + s.lastResult.error}</div>` : ''}
           ${s.error ? `<div style="color:#f89a9a;margin-top:4px;">⚠ ${s.error}</div>` : ''}
         `;
+        if (hasError) {
+          const errSuggest = document.createElement('div');
+          errSuggest.style.cssText = 'margin-top:8px;padding:8px 10px;background:rgba(230,80,60,.12);border:1px solid rgba(248,163,154,.35);border-radius:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;';
+          const errText = document.createElement('span');
+          errText.style.cssText = 'font-size:10px;color:#ffd8d4;line-height:1.4;flex:1;min-width:200px;';
+          errText.textContent = tr('Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос.', 'If the error persists, reset local changes and ask the AI agent to repeat the request.');
+          const errBtn = document.createElement('button');
+          errBtn.className = 'glass-btn';
+          errBtn.style.cssText = 'font-size:10px;padding:3px 10px;min-height:26px;background:rgba(180,60,50,.4);border-color:#f8a39a;color:#ffdada;cursor:pointer;white-space:nowrap;';
+          errBtn.textContent = tr('↺ Сбросить локальные изменения', '↺ Reset Local Changes');
+          errBtn.onclick = async () => {
+            const isRu = language() === 'ru';
+            const confirmed = await (typeof win.HaloConfirm === 'function' ? win.HaloConfirm({
+              title: isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?',
+              message: isRu
+                ? 'Удалить все локальные изменения проекта и очистить папки requests/ и responses/? Проект вернётся к исходной версии с сервера, а команды агента будут сброшены.'
+                : 'Discard all local project changes and clear requests/ and responses/ folders? The project will be restored to clean defaults, and agent commands will be reset.',
+              confirmText: isRu ? 'Сбросить изменения' : 'Reset Changes',
+              cancelText: isRu ? 'Отмена' : 'Cancel',
+              danger: true
+            }) : Promise.resolve(win.confirm ? win.confirm(isRu ? 'Сбросить локальные изменения?' : 'Reset Local Changes?') : true));
+            if (confirmed) {
+              await bridge.resetLocalChanges(language());
+            }
+          };
+          errSuggest.append(errText, errBtn);
+          meta.append(errSuggest);
+        }
       } else if (s.savedDirectory) {
         meta.textContent = tr(
           `Папка «${s.savedDirectory.name}» сохранена. Нажмите «Возобновить доступ», чтобы восстановить синхронизацию без повторного выбора папки.`,

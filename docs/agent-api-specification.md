@@ -97,10 +97,17 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
 - **`reactor`:** 32 organic presets backed by 130 authentic CC0 acoustic and electric instrument recordings (drums, overdriven bass, guitars, acoustic piano, brass). Driving, punchy rock vibe. Recommended tempo 90..140 BPM, focused mix (`space`: 10..30%).
 - Instruments from any bank may be assigned to any voice, but global acoustic environment and default styling follow `setup`.
 
-### File Bridge Directory Persistence
+### File Bridge Directory Persistence & Control Actions
 - `FileSystemDirectoryHandle` is persisted in IndexedDB (`halo-file-bridge-v1`).
 - On page reload: if browser permission is retained (`queryPermission` returns `'granted'`), the bridge reconnects automatically without prompt.
-- If re-confirmation is required by browser policy, the bridge displays the saved directory name with a 1-click `🔓 Reconnect` button, eliminating the need to browse folders on disk. Disconnecting explicitly (`✕ Disconnect`) removes the handle from IndexedDB.
+- If re-confirmation is required by browser policy, the bridge displays the saved directory name with a 1-click `🔓 Reconnect` button, eliminating the need to browse folders on disk.
+- **Control Toolbar Actions & Modal Dialog Confirmation:**
+  - `⟳ Sync Files` (`syncFiles`): Re-writes all 5 technical context files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`).
+  - `⯈ Check requests/` (`checkFolder`): Scans `requests/` for pending agent command batches.
+  - `↺ Reset Changes` (`resetLocalChanges`): Clears `requests/` and `responses/` files, resets error counters and pending queue, clears dirty localStorage project keys (`halo-pattern-v1`, `notbad-halo-autosave-v1`, `halo-composition-v1`), restores clean default project state from the server/defaults, and re-syncs all 5 context files. Requires human confirmation via the internal modal dialog (`window.HaloConfirm`).
+  - `✕ Disconnect` (`disconnect`): Stops polling, clears in-memory handle, and removes saved handle from IndexedDB. Requires human confirmation via the internal modal dialog (`window.HaloConfirm`).
+- **In-UI Error Recovery Suggestion:** When a command fails or displays an error in the bridge UI, an explicit suggestion prompt is shown: *"Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос."* with a 1-click button `[↺ Сбросить локальные изменения]` that triggers the confirmed reset.
+- **100% English AI Documentation:** All AI directives in `AGENT_GUIDE.md` and rule schemas in `music-rules.json` are maintained strictly in English to optimize comprehension and tool use by LLMs without linguistic ambiguity.
 
 ### Anti-Looping Circuit Breaker & Error Guidance Protocol
 - **Error Response Schema (`responses/<requestId>.result.json`):**

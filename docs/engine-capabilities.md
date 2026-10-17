@@ -722,3 +722,22 @@ Track 09 SOLO smoothly silences the eight core voices without changing their mut
 
 
 DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4/8/16/32 and STEP 1/16, 1/8, 1/4 beside the pattern grid (16 cells; CYCLE 32 repeats them twice). DURATION selects a fraction of natural slice/sample-window playback length, accounting for pitch; PITCH is no longer capped at one step. Rests let notes ring; a new trigger gently chokes the previous voice. PITCH remains bounded by the phrase end in live/offline playback. No slice time stretching is introduced.
+
+---
+
+## 12. Архитектура интеграции с AI-агентами: WebMCP и File Bridge (2026-10-17)
+
+### 12.1. Режимы интеграции
+- **WebMCP (Browser Site Tools):** Регистрация через `document.modelContext.registerTool` для встроенных браузерных агентов (Codex).
+- **File Bridge (Локальная папка HALO-Bridge):** Интеграция с внешними автономными агентами (Antigravity, Bionic, Claude) через стандартный File System Access API (`window.showDirectoryPicker`).
+
+### 12.2. Управление локальной папкой и безопасность
+- **Кнопки управления:**
+  - `⟳ Обновить файлы`: Экспорт 5 файлов технического паспорта (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`).
+  - `⯈ Проверить requests/`: Ручной запуск проверки новых запросов в `requests/`.
+  - `↺ Сбросить изменения`: Очистка файлов в `requests/` и `responses/`, сброс счётчиков ошибок и очереди, удаление временных ключей localStorage (`halo-pattern-v1`, `notbad-halo-autosave-v1`, `halo-composition-v1`), восстановление исходного чистого состояния проекта с сервера и повторная синхронизация 5 файлов контекста. Требует обязательного подтверждения пользователя через внутренний модальный диалог (`window.HaloConfirm`).
+  - `✕ Отключить`: Остановка таймера опроса, отсоединение папки и удаление сохранённого дескриптора из IndexedDB. Требует обязательного подтверждения через внутренний модальный диалог (`window.HaloConfirm`).
+- **Подсказка и восстановление при ошибках в UI:** При возникновении ошибки выполнения команды под строкой статуса отображается явное напутствие пользователю: *«Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос.»* с кнопкой быстрого сброса `[↺ Сбросить локальные изменения]`.
+- **100% английские инструкции для AI:** Руководство `AGENT_GUIDE.md` и спецификации `music-rules.json` поддерживаются строго на английском языке для исключения языковых галлюцинаций и ошибок нейросетевых агентов.
+- **Защита от зацикливания:** При 3 последовательных ошибках агенту выдается `CRITICAL STOP DIRECTIVE` в поле ответа `responses/<requestId>.result.json`, предписывающий немедленно прекратить перебор параметров и запросить инструкции у человека.
+

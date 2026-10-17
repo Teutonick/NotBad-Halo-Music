@@ -197,10 +197,10 @@ test('File Bridge capabilities and music rules declare 15 phrases limit, sound w
   assert.match(rules.soundWorlds.reactor.vibe, /Driving/);
 
   assert.match(guide, /AMBIENT vs REACTOR/);
-  assert.match(guide, /15 УНИКАЛЬНЫХ ФРАЗ/);
+  assert.match(guide, /MAXIMUM 15 UNIQUE PHRASES/);
   assert.match(guide, /Intro/);
   assert.match(guide, /Chorus/);
-  assert.match(guide, /РЕЖИМ ПО УМОЛЧАНИЮ — КОНКРЕТНАЯ ФРАЗА/);
+  assert.match(guide, /DEFAULT MODE: SINGLE PHRASE/);
 });
 
 test('File Bridge persists directory handle in IndexedDB across reloads', async () => {
@@ -436,5 +436,125 @@ test('processRequest enriches errors with help and instructionForAgent, preventi
   assert.ok(res.help.includes('requires all 8 tracks'));
   assert.ok(res.instructionForAgent.includes('Maximum 2 retry attempts allowed'));
 });
+
+test('AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% English AI instructions)', () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+  const cyrillicRegex = /[А-Яа-яЁё]/;
+
+  assert.equal(cyrillicRegex.test(files['AGENT_GUIDE.md']), false, 'AGENT_GUIDE.md must not contain Cyrillic characters');
+  assert.equal(cyrillicRegex.test(files['music-rules.json']), false, 'music-rules.json must not contain Cyrillic characters');
+});
+
+test('resetLocalChanges clears requests/responses, resets project, and updates context', async () => {
+  let project = P.capture(Object.keys(S.banks).map(name=>({...S.roles.initial('ambient',name),name,setup:'ambient',on:true,level:50,density:50,character:50,duration:50,space:30,pattern:[0,4,8,12]})),4,72,1,0,S,M);
+  let toastMsg = '';
+  const fakeWin = {
+    toast: msg => { toastMsg = msg; },
+    localStorage: {
+      items: { 'halo-pattern-v1': 'dirty', 'notbad-halo-autosave-v1': 'dirty', 'halo-composition-v1': 'dirty' },
+      removeItem(key){ delete this.items[key]; }
+    }
+  };
+
+  const api = Agent.create({
+    project: P,
+    song: Song,
+    sounds: S,
+    composition: C,
+    read: () => project,
+    write: async p => { project = p; },
+    playback: async () => {}
+  });
+
+  // Mutate project away from default
+  api.setEnabled(true);
+  await api.applyOperations({
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      { op: 'master.patch', values: { tempo: 135 } }
+    ]
+  });
+  assert.equal(api.getProjectState().project.tempo, 135);
+
+  // Fake filesystem
+  const reqFiles = new Map([['req-1.json', '{}']]);
+  const resFiles = new Map([['req-1.result.json', '{}']]);
+  const rootFiles = new Map();
+
+  function makeDir(map){
+    return {
+      kind: 'directory',
+      async getFileHandle(name, opts){
+        return {
+          async createWritable(){
+            return {
+              async write(c){ map.set(name, c); },
+              async close(){}
+            };
+          }
+        };
+      },
+      async removeEntry(name){
+        map.delete(name);
+      },
+      async *entries(){
+        for (const [k, v] of Array.from(map.entries())){
+          yield [k, { kind: 'file', getFile: async () => ({ text: async () => v }) }];
+        }
+      }
+    };
+  }
+
+  const fakeDirHandle = {
+    name: 'test-folder',
+    async getDirectoryHandle(name, opts){
+      if (name === 'requests') return makeDir(reqFiles);
+      if (name === 'responses') return makeDir(resFiles);
+      throw Error('Unknown dir');
+    },
+    async getFileHandle(name, opts){
+      return {
+        async createWritable(){
+          return {
+            async write(c){ rootFiles.set(name, c); },
+            async close(){}
+          };
+        }
+      };
+    }
+  };
+
+  const bridge = FileBridge.createBridge(api, { window: fakeWin });
+  await bridge.connect(fakeDirHandle);
+
+  assert.equal(reqFiles.size, 1);
+  assert.equal(resFiles.size, 1);
+
+  await bridge.resetLocalChanges('ru');
+
+  // Verify requests and responses emptied
+  assert.equal(reqFiles.size, 0);
+  assert.equal(resFiles.size, 0);
+
+  // Verify localStorage cleared
+  assert.equal(fakeWin.localStorage.items['halo-pattern-v1'], undefined);
+  assert.equal(fakeWin.localStorage.items['notbad-halo-autosave-v1'], undefined);
+  assert.equal(fakeWin.localStorage.items['halo-composition-v1'], undefined);
+
+  // Verify project reset back to default 72 bpm
+  assert.equal(api.getProjectState().project.tempo, 72);
+
+  // Verify toast
+  assert.ok(toastMsg.includes('сброшены'));
+
+  // Verify context files updated
+  assert.ok(rootFiles.has('project-state.json'));
+  assert.ok(rootFiles.has('AGENT_GUIDE.md'));
+
+  await bridge.disconnect();
+});
+
 
 

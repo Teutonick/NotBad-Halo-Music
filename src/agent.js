@@ -92,7 +92,49 @@
    return {state:current,capabilities:copy(capabilities()),music,history:{undo:undo.length,redo:redo.length}};
   }
   async function history(from,to,side){const h=from.at(-1);if(!h)throw Error('NO_HISTORY');const current=state(),expected=side==='before'?h.after:h.before;if(JSON.stringify(current.project)!==JSON.stringify(expected.project)||JSON.stringify(current.visual)!==JSON.stringify(expected.visual))throw Error('CONFLICT_REVISION_MISMATCH');const result=await write(h[side].project,h[side].visual);h[side]=copy(result);from.pop();to.push(h);return result}
-  return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after')};
+  async function resetProject(){
+   enabled=true;
+   undo=[];
+   redo=[];
+   const def=env.defaults?env.defaults():null;
+   const baseTracks=(def?.ambientTracks&&def.ambientTracks.length===8)?def.ambientTracks:(env.sounds?.roles?.roles||[]).map(r=>{
+     const init=env.sounds?.roles?.initial?env.sounds.roles.initial('ambient',r.slot):{instrument:r.slot,sound:'pulse'};
+     return {name:r.slot,instrument:init.instrument||r.slot,generator:1,sound:init.sound||'pulse',on:true,exact:false,steps:[0,4,8,12],level:65,density:65,character:50,duration:50,space:50,delay:0,delayTime:'1/8',chorus:0};
+   });
+   const defaultProject={
+    format:'notbad-halo-project',
+    version:1,
+    setup:'ambient',
+    bars:4,
+    timeSignature:'4/4',
+    tempo:def?.tempo||72,
+    masterVolume:def?.masterVolume||50,
+    mix:def?.mix||{low:0,mid:0,high:0,width:35},
+    seed:1,
+    key:0,
+    tracks:baseTracks.map(t=>({
+      name:t.name,
+      instrument:t.instrument||t.name,
+      generator:1,
+      sound:t.sound,
+      on:true,
+      exact:false,
+      steps:[0,4,8,12],
+      level:t.level??65,
+      density:t.density??65,
+      character:t.character??50,
+      duration:t.duration??50,
+      space:t.space??50,
+      delay:0,
+      delayTime:'1/8',
+      chorus:0
+    }))
+   };
+   await env.write(copy(defaultProject));
+   if(env.writeVisual)env.writeVisual({scene:'ORBIT',motion:'DRIFT',effects:'COSMIC'});
+   return state();
+  }
+  return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after'),resetProject};
  }
  function panel(host,api,language){
   const tr=(ru,en)=>language()==='ru'?ru:en;

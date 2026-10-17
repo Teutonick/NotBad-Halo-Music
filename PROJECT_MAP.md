@@ -1,4 +1,12 @@
 
+### File Bridge Controls, Confirmation Modals & English AI Directives — 2026-10-17
+
+- **File Bridge Toolbar Controls (`src/file-bridge.js`):** Added a dedicated «↺ Сбросить изменения» ("↺ Reset Changes") action alongside `⟳ Sync Files`, `⯈ Check requests/`, and `✕ Disconnect`.
+  - Clears `requests/` and `responses/` files in the connected folder, resets error counters, clears pending queues, deletes dirty localStorage keys (`halo-pattern-v1`, `notbad-halo-autosave-v1`, `halo-composition-v1`), calls `api.resetProject()` restoring the clean default project state, and re-exports fresh context files.
+- **Internal Modal Dialog Confirmation (`window.HaloConfirm`):** Both «✕ Отключить» ("✕ Disconnect") and «↺ Сбросить изменения» ("↺ Reset Changes") require user confirmation via HALO's internal modal dialog (`#confirmModal`), preventing accidental disconnections or project wipes.
+- **In-UI Error Recovery Directive:** Whenever a command batch fails or an error is displayed in the bridge UI, an explicit suggestion prompt is shown: *"Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос."* accompanied by a 1-click button `[↺ Сбросить локальные изменения]` triggering confirmed `resetLocalChanges`.
+- **100% English AI Instruction Manual (`temp/AGENT_GUIDE.md`, `src/file-bridge.js`, `music-rules.json`):** Translated all AI directives, rule guidelines, error explanations, and policy strings into clean, idiomatic English without Russian text, optimizing prompt parsing and tool execution reliability for LLM agents (Antigravity, Bionic, Codex, Claude).
+
 ### Toast Repositioning, AI Loop Prevention & Schema Tolerance — 2026-10-17
 
 - **Toast Notification Placement (`index.html`):** Informational toast alerts (`#toast`) repositioned from `top: 90px` to `top: clamp(160px, 36vh, 38vh)` with `backdrop-filter: blur(12px)` and `z-index: 60`, hovering elegantly above the orbital center and completely eliminating overlap with top toolbar buttons (`FILE SAVE LOAD MP3 WAV SHARE`). Removed hardcoded inline `style.top` override in motion toggle.
