@@ -1,4 +1,22 @@
 
+### Vibe & Sound Setup Availability and AI Self-Correction Protocol — 2026-10-17
+
+- **Vibe & Setup Sound Availability (`src/sounds.js`, `src/roles.js`, `src/file-bridge.js`):**
+  - Clarified and formalized that sound presets and motifs are vibe-dependent and setup-dependent (`ambient` vs `reactor`).
+  - Added explicit `setups` array (`['ambient']`, `['reactor']`, or multi-setup `['ambient', 'reactor']`) on every preset definition.
+  - `instruments.json` now exposes `vibeAndSetupPolicy`, `canonicalId`, `setups: [...]`, and role-level `soundsBySetup: { ambient: [...], reactor: [...] }` so external AI agents clearly distinguish available presets per vibe.
+  - Supported setup aliases: `setup`, `world`, and `soundWorld` across `project.js` and `agent.js`.
+  - Automatic setup inference: if `setup` is omitted from `project.replace` but reactor presets are selected, the engine automatically resolves `setup = 'reactor'`.
+  - Prefix stripping: automatically tolerates names like `reactor-dry-kick` or `dry-kick`.
+- **Actionable AI Error Guidance & Request Modification Retry (`src/file-bridge.js`, `src/project.js`):**
+  - Enhanced error messages for `INVALID_SOUND` with explicit corrective hints (`help`) and actionable instructions (`instructionForAgent`).
+  - Agents are instructed to either set `"setup": "reactor"` (or `"world": "reactor"`) or select sounds available in `ambient`.
+  - File Bridge now tracks content text/hashes (`processedContent = new Map()`) instead of only request IDs: when an external agent rewrites a failed request file in `requests/`, HALO automatically detects the modification, clears stale error `.result.json` files and bridge error states, and moves the valid proposal into `state.pending` for human approval.
+- **Full Test Coverage & Documentation Synchronization:**
+  - Added test coverage in `tests/file-bridge.test.cjs` verifying vibe metadata, multi-setup support, request modification re-evaluation, error file cleanup, and user approval.
+  - All 232 test cases pass.
+  - Synchronized in-app bilingual manual (`index.html`), `docs/engine-capabilities.md`, and `docs/agent-api-specification.md`.
+
 ### Fix: Reset Local Changes Crash & Infinite Canvas Render Loop — 2026-10-17
 
 - **Root Cause & Fix for Reset Local Changes Crash (`src/agent.js`, `index.html`, `src/file-bridge.js`):**

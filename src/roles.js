@@ -33,7 +33,7 @@
   const allowed=(sound.compatibleRoles||compatible).filter(id=>Object.hasOwn(byId,id));
   const preferred=(sound.affinityRoles||affinity).filter(id=>allowed.includes(id));
   const range=!sampled?[26,88]:sound.engine==='rockbass'?[26,45]:sound.engine==='guitar'?[31,90]:sound.engine==='piano'?[42,86]:sound.engine==='rocksynth'?[35,85]:[0,0];
-  return Object.freeze({engine:sampled?'sampler':sound.engine==='noise'?'noise':'oscillator',pitched,compatibleRoles:Object.freeze(allowed),affinityRoles:Object.freeze(preferred),range:Object.freeze(range),referenceNote:pitched?fold(60,...range):0});
+  return Object.freeze({engine:sampled?'sampler':sound.engine==='noise'?'noise':'oscillator',pitched,setups:Object.freeze(sound.setups||(sampled?['reactor']:['ambient'])),compatibleRoles:Object.freeze(allowed),affinityRoles:Object.freeze(preferred),range:Object.freeze(range),referenceNote:pitched?fold(60,...range):0});
  }
  function metadata(sound){return sound.playback||describe(sound)}
  function compatible(track,sound){return metadata(sound).compatibleRoles.includes(forTrack(track).id)}

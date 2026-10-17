@@ -565,5 +565,176 @@ test('resetLocalChanges clears requests/responses, resets project, and updates c
   await bridge.disconnect();
 });
 
+test('instruments.json exposes vibeAndSetupPolicy, soundsBySetup, and multi-setup sound metadata', () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+  const inst = JSON.parse(files['instruments.json']);
+
+  assert.ok(inst.vibeAndSetupPolicy, 'vibeAndSetupPolicy must be present');
+  assert.ok(inst.vibeAndSetupPolicy.ambient);
+  assert.ok(inst.vibeAndSetupPolicy.reactor);
+  assert.ok(inst.vibeAndSetupPolicy.rule);
+
+  for (const track of inst.tracks) {
+    assert.ok(track.soundsBySetup, `track ${track.slot} must have soundsBySetup`);
+    assert.ok(Array.isArray(track.soundsBySetup.ambient), `ambient sounds array required for ${track.slot}`);
+    assert.ok(Array.isArray(track.soundsBySetup.reactor), `reactor sounds array required for ${track.slot}`);
+    for (const s of track.compatibleSounds) {
+      assert.ok(Array.isArray(s.setups), `sound ${s.sound} must have setups array`);
+      assert.ok(s.canonicalId, `sound ${s.sound} must have canonicalId`);
+    }
+  }
+});
+
+test('request modification after error triggers re-validation, clears error, and sets pending', async () => {
+  const {api} = createTestApp();
+  const reqFiles = new Map();
+  const resFiles = new Map();
+  const rootFiles = new Map();
+
+  function makeDir(map){
+    return {
+      async getFileHandle(name, opts){
+        return {
+          async getFile(){
+            if (!map.has(name)) throw Error('File not found');
+            return { text: async () => map.get(name) };
+          },
+          async createWritable(){
+            return {
+              async write(c){ map.set(name, c); },
+              async close(){}
+            };
+          }
+        };
+      },
+      async removeEntry(name){
+        map.delete(name);
+      },
+      async *entries(){
+        for (const [k, v] of Array.from(map.entries())){
+          yield [k, { kind: 'file', getFile: async () => ({ text: async () => v }) }];
+        }
+      }
+    };
+  }
+
+  const fakeDirHandle = {
+    name: 'test-folder',
+    async getDirectoryHandle(name, opts){
+      if (name === 'requests') return makeDir(reqFiles);
+      if (name === 'responses') return makeDir(resFiles);
+      throw Error('Unknown dir');
+    },
+    async getFileHandle(name, opts){
+      return {
+        async createWritable(){
+          return {
+            async write(c){ rootFiles.set(name, c); },
+            async close(){}
+          };
+        }
+      };
+    }
+  };
+
+  const bridge = FileBridge.createBridge(api, { pollInterval: 0 });
+  await bridge.connect(fakeDirHandle);
+
+  const initialRev = api.getProjectState().revision;
+
+  // Step 1: Agent writes an invalid request (reactor sound in ambient setup)
+  const invalidReq = {
+    requestId: 'req-holiday',
+    schemaVersion: 1,
+    baseRevision: initialRev,
+    operations: [
+      {
+        op: 'project.replace',
+        project: {
+          format: 'halo-project',
+          version: 1,
+          setup: 'ambient',
+          bars: 4,
+          tempo: 80,
+          tracks: [
+            { name: 'GLASS', instrument: 'GLASS', generator: 3, sound: 'reactor-dry-kick', on: true, exact: true, steps: [0, 4, 8, 12], level: 70, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'TIDAL', instrument: 'TIDAL', generator: 3, sound: 'air', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'ROOT', instrument: 'ROOT', generator: 3, sound: 'round', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'EMBER', instrument: 'EMBER', generator: 3, sound: 'string', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'RAIN', instrument: 'RAIN', generator: 3, sound: 'shaker', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'VEIL', instrument: 'VEIL', generator: 3, sound: 'bow', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'MOSS', instrument: 'MOSS', generator: 3, sound: 'marimba', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'AURA', instrument: 'AURA', generator: 3, sound: 'wind', on: true, exact: true, steps: [0], level: 50, density: 50, character: 50, duration: 50, space: 30 }
+          ]
+        }
+      }
+    ]
+  };
+
+  reqFiles.set('req-holiday.json', JSON.stringify(invalidReq));
+  await bridge.checkFolder();
+
+  // Verify error response written and help instructs how to switch setup
+  assert.ok(resFiles.has('req-holiday.result.json'));
+  const errRes = JSON.parse(resFiles.get('req-holiday.result.json'));
+  assert.equal(errRes.ok, false);
+  assert.ok(errRes.error.includes('INVALID_SOUND'));
+  assert.ok(errRes.help.includes('REACTOR') || errRes.help.includes('reactor'));
+  assert.ok(errRes.instructionForAgent.includes('ACTION REQUIRED'));
+  assert.equal(bridge.getStatus().pending, null);
+
+  // Step 2: Agent follows error guidance and fixes request by switching world to reactor
+  const validReq = {
+    requestId: 'req-holiday',
+    schemaVersion: 1,
+    baseRevision: initialRev,
+    operations: [
+      {
+        op: 'project.replace',
+        project: {
+          format: 'halo-project',
+          version: 1,
+          world: 'reactor',
+          bars: 4,
+          tempo: 96,
+          tracks: [
+            { name: 'GLASS', instrument: 'GLASS', generator: 3, sound: 'dry-kick', on: true, exact: true, steps: [0, 4, 8, 12], level: 70, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'TIDAL', instrument: 'TIDAL', generator: 3, sound: 'dry-snare', on: true, exact: true, steps: [4, 12], level: 70, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'ROOT', instrument: 'ROOT', generator: 3, sound: 'tight-hat', on: true, exact: true, steps: [0, 2, 4, 6, 8, 10, 12, 14], level: 60, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'EMBER', instrument: 'EMBER', generator: 3, sound: 'floor-tom', on: true, exact: true, steps: [10, 14], level: 65, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'RAIN', instrument: 'RAIN', generator: 3, sound: 'pick-bass', on: true, exact: true, steps: [0, 3, 6, 8, 10, 14], level: 75, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'VEIL', instrument: 'VEIL', generator: 3, sound: 'palm-guitar', on: true, exact: true, steps: [0, 3, 6, 8, 10, 14], level: 70, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'MOSS', instrument: 'MOSS', generator: 3, sound: 'singing-lead', on: true, exact: true, steps: [2, 7, 11], level: 70, density: 50, character: 50, duration: 50, space: 30 },
+            { name: 'AURA', instrument: 'AURA', generator: 3, sound: 'attack-piano', on: true, exact: true, steps: [0, 4, 8, 12], level: 70, density: 50, character: 50, duration: 50, space: 30 }
+          ]
+        }
+      }
+    ]
+  };
+
+  reqFiles.set('req-holiday.json', JSON.stringify(validReq));
+  await bridge.checkFolder();
+
+  // Verify stale error removed, state.error cleared, and pending set
+  assert.equal(resFiles.has('req-holiday.result.json'), false, 'Stale error response must be removed on valid retry');
+  assert.equal(bridge.getStatus().error, null);
+  assert.ok(bridge.getStatus().pending, 'Pending proposal must be awaiting user approval');
+  assert.equal(bridge.getStatus().pending.id, 'req-holiday');
+
+  // Step 3: User approves proposal
+  await bridge.applyPending();
+  assert.equal(bridge.getStatus().pending, null);
+  assert.ok(resFiles.has('req-holiday.result.json'));
+  const okRes = JSON.parse(resFiles.get('req-holiday.result.json'));
+  assert.equal(okRes.ok, true);
+  assert.equal(okRes.appliedRevision, initialRev + 1);
+  assert.equal(api.getProjectState().project.setup, 'reactor');
+  assert.equal(api.getProjectState().project.tempo, 96);
+
+  await bridge.disconnect();
+});
+
+
 
 

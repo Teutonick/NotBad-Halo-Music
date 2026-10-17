@@ -1,6 +1,13 @@
 ## [Unreleased] - 2026-10-17
 
 ### Fixed
+- **Sound & Vibe Setup Availability and Error Self-Correction (`src/sounds.js`, `src/roles.js`, `src/project.js`, `src/agent.js`, `src/file-bridge.js`):**
+  - Resolved issue where an external AI was unable to self-correct upon encountering `INVALID_SOUND: sound "reactor-dry-kick" is not available for slot "GLASS" in world "ambient"`:
+    - Added explicit `setups` array on all presets and exposed `soundsBySetup` in `instruments.json` to clearly communicate vibe-dependent instrument catalogs. Supported future multi-setup instruments (`setups: ['ambient', 'reactor']`).
+    - Added support for `setup`, `world`, and `soundWorld` aliases across project parsing and composition validation.
+    - Supported setup auto-inference (automatically resolving `setup = 'reactor'` if `setup` is omitted but reactor sounds are present) and automatic prefix stripping.
+    - Enhanced error messages with contextual `help` and actionable `instructionForAgent` directing the model to switch setups or choose available sounds.
+    - Added file-modification retry detection in File Bridge: when an agent overwrites a failed request file in `requests/`, HALO automatically re-evaluates the modified file, removes stale error `.result.json` files, and queues the valid proposal for human approval.
 - **Reset Local Changes Crash & Infinite Canvas Render Loop (`src/agent.js`, `index.html`, `src/file-bridge.js`):**
   - Resolved `Uncaught Error: Invalid numeric value` occurring during File Bridge «↺ Сбросить изменения» ("Reset Local Changes"): `agent.resetProject()` now explicitly outputs `startStep: 0` and preserves Generator 3 role and sequence metadata instead of overriding tracks with generator 1.
   - Hardened `applyProjectState()` in `index.html` to guarantee `step` and `frozenBeat` always evaluate to finite numbers (`0` when `startStep` is omitted or undefined), preventing `frozenBeat = NaN`.

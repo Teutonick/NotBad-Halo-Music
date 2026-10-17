@@ -64,10 +64,13 @@
       const res = [];
       for (const [slotKey, bank] of Object.entries(catalog)) {
         for (const s of (bank.sounds || [])) {
+          const canonicalId = s.id.startsWith(worldName + '-') ? s.id.slice(worldName.length + 1) : s.id;
           res.push({
             world: worldName,
+            setups: s.setups || [worldName],
             instrument: slotKey,
             sound: s.id,
+            canonicalId,
             name: s.name,
             compatibleRoles: s.playback?.compatibleRoles || [],
             affinityRoles: s.playback?.affinityRoles || [],
@@ -83,26 +86,48 @@
       ...findCompatible(caps.catalog?.reactor, 'reactor')
     ];
 
-    const roles = (caps.roles || []).map((r, i) => ({
-      trackIndex: i,
-      slot: r.slot,
-      role: r.id,
-      name: r.label,
-      description: r.description,
-      policy: r.policy,
-      noteRange: { minMidi: r.minMidi || 24, maxMidi: r.maxMidi || 96 },
-      allowedBanks: ['ambient', 'reactor'],
-      compatibleSounds: allSounds
-        .filter(s => s.compatibleRoles.includes(r.id))
-        .map(s => ({
-          world: s.world,
+    const roles = (caps.roles || []).map((r, i) => {
+      const compatible = allSounds.filter(s => s.compatibleRoles.includes(r.id));
+      const soundsBySetup = {
+        ambient: compatible.filter(s => (s.setups || [s.world]).includes('ambient')).map(s => ({
           instrument: s.instrument,
           sound: s.sound,
+          canonicalId: s.canonicalId,
+          name: s.name,
+          affinity: s.affinityRoles.includes(r.id),
+          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
+        })),
+        reactor: compatible.filter(s => (s.setups || [s.world]).includes('reactor')).map(s => ({
+          instrument: s.instrument,
+          sound: s.sound,
+          canonicalId: s.canonicalId,
           name: s.name,
           affinity: s.affinityRoles.includes(r.id),
           noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
         }))
-    }));
+      };
+      return {
+        trackIndex: i,
+        slot: r.slot,
+        role: r.id,
+        name: r.label,
+        description: r.description,
+        policy: r.policy,
+        noteRange: { minMidi: r.minMidi || 24, maxMidi: r.maxMidi || 96 },
+        allowedBanks: ['ambient', 'reactor'],
+        soundsBySetup,
+        compatibleSounds: compatible.map(s => ({
+          world: s.world,
+          setups: s.setups || [s.world],
+          instrument: s.instrument,
+          sound: s.sound,
+          canonicalId: s.canonicalId,
+          name: s.name,
+          affinity: s.affinityRoles.includes(r.id),
+          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
+        }))
+      };
+    });
 
     const parameterGlossary = {
       character: {
@@ -147,6 +172,20 @@
     return {
       schemaVersion: 1,
       description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
+      vibeAndSetupPolicy: {
+        description: 'HALO soundscapes and motifs are strictly vibe-dependent. All 8 tracks must use sounds from the active project setup (world). In project.replace, specify "setup": "ambient" or "setup": "reactor" (or "world": "ambient"/"reactor").',
+        ambient: {
+          vibe: 'Atmospheric, meditative, calm soundscape using procedural synthesis.',
+          instruments: 'Bells, vibes, crystals, warm pads, sub-bass, organic wood clicks, nature noise (no acoustic drum kits or rock guitars).',
+          motifs: 'Contemplative, fluid, ambient motifs.'
+        },
+        reactor: {
+          vibe: 'Driving, energetic acoustic and rock rhythm using 130 local CC0 recordings.',
+          instruments: 'Punchy kicks, crack/steel snares, hats, toms, electric bass, palm-muted and power guitars, piano, analog synth.',
+          motifs: 'Driving eighths, half-time, rock riffs, melodic hooks.'
+        },
+        rule: 'To use REACTOR acoustic drums or rock guitars, set "setup": "reactor" in project.replace. In AMBIENT setup ("setup": "ambient"), only AMBIENT procedural sounds are available. A sound may belong to multiple setups if listed in its "setups" array.'
+      },
       tracks: roles,
       parameterGlossary,
       soundWorlds: {
@@ -447,9 +486,22 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
   - 6: PERC (cymbals, tambourine, hi-hats, acoustic shaker)
   - 7: TEXTURE (ambient guitar feedback, electric sub wash)
 
-### Sound World Rules:
-- Instruments from \`instruments.json\` may be assigned to any track slot, but the default sound environment and sample engine are governed by \`"setup"\`.
+### Sound World & Setup Rules:
+- **Vibe-Dependent Sounds:** Instruments and motifs are strictly setup-dependent. In \`instruments.json\`, examine \`soundsBySetup\` for your active setup (\`"ambient"\` or \`"reactor"\`).
+- **AMBIENT setup (\`"setup": "ambient"\`):** Uses procedural synthesis (bells, vibes, crystal, pads, subs, wood percussion, organic noise). Do NOT use acoustic rock drums (kicks, snares, hats, toms) or electric guitars here.
+- **REACTOR setup (\`"setup": "reactor"\`):** Uses 130 authentic CC0 acoustic/rock audio recordings (punchy kicks, snares, hats, toms, bass guitar, electric guitars, piano, synth). Do NOT use procedural-only ambient sounds here.
+- **Multi-Setup Sounds:** Some sounds declare multiple setups in their \`"setups"\` array (e.g. \`["ambient", "reactor"]\`) and can be used in either world.
 - **Single World per Composition:** All phrases in a composition must share the same \`setup\` world (mixing AMBIENT and REACTOR within the same song is unsupported).
+- **Aliases:** In \`project.replace\` or \`composition.replace\`, \`"setup"\`, \`"world"\`, and \`"soundWorld"\` are supported interchangeably (e.g. \`"setup": "reactor"\` or \`"world": "reactor"\`).
+
+## Error Self-Correction Workflow
+If a command execution returns \`"ok": false\` in \`responses/<requestId>.result.json\`:
+1. **Carefully read \`"error"\` and \`"help"\`:** The error message explicitly states the problem and how to resolve it.
+2. **Setup Mismatch Error:** If the error says \`INVALID_SOUND: sound "..." belongs to the "REACTOR" setup... but current project setup is "ambient"\`:
+   - **Option A:** Change \`"setup": "reactor"\` (or \`"world": "reactor"\`) in your \`project.replace\` payload.
+   - **Option B:** Replace the requested sound with a sound available in \`"ambient"\` for that track (consult \`soundsBySetup.ambient\` in \`instruments.json\`).
+3. **Overwrite and Re-Submit:** You can overwrite the same file in \`requests/\` or write a new one with a fresh \`requestId\`. HALO automatically detects file modifications and re-evaluates immediately.
+4. **Action Directive:** Do NOT sit idle or wait for errors to vanish on their own. Once you write the corrected request, terminate your turn and ask the user to click "Approve" in HALO.
 
 ## Example Requests
 
@@ -631,13 +683,17 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     } else if (msg.includes('UNKNOWN_FIELD')) {
       help = 'An unexpected property was found. Consult capabilities.json and AGENT_GUIDE.md for allowed fields. Do not invent custom properties.';
     } else if (msg.includes('INVALID_SOUND')) {
-      help = 'Sound ID not found. Sound names must match instruments.json exactly (e.g. "bell", "piano", "sine", "shaker" without world prefixes like "ambient-").';
+      if (msg.includes('belongs to the "REACTOR" setup') || msg.includes('belongs to the "AMBIENT" setup')) {
+        help = 'Sound setup/vibe mismatch: ' + msg + ' To use this sound, set "setup": "reactor" (or "world": "reactor") in project.replace, or choose sounds available in the current setup from instruments.json.';
+      } else {
+        help = 'Sound ID not found or not available in this slot/setup. Check soundsBySetup in instruments.json for your active setup ("ambient" or "reactor") and slot name. Ensure sound names do not have invalid prefixes.';
+      }
     } else if (msg.includes('UNSUPPORTED_FORMAT')) {
       help = 'For single-phrase project, format must be "notbad-halo-project" or "halo-project". For multi-phrase songs, format must be "halo-composition".';
     } else if (msg.includes('INVALID_BARS')) {
       help = 'Phrase length must be either 4 or 8 bars.';
-    } else if (msg.includes('UNSUPPORTED_SETUP')) {
-      help = 'Setup must be either "ambient" (procedural synthesis) or "reactor" (CC0 acoustic/rock samples).';
+    } else if (msg.includes('UNSUPPORTED_SETUP') || msg.includes('Unsupported setup')) {
+      help = 'Setup must be either "ambient" (procedural synthesis) or "reactor" (CC0 acoustic/rock samples). Set "setup": "ambient" or "setup": "reactor" (or "world": "ambient" / "world": "reactor").';
     } else if (msg.includes('UNSUPPORTED_TIME_SIGNATURE')) {
       help = 'Time signature must be "4/4" or "3/4".';
     } else if (msg.includes('EXACT_REQUIRED')) {
@@ -654,7 +710,7 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     if (consecutiveCount >= 3) {
       instructionForAgent = `CRITICAL STOP DIRECTIVE: ${consecutiveCount} consecutive request failures detected. STOP YOUR RETRY LOOP IMMEDIATELY. Do not guess parameters or attempt brute-force trial and error. Stop and report the exact error to the user, and ask for clarification, or consult AGENT_GUIDE.md and instruments.json.`;
     } else {
-      instructionForAgent = 'Review the error and help above. Do not guess parameters. Consult instruments.json and AGENT_GUIDE.md. Maximum 2 retry attempts allowed.';
+      instructionForAgent = 'ACTION REQUIRED: Carefully follow the error message and help above to fix your request. You can overwrite the same request file or write a new one with a new requestId. Do NOT idle or wait for errors to disappear without modifying your request. Consult instruments.json and AGENT_GUIDE.md. Maximum 2 retry attempts allowed.';
     }
 
     return { help, instructionForAgent };
@@ -798,6 +854,8 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     let consecutiveErrors = 0;
     const listeners = new Set();
     const processedIds = new Set();
+    const processedContent = new Map();
+    const appliedIds = new Set();
     const win = env.window || root;
 
     const state = {
@@ -827,11 +885,17 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         const reqDir = await dirHandle.getDirectoryHandle('requests', { create: true });
         const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
 
-        // Scan existing responses to populate processedIds
+        // Scan existing responses to populate appliedIds
         for await (const [name, handle] of resDir.entries()){
           if (handle.kind === 'file' && name.endsWith('.result.json')){
             const id = name.replace(/\.result\.json$/i, '');
-            processedIds.add(id);
+            try {
+              const resText = await readFsFile(handle);
+              const resData = JSON.parse(resText);
+              if (resData && resData.ok === true) {
+                appliedIds.add(id);
+              }
+            } catch {}
           }
         }
 
@@ -845,9 +909,15 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         for await (const [name, handle] of reqDir.entries()){
           if (handle.kind !== 'file' || !name.endsWith('.json')) continue;
           const baseId = name.replace(/\.json$/i, '');
-          if (processedIds.has(baseId)) continue;
 
           const text = await readFsFile(handle);
+          if (processedContent.get(baseId) === text) continue;
+          if (appliedIds.has(baseId) && !processedContent.has(baseId)) {
+            processedContent.set(baseId, text);
+            continue;
+          }
+
+          processedContent.set(baseId, text);
           const parsed = parseAndValidateRequest(api, text, baseId);
 
           if (!parsed.ok) {
@@ -864,10 +934,21 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
               timestamp: new Date().toISOString()
             };
             await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(errRes, null, 2));
+            if (baseId !== parsed.id) {
+              await writeFsFile(resDir, `${baseId}.result.json`, JSON.stringify(errRes, null, 2));
+            }
             processedIds.add(baseId);
             state.lastResult = errRes;
+            state.error = parsed.error;
             notify();
             continue;
+          }
+
+          consecutiveErrors = 0;
+          state.error = null;
+          await resDir.removeEntry(`${parsed.id}.result.json`).catch(() => {});
+          if (baseId !== parsed.id) {
+            await resDir.removeEntry(`${baseId}.result.json`).catch(() => {});
           }
 
           // Rule 1: Never apply automatically by default
@@ -884,7 +965,8 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
           } else {
             api.setEnabled(true);
             const applied = await api.applyOperations(parsed.transaction);
-            consecutiveErrors = 0;
+            appliedIds.add(baseId);
+            appliedIds.add(parsed.id);
             const okRes = {
               ok: true,
               id: parsed.id,
@@ -893,6 +975,9 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
               timestamp: new Date().toISOString()
             };
             await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
+            if (baseId !== parsed.id) {
+              await writeFsFile(resDir, `${baseId}.result.json`, JSON.stringify(okRes, null, 2));
+            }
             await syncStateOnly(dirHandle, api);
             processedIds.add(baseId);
             state.lastResult = okRes;
@@ -900,7 +985,6 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
           }
         }
         state.lastCheck = new Date().toISOString();
-        state.error = null;
       } catch(err) {
         state.error = err.message;
       } finally {
@@ -926,10 +1010,16 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
           timestamp: new Date().toISOString()
         };
         await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(okRes, null, 2));
+        if (p.baseId && p.baseId !== p.id) {
+          await writeFsFile(resDir, `${p.baseId}.result.json`, JSON.stringify(okRes, null, 2));
+        }
         await syncStateOnly(dirHandle, api);
+        appliedIds.add(p.baseId);
+        appliedIds.add(p.id);
         processedIds.add(p.baseId);
         state.lastResult = okRes;
         state.pending = null;
+        state.error = null;
       } catch(e) {
         state.error = e.message;
       } finally {
@@ -957,6 +1047,9 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
           timestamp: new Date().toISOString()
         };
         await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(rejRes, null, 2));
+        if (p.baseId && p.baseId !== p.id) {
+          await writeFsFile(resDir, `${p.baseId}.result.json`, JSON.stringify(rejRes, null, 2));
+        }
         processedIds.add(p.baseId);
         state.lastResult = rejRes;
         state.pending = null;
@@ -986,7 +1079,11 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         state.lastSync = new Date().toISOString();
         // Start polling
         if (pollInterval) clearInterval(pollInterval);
-        pollInterval = setInterval(checkFolder, 1500);
+        const intervalMs = env.pollInterval !== undefined ? env.pollInterval : 1500;
+        if (intervalMs > 0) {
+          pollInterval = setInterval(checkFolder, intervalMs);
+          if (typeof pollInterval?.unref === 'function') pollInterval.unref();
+        }
         await checkFolder();
       } catch(e) {
         state.error = e.message;

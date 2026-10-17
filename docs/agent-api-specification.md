@@ -95,9 +95,12 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
 
 ### Sound Worlds: AMBIENT vs. REACTOR
 - Switching is controlled via top-level `"setup": "ambient" | "reactor"` in `project.replace` or every phrase of `composition.replace`. All phrases in a composition must share the same sound world.
+- **Aliases & Auto-Inference:** `setup`, `world`, and `soundWorld` are interchangeable aliases. If `setup` is omitted but reactor presets are present in `project.replace`, the engine automatically resolves `setup = 'reactor'`. World prefixes (e.g. `reactor-dry-kick` vs `dry-kick`) are automatically normalized.
+- **Setup & Vibe Sound Availability:** Sounds and motifs are strictly vibe-dependent. `instruments.json` provides `vibeAndSetupPolicy`, `canonicalId`, `setups: [...]`, and role-level `soundsBySetup: { ambient: [...], reactor: [...] }`. Every sound declares an explicit `setups` array (`['ambient']`, `['reactor']`, or multi-setup `['ambient', 'reactor']`) supporting multi-setup availability on the engine level.
 - **`ambient`:** 100% procedural real-time Web Audio synthesis (pure sines, FM, filtered noise). Meditative, ethereal, cosmic vibe. Recommended tempo 60..85 BPM, spacious reverb (`space`: 35..80%).
 - **`reactor`:** 32 organic presets backed by 130 authentic CC0 acoustic and electric instrument recordings (drums, overdriven bass, guitars, acoustic piano, brass). Driving, punchy rock vibe. Recommended tempo 90..140 BPM, focused mix (`space`: 10..30%).
 - Instruments from any bank may be assigned to any voice, but global acoustic environment and default styling follow `setup`.
+- **Error Self-Correction & File Modification Retry:** On validation failures (such as `INVALID_SOUND`), `responses/<requestId>.result.json` provides an informative `help` explanation and an actionable `instructionForAgent`. If an agent rewrites or modifies the failed request file in `requests/`, File Bridge automatically detects the change, purges stale error files, clears error state, and queues the new valid proposal into `state.pending` for human approval.
 
 ### File Bridge Directory Persistence & Control Actions
 - `FileSystemDirectoryHandle` is persisted in IndexedDB (`halo-file-bridge-v1`).

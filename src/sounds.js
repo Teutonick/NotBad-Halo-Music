@@ -3,7 +3,7 @@
   'use strict';
   const phrases=typeof module!=='undefined'&&module.exports?require('./phrases.js'):root.HaloPhrases;
   const roles=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;
-  const patch = (id,name,engine,tone,decay,extra={}) => {const s={id,name,engine,tone,decay,...extra};return Object.freeze({...s,playback:roles.describe(s)})};
+  const patch = (id,name,engine,tone,decay,extra={}) => {const setups=Object.freeze(extra.setups||['ambient']);const s={id,name,engine,tone,decay,setups,...extra};return Object.freeze({...s,playback:roles.describe(s)})};
   const banks = {
     GLASS: { role: 'Ringing accents', sounds: [
       patch('bell', 'Soft bell', 'bell', 4200, 2.7),
@@ -62,7 +62,7 @@
     'singing-lead':'guitar-dist','octave-lead':'guitar-dist','picked-lead':'guitar-direct','feedback-lead':'guitar-dist',
     'attack-piano':'piano','dark-piano':'piano','analog-arp':'synth-arp','cut-synth':'synth-cut'
   };
-  const rock = (id,name,engine,tone,decay,pattern,extra={}) => patch('reactor-'+id,name,engine,engine==='metal'?14000:tone,decay,{pattern,punch:true,...extra,filter:'lowpass',sampleBank:sampleBanks[id],drive:sampleBanks[id]==='guitar-dist'?0:extra.drive});
+  const rock = (id,name,engine,tone,decay,pattern,extra={}) => {const setups=Object.freeze(extra.setups||['reactor']);return patch('reactor-'+id,name,engine,engine==='metal'?14000:tone,decay,{pattern,punch:true,setups,...extra,filter:'lowpass',sampleBank:sampleBanks[id],drive:sampleBanks[id]==='guitar-dist'?0:extra.drive})};
   const reactorBanks = {
     GLASS:{label:'KICK',role:'Rock kick',sounds:[
       rock('dry-kick','Dry rock kick','kick',3500,.22,[0,6,8,10],{startHz:180}),

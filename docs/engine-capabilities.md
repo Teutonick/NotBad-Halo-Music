@@ -1,3 +1,18 @@
+### Implemented — 2026-10-17: Sound World & Vibe Setup Availability and AI Self-Correction Protocol
+
+- **Vibe & Setup Sound Availability (`src/sounds.js`, `src/roles.js`, `src/file-bridge.js`):**
+  - Clarified and formalized that instruments and motifs are strictly tied to sound worlds/setups (`ambient` vs `reactor`).
+  - Added explicit `setups` array (`['ambient']`, `['reactor']`, or multi-setup `['ambient', 'reactor']`) on every preset definition.
+  - `instruments.json` now exposes `vibeAndSetupPolicy`, `canonicalId`, `setups: [...]`, and role-level `soundsBySetup: { ambient: [...], reactor: [...] }` so external agents immediately understand which sounds belong to which vibe.
+  - Setup auto-detection and aliases:
+    - Added support for `setup`, `world`, and `soundWorld` aliases across `project.js` and `agent.js`.
+    - Automatic inference: if `setup` is omitted from `project.replace` but reactor presets are selected, the engine automatically resolves `setup = 'reactor'`.
+    - Preset prefix stripping: tolerate names like `reactor-dry-kick` or `dry-kick`.
+- **Actionable AI Error Self-Correction & File Modification Retry (`src/file-bridge.js`, `src/project.js`):**
+  - Enhanced error messages for `INVALID_SOUND` and schema errors with explicit corrective guidance (`help`) and actionable instructions (`instructionForAgent`).
+  - Agents are explicitly informed to either set `"setup": "reactor"` (or `"world": "reactor"`) or pick sounds available in `ambient`.
+  - File Bridge now tracks content hashes/text (`processedContent = new Map()`) instead of merely request IDs: when an external agent modifies an existing failed request file in `requests/`, HALO automatically re-evaluates the updated content, clears stale error `.result.json` files and bridge errors, and moves the valid proposal into `state.pending` for human approval.
+
 ### Implemented — 2026-10-17: AI File Bridge Anti-Hallucination & Zero-Execution Protocol
 
 - **Zero Localhost & Zero CLI Prohibitions (`AGENT_GUIDE.md`, `src/file-bridge.js`, `.agents/rules/`):**

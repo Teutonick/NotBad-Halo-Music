@@ -24,12 +24,21 @@
   if(format!=='notbad-halo-project'&&format!=='halo-project')throw Error('UNSUPPORTED_FORMAT: project format must be "notbad-halo-project" or "halo-project" (received: "'+format+'")');
   if(data.version!==1)throw Error('UNSUPPORTED_VERSION: project version must be 1 (received: '+data.version+')');
   if(![4,8].includes(data.bars))throw Error('INVALID_BARS: phrase length must be 4 or 8 bars (received: '+data.bars+')');
-  if(data.setup!==undefined&&!['ambient','reactor'].includes(data.setup))throw Error('Unsupported setup');
+  const rawSetup=data.setup??data.world??data.soundWorld;
+  if(rawSetup!==undefined&&!['ambient','reactor'].includes(rawSetup))throw Error('Unsupported setup: must be "ambient" or "reactor"');
+  let setup=rawSetup;
+  if(!setup){
+    const hasReactorSound=Array.isArray(data.tracks)&&data.tracks.some(t=>{
+      const s=t?.sound;
+      return typeof s==='string'&&(s.startsWith('reactor-')||['dry-kick','arena-kick','attack-kick','machine-kick','dry-snare','steel-snare','heavy-snare','arena-snare','tight-hat','open-hat','ride','crash','floor-tom','mid-tom','high-tom','war-tom','pick-bass','tube-bass','fuzz-bass','muted-bass','palm-guitar','power-guitar','crunch-guitar','gain-guitar','singing-lead','octave-lead','picked-lead','feedback-lead','attack-piano','dark-piano','analog-arp','cut-synth'].includes(s));
+    });
+    setup=hasReactorSound?'reactor':'ambient';
+  }
   if(data.timeSignature!==undefined&&!['4/4','3/4'].includes(data.timeSignature))throw Error('Unsupported time signature');
   const timeSignature=data.timeSignature==='3/4'?'3/4':'4/4';
   const stepsPerBar=timeSignature==='3/4'?12:16;
   const maxPhraseSteps=data.bars*stepsPerBar;
-  const setup=data.setup||'ambient',banks=sounds.banksFor(setup);
+  const banks=sounds.banksFor(setup);
   const startStep=number(data.startStep??0,0,1000000000);if(!Number.isInteger(startStep)||startStep%maxPhraseSteps!==0)throw Error('Invalid phrase position');
   const seed=data.seed!==undefined?number(data.seed,1,1000000000):1;
   const key=data.key!==undefined?number(data.key,0,23):0;
@@ -48,14 +57,31 @@
    seen.add(t.name);
    if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+t.name+'" requires boolean "on" flag');
    let soundId=t.sound;
-   if(typeof soundId==='string'&&soundId.startsWith(setup+'-')){
-     const stripped=soundId.slice(setup.length+1);
-     if(banks[instrument].sounds.some(s=>s.id===stripped))soundId=stripped;
+   let soundObj=banks[instrument]?.sounds.find(s=>
+     s.id===soundId||
+     s.id===(setup+'-'+soundId)||
+     (s.id.startsWith(setup+'-')&&s.id.slice(setup.length+1)===soundId)||
+     (typeof soundId==='string'&&soundId.startsWith(setup+'-')&&s.id===soundId.slice(setup.length+1))
+   );
+   if(!soundObj){
+     const otherWorld=setup==='ambient'?'reactor':'ambient';
+     const otherBanks=sounds.banksFor(otherWorld);
+     const inOther=otherBanks[instrument]?.sounds.find(s=>
+       s.id===soundId||
+       s.id===(otherWorld+'-'+soundId)||
+       (s.id.startsWith(otherWorld+'-')&&s.id.slice(otherWorld.length+1)===soundId)||
+       (typeof soundId==='string'&&soundId.startsWith(otherWorld+'-')&&s.id===soundId.slice(otherWorld.length+1))
+     )||Object.values(otherBanks).flatMap(b=>b.sounds).find(s=>s.id===soundId||s.id.endsWith('-'+soundId));
+
+     if(inOther){
+       throw Error('INVALID_SOUND: sound "'+t.sound+'" belongs to the "'+otherWorld.toUpperCase()+'" setup (vibe: '+(otherWorld==='reactor'?'driving rock/acoustic rhythm':'meditative ambient')+'), but current project setup is "'+setup+'". To use this sound, set "setup": "'+otherWorld+'" (or "world": "'+otherWorld+'") in project.replace, or choose a sound available in "'+setup+'": ['+banks[instrument]?.sounds.map(s=>s.id.replace(setup+'-','')).join(', ')+']');
+     }
+     throw Error('INVALID_SOUND: sound "'+t.sound+'" is not available for slot "'+instrument+'" in world "'+setup+'". Available sounds: ['+banks[instrument]?.sounds.map(s=>s.id.replace(setup+'-','')).join(', ')+']');
    }
-   if(!banks[instrument].sounds.some(s=>s.id===soundId))throw Error('INVALID_SOUND: sound "'+t.sound+'" is not available for slot "'+instrument+'" in world "'+setup+'". Available sounds: ['+banks[instrument].sounds.map(s=>s.id).join(', ')+']');
+   soundId=soundObj.id;
    if(!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(t.steps).size!==t.steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
    const clean={name:t.name,instrument,generator,sound:soundId,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
-   if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,banks[instrument].sounds.find(s=>s.id===soundId)))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
+   if(generator===3){const role=sounds.roles.forTrack(t).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';

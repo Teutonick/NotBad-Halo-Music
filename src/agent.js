@@ -13,7 +13,7 @@
    if(unknown.length>0)throw Error('UNKNOWN_FIELD: unexpected field(s) ['+unknown.join(', ')+'] in '+path+'. Allowed fields: ['+allowed.join(', ')+']');
   }
   function strictProject(p){
-   only(p,['format','version','setup','bars','startStep','tempo','masterVolume','mix','seed','key','tracks','liveLoop','timeSignature'],'project');
+   only(p,['format','version','setup','world','soundWorld','bars','startStep','tempo','masterVolume','mix','seed','key','tracks','liveLoop','timeSignature'],'project');
    if(p.format!=='notbad-halo-project'&&p.format!=='halo-project')throw Error('UNSUPPORTED_FORMAT: expected "notbad-halo-project" or "halo-project"');
    if(p.mix)only(p.mix,['low','mid','high','width'],'mix');
    if(Array.isArray(p.tracks))for(const t of p.tracks){only(t,['name','role',...fields],'track');if(t.sequence)only(t.sequence,['length','stepLength','offset'],'sequence');if(t.delayTime!==undefined&&!['1/16','1/8','1/8d','1/4'].includes(t.delayTime))throw Error('INVALID_DELAY_TIME');if(Array.isArray(t.noteEvents))for(const e of t.noteEvents)only(e,['step','notes'],'noteEvent')}
@@ -22,12 +22,13 @@
   function check(value){
    if(!value||new TextEncoder().encode(JSON.stringify(value)).length>524288)throw Error('PAYLOAD_TOO_LARGE');
    if(value.format==='halo-composition'){
-     only(value,['format','version','repeat','tempo','masterVolume','mix','phrases','sections','setup','timeSignature','bars','name','title','label'],'composition');
+     only(value,['format','version','repeat','tempo','masterVolume','mix','phrases','sections','setup','world','soundWorld','timeSignature','bars','name','title','label'],'composition');
      if(value.mix)only(value.mix,['low','mid','high','width'],'mix');
+     const compSetup = value.setup || value.world || value.soundWorld;
      if(Array.isArray(value.phrases))for(const p of value.phrases){
        only(p,['id','label','project'],'phrase');
        if(p.project){
-         if(!p.project.setup&&value.setup)p.project.setup=value.setup;
+         if(!p.project.setup&&!p.project.world&&!p.project.soundWorld&&compSetup)p.project.setup=compSetup;
          if(!p.project.timeSignature&&value.timeSignature)p.project.timeSignature=value.timeSignature;
          if(!p.project.bars&&value.bars)p.project.bars=value.bars;
        }
