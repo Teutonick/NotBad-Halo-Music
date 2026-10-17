@@ -230,6 +230,44 @@
           arpeggio: 'Mono: 1 note per step, fast and short (MIDI 48..84)',
           pulse_and_percussion: 'Rhythmic: empty notes array "notes: []" triggers the percussive timbre'
         }
+      },
+      soundWorlds: {
+        ambient: {
+          vibe: 'Meditative, calming, ethereal, cosmic relaxation',
+          engine: '100% procedural real-time Web Audio synthesis (pure sines, FM, soft filters, cosmic pink noise)',
+          defaultTempo: 72,
+          tempoRange: [60, 85],
+          reverbSpace: 'Spacious 2.8s convolution reverb send (30..80%)',
+          defaultVoices: ['GLASS (celestial bells)', 'TIDAL (soft atmosphere)', 'ROOT (sub frequencies)', 'EMBER (warm plucks)', 'RAIN (light rhythm)', 'VEIL (velvet strings)', 'MOSS (slow marimba)', 'AURA (environmental atmosphere)']
+        },
+        reactor: {
+          vibe: 'Driving, energetic, organic rock & acoustic rhythm',
+          engine: '32 organic presets backed by 130 authentic CC0 acoustic and electric instrument recordings',
+          defaultTempo: 100,
+          tempoRange: [90, 140],
+          reverbSpace: 'Punchy, focused mix with moderate reverb (10..30%)',
+          defaultVoices: ['BEAT (kick/snare punch)', 'BASS (overdriven rock bass)', 'KEYS (acoustic piano/Rhodes)', 'CHORD (palm-muted guitar)', 'RIFF (electric lead)', 'LEAD (synth lead/brass)', 'PERC (cymbals/percussion)', 'TEXTURE (ambient guitar wash/sub)']
+        },
+        switchingPolicy: 'Set "setup": "ambient" or "setup": "reactor" in project.replace or in every phrase of composition.replace. All phrases within a composition must share the same sound world. Instruments can be freely assigned from any bank to any track, but the overall acoustic environment and default styling are governed by setup.'
+      },
+      songFormAndComposition: {
+        defaultMode: 'single_phrase',
+        policy: 'HALO works with individual 4/8-bar phrases by default unless a full composition/song is explicitly requested ("песня", "полная композиция", "аранжировка").',
+        limits: {
+          maxPhrases: 15,
+          maxSections: 32,
+          maxBars: 128,
+          repeatsPerSection: [1, 8]
+        },
+        canonicalForm: [
+          { name: 'intro', description: 'Introduction: sparse texture, atmosphere, bells, no heavy bass, 1..2 repeats' },
+          { name: 'verse', description: 'First Verse: groove enters, bassline establishes tonal center, 1..2 repeats' },
+          { name: 'chorus', description: 'Chorus / Climax: all voices active, leading melodic hook, bright character, peak dynamic, 1..2 repeats' },
+          { name: 'verse2', description: 'Second Verse: rhythmic variation or melodic development, 1..2 repeats' },
+          { name: 'bridge', description: 'Bridge: harmonic or rhythmic contrast, altered density or filter, 1..2 repeats' },
+          { name: 'outro', description: 'Outro / Coda: gradual dissolution, fade="out", tails ringing, 1..2 repeats' }
+        ],
+        phraseReusability: 'Reuse identical phrases across sections by referencing their phrase ID (e.g. verse 1 and verse 2 can share phrase 1, or chorus can repeat phrase 2). Independent variations require a new phrase ID with distinct track notes.'
       }
     };
   }
@@ -249,8 +287,8 @@
   function generateAgentGuide(caps, state){
     return `# HALO Agent Guide / Руководство для AI-агента
 
-HALO — браузерный музыкальный конструктор релаксации (8 голосов, 4/4, общая сетка 16 шагов на такт).
-HALO is a browser relaxation music constructor (8 voices, 4/4 time signature, shared 16-step grid).
+HALO — браузерный музыкальный конструктор релаксации (8 голосов, сетка 16 шагов на такт, 4/4 и 3/4).
+HALO is a browser relaxation music constructor (8 voices, 16-step grid per bar, 4/4 and 3/4).
 
 ## Архитектура папки / Folder Structure
 
@@ -279,12 +317,12 @@ HALO-Bridge/
    - \`operations\`: массив операций (до 256 операций)
 4. **Белый список операций (Allowlist):**
    Разрешены только следующие операции:
-   - \`track.patch\` — изменение дорожки (trackIndex: 0..7, values: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus })
-   - \`phrase.patch\` — изменение фразы (bars, startStep, seed, key)
+   - \`track.patch\` — изменение параметров и нот дорожки (trackIndex: 0..7, values: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus, instrument, sound })
+   - \`phrase.patch\` — изменение фразы (bars: 4|8, startStep, seed, key, liveLoop, timeSignature: "4/4"|"3/4")
    - \`master.patch\` — изменение мастера (tempo: 30..200, masterVolume: 0..100, mix: { low, mid, high, width })
-   - \`project.replace\` — полная замена однофразового проекта
-   - \`composition.replace\` — полная замена многофразовой композиции
-   - \`visual.patch\` — визуальный режим (scene, motion, effects)
+   - \`project.replace\` — полная замена однофразового проекта (включая выбор мира "setup": "ambient" | "reactor")
+   - \`composition.replace\` — полная замена многофразовой композиции (до 15 фраз)
+   - \`visual.patch\` — визуальный режим (scene: ORBIT/BLOOM/CURRENT, motion: DRIFT/IN TIME/PHRASE, effects: CLASSIC/COSMIC/HYPER)
    Никаких скриптов, сторонних URL, файлов или команд ОС.
 5. **Подтверждение пользователя:**
    Команды в HALO не применяются скрытно: HALO читает файл, валидирует его, показывает пользователю предпросмотр изменений и ожидает подтверждения.
@@ -295,8 +333,77 @@ HALO-Bridge/
 7. **Идемпотентность и актуальность:**
    Повторная обработка уже выполненного пакета запрещена. Устаревшие ревизии отклоняются с ошибкой \`CONFLICT_REVISION_MISMATCH\`.
 
-## Пример запроса (requests/request-001.json) / Example Request
+## Политика создания: Фраза vs Композиция / Phrase vs Full Composition
 
+- **РЕЖИМ ПО УМОЛЧАНИЮ — КОНКРЕТНАЯ ФРАЗА (DEFAULT: SINGLE PHRASE):**
+  Если в запросе пользователя нет прямого указания написать целую композицию или песню (например: «сочини новогодний джингл на 8 тактов», «напиши тему пиратов», «сделай грув», «добавь бас»), агент работает **исключительно с текущей фразой / лупом** через \`track.patch\` или \`project.replace\`.
+- **ЦЕЛАЯ КОМПОЗИЦИЯ (FULL COMPOSITION):**
+  Создается **ТОЛЬКО** когда пользователь прямо просит: *«сочини песню»*, *«напиши целую композицию»*, *«сделай полную аранжировку с интро и припевом»*.
+  В этом случае используется операция \`composition.replace\`.
+
+### Каноны построения формы композиции / Song Form Canons:
+1. **Intro (Вступление, 1..2 повтора):**
+   Разреженная текстура. Пэд, колокольчики, шелест дождя или тихий пульс. Без тяжелого баса и перегруженных риффов. Устанавливает тональность и дыхание.
+2. **Verse (Куплет, 1..2 повтора):**
+   Вступает ритмический грув и бас. Излагается основная гармоническая последовательность и сдержанный мелодический мотив.
+3. **Chorus (Припев, 1..2 повтора):**
+   Кульминация энергии. Все ключевые дорожки активны (lead, harmony, chord, bass, beat). Повышенная яркость (\`character\`: 60..80) и громкость. Яркий запоминающийся хук.
+4. **Verse 2 (Второй куплет, 1..2 повтора):**
+   Развитие первого куплета. Добавляются контрапунктные арпеджио или вариации барабанов.
+5. **Bridge (Бридж, 1..2 повтора):**
+   Контрастный эпизод: смена гармонии, разрежение или синкопирование ритма, фильтрация частот. Подготовка к финальному припеву.
+6. **Outro (Финал / Кода, 1..2 повтора, fade: "out"):**
+   Постепенное растворение инструментов, хвосты реверберации, затухание в тишину.
+
+### Ограничения композиции / Composition Limits:
+- **МАКСИМУМ 15 УНИКАЛЬНЫХ ФРАЗ (\`phrases.length <= 15\`):**
+  Строгий защитный лимит движка HALO. Попытка передать более 15 фраз будет отклонена валидатором.
+- **Повторы секций (\`repeats: 1..8\`):**
+  Используйте повторы одной и той же фразы через поле \`repeats\` секции (например, \`{ "phrase": 2, "name": "chorus", "repeats": 2 }\`), а также ссылайтесь на один и тот же ID фразы в разных секциях.
+- **Суммарный хронометраж:** не более 128 тактов (MAX_BARS = 128).
+- **Секции:** до 32 секций в массиве \`sections\`.
+
+## Звуковые миры: AMBIENT vs REACTOR / Sound Worlds: AMBIENT vs REACTOR
+
+HALO содержит два принципиально разных звуковых мира, переключаемых свойством \`"setup": "ambient" | "reactor"\`:
+
+### 1. AMBIENT (Медитативный, эфирный, космический)
+- **Синтез:** 100% процедурный чистый Web Audio синтез в реальном времени.
+- **Вайб:** Спокойствие, созерцание, медитация, космос, органическое дыхание.
+- **Темп:** 60..85 BPM (по умолчанию 72 BPM).
+- **Пространство:** Глубокая реверберация (\`space\`: 35..80%), стереохорус, мягкие огибающие.
+- **8 голосов по умолчанию:**
+  - 0: GLASS (хрустальные колокольчики, чистые обертоны)
+  - 1: TIDAL (дышащие мягкие атмосферные пэды)
+  - 2: ROOT (глубокий аналоговый суб-бас)
+  - 3: EMBER (теплые щипковые тембры)
+  - 4: RAIN (шум дождя, щелчки, нежный ритм)
+  - 5: VEIL (бархатные смычковые струнные)
+  - 6: MOSS (деревянная маримба / перкуссия)
+  - 7: AURA (окружающий космический фон / дрон)
+
+### 2. REACTOR (Драйвовый, энергичный, рок/акустический)
+- **Сэмплы:** 32 органических пресета на базе 130 аутентичных CC0-аудиозаписей живых инструментов.
+- **Вайб:** Драйв, рок, плотный грув, акустическое присутствие, напор.
+- **Темп:** 90..140 BPM (по умолчанию 100 BPM; для 6/8 pirate swing используйте 3/4 8 bars).
+- **Пространство:** Плотный, сфокусированный микс (\`space\`: 10..30%), быстрый панч, четкие транзиенты.
+- **8 голосов по умолчанию:**
+  - 0: BEAT (живой панчевый кик и рабочий барабан)
+  - 1: BASS (перегруженный роковый бас с овердрайвом)
+  - 2: KEYS (акустическое фортепиано / Rhodes)
+  - 3: CHORD (глушеная ритм-гитара / палм-мьют)
+  - 4: RIFF (электрогитара с перегрузом / лид)
+  - 5: LEAD (аналоговый синтезаторный лид / духовые)
+  - 6: PERC (живые тарелки, хэт, шейкер)
+  - 7: TEXTURE (гитарный фидбек, атмосферный низкочастотный слой)
+
+### Правила миров / World Rules:
+- Инструменты из каталога \`instruments.json\` могут назначаться на любую дорожку, но общее акустическое оформление, сэмплерный движок и эстетика задаются полем \`"setup"\`.
+- **Единый мир:** Все фразы одной композиции обязаны иметь один и тот же \`setup\` (смешивание AMBIENT и REACTOR внутри одной песни не поддерживается).
+
+## Примеры запросов / Example Requests
+
+### Пример 1: Изменение дорожки фразы (track.patch)
 \`\`\`json
 {
   "requestId": "request-001",
@@ -313,10 +420,48 @@ HALO-Bridge/
           { "step": 0, "notes": [72] },
           { "step": 4, "notes": [76] },
           { "step": 8, "notes": [79] },
-          { "step": 12, "notes": [76] }
+          { "step": 12, "notes": [84] }
         ],
         "character": 65,
         "space": 40
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Пример 2: Создание полной композиции (composition.replace)
+\`\`\`json
+{
+  "requestId": "request-002",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "composition.replace",
+      "project": {
+        "format": "halo-composition",
+        "version": 1,
+        "tempo": 72,
+        "masterVolume": 50,
+        "mix": { "low": 0, "mid": 0, "high": 0, "width": 35 },
+        "repeat": true,
+        "phrases": [
+          { "id": 1, "label": "Intro", "project": { /* полный объект проекта phrase 1 */ } },
+          { "id": 2, "label": "Verse", "project": { /* полный объект проекта phrase 2 */ } },
+          { "id": 3, "label": "Chorus", "project": { /* полный объект проекта phrase 3 */ } },
+          { "id": 4, "label": "Bridge", "project": { /* полный объект проекта phrase 4 */ } },
+          { "id": 5, "label": "Outro", "project": { /* полный объект проекта phrase 5 */ } }
+        ],
+        "sections": [
+          { "phrase": 1, "name": "intro", "repeats": 1, "fade": "none" },
+          { "phrase": 2, "name": "verse", "repeats": 2, "fade": "none" },
+          { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
+          { "phrase": 2, "name": "verse2", "repeats": 2, "fade": "none" },
+          { "phrase": 4, "name": "bridge", "repeats": 1, "fade": "none" },
+          { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
+          { "phrase": 5, "name": "outro", "repeats": 1, "fade": "out" }
+        ]
       }
     }
   ]
@@ -441,15 +586,86 @@ HALO-Bridge/
     await writeFsFile(dirHandle, 'project-state.json', content);
   }
 
+  // --- IndexedDB directory persistence across page reloads ---
+  const IDB_NAME = 'halo-file-bridge-v1';
+  const IDB_STORE = 'handles';
+  const IDB_KEY = 'last-directory';
+
+  function openIdb(win){
+    return new Promise(resolve => {
+      const idb = win?.indexedDB || (typeof indexedDB !== 'undefined' ? indexedDB : root.indexedDB);
+      if (!idb) return resolve(null);
+      try {
+        const req = idb.open(IDB_NAME, 1);
+        req.onupgradeneeded = () => {
+          const db = req.result;
+          if (!db.objectStoreNames.contains(IDB_STORE)) {
+            db.createObjectStore(IDB_STORE);
+          }
+        };
+        req.onsuccess = () => resolve(req.result);
+        req.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  }
+
+  async function storeDirectoryHandle(handle, win){
+    try {
+      const db = await openIdb(win);
+      if (!db) return;
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put({ name: handle.name, handle, timestamp: Date.now() }, IDB_KEY);
+      await new Promise(r => {
+        tx.oncomplete = r;
+        tx.onerror = r;
+        setTimeout(r, 100);
+      });
+    } catch {}
+  }
+
+  async function retrieveStoredDirectory(win){
+    try {
+      const db = await openIdb(win);
+      if (!db) return null;
+      const tx = db.transaction(IDB_STORE, 'readonly');
+      const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
+      return await new Promise(r => {
+        req.onsuccess = () => r(req.result || null);
+        req.onerror = () => r(null);
+        setTimeout(() => r(null), 100);
+      });
+    } catch {
+      return null;
+    }
+  }
+
+  async function clearStoredDirectory(win){
+    try {
+      const db = await openIdb(win);
+      if (!db) return;
+      const tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(IDB_KEY);
+      await new Promise(r => {
+        tx.oncomplete = r;
+        tx.onerror = r;
+        setTimeout(r, 100);
+      });
+    } catch {}
+  }
+
   function createBridge(api, env = {}){
     let dirHandle = null;
     let pollInterval = null;
     const listeners = new Set();
     const processedIds = new Set();
+    const win = env.window || root;
 
     const state = {
       connected: false,
       directoryName: '',
+      savedDirectory: null, // { name: string, handle: FileSystemDirectoryHandle }
       lastSync: null,
       lastCheck: null,
       pending: null,
@@ -457,7 +673,7 @@ HALO-Bridge/
       error: null,
       busy: false,
       autoApply: false,
-      supported: typeof env.window?.showDirectoryPicker === 'function' || typeof root.showDirectoryPicker === 'function'
+      supported: typeof win?.showDirectoryPicker === 'function' || typeof root.showDirectoryPicker === 'function'
     };
 
     function notify(){
@@ -607,10 +823,12 @@ HALO-Bridge/
       dirHandle = handle;
       state.connected = true;
       state.directoryName = handle.name || 'HALO-Bridge';
+      state.savedDirectory = null;
       state.error = null;
       state.busy = true;
       notify();
       try {
+        await storeDirectoryHandle(handle, win);
         // Ensure subfolders
         await dirHandle.getDirectoryHandle('requests', { create: true });
         await dirHandle.getDirectoryHandle('responses', { create: true });
@@ -629,15 +847,51 @@ HALO-Bridge/
       }
     }
 
-    function disconnect(){
+    async function disconnect(){
       if (pollInterval) clearInterval(pollInterval);
       pollInterval = null;
       dirHandle = null;
       state.connected = false;
       state.directoryName = '';
+      state.savedDirectory = null;
       state.pending = null;
+      await clearStoredDirectory(win);
       notify();
     }
+
+    let restoringPromise = null;
+    async function doRestore(){
+      if (state.connected || dirHandle) return;
+      const stored = await retrieveStoredDirectory(win);
+      if (!stored || !stored.handle) return;
+      const handle = stored.handle;
+      try {
+        if (typeof handle.queryPermission === 'function') {
+          const perm = await handle.queryPermission({ mode: 'readwrite' });
+          if (perm === 'granted') {
+            await connect(handle);
+            return;
+          }
+        }
+      } catch {}
+      state.savedDirectory = { name: stored.name || handle.name || 'HALO-Bridge', handle };
+      notify();
+    }
+
+    function tryRestore(){
+      if (!restoringPromise) {
+        restoringPromise = doRestore().finally(() => { restoringPromise = null; });
+      }
+      return restoringPromise;
+    }
+
+    async function forgetSavedDirectory(){
+      state.savedDirectory = null;
+      await clearStoredDirectory(win);
+      notify();
+    }
+
+    tryRestore();
 
     async function syncFiles(){
       if (!dirHandle) return;
@@ -657,6 +911,8 @@ HALO-Bridge/
     return {
       connect,
       disconnect,
+      tryRestore,
+      forgetSavedDirectory,
       syncFiles,
       checkFolder,
       applyPending,
@@ -669,7 +925,9 @@ HALO-Bridge/
         return () => listeners.delete(fn);
       },
       dispose(){
-        disconnect();
+        if (pollInterval) clearInterval(pollInterval);
+        pollInterval = null;
+        dirHandle = null;
         listeners.clear();
       }
     };
@@ -721,6 +979,8 @@ HALO-Bridge/
       statusBadge.style.cssText = 'font-size:11px;font-weight:550;letter-spacing:.05em;display:flex;align-items:center;gap:6px;';
       if (s.connected) {
         statusBadge.innerHTML = `<span style="color:#7ef0dc;">●</span> ${tr('Папка подключена:','Folder connected:')} <span style="color:#fff;">${s.directoryName}</span>`;
+      } else if (s.savedDirectory) {
+        statusBadge.innerHTML = `<span style="color:#f8c98f;">⏸</span> ${tr('Сохранённая папка:','Saved folder:')} <span style="color:#fff;">${s.savedDirectory.name}</span>`;
       } else {
         statusBadge.innerHTML = `<span style="color:#8ca2b3;">○</span> ${tr('Папка не подключена','Folder disconnected')}`;
       }
@@ -732,21 +992,70 @@ HALO-Bridge/
 
       if (!s.connected) {
         if (s.supported) {
-          const btnConnect = document.createElement('button');
-          btnConnect.className = 'glass-btn';
-          btnConnect.style.cssText = 'font-size:10px;padding:4px 12px;min-height:30px;border-color:rgba(139,232,227,.4);';
-          btnConnect.textContent = tr('📁 Подключить папку HALO-Bridge', '📁 Connect HALO-Bridge Folder');
-          btnConnect.onclick = async () => {
-            try {
-              const picker = root.showDirectoryPicker;
-              if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
-              const handle = await picker({ mode: 'readwrite' });
-              await bridge.connect(handle);
-            } catch(e) {
-              if (e.name !== 'AbortError') alert(e.message);
-            }
-          };
-          actionGroup.append(btnConnect);
+          if (s.savedDirectory) {
+            const btnReconnect = document.createElement('button');
+            btnReconnect.className = 'glass-btn';
+            btnReconnect.style.cssText = 'font-size:10px;padding:4px 14px;min-height:30px;background:rgba(35,80,110,.85);border-color:#75dfd6;color:#d8fff8;font-weight:600;cursor:pointer;';
+            btnReconnect.textContent = tr(`🔓 Возобновить доступ к «${s.savedDirectory.name}»`, `🔓 Reconnect «${s.savedDirectory.name}»`);
+            btnReconnect.title = tr('Подтвердить разрешение браузера и продолжить синхронизацию', 'Confirm browser permission and resume synchronization');
+            btnReconnect.onclick = async () => {
+              try {
+                if (typeof s.savedDirectory.handle.requestPermission === 'function') {
+                  const perm = await s.savedDirectory.handle.requestPermission({ mode: 'readwrite' });
+                  if (perm === 'granted') {
+                    await bridge.connect(s.savedDirectory.handle);
+                    return;
+                  } else {
+                    alert(tr('Доступ к папке не был разрешен пользователем', 'Folder permission was not granted by the user'));
+                    return;
+                  }
+                }
+                await bridge.connect(s.savedDirectory.handle);
+              } catch(e) {
+                if (e.name !== 'AbortError') alert(e.message);
+              }
+            };
+
+            const btnOther = document.createElement('button');
+            btnOther.className = 'glass-btn';
+            btnOther.style.cssText = 'font-size:10px;padding:4px 10px;min-height:30px;border-color:rgba(139,232,227,.4);color:#c4e6ed;cursor:pointer;';
+            btnOther.textContent = tr('📁 Выбрать другую', '📁 Choose other');
+            btnOther.onclick = async () => {
+              try {
+                const picker = root.showDirectoryPicker;
+                if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
+                const handle = await picker({ mode: 'readwrite' });
+                await bridge.connect(handle);
+              } catch(e) {
+                if (e.name !== 'AbortError') alert(e.message);
+              }
+            };
+
+            const btnForget = document.createElement('button');
+            btnForget.className = 'glass-btn';
+            btnForget.style.cssText = 'font-size:10px;padding:4px 8px;min-height:30px;background:rgba(70,25,25,.4);border-color:#f8a39a;color:#ffdada;cursor:pointer;';
+            btnForget.textContent = tr('✕ Забыть', '✕ Forget');
+            btnForget.title = tr('Очистить сохранённую папку', 'Clear saved folder');
+            btnForget.onclick = () => bridge.forgetSavedDirectory();
+
+            actionGroup.append(btnReconnect, btnOther, btnForget);
+          } else {
+            const btnConnect = document.createElement('button');
+            btnConnect.className = 'glass-btn';
+            btnConnect.style.cssText = 'font-size:10px;padding:4px 12px;min-height:30px;border-color:rgba(139,232,227,.4);';
+            btnConnect.textContent = tr('📁 Подключить папку HALO-Bridge', '📁 Connect HALO-Bridge Folder');
+            btnConnect.onclick = async () => {
+              try {
+                const picker = root.showDirectoryPicker;
+                if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
+                const handle = await picker({ mode: 'readwrite' });
+                await bridge.connect(handle);
+              } catch(e) {
+                if (e.name !== 'AbortError') alert(e.message);
+              }
+            };
+            actionGroup.append(btnConnect);
+          }
         } else {
           const warn = document.createElement('span');
           warn.style.cssText = 'color:#f8b595;font-size:10px;';
@@ -786,10 +1095,15 @@ HALO-Bridge/
           ${s.lastResult ? `<div style="margin-top:4px;color:${s.lastResult.ok ? '#8fe5d2' : '#f8a39a'};">${s.lastResult.ok ? '✓ ' + tr('Команда успешно обработана: ','Command applied: ') + s.lastResult.id : '⚠ ' + tr('Ошибка команды ','Command error ') + s.lastResult.id + ': ' + s.lastResult.error}</div>` : ''}
           ${s.error ? `<div style="color:#f89a9a;margin-top:4px;">⚠ ${s.error}</div>` : ''}
         `;
+      } else if (s.savedDirectory) {
+        meta.textContent = tr(
+          `Папка «${s.savedDirectory.name}» сохранена. Нажмите «Возобновить доступ», чтобы восстановить синхронизацию без повторного выбора папки.`,
+          `Folder «${s.savedDirectory.name}» is saved. Click "Reconnect" to resume synchronization without picking the folder again.`
+        );
       } else {
         meta.textContent = tr(
-          'Создайте на диске папку HALO-Bridge и нажмите кнопку подключения. HALO создаст технический паспорт движка и папки requests/ и responses/.',
-          'Create a HALO-Bridge folder on your disk and press connect. HALO will generate the engine passport and the requests/ and responses/ subdirectories.'
+          'Создайте на диске папку HALO-Bridge (или temp) и нажмите кнопку подключения. HALO создаст технический паспорт движка и папки requests/ и responses/.',
+          'Create a HALO-Bridge (or temp) folder on your disk and press connect. HALO will generate the engine passport and the requests/ and responses/ subdirectories.'
         );
       }
       statusBox.append(meta);

@@ -111,10 +111,8 @@ DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4
 
 ### Compose with an external agent
 
-Open HALO in a browser available to Codex and ask: “Compose an original eight-bar New Year jingle with built-in sounds, your own notes, bass, harmony and effects.” A WebMCP-capable agent discovers HALO tools automatically, reads `halo_get_context`, writes a bounded transaction, validates/previews it and applies it to the open score. No model, API key, chat or manual JSON transfer inside HALO.
+HALO can be composed and arranged by external AI agents (such as Codex, Antigravity, Bionic, Claude) using two integration modes in the **AI / Agents** tab:
+- **WebMCP (Browser Site Tools):** Native registration of 10 site tools via `document.modelContext.registerTool` on platforms with built-in WebMCP-enabled browsers.
+- **File Bridge (Local Folder Sync):** Direct folder sync for desktop Chrome/Edge using native `window.showDirectoryPicker`. HALO exports context files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`) and reads incoming requests from `requests/` with explicit user confirmation and responses written to `responses/`. Directory connections are remembered across page reloads via IndexedDB (`halo-file-bridge-v1`) with 1-click reconnect.
 
-**AI / Agents** reports native tool registration. Agent control requires WebMCP support in both the browser and its agent connection. Browser compatibility and agent permissions matter. Playback can require a normal user Play gesture. Project edits autosave locally; the export tool returns a portable project for the agent to save.
-
-Only 4/4, 4/8-bar phrases and fixed orbit order are implemented. Track 09 recordings are not exposed. See [tools and protocol](docs/agent-api-specification.md), [actual verification](docs/regression-webmcp-2026-10-16.md), and the [new WebMCP control project](artifacts/webmcp/new-year-jingle.halo.json). The published site must be updated before public tools become available.
-
-Agents control HALO through **WebMCP only**. [Enable it and follow two client workflows](docs/webmcp-clients.md). Claude / Antigravity / Bionic support remains unverified.
+Agents default to composing single phrase loops, but can construct full multi-section song arrangements (*Intro → Verse → Chorus → Verse 2 → Bridge → Outro*) with section repeats, capped safely at 15 unique phrases. Supported meters include standard `4/4` (4/8 bars) and `3/4` (4 bars = 3/4 waltz, 8 bars = 6/8 pirate swing). All processing and audio remain 100% client-side and static on GitHub Pages.

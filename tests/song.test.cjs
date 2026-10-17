@@ -81,3 +81,33 @@ test('song export selects Track 09 by phrase and schedules every phrase repeat a
  let expected=0;for(const section of song.sections){const project=song.phrases.find(p=>p.id===section.phrase).project;for(let repeat=0;repeat<section.repeats;repeat++){const call=calls.shift();assert.equal(call.time,expected*240/song.tempo);assert.deepEqual(call.state,project.liveLoop);expected+=project.bars;}}
  assert.equal(calls.length,0);
 });
+
+test('composition enforces safety limit of maximum 15 phrases', () => {
+ assert.equal(Song.MAX_PHRASES, 15);
+ const p = source(4);
+
+ // Exactly 15 phrases must pass
+ const phrases15 = Array.from({length: 15}, (_, i) => ({
+  id: i + 1,
+  label: 'Phrase' + (i + 1),
+  project: P.capture(tracks, 4, 80, (i % 4) + 1, 0, S, M)
+ }));
+ const sections15 = phrases15.map(ph => ({ phrase: ph.id, repeats: 1, name: 'phrase', fade: 'none' }));
+ const song15 = {
+  format: 'halo-composition',
+  version: 1,
+  tempo: 80,
+  masterVolume: 50,
+  mix: { low: 0, mid: 0, high: 0, width: 35 },
+  phrases: phrases15,
+  sections: sections15
+ };
+ assert.doesNotThrow(() => Song.validate(song15, P, S));
+
+ // 16 phrases must be rejected
+ const phrases16 = [...phrases15, { id: 16, label: 'Phrase16', project: P.capture(tracks, 4, 80, 1, 0, S, M) }];
+ const sections16 = [...sections15, { phrase: 16, repeats: 1, name: 'phrase', fade: 'none' }];
+ const song16 = { ...song15, phrases: phrases16, sections: sections16 };
+ assert.throws(() => Song.validate(song16, P, S), /Invalid composition/);
+});
+

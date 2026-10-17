@@ -177,3 +177,174 @@ test('processRequest applies valid operations and increments project revision', 
   assert.equal(retryResult.ok, false);
   assert.match(retryResult.error, /CONFLICT_REVISION_MISMATCH/);
 });
+
+test('File Bridge capabilities and music rules declare 15 phrases limit, sound worlds, and canonical form', () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+  const caps = JSON.parse(files['capabilities.json']);
+  const rules = JSON.parse(files['music-rules.json']);
+  const guide = files['AGENT_GUIDE.md'];
+
+  assert.equal(caps.limits.phrases, 15);
+  assert.equal(rules.songFormAndComposition.limits.maxPhrases, 15);
+  assert.equal(rules.songFormAndComposition.defaultMode, 'single_phrase');
+  assert.ok(rules.songFormAndComposition.canonicalForm.some(s => s.name === 'intro'));
+  assert.ok(rules.songFormAndComposition.canonicalForm.some(s => s.name === 'chorus'));
+
+  assert.ok(rules.soundWorlds.ambient);
+  assert.ok(rules.soundWorlds.reactor);
+  assert.match(rules.soundWorlds.ambient.vibe, /Meditative/);
+  assert.match(rules.soundWorlds.reactor.vibe, /Driving/);
+
+  assert.match(guide, /AMBIENT vs REACTOR/);
+  assert.match(guide, /15 УНИКАЛЬНЫХ ФРАЗ/);
+  assert.match(guide, /Intro/);
+  assert.match(guide, /Chorus/);
+  assert.match(guide, /РЕЖИМ ПО УМОЛЧАНИЮ — КОНКРЕТНАЯ ФРАЗА/);
+});
+
+test('File Bridge persists directory handle in IndexedDB across reloads', async () => {
+  const {api} = createTestApp();
+
+  // In-memory mock of indexedDB
+  const storage = new Map();
+  const mockIdb = {
+    open(name, version) {
+      const listeners = { success: [], error: [], upgradeneeded: [] };
+      const req = {
+        result: {
+          objectStoreNames: { contains: (s) => true },
+          createObjectStore: () => {},
+          transaction(store, mode) {
+            const txObj = {
+              objectStore: (s) => ({
+                put(val, key) { storage.set(key, val); },
+                get(key) {
+                  const getReq = { result: storage.get(key) };
+                  setTimeout(() => getReq.onsuccess?.({ target: getReq }), 0);
+                  return getReq;
+                },
+                delete(key) { storage.delete(key); }
+              }),
+              oncomplete: null,
+              onerror: null
+            };
+            setTimeout(() => txObj.oncomplete?.(), 0);
+            return txObj;
+          }
+        },
+        set onsuccess(fn) { fn({ target: this }); },
+        set onupgradeneeded(fn) { fn({ target: this }); }
+      };
+      return req;
+    }
+  };
+
+  const mockHandle = {
+    name: 'HALO-Bridge-Test',
+    kind: 'directory',
+    queryPermission: async () => 'granted',
+    requestPermission: async () => 'granted',
+    getDirectoryHandle: async (name) => ({
+      kind: 'directory',
+      name,
+      entries: async function*() {}
+    }),
+    getFileHandle: async (name) => ({
+      kind: 'file',
+      name,
+      createWritable: async () => ({
+        write: async () => {},
+        close: async () => {}
+      })
+    })
+  };
+
+  const fakeWin = { indexedDB: mockIdb, showDirectoryPicker: async () => mockHandle };
+  const bridge1 = FileBridge.createBridge(api, { window: fakeWin });
+
+  await bridge1.connect(mockHandle);
+  assert.equal(bridge1.getStatus().connected, true);
+  assert.equal(bridge1.getStatus().directoryName, 'HALO-Bridge-Test');
+  assert.ok(storage.has('last-directory'));
+  assert.equal(storage.get('last-directory').name, 'HALO-Bridge-Test');
+
+  bridge1.dispose();
+
+  // Simulate page reload: new bridge instance with the same fakeWin / IndexedDB
+  const bridge2 = FileBridge.createBridge(api, { window: fakeWin });
+  await bridge2.tryRestore();
+
+  // Since queryPermission returned 'granted', it auto-reconnects!
+  assert.equal(bridge2.getStatus().connected, true);
+  assert.equal(bridge2.getStatus().directoryName, 'HALO-Bridge-Test');
+
+  // Disconnecting clears the stored handle from IndexedDB
+  await bridge2.disconnect();
+  assert.equal(bridge2.getStatus().connected, false);
+  assert.equal(storage.has('last-directory'), false);
+
+  bridge2.dispose();
+});
+
+test('processRequest applies full multi-phrase composition and switches world to reactor', async () => {
+  const {api} = createTestApp();
+  const initialRev = api.getProjectState().revision;
+
+  const reactorTracks = Object.keys(S.banksFor('reactor')).map(name => ({
+    ...S.roles.initial('reactor', name),
+    name,
+    setup: 'reactor',
+    on: true,
+    level: 50,
+    density: 50,
+    character: 50,
+    duration: 50,
+    space: 30,
+    pattern: [0, 4, 8, 12]
+  }));
+  const phrase1 = P.capture(reactorTracks, 4, 100, 1, 0, S, M);
+  const phrase2 = P.capture(reactorTracks, 4, 100, 2, 0, S, M);
+  phrase2.tracks[0].steps = [0, 4, 8, 12];
+
+  const fullSongRequest = {
+    requestId: 'composition-001',
+    schemaVersion: 1,
+    baseRevision: initialRev,
+    operations: [
+      {
+        op: 'composition.replace',
+        project: {
+          format: 'halo-composition',
+          version: 1,
+          tempo: 100,
+          masterVolume: 50,
+          mix: { low: 1, mid: 0, high: -1, width: 40 },
+          repeat: true,
+          phrases: [
+            { id: 1, label: 'Intro', project: phrase1 },
+            { id: 2, label: 'Chorus', project: phrase2 }
+          ],
+          sections: [
+            { phrase: 1, name: 'intro', repeats: 1, fade: 'none' },
+            { phrase: 2, name: 'chorus', repeats: 2, fade: 'none' },
+            { phrase: 1, name: 'outro', repeats: 1, fade: 'out' }
+          ]
+        }
+      }
+    ]
+  };
+
+  const result = await FileBridge.processRequest(api, JSON.stringify(fullSongRequest), 'composition-001');
+  assert.equal(result.ok, true);
+  assert.equal(result.id, 'composition-001');
+  assert.equal(result.appliedRevision, initialRev + 1);
+
+  const updatedState = api.getProjectState();
+  assert.equal(updatedState.project.format, 'halo-composition');
+  assert.equal(updatedState.project.phrases.length, 2);
+  assert.equal(updatedState.project.sections.length, 3);
+  assert.equal(updatedState.project.tempo, 100);
+  assert.equal(updatedState.project.phrases[0].project.setup, 'reactor');
+});
+

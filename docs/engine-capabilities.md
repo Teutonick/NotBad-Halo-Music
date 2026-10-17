@@ -1,3 +1,21 @@
+### Implemented — 2026-10-17: File Bridge Persistence, Composition Safety Cap & Sound Worlds API
+
+- **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected desktop Chrome/Edge `FileSystemDirectoryHandle` is stored in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`).
+  - On page refresh, if browser permission was retained (`'granted'`), bridge auto-reconnects with 0 clicks.
+  - If browser requires user activation gesture (`'prompt'`), UI displays a prominent 1-click `🔓 Reconnect «[Folder]»` button, eliminating the need to pick the directory again.
+  - Users can also choose a different folder (`📁 Choose other`) or forget the saved connection (`✕ Forget`).
+  - `dispose()` cleans up polling intervals and listeners without discarding the saved handle from IndexedDB; only explicit `disconnect()` clears it.
+- **Composition Safety Limit (`src/song.js`):** Hard code-level cap of **maximum 15 unique phrases** (`MAX_PHRASES = 15`) and 32 sections (`MAX_SECTIONS = 32`) to prevent memory issues or runaway loops.
+- **AI Agent Composition Canon:**
+  - Strict rule: By default without explicit user instruction, HALO works strictly with **single phrases/loops** (`track.patch`, `phrase.patch`).
+  - Full compositions (`composition.replace`) are created strictly when the user explicitly asks for a full song/composition ("песня", "полная композиция", "аранжировка").
+  - Full songs follow canonical structure: *Intro → Verse → Chorus → Verse 2 → Bridge → Outro*, reusing phrase IDs via section repeats (`repeats: 1..8`).
+- **Sound World Switching in API (`setup: 'ambient' | 'reactor'`):**
+  - All phrases in a composition must share the same `setup`.
+  - Deep acoustic differentiation:
+    - `ambient`: 100% procedural real-time Web Audio synthesis, pure sines, FM bells, warm sub-bass, filtered pink noise, spacious reverb (35..80%), meditative tempo (60..85 BPM).
+    - `reactor`: 32 organic presets backed by 130 authentic CC0 acoustic/electric recordings (drums, overdriven rock bass, guitars, acoustic piano, brass), punchy mix (space: 10..30%), energetic tempo (90..140 BPM, or 6/8 pirate swing in 3/4 8 bars).
+
 ### Implemented — 2026-10-16: File Bridge and Integration Mode Switcher
 
 - Dual agent integration modes in AI / Agents tab: **WebMCP** and **File Bridge**, persisted in `localStorage['halo-agent-bridge-mode']`.
@@ -41,7 +59,7 @@ HALO построен по принципу чистого статическо�
 - **Диапазон темпа (BPM):** 30.00 — 200.00 (числа с плавающей точкой до 2 знаков после запятой).
 - **Количество дорожек:** Строго 8 параллельных инструментальных слотов.
 - **Длительность фразы:** Строго 4 или 8 тактов (64 или 128 шестнадцатых шагов).
-- **Ограничения композиции:** До 32 уникальных фраз, до 32 секций, до 128 суммарных тактов, размер JSON до 512 КиБ.
+- **Ограничения композиции:** До 15 уникальных фраз (`MAX_PHRASES = 15`), до 32 секций (`MAX_SECTIONS = 32`), до 128 суммарных тактов, размер JSON до 512 КиБ.
 - **Разделение миров (World Isolation):** Проект может находиться либо в мире `ambient`, либо в мире `reactor`. Смешивание пресетов из разных миров внутри одной фразы строго запрещено.
 - **Безопасность аудио:** Мастер-компрессор/пиковый лимитер предотвращает клиппинг при любых комбинациях пресетов.
 
@@ -350,6 +368,26 @@ $$K_{\text{next}} = (K + 1) \pmod{24}$$
 6. `bridge` (8 тактов, контрастный ритмический рисунок)
 7. `chorus` (8 тактов, финальный припев)
 8. `outro` (4 такта, fade out, разрежение до тишины)
+
+### 7.4. Создание композиций внешними агентами и лимит 15 фраз (`src/song.js`)
+В HALO заложены четкие правила создания композиций через Agent API и File Bridge:
+1. **Поведение по умолчанию — работа с одиночной фразой:**
+   Без прямого указания пользователя ("сочини песню", "полная композиция", "аранжировка") агент генерирует или модифицирует исключительно одну текущую фразу (`phrase.patch`, `track.patch`, `project.replace`). HALO в основном режиме функционирует как зацикленный 4/8-тактовый релакс-луп.
+2. **Лимит 15 уникальных фраз (`MAX_PHRASES = 15`):**
+   В коде валидации `src/song.js` (`HaloSong.validate()`) установлен жесткий порог на уровне движка: композиция может содержать не более 15 уникальных фраз в массиве `phrases`. Попытка загрузить или применить более 15 фраз выбрасывает исключение валидации (`Exceeded maximum 15 phrases`). Лимит секций (`sections`) составляет 32.
+3. **Каноническая форма и переиспользование фраз (Section Repeats):**
+   Полноценная драматургическая песня строится по канонам композиции с переиспользованием одних и тех же идентификаторов фраз через свойство `repeats: 1..8`:
+   - `intro`: фраза 1, 4 такта, fade in, разреженная ритм-секция (Pulse/Accent mute), тихие пэды.
+   - `verse`: фраза 2, 8 тактов, вступает бас (Rain) и основной грув.
+   - `chorus`: фраза 3, 8 тактов, кульминация с ведущей мелодией (Veil), арпеджио (Moss) и полными аккордами (Aura).
+   - `verse2`: фраза 4 (или повтор фразы 2), 8 тактов, развитие куплета.
+   - `bridge`: фраза 5, 8 тактов, контрастная гармония и полиметрический сдвиг.
+   - `outro`: фраза 6 (или вариация интро), 4 такта, fade out, постепенное затухание до тишины.
+   Такой подход дает богатую 40–80 тактовую композицию всего из 4–6 уникальных фраз, гарантируя мгновенную загрузку и безопасность памяти.
+4. **Звуковые миры (setup: 'ambient' | 'reactor'):**
+   - Все фразы внутри одной композиции обязаны иметь одинаковый `setup` (`'ambient'` либо `'reactor'`).
+   - `ambient`: 100% процедурный синтез Web Audio, синусоидальные пэды, FM-колокола, теплый суб-бас, пространственный ревербератор (Space 35..80%), темп 60..85 BPM.
+   - `reactor`: 32 пресета на базе 130 реальных CC0-записей ударных, гитар, рояля и баса. Драйвовый, панчевый микс (Space 10..30%), темп 90..140 BPM (или качающийся 6/8 пиратский свинг в 3/4 8 тактов).
 
 ---
 

@@ -1,10 +1,14 @@
 ## [Unreleased] - 2026-10-17
 
 ### Added
+- **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected folder handles are securely remembered across page reloads in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`). Reconnection restores automatically if permission was retained, or in a single click via «🔓 Reconnect «[Folder]»» without reopening the file picker, alongside «📁 Choose other» and «✕ Forget».
+- **Composition Safety Limit (`src/song.js`):** Added engine-level hard cap of **maximum 15 unique phrases** (`MAX_PHRASES = 15`) and 32 sections (`MAX_SECTIONS = 32`) to prevent runaway memory/loop states.
+- **Agent API Canon for Compositions:** Enriched agent guidelines and capabilities specification (`docs/agent-api-specification.md`, `AGENT_GUIDE.md`): HALO defaults to single phrases/loops, but can construct complete multi-section arrangements (*Intro → Verse → Chorus → Verse 2 → Bridge → Outro*) with section repeats when explicitly requested.
+- **Sound World Switching API Guidance:** Clarified `setup: 'ambient' | 'reactor'` differentiation in agent documentation (pure procedural synthesis vs 130 authentic CC0 acoustic/electric recordings).
 - Support for **3/4** and **6/8** musical time signatures: 4 bars in 3/4 mode corresponds to a 3/4 waltz (48 steps, 3 quarter beats), while 8 bars in 3/4 mode corresponds to a 6/8 rocking pirate swing (96 steps, 2 compound beats).
 - UI meter toggles on PHRASE control group and PHRASE floating guide.
 - Adaptive 12-column pattern step editor with beat borders for 3/4 and 6/8.
-- Synchronization across File Bridge, Agent API, documentation, and bilingual in-app User Manual.
+- Full documentation and bilingual in-app User Manual synchronization.
 
 ## 2026-10-16 — File Bridge and Integration Mode Switcher
 

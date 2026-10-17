@@ -21,7 +21,7 @@
   }
   function capabilities(){
    const R=env.sounds.roles;
-   return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:32,sections:32,totalBars:128,bytes:524288,operations:256},
+   return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:15,sections:32,totalBars:128,bytes:524288,operations:256},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},

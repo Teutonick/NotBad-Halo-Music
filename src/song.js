@@ -1,12 +1,12 @@
 /* Bounded phrase references and deterministic arrangement, independent of UI/audio. */
 (function(root){
  'use strict';
- const MAX_BYTES=524288,MAX_BARS=128;
+ const MAX_BYTES=524288,MAX_BARS=128,MAX_PHRASES=15,MAX_SECTIONS=32;
  const copy=x=>JSON.parse(JSON.stringify(x));
  function numberVolume(n){if(!Number.isFinite(n)||n<0||n>100)throw Error('Invalid master volume');return n}
  function phraseName(value){if(typeof value!=='string'||value.length>20||Array.from(value).length<1||Array.from(value).length>10||! /^[\p{L}\p{N}]+$/u.test(value))throw Error('Phrase name: 1–10 letters or digits, no spaces');return value}
  function validate(value,project,sounds){
-  if(!value||value.format!=='halo-composition'||value.version!==1||!Array.isArray(value.phrases)||!value.phrases.length||value.phrases.length>32||!Array.isArray(value.sections)||!value.sections.length||value.sections.length>32)throw Error('Invalid composition');
+  if(!value||value.format!=='halo-composition'||value.version!==1||!Array.isArray(value.phrases)||!value.phrases.length||value.phrases.length>MAX_PHRASES||!Array.isArray(value.sections)||!value.sections.length||value.sections.length>MAX_SECTIONS)throw Error('Invalid composition');
   const phrases=value.phrases.map(p=>({id:p.id,...(p.label!==undefined?{label:phraseName(p.label)}:{}),project:project.validate(p.project,sounds)})),ids=new Set();
   for(const p of phrases){if(!Number.isSafeInteger(p.id)||p.id<1||p.id>1000000||ids.has(p.id))throw Error('Invalid phrase reference');ids.add(p.id);if(p.project.setup!==phrases[0].project.setup)throw Error('Mixed sound worlds are unsupported')}
   const sections=value.sections.map(s=>{if(!ids.has(s.phrase)||!Number.isInteger(s.repeats)||s.repeats<1||s.repeats>8||!['intro','verse','verse2','chorus','bridge','outro','phrase'].includes(s.name)||!['none','in','out'].includes(s.fade))throw Error('Invalid section');return {phrase:s.phrase,repeats:s.repeats,name:s.name,fade:s.fade}});
@@ -20,5 +20,5 @@
  function duplicate(song,index,independent){const next=copy(song),s=copy(next.sections[index]);if(independent){const id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:copy(phrase(next,index))});s.phrase=id;s.name='phrase';s.fade='none'}next.sections.splice(index+1,0,s);return next}
  function build(source){const sounds=typeof module!=='undefined'&&module.exports?require('./sounds.js'):root.HaloSounds,arranger=typeof module!=='undefined'&&module.exports?require('./arranger.js'):root.HaloArranger;return arranger.build(source,sounds)}
 
- const api={MAX_BYTES,MAX_BARS,phraseName,validate,parse,phrase,bars,at,duplicate,build,copy};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloSong=api;
+ const api={MAX_BYTES,MAX_BARS,MAX_PHRASES,MAX_SECTIONS,phraseName,validate,parse,phrase,bars,at,duplicate,build,copy};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloSong=api;
 })(globalThis);

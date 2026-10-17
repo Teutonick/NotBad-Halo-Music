@@ -1,4 +1,20 @@
 
+### File Bridge Persistence, Composition Safety Cap & Sound Worlds API — 2026-10-17
+
+- **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected desktop Chrome/Edge `FileSystemDirectoryHandle` is stored in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`).
+  - Auto-reconnects on page reload when permission was retained (`'granted'`).
+  - If permission requires activation (`'prompt'`), presents a 1-click `🔓 Reconnect «[Folder]»` button without re-opening the native directory picker.
+  - Users can also switch directories (`📁 Choose other`) or forget the folder (`✕ Forget`).
+  - `dispose()` cleans up polling intervals and listeners without discarding the saved handle from IndexedDB; only explicit `disconnect()` clears it.
+- **Composition Safety Limit (`src/song.js`):** Enforced hard code-level cap of **maximum 15 unique phrases** (`MAX_PHRASES = 15`) and 32 sections (`MAX_SECTIONS = 32`).
+- **AI Agent Composition Canon:**
+  - Strict rule: By default without explicit user instruction, HALO works strictly with **single phrases/loops** (`track.patch`, `phrase.patch`).
+  - Full compositions (`composition.replace`) are created strictly when the user explicitly asks for a full song/composition ("песня", "полная композиция", "аранжировка").
+  - Full songs follow canonical structure: *Intro → Verse → Chorus → Verse 2 → Bridge → Outro*, reusing phrase IDs via section repeats (`repeats: 1..8`).
+- **Sound World Switching in API (`setup: 'ambient' | 'reactor'`):**
+  - All phrases in a composition must share the same `setup`.
+  - Detailed acoustic profiles for agents: `ambient` (procedural synthesis, warm sub-bass, lush reverb) vs `reactor` (32 presets, 130 authentic CC0 acoustic/electric recordings).
+
 ### 3/4 Waltz & 6/8 Pirate Swing Time Signatures — 2026-10-17
 
 - Added native support for `timeSignature: '4/4' | '3/4'` across transport, scheduler, note generation, pattern editor, visual orbits, project serialization, offline WAV/MP3 export, and agent APIs.
@@ -26,7 +42,7 @@
 - `src/site-tools.js` registers ten WebMCP tools over the internal musical API: context, capabilities, state, batch validation/preview/application, Undo/Redo, playback and portable project export.
 - `src/file-bridge.js` manages local folder synchronization via desktop Chrome/Edge `window.showDirectoryPicker`.
 - Registry v2 retains the complete built-in catalog, metadata for 130 local recordings, defaults, resolved notes, roles, bounds, FX/master, composition and visual limits. Track 09 PCM, recordings, device IDs and capture permissions are not exposed. External agents control their own model/data policies; HALO has no LLM connection or key storage.
-- Supported: exact MIDI, 4/8-bar phrases, 4/4, eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: 3/4, per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
+- Supported: exact MIDI, 4/8-bar phrases, 4/4 and 3/4 (4 bars = 3/4 waltz with 48 steps, 8 bars = 6/8 rocking pirate swing with 96 steps), eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
 
 
 
