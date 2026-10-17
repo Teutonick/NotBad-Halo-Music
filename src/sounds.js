@@ -113,9 +113,12 @@
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=bar*16+local,mode='minor'){
+  function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=undefined,mode='minor',timeSignature=track.timeSignature||'4/4'){
     if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
-    const saved=track.noteEvents?.find(e=>e.step===((absoluteStep%((track.manualBars||bars)*16))+(track.manualBars||bars)*16)%((track.manualBars||bars)*16));if(saved){const shifted=saved.notes.map(n=>Math.max(0,Math.min(127,n+transpose-(track.noteTranspose||0))));return track.generator===3?roles.constrain(shifted,soundFor(track),roles.forTrack(track).id):shifted;}
+    const spb=timeSignature==='3/4'?12:16;
+    if(absoluteStep===undefined)absoluteStep=bar*spb+local;
+    const mb=(track.manualBars||bars)*spb;
+    const saved=track.noteEvents?.find(e=>e.step===((absoluteStep%mb)+mb)%mb);if(saved){const shifted=saved.notes.map(n=>Math.max(0,Math.min(127,n+transpose-(track.noteTranspose||0))));return track.generator===3?roles.constrain(shifted,soundFor(track),roles.forTrack(track).id):shifted;}
     if(track.generator===3)return roles.notes(track,soundFor(track),bar,local,seed,transpose,bars,absoluteStep,mode);
     return track.generator===2?phrases.notes(track,soundFor(track),bar,local,seed,transpose,bars,mode):legacyNotesFor({...track,name:track.instrument||track.name},index,bar,local,seed,transpose,mode);
   }
@@ -162,16 +165,18 @@
     if(track.density>0&&!steps.length&&p.steps.length){const loudest=Math.max(...p.accents);steps.push(p.steps[p.accents.indexOf(loudest)])}
     if(cache.size>=32)cache.delete(cache.keys().next().value);cache.set(key,steps);return steps;
   }
-  function shouldTrigger(track, index, step, seed,bars=track.phraseBars||4) {
-    if(track.manualSteps)return track.on&&track.manualSteps.includes(track.generator===3?roles.mod(step,track.manualBars*16):step%(track.manualBars*16));
+  function shouldTrigger(track, index, step, seed,bars=track.phraseBars||4,timeSignature=track.timeSignature||'4/4') {
+    const spb=timeSignature==='3/4'?12:16;
+    const mb=(track.manualBars||bars)*spb;
+    if(track.manualSteps)return track.on&&track.manualSteps.includes(track.generator===3?roles.mod(step,mb):step%mb);
     if(track.generator===3)return track.on&&generatedSteps(track,index,seed,bars).includes(roles.mod(step,roles.plan(track,soundFor(track),seed,bars).period));
-    if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars).includes(step%(bars*16));
-    const bar = Math.floor(step / 16);
+    if(track.generator===2)return track.on&&generatedSteps(track,index,seed,bars).includes(step%(bars*spb));
+    const bar = Math.floor(step / spb);
     if(track.setup==='reactor'){
-      return track.on&&track.density>0&&patternFor({...track,variation:seed}).includes(step%16)&&
+      return track.on&&track.density>0&&patternFor({...track,variation:seed},bars,timeSignature).includes(step%spb)&&
         random01(index*97+step*31+seed*191)<=track.density/100;
     }
-    return track.on && track.density > 0 && patternFor(track).includes(step % 16) &&
+    return track.on && track.density > 0 && patternFor(track,bars,timeSignature).includes(step % spb) &&
       !(((track.instrument||track.name) === 'VEIL' || (track.instrument||track.name) === 'AURA') && bar % 2 === 1) &&
       random01(index * 97 + step * 31 + seed * 191) <= track.density / 100;
   }
@@ -285,7 +290,7 @@
   }
   function arrange(tracks){const types=tracks.map(t=>t.generator===3?roles.forTrack(t).id:phrases.roleFor(t,soundFor(t))),assignments=types.map((role,i)=>({role,count:types.filter(r=>r===role).length,ordinal:types.slice(0,i).filter(r=>r===role).length}));tracks.forEach((t,i)=>{t.arrangement=assignments[i];t.ensembleGain=t.generator>=2?1/Math.sqrt(assignments[i].count):1});return assignments}
   function velocityFor(track,index,step,seed,bars=4){return track.generator===3?roles.velocity(track,soundFor(track),step,seed,bars):track.generator===2?phrases.velocity(track,soundFor(track),step,seed,bars):.67+random01(step*19+index*41+seed*11)*.15}
-  function cycleLength(track,bars=4){return track.manualSteps?track.manualBars*16:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars).period:track.generator===2?bars*16:16}
+  function cycleLength(track,bars=4,timeSignature='4/4'){const spb=timeSignature==='3/4'?12:16;return track.manualSteps?track.manualBars*spb:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars).period:track.generator===2?bars*spb:spb}
   function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
   function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
   const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };

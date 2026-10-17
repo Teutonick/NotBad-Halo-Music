@@ -1,3 +1,12 @@
+
+### 3/4 Waltz & 6/8 Pirate Swing Time Signatures — 2026-10-17
+
+- Added native support for `timeSignature: '4/4' | '3/4'` across transport, scheduler, note generation, pattern editor, visual orbits, project serialization, offline WAV/MP3 export, and agent APIs.
+- Dual meter modes:
+  - `4/4` (16 sixteenths/bar): 4 bars = 64 steps, 8 bars = 128 steps.
+  - `3/4` (12 sixteenths/bar): 4 bars corresponds to a 3/4 waltz (48 steps, 3 quarter beats), while 8 bars corresponds to a 6/8 rocking pirate swing (96 steps, 2 compound beats).
+- Visual grid in pattern editor dynamically switches to 12 columns with beat boundary styling for 3/4 and 6/8.
+- File Bridge, `capabilities.json`, `music-rules.json`, and User Manual in both Russian and English updated in full synchronization.
 ### Implemented — 2026-10-16: File Bridge and Integration Mode Switcher
 
 - Dual agent integration modes in AI / Agents tab: **WebMCP** and **File Bridge**, persisted in `localStorage['halo-agent-bridge-mode']`.

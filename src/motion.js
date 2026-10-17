@@ -14,21 +14,30 @@
     return (step - previous) / (next - previous);
   }
   const PHRASE_BARS = 4, PHRASE_STEPS = 64;
-  function phraseAt(beat,bars=4) {
-    const length=bars*16;
+  function phraseAt(beat,bars=4,timeSignature='4/4') {
+    const spb = timeSignature==='3/4'?12:16;
+    const length=bars*spb;
     const steps = Math.max(0, beat * 4), start = Math.floor(steps / length) * length;
     const local = steps - start;
-    return { number: start / length + 1, start, phase: local / length,
-      bar: Math.floor(local / 16) + 1, beat: Math.floor(local % 16 / 4) + 1,
+    const bar = Math.floor(local / spb) + 1;
+    const beatDiv = timeSignature==='3/4' ? (bars===8?6:4) : 4;
+    const res = { number: start / length + 1, start, phase: local / length,
+      bar, beat: Math.floor((local % spb) / beatDiv) + 1,
       step: Math.floor(local), bars };
+    if (timeSignature === '3/4') {
+      res.totalBeats = bars === 8 ? 2 : 3;
+      res.timeSignature = '3/4';
+    }
+    return res;
   }
   // Preview uses the same seeded trigger rules as audio, including skipped bars.
   // Muted voices show what WOULD play when enabled, without scheduling anything.
-  function phraseSteps(track, index, start, seed, sounds,bars=4) {
-    const pattern = sounds.patternFor({...track,variation:seed},bars), enabled = { ...track, on: true };
-    return Array.from({length: bars*16}, (_,step) => ({ step,
-      candidate: track.manualSteps?track.manualSteps.includes(track.generator===3?sounds.roles.mod(start+step,track.manualBars*16):step%(track.manualBars*16)):pattern.includes(track.generator===3?sounds.roles.mod(start+step,sounds.cycleLength(track,bars)):track.generator===2?step:step % 16),
-      fires: sounds.shouldTrigger(enabled,index,track.generator===3?start+step:step,seed,bars) }));
+  function phraseSteps(track, index, start, seed, sounds,bars=4,timeSignature=track.timeSignature||'4/4') {
+    const spb = timeSignature==='3/4'?12:16;
+    const pattern = sounds.patternFor({...track,variation:seed},bars,timeSignature), enabled = { ...track, on: true };
+    return Array.from({length: bars*spb}, (_,step) => ({ step,
+      candidate: track.manualSteps?track.manualSteps.includes(track.generator===3?sounds.roles.mod(start+step,(track.manualBars||bars)*spb):step%((track.manualBars||bars)*spb)):pattern.includes(track.generator===3?sounds.roles.mod(start+step,sounds.cycleLength(track,bars,timeSignature)):track.generator===2?step:step % spb),
+      fires: sounds.shouldTrigger(enabled,index,track.generator===3?start+step:step,seed,bars,timeSignature) }));
   }
   const api = { phaseAt, phraseAt, phraseSteps, PHRASE_BARS, PHRASE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

@@ -17,7 +17,7 @@
 - `src/site-tools.js` registers ten WebMCP tools over the internal musical API via `document.modelContext.registerTool`.
 - `src/file-bridge.js` manages local folder synchronization via desktop Chrome/Edge `window.showDirectoryPicker`.
 - Registry v2 retains the complete built-in catalog, metadata for 130 local recordings, defaults, resolved notes, roles, bounds, FX/master, composition and visual limits. Track 09 PCM, recordings, device IDs and capture permissions are not exposed. External agents control their own model/data policies; HALO has no LLM connection or key storage.
-- Supported: exact MIDI, 4/8-bar phrases, 4/4, eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: 3/4, per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
+- Supported: exact MIDI, 4/8-bar phrases, 4/4 and 3/4 (4 bars = 3/4 waltz with 48 steps, 8 bars = 6/8 rocking pirate swing with 96 steps), eight core roles, bounded arrangements, FX/master and existing visual modes. Unsupported: per-note duration/velocity, acoustic analysis, orbit reordering/arbitrary geometry. GitHub Pages remains zero-build with relative classic scripts.
 
 
 ### Compact workspace controls — 2026-10-15
@@ -37,7 +37,7 @@ HALO построен по принципу чистого статическо�
 
 ### Ключевые архитектурные константы
 - **Аудио-транспорт:** Единый высокоточный планировщик опережающего времени Web Audio (`AudioContext.currentTime`).
-- **Сетка:** 16 шестнадцатых долей на такт (16 steps/bar, размер 4/4).
+- **Сетка и размеры:** Поддерживаются размеры `4/4` (16 шестнадцатых на такт; 4 такта = 64 шага, 8 тактов = 128 шагов) и `3/4` (12 шестнадцатых на такт: 4 такта = 48 шагов, плавный вальс 3/4; 8 тактов = 96 шагов, качающийся пиратский свинг 6/8).
 - **Диапазон темпа (BPM):** 30.00 — 200.00 (числа с плавающей точкой до 2 знаков после запятой).
 - **Количество дорожек:** Строго 8 параллельных инструментальных слотов.
 - **Длительность фразы:** Строго 4 или 8 тактов (64 или 128 шестнадцатых шагов).

@@ -2,34 +2,36 @@
  'use strict';
  async function render(project){
   if(project.format==='halo-composition')return renderSong(project);
-  const rate=44100,seconds=project.bars*4*60/project.tempo,length=Math.round(seconds*rate);
+  const spb=project.timeSignature==='3/4'?12:16,phraseSteps=project.bars*spb;
+  const rate=44100,seconds=project.bars*(project.timeSignature==='3/4'?3:4)*60/project.tempo,length=Math.round(seconds*rate);
   const ctx=new OfflineAudioContext(2,length*2,rate);
   const samples=project.setup==='reactor'?await HaloSamples.prepare(ctx):{};
-  const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:project.bars}:{})}));HaloSounds.arrange(tracks);
+  const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,timeSignature:project.timeSignature,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:project.bars}:{})}));HaloSounds.arrange(tracks);
   const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix,project.tempo);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   if(root.HaloLiveLoop){
    await root.HaloLiveLoop.ready();
    if(project.liveLoop){root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,0,project.key);root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,seconds,project.key);}
   }
-  for(let step=0;step<project.bars*32;step++){
-   const absolute=(project.startStep||0)+step-project.bars*16,local=((absolute%(project.bars*16))+project.bars*16)%(project.bars*16),time=step*60/project.tempo/4;
-   tracks.forEach((t,i)=>{const clock=t.generator===3?absolute:local;if(!HaloSounds.shouldTrigger(t,i,clock,project.seed,project.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(local/16),local%16,project.seed,HaloComposition.offsets[project.key],project.bars,clock),time,HaloSounds.velocityFor(t,i,clock,project.seed,project.bars),HaloSounds.soundFor(t))});
+  for(let step=0;step<phraseSteps*2;step++){
+   const absolute=(project.startStep||0)+step-phraseSteps,local=((absolute%phraseSteps)+phraseSteps)%phraseSteps,time=step*60/project.tempo/4;
+   tracks.forEach((t,i)=>{const clock=t.generator===3?absolute:local;if(!HaloSounds.shouldTrigger(t,i,clock,project.seed,project.bars,project.timeSignature))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(local/spb),local%spb,project.seed,HaloComposition.offsets[project.key],project.bars,clock,'minor',project.timeSignature),time,HaloSounds.velocityFor(t,i,clock,project.seed,project.bars),HaloSounds.soundFor(t))});
   }
   const full=await ctx.startRendering();
   return {length,numberOfChannels:2,sampleRate:rate,getChannelData(ch){return full.getChannelData(ch).subarray(length,length*2)}};
  }
  async function renderSong(song){
   if(root.HaloLiveLoop)await root.HaloLiveLoop.ready();
-  const rate=44100,length=Math.round(HaloSong.bars(song)*240/song.tempo*rate),ctx=new OfflineAudioContext(2,length,rate);
+  const totalSteps=song.sections.reduce((sum,s,i)=>{const p=HaloSong.phrase(song,i);return sum+p.bars*(p.timeSignature==='3/4'?12:16)*s.repeats},0);
+  const rate=44100,length=Math.round(totalSteps*(60/song.tempo/4)*rate),ctx=new OfflineAudioContext(2,length,rate);
   const samples=HaloSong.phrase(song,0).setup==='reactor'?await HaloSamples.prepare(ctx):{};
   const tracks=Array.from({length:8},()=>({}));let engine=null,last=-1;
-  for(let step=0;step<HaloSong.bars(song)*16;step++){
-   const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4;
-   if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars});if(t.generator!==3||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
+  for(let step=0;step<totalSteps;step++){
+   const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4,spb=p.timeSignature==='3/4'?12:16;
+   if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars,timeSignature:p.timeSignature});if(t.generator!==3||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
    if(event.local===0&&root.HaloLiveLoop)root.HaloLiveLoop.renderPhraseOffline(ctx,engine,p.bars,song.tempo,p.liveLoop,time,p.key);
    engine.master?.gain.setTargetAtTime(song.masterVolume/100*event.gain,time,.05);
-   tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,HaloComposition.offsets[p.key],p.bars,clock),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
+   tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars,p.timeSignature))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/spb),event.local%spb,p.seed,HaloComposition.offsets[p.key],p.bars,clock,'minor',p.timeSignature),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
   }
   return ctx.startRendering();
  }

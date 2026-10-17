@@ -1017,9 +1017,10 @@
     activeSliceStep = -1;
   }
 
-  function tick(time, absStep, audio, tempo, phraseBars = 4, key = envRef?.settings?.().key || 0) {
+  function tick(time, absStep, audio, tempo, phraseBars = 4, key = envRef?.settings?.().key || 0, timeSignature = envRef?.settings?.().timeSignature || '4/4') {
     samplerKey=key;
-    const boundary = absStep % (phraseBars * 16) === 0;
+    const spb = timeSignature === '3/4' ? 12 : 16;
+    const boundary = absStep % (phraseBars * spb) === 0;
     if (!playbackSettings || boundary || pendingQuantizedRestart && absStep === 0) {
       playbackSettings = copySettings(settings);
       pendingQuantizedRestart = false;
@@ -1031,11 +1032,12 @@
     // Only timing/sample-window changes wait; mixer controls stay live.
     settings = {...settings};
     for (const key of ['bars','pitch','reverse','trimStart','trimEnd','offsetSec','rootNote','pitchOctave','pitchSteps']) settings[key]=playbackSettings[key];
-    try { tickPlayback(time, absStep, audio, tempo, phraseBars); }
+    try { tickPlayback(time, absStep, audio, tempo, phraseBars, timeSignature); }
     finally { settings = editing;slices=editingSlices; }
   }
 
-  function tickPlayback(time, absStep, audio, tempo, phraseBars) {
+  function tickPlayback(time, absStep, audio, tempo, phraseBars, timeSignature = '4/4') {
+    const spb = timeSignature === '3/4' ? 12 : 16;
     if (!audio || !audio.ctx) return;
     if (!trackGain) connectToAudio(audio);
 
@@ -1070,7 +1072,7 @@
         }
         const event=pitchEvent(absStep);
         if(event){
-          activeSliceVoice=schedulePitch(audio.ctx,trackGain,time,event,tempo,(phraseBars*16-absStep%(phraseBars*16))*60/tempo/4,activeSliceVoice);
+          activeSliceVoice=schedulePitch(audio.ctx,trackGain,time,event,tempo,(phraseBars*spb-absStep%(phraseBars*spb))*60/tempo/4,activeSliceVoice);
           activeSliceStep=event.index;
           if(activeSliceVoice)(root.HaloPulse||envRef?.pulse)?.(8,time);
         }
@@ -1123,7 +1125,7 @@
       const stepDiff = absStep - loopAnchorStep;
       if (stepDiff >= 0 && stepDiff % loopSteps === 0 && absStep !== lastScheduledStep) {
         lastScheduledStep = absStep;
-        schedulePlayback(time, audio, tempo, (phraseBars*16-(absStep%(phraseBars*16)))*60/tempo/4);
+        schedulePlayback(time, audio, tempo, (phraseBars*spb-(absStep%(phraseBars*spb)))*60/tempo/4);
       }
     }
   }

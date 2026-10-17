@@ -167,6 +167,36 @@
       schemaVersion: 1,
       description: 'HALO Musical Rules, Transport, Time Signatures, Rhythmic Grid, and Harmony Guidelines.',
       timeSignature: '4/4',
+      supportedTimeSignatures: ['4/4', '3/4'],
+      timeSignatures: {
+        '4/4': {
+          meter: '4/4 Common Time',
+          stepsPerBar: 16,
+          phraseSteps: { 4: 64, 8: 128 },
+          quarterNotes: [0, 4, 8, 12],
+          eighthNotes: [0, 2, 4, 6, 8, 10, 12, 14],
+          description: 'Standard quadruple meter with 4 quarter-note beats of 4 sixteenths each.'
+        },
+        '3/4': {
+          meter: '3/4 Waltz / 6/8 Swing',
+          stepsPerBar: 12,
+          phraseSteps: { 4: 48, 8: 96 },
+          waltz4Bars: {
+            bars: 4,
+            steps: 48,
+            downbeats: [0, 4, 8],
+            feel: 'Graceful 3/4 waltz (ONE-two-three, ONE-two-three)'
+          },
+          swing8Bars: {
+            bars: 8,
+            steps: 96,
+            compoundBeats: [0, 6],
+            eighthNotes: [0, 2, 4, 6, 8, 10],
+            feel: 'Compound 6/8 rocking pirate swing (ONE-two-three, TWO-two-three)'
+          },
+          description: '12 sixteenth steps per bar. In 4 bars, forms a 3/4 waltz; in 8 bars, forms a rocking 6/8 pirate swing.'
+        }
+      },
       tempo: { min: 30, max: 200, default: 72 },
       grid: {
         stepsPerBar: 16,

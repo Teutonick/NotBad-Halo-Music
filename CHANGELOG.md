@@ -1,3 +1,11 @@
+## [Unreleased] - 2026-10-17
+
+### Added
+- Support for **3/4** and **6/8** musical time signatures: 4 bars in 3/4 mode corresponds to a 3/4 waltz (48 steps, 3 quarter beats), while 8 bars in 3/4 mode corresponds to a 6/8 rocking pirate swing (96 steps, 2 compound beats).
+- UI meter toggles on PHRASE control group and PHRASE floating guide.
+- Adaptive 12-column pattern step editor with beat borders for 3/4 and 6/8.
+- Synchronization across File Bridge, Agent API, documentation, and bilingual in-app User Manual.
+
 ## 2026-10-16 — File Bridge and Integration Mode Switcher
 
 Added dual agent integration modes (WebMCP and File Bridge) to the AI / Agents tab, selectable via a switcher and saved in `localStorage['halo-agent-bridge-mode']`.

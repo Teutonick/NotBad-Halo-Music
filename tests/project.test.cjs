@@ -123,3 +123,35 @@ test('PITCH state roundtrips through the bounded phrase schema and excludes hard
  const restored=P.parse(JSON.stringify(project),S);assert.equal(restored.liveLoop.settings.rootNote,57);assert.equal(restored.liveLoop.settings.pitchSteps[0],3);assert.equal(restored.liveLoop.settings.inputDeviceId,undefined);
  for(const edit of [s=>s.rootNote=90,s=>s.pitchOctave=.5,s=>s.pitchSteps[0]=8]){const p=JSON.parse(JSON.stringify(project));edit(p.liveLoop.settings);assert.throws(()=>P.validate(p,S));}
 });
+
+test('3/4 waltz and 6/8 pirate swing meter validation, clamping, and roundtrip', () => {
+  // 3/4 waltz (4 bars = 48 steps)
+  const waltz = P.capture(tracks, 4, 96, 1, 0, S, M, 50, undefined, 0, '3/4');
+  assert.equal(waltz.timeSignature, '3/4');
+  assert.equal(waltz.bars, 4);
+  const parsedWaltz = P.parse(JSON.stringify(waltz), S);
+  assert.equal(parsedWaltz.timeSignature, '3/4');
+  for (const t of parsedWaltz.tracks) {
+    assert.ok(t.steps.every(s => s >= 0 && s < 48));
+  }
+
+  // 6/8 pirate swing (8 bars = 96 steps)
+  const pirate = P.capture(tracks, 8, 112, 1, 0, S, M, 50, undefined, 0, '3/4');
+  assert.equal(pirate.timeSignature, '3/4');
+  assert.equal(pirate.bars, 8);
+  const parsedPirate = P.parse(JSON.stringify(pirate), S);
+  assert.equal(parsedPirate.timeSignature, '3/4');
+  for (const t of parsedPirate.tracks) {
+    assert.ok(t.steps.every(s => s >= 0 && s < 96));
+  }
+
+  // Clamping: steps >= bars * 12 are clamped / rejected
+  const invalid = JSON.parse(JSON.stringify(waltz));
+  invalid.tracks[0].steps.push(48); // Step 48 is out of bounds for 4 bars in 3/4
+  assert.throws(() => P.validate(invalid, S));
+
+  // Invalid meter rejected
+  const badMeter = JSON.parse(JSON.stringify(waltz));
+  badMeter.timeSignature = '5/4';
+  assert.throws(() => P.validate(badMeter, S));
+});

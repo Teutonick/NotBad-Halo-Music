@@ -67,7 +67,7 @@ Requests use `{schemaVersion:1,baseRevision,operations:[...]}`, at most 256 oper
 | Operation | Payload |
 | --- | --- |
 | `track.patch` | `trackIndex:0..7`, `phraseId` required for songs, `values` from the track allowlist |
-| `phrase.patch` | `phraseId` required for songs, `values:{bars?,startStep?,seed?,key?,liveLoop?}` |
+| `phrase.patch` | `phraseId` required for songs, `values:{bars?,startStep?,seed?,key?,liveLoop?,timeSignature?}` |
 | `master.patch` | `values:{tempo?,masterVolume?,mix?}`; song and phrase masters update together |
 | `project.replace`, `composition.replace` | `project`: complete valid version-1 musical project/composition |
 | `visual.patch` | `values:{scene?,motion?,effects?}`; enums from registry; scene changes require DRIFT |
@@ -76,11 +76,11 @@ Track fields: `instrument` (bank), `sound` (catalog ID), `generator`, `on`, `ste
 
 ## Real musical constraints
 
-Only **4/4**, 4/8-bar phrases, 16 steps/bar. Eighths are steps 0,2,4,...; pauses are absent steps. BPM 30–200, normalized controls 0–100, EQ −9..9 dB, width 0–100. Sequence length 4–32, stepLength 1/2/4, offset 0..length−1; exact steps bypass density/cycle generation. Up to 32 phrases/sections, 128 total bars; duration = bars×240/BPM.
+Supported meters: **4/4** (16 steps/bar: 64 steps in 4 bars, 128 steps in 8 bars) and **3/4** (12 steps/bar: 4 bars = 3/4 waltz with 48 steps; 8 bars = 6/8 rocking pirate swing with 96 steps). Eighths are steps 0,2,4,...; pauses are absent steps. BPM 30–200, normalized controls 0–100, EQ −9..9 dB, width 0–100. Sequence length 4–32, stepLength 1/2/4, offset 0..length−1; exact steps bypass density/cycle generation. Up to 32 phrases/sections, 128 total bars; duration = bars×240/BPM.
 
 For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` must reference a step, be unique, and contain at most four notes, additionally limited by role/sample register and role maxNotes. Set `noteTranspose` to the key's **offset**, not its index, for literal MIDI pitches. Bass is mono; arpeggio is mono and short. Empty note lists on unpitched percussion still trigger its sound. No per-note velocity, duration, swing/microtiming or independent chromatic-score engine is added. No acoustic listening/analysis is claimed by the planner.
 
-Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. Requests for a true waltz or arbitrary orbit rearrangement receive an honest limitation/alternative rather than false success.
+Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. 3/4 waltz and 6/8 rocking swing are fully implemented natively on transport and step grids. Arbitrary orbit reordering remains unsupported.
 
 ## Privacy, authorization and limits
 

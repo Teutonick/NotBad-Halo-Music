@@ -15,7 +15,8 @@
     "tracks": 8,
     "stepsPerBar": 16,
     "timeSignatures": [
-      "4/4"
+      "4/4",
+      "3/4"
     ],
     "phrases": 32,
     "sections": 32,
@@ -57,7 +58,7 @@
     },
     {
       "op": "phrase.patch",
-      "description": "Update phrase properties: bars, startStep, seed, key, liveLoop",
+      "description": "Update phrase properties: bars, startStep, seed, key, liveLoop, timeSignature",
       "required": [
         "op",
         "values"
@@ -67,7 +68,8 @@
         "startStep",
         "seed",
         "key",
-        "liveLoop"
+        "liveLoop",
+        "timeSignature"
       ]
     },
     {
@@ -132,7 +134,8 @@
     "startStep",
     "seed",
     "key",
-    "liveLoop"
+    "liveLoop",
+    "timeSignature"
   ],
   "masterFields": [
     "tempo",

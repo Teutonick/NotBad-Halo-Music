@@ -77,11 +77,11 @@
    function snapshotPhrase(n,value=song){const p=S.copy(S.phrase(value,n));p.tempo=value.tempo;p.masterVolume=value.masterVolume;p.mix=S.copy(value.mix);return p}
    function persist(){if(env.resetting())return;try{commit();if(song&&preview){const common=settings();song.tempo=common.tempo;song.masterVolume=common.masterVolume;song.mix=S.copy(common.mix);}localStorage.setItem(key,JSON.stringify({song,mode,index,tab}));}catch(e){env.toast(tr('Композиция не сохранена: ','Composition was not saved: ')+(root.HaloI18n?.translate(e.message,env.language())||e.message))}}
    async function select(n,saveFirst=true){phraseOffset=0;queued=null;stepOffset=0;lastScheduledStep=-1;if(saveFirst)commit();const p=snapshotPhrase(n);await env.load(p);preview=false;index=n;lastSection=-1;ended=false;render();persist()}
-   function sectionStart(n){return song.sections.slice(0,n).reduce((steps,section,i)=>steps+S.phrase(song,i).bars*16*section.repeats,0)}
+   function sectionStart(n){return song.sections.slice(0,n).reduce((steps,section,i)=>{const p=S.phrase(song,i);return steps+p.bars*(p.timeSignature==='3/4'?12:16)*section.repeats},0)}
    async function choose(n){
     if(mode&&song&&env.isPlaying?.()&&!ended){
      const safeStep=Math.max(0,lastScheduledStep,Math.ceil(env.playhead?.()??0)-1),current=S.at(song,safeStep+stepOffset);
-     if(current){queued={index:n,step:safeStep+current.project.bars*16-current.local};render();return}
+     if(current){const spb=current.project.timeSignature==='3/4'?12:16;queued={index:n,step:safeStep+current.project.bars*spb-current.local};render();return}
     }
     await select(n);
    }
@@ -143,7 +143,7 @@
     }
     if(song){song.sections.forEach((section,i)=>{
      const p=S.phrase(song,i),label=labelFor(i),card=element('article','song-block');card.dataset.section=String(i);card.style.setProperty('--section-tone',({intro:'#80baca',verse:'#b29dcf',chorus:'#dcac78',bridge:'#83b9a9',outro:'#80baca',phrase:'#abc8d9'})[section.name]);card.setAttribute('aria-label',tr('Выбрать фразу','Select phrase')+' · '+label);card.tabIndex=0;card.onkeydown=e=>{if(e.target===card&&e.key==='Enter'){e.preventDefault();choose(i).catch(fail)}};card.setAttribute('data-selected',String(i===index));card.setAttribute('data-queued',String(i===queued?.index));card.setAttribute('aria-current',String(i===lastSection));if(i===queued?.index)card.title=tr('Следующая фраза после текущей','Next phrase after the current one');
-     const active=p.tracks.reduce((n,t)=>n+(t.on?t.steps.length/(p.bars*16):0),0);card.style.setProperty('--full',Math.round(active/8*100)+'%');
+     const spb=p.timeSignature==='3/4'?12:16,active=p.tracks.reduce((n,t)=>n+(t.on?t.steps.length/(p.bars*spb):0),0);card.style.setProperty('--full',Math.round(active/8*100)+'%');
      grip(card,i);
      const removeButton=action(card,'song-remove','×',tr('Удалить часть','Remove section')+' · '+label,()=>remove(i));removeButton.disabled=song.sections.length===1;
      card.onclick=e=>{if(e?.target?.closest?.('button, input'))return;return choose(i).catch(fail)};
@@ -170,7 +170,7 @@
     const hint=document.querySelector('.bottom .hint');if(hint)hint.hidden=!isInst;
    }
    instrumentsButton.onclick=()=>{try{if(tab==='instruments')return;if(preview&&lastSection>=0){const event=S.at(song,lastScheduledStep+stepOffset);index=lastSection;phraseOffset=(event?.project.startStep||0)+(event?.local||0)-Math.max(0,lastScheduledStep);}queued=null;preview=false;ended=false;resetGain=true;mode=false;tab='instruments';render();persist()}catch(e){fail(e)}};
-   compositionButton.onclick=()=>{try{if(tab==='composition')return;commit();if(song){const next=Math.max(0,lastScheduledStep+1,Math.ceil(env.playhead?.()??0)),length=S.phrase(song,index).bars*16,local=((next+phraseOffset)%length+length)%length;stepOffset=sectionStart(index)+local-next;preview=true;lastSection=-1;ended=false;queued=null;}mode=true;tab='composition';render();persist()}catch(e){fail(e)}};
+   compositionButton.onclick=()=>{try{if(tab==='composition')return;commit();if(song){const pSel=S.phrase(song,index),spbSel=pSel.timeSignature==='3/4'?12:16,next=Math.max(0,lastScheduledStep+1,Math.ceil(env.playhead?.()??0)),length=pSel.bars*spbSel,local=((next+phraseOffset)%length+length)%length;stepOffset=sectionStart(index)+local-next;preview=true;lastSection=-1;ended=false;queued=null;}mode=true;tab='composition';render();persist()}catch(e){fail(e)}};
    agentButton.onclick=()=>{tab='agents';render();persist()};
    loopButton.onclick=()=>{try{if(tab==='live-loop')return;tab='live-loop';render();persist()}catch(e){fail(e)}};
    const save=$('saveProject').onclick,share=$('shareProject').onclick;
@@ -189,32 +189,33 @@
     root.HaloLiveLoop.init({...env,changed(){persist();env.changed?.();}});
    }
    render();
-    return {onPhraseRestart(){commit();phrasePlaySteps=0;phraseOffset=0;ended=false;lastScheduledStep=-1;if(mode&&song){stepOffset=sectionStart(index);lastSection=-1;queued=null;}},phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),length=p.bars*16;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
+    return {onPhraseRestart(){commit();phrasePlaySteps=0;phraseOffset=0;ended=false;lastScheduledStep=-1;if(mode&&song){stepOffset=sectionStart(index);lastSection=-1;queued=null;}},phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),spb=p.timeSignature==='3/4'?12:16,length=p.bars*spb;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,e=S.at(song,song.repeat?position%(S.bars(song)*16):position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
     if(!mode||!song){
      lastScheduledStep=step;
      if(resetGain){audio.master?.gain.setTargetAtTime(settings().masterVolume/100,time,.05);resetGain=false;}
-     if(!phraseRepeat&&(env.isPlaying?env.isPlaying():true)){
-      const bars=song?S.phrase(song,index).bars:(env.phraseBars?.()||4);
-      const length=bars*16;
-      const local=((step+phraseOffset)%length+length)%length;
-      if(phrasePlaySteps>0&&(local===0||phrasePlaySteps>=length)){
-       if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,settings().tempo);commit();env.finish(time);}
-       return true;
+     const pCur=song?S.phrase(song,index):null,sig=pCur?.timeSignature||env.timeSignature?.()||'4/4',curSpb=sig==='3/4'?12:16;
+      const bars=pCur?pCur.bars:(env.phraseBars?.()||4);
+      const curLength=bars*curSpb;
+      if(!phraseRepeat&&(env.isPlaying?env.isPlaying():true)){
+       const local=((step+phraseOffset)%curLength+curLength)%curLength;
+       if(phrasePlaySteps>0&&(local===0||phrasePlaySteps>=curLength)){
+        if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,settings().tempo);commit();env.finish(time);}
+        return true;
+       }
+       phrasePlaySteps++;
       }
-      phrasePlaySteps++;
-     }
-     root.HaloLiveLoop?.tick(time,((step+phraseOffset)%((env.phraseBars?.()||4)*16)+((env.phraseBars?.()||4)*16))%((env.phraseBars?.()||4)*16),audio,settings().tempo,env.phraseBars?.()||4);
-     return false;
+      root.HaloLiveLoop?.tick(time,((step+phraseOffset)%curLength+curLength)%curLength,audio,settings().tempo,bars,undefined,sig);
+      return false;
     }
     if(!preview){commit();preview=true;lastSection=-1}
     lastScheduledStep=step;
     if(queued&&step>=queued.step){stepOffset=sectionStart(queued.index)-queued.step;index=queued.index;queued=null;lastSection=-1;render();persist()}
-    let position=step+stepOffset;const total=S.bars(song)*16;if(song.repeat&&position>=total){stepOffset-=Math.floor(position/total)*total;position=step+stepOffset;lastSection=-1;}const event=S.at(song,position);if(!event){if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);commit();env.finish(time)}return true}
+    let position=step+stepOffset;const total=song.sections.reduce((sum,s,i)=>{const p=S.phrase(song,i);return sum+p.bars*(p.timeSignature==='3/4'?12:16)*s.repeats},0);if(song.repeat&&position>=total){stepOffset-=Math.floor(position/total)*total;position=step+stepOffset;lastSection=-1;}const event=S.at(song,position);if(!event){if(!ended){ended=true;root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);commit();env.finish(time)}return true}
     const p=event.project;
     audio.master?.gain.setTargetAtTime(settings().masterVolume/100*event.gain,time,.05);
     if(event.index!==lastSection){if(lastSection>=0) {root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);const previous=song.phrases.find(p=>p.id===song.sections[lastSection].phrase);if(previous&&root.HaloLiveLoop)previous.project.liveLoop=root.HaloLiveLoop.capturePhrase();}root.HaloLiveLoop?.restorePhrase(p.liveLoop,time);env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
     root.HaloLiveLoop?.tick(time,event.local,audio,song.tempo,p.bars,p.key);
-    env.tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!root.HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars))return;audio.play(i,root.HaloSounds.notesFor(t,i,Math.floor(event.local/16),event.local%16,p.seed,root.HaloComposition.offsets[p.key],p.bars,clock),time,root.HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,root.HaloSounds.soundFor(t));env.pulse(i,time)});return true;
+    const spb=p.timeSignature==='3/4'?12:16;env.tracks.forEach((t,i)=>{const clock=t.generator===3?event.absolute:event.local;if(!root.HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars,p.timeSignature))return;audio.play(i,root.HaloSounds.notesFor(t,i,Math.floor(event.local/spb),event.local%spb,p.seed,root.HaloComposition.offsets[p.key],p.bars,clock,'minor',p.timeSignature),time,root.HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,root.HaloSounds.soundFor(t));env.pulse(i,time)});return true;
    }};
   }};
 })(globalThis);

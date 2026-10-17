@@ -9,7 +9,7 @@
   function state(){const value={project:check(env.read()),...(env.visual?{visual:env.visual()}:{} )},text=JSON.stringify(value);if(text!==last){revision++;last=text}return {revision,...copy(value)}}
   function only(value,allowed,path){if(!value||typeof value!=='object'||Array.isArray(value)||Object.keys(value).some(k=>!allowed.includes(k)))throw Error('UNKNOWN_PARAMETER: '+path)}
   function strictProject(p){
-   only(p,['format','version','setup','bars','startStep','tempo','masterVolume','mix','seed','key','tracks','liveLoop'],'project');
+   only(p,['format','version','setup','bars','startStep','tempo','masterVolume','mix','seed','key','tracks','liveLoop','timeSignature'],'project');
    if(p.mix)only(p.mix,['low','mid','high','width'],'mix');
    if(Array.isArray(p.tracks))for(const t of p.tracks){only(t,['name','role',...fields],'track');if(t.sequence)only(t.sequence,['length','stepLength','offset'],'sequence');if(t.delayTime!==undefined&&!['1/16','1/8','1/8d','1/4'].includes(t.delayTime))throw Error('INVALID_DELAY_TIME');if(Array.isArray(t.noteEvents))for(const e of t.noteEvents)only(e,['step','notes'],'noteEvent')}
    if(p.liveLoop){only(p.liveLoop,['version','layerIds','settings'],'liveLoop');only(p.liveLoop.settings,['bars','level','pan','space','delay','trimStart','trimEnd','offsetSec','latencyMs','pitch','rootNote','pitchOctave','character','duration','density','chorus','cycle','stepLength','offset','mute','solo','monitor','copyrightConfirmed','instantRestart','reverse','mode','sliceCount','slicePattern','delayTime','pitchSteps','sliceSteps'],'liveLoop.settings')}
@@ -21,7 +21,7 @@
   }
   function capabilities(){
    const R=env.sounds.roles;
-   return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4'],phrases:32,sections:32,totalBars:128,bytes:524288,operations:256},
+   return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:32,sections:32,totalBars:128,bytes:524288,operations:256},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},
@@ -43,7 +43,7 @@
     if(o.op==='project.replace'||o.op==='composition.replace'){next=check(o.project);continue}
     if(o.op==='master.patch'){patch(next,o.values,['tempo','masterVolume','mix']);if(next.phrases)for(const p of next.phrases)patch(p.project,o.values,['tempo','masterVolume','mix']);continue}
     const p=next.phrases?next.phrases.find(p=>p.id===o.phraseId)?.project:next;if(!p)throw Error('PHRASE_NOT_FOUND');
-    if(o.op==='phrase.patch')patch(p,o.values,['bars','startStep','seed','key','liveLoop']);
+    if(o.op==='phrase.patch')patch(p,o.values,['bars','startStep','seed','key','liveLoop','timeSignature']);
     else if(o.op==='track.patch'){if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK');const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);patch(t,o.values,fields);if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED')}
     else throw Error('UNKNOWN_OPERATION');
    }
@@ -53,9 +53,10 @@
   function context(){
    const current=state(),C=env.composition;
    const music=(current.project.phrases||[{id:null,project:current.project}]).map(entry=>{
-    const p=entry.project,key=C?.definitions[p.key]||{offset:0,mode:'minor'};const runtime=p.tracks.map(t=>({...t,setup:p.setup}));env.sounds.arrange(runtime);const tracks=runtime.map((t,i)=>{
-     const track={...t,setup:p.setup,phraseBars:p.bars,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:p.bars}:{})};
-     return {trackIndex:i,role:env.sounds.roles.forTrack(t).id,policy:env.sounds.roles.voicePolicy(t,env.sounds.soundFor(track)),events:t.steps.map(step=>({step,notes:env.sounds.notesFor(track,i,Math.floor(step/16),step%16,p.seed,key.offset,p.bars,(p.startStep||0)+step,key.mode)}))};
+    const p=entry.project,key=C?.definitions[p.key]||{offset:0,mode:'minor'};const runtime=p.tracks.map(t=>({...t,setup:p.setup,timeSignature:p.timeSignature}));env.sounds.arrange(runtime);const tracks=runtime.map((t,i)=>{
+     const track={...t,setup:p.setup,phraseBars:p.bars,timeSignature:p.timeSignature,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:p.bars}:{})};
+     const spb=p.timeSignature==='3/4'?12:16;
+     return {trackIndex:i,role:env.sounds.roles.forTrack(t).id,policy:env.sounds.roles.voicePolicy(t,env.sounds.soundFor(track)),events:t.steps.map(step=>({step,notes:env.sounds.notesFor(track,i,Math.floor(step/spb),step%spb,p.seed,key.offset,p.bars,(p.startStep||0)+step,key.mode,p.timeSignature)}))};
     });
     return {phraseId:entry.id,key,tracks,generatedHarmony:Array.from({length:p.bars},(_,bar)=>env.sounds.phrases.chordFor(p.setup,p.seed,bar,p.bars,key.offset,key.mode))};
    });
