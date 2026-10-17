@@ -88,7 +88,7 @@
 - Automatic context export into `HALO-Bridge/`: `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and read-only `project-state.json`.
 - Strict incoming request protocol via `requests/*.json` and `responses/*.result.json`:
   - No silent auto-apply: requests are validated, revision-checked, and presented in the UI with explicit «Apply Changes» and «Reject» buttons.
-  - Required fields: `requestId`, `schemaVersion: 1`, `baseRevision`, and allowlisted operations array (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`).
+  - Required fields: `requestId`, `schemaVersion: 1`, `baseRevision`, and allowlisted operations array (`track.patch`, `phrase.patch`, `master.patch`, `project.patch`, `project.replace`, `composition.replace`, `visual.patch`).
   - Stale revisions rejected (`CONFLICT_REVISION_MISMATCH`), repeated request reprocessing prohibited.
   - Public static `capabilities.json` added at repository root for external HTTP inspection.
 

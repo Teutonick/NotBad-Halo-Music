@@ -86,6 +86,24 @@
       ]
     },
     {
+      "op": "project.patch",
+      "description": "Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world) without replacing all tracks",
+      "required": [
+        "op",
+        "values"
+      ],
+      "allowedValues": [
+        "tempo",
+        "masterVolume",
+        "bars",
+        "key",
+        "seed",
+        "setup",
+        "world",
+        "soundWorld"
+      ]
+    },
+    {
       "op": "project.replace",
       "description": "Replace the entire single-phrase project snapshot",
       "required": [

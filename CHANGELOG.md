@@ -1,6 +1,22 @@
 ## [Unreleased] - 2026-10-17
 
 ### Fixed
+- **File Bridge Directory Handle Hardening & Reconnect Crash (`src/file-bridge.js`):**
+  - Resolved `dirHandle.getDirectoryHandle is not a function` error when clicking «🔓 Возобновить доступ к «...»» ("Reconnect"):
+    - Added `asDirectoryHandle(obj)` validation helper verifying that `getDirectoryHandle` and `getFileHandle` are native functions.
+    - Protected `storeDirectoryHandle` and `retrieveStoredDirectory`: corrupt or plain serialized objects without methods are safely rejected and automatically purged from IndexedDB (`clearStoredDirectory`).
+    - In `doRestore()`, invalid handles are purged from storage and `state.savedDirectory` is set to `null`, preventing the UI from showing an unusable Reconnect button.
+    - In `connect(handle)`, guarded handle validity: on any exception, explicitly resets `state.connected = false; dirHandle = null;` and stops `pollInterval`, eliminating the false "● Папка подключена" badge with an error banner beneath it.
+    - In `btnReconnect.onclick`, checks `targetHandle`: if invalid or missing `requestPermission`, gracefully falls back to `showDirectoryPicker`.
+- **AI Token Budget & Compact Batch Directive (`src/file-bridge.js`, `capabilities.json`):**
+  - Resolved `Error: Unterminated string in JSON at position 3471 (line 1 column 3472)` and `position 3410`:
+    - LLM tool-calling harnesses (such as Bionic/Qwen) buffer tool-call arguments into single-line strings. When models generate monolithic 8-track `project.replace` objects with hundreds of note events, the output string exceeds ~3500 chars and gets truncated.
+    - Added **CRITICAL TOKEN BUDGET & COMPACT BATCH DIRECTIVE** in `AGENT_GUIDE.md`: instructs external agents to compose concise requests (< 1.5 KB) using `project.patch` (setting tempo/bars/key) and targeted `track.patch` calls for key melodic and bass voices.
+    - Corrected Example 3 in `AGENT_GUIDE.md` with valid ambient sound IDs (`air`, `string`, `marimba`, `wind` instead of non-existent `pad`, `piano`, `pluck`, `drone`).
+    - Added Example 4 in `AGENT_GUIDE.md` showing how to compose a festive holiday jingle in under 1 KB using `project.patch` + `track.patch`.
+    - Added `project.patch` to operations in `generateCapabilities()` and `capabilities.json`.
+- **UI Prompt Synchronization (`src/file-bridge.js`):**
+  - Updated the example prompt in the File Bridge UI in Russian and English to replace `"и проверь, что ответ в responses/ подтвердил применение"` with `"и заверши работу, чтобы я мог подтвердить изменения в HALO"`, strictly aligning with the asynchronous Human-in-the-Loop protocol.
 - **Revision Mismatch on Reset, project.patch & Bank Aliases (`src/agent.js`, `src/file-bridge.js`, `src/project.js`):**
   - Resolved `CONFLICT_REVISION_MISMATCH: expected revision 13, request was based on 1` after clicking «Сбросить локальные изменения»: `resetProject()` in `src/agent.js` now resets the internal revision accumulator `revision = 0; last = '';`, guaranteeing that a fresh/reset project baseline always begins at `revision: 1`.
   - Added `project.patch` as an allowlisted operation across agent capabilities, preview, and apply pipeline, and added tolerance for partial `project.replace` (treating `values` or omitted tracks gracefully as project patches instead of throwing `MISSING_PAYLOAD`).

@@ -33,6 +33,12 @@
           allowedValues: caps.masterFields
         },
         {
+          op: 'project.patch',
+          description: 'Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world) without replacing all tracks',
+          required: ['op', 'values'],
+          allowedValues: ['tempo', 'masterVolume', 'bars', 'key', 'seed', 'setup', 'world', 'soundWorld']
+        },
+        {
           op: 'project.replace',
           description: 'Replace the entire single-phrase project snapshot',
           required: ['op', 'project']
@@ -348,6 +354,18 @@ HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-s
    - Because user approval takes human time, a response file will **NEVER** appear synchronously during the agent's turn.
    - If the user prompt says "check that response confirms application", understand this as an asynchronous instruction: write the request file, inform the user that it awaits their approval in HALO, and **TERMINATE YOUR TURN IMMEDIATELY**. Never loop or wait for the response file!
 
+## CRITICAL TOKEN BUDGET & COMPACT BATCH DIRECTIVE
+
+1. **NEVER GENERATE HUGE MONOLITHIC 8-TRACK JSON WITH MASSIVE NOTE ARRAYS:**
+   - Generating a monolithic 8-track \`project.replace\` with dozens of \`steps\` and \`noteEvents\` per track easily balloons beyond 3500 characters on a single line. In LLM tool-calling harnesses (such as Bionic/Qwen tool calling), this crashes with:
+     \`Error: Unterminated string in JSON at position 3471 (line 1 column 3472)\`.
+2. **PREFER COMPACT TARGETED PATCHES (< 1.5 KB):**
+   - For composition prompts like "compose an 8-bar holiday jingle / pirate theme / ambient groove":
+     - Use \`project.patch\` to set \`tempo: 96\` and \`bars: 8\`.
+     - Use 2 to 4 \`track.patch\` operations to write your lead melody, chords, bass, or beat.
+     - Tracks that you do not patch will continue playing their default harmonically coherent roles!
+   - This keeps your request payload under 1.5 KB, safe, instant, and completely immune to tool-call buffer truncation.
+
 ## Strict 3-Step Agent Workflow (No Deviations)
 
 1. **Step 1: Read Context (Read-Only)**
@@ -394,6 +412,7 @@ HALO-Bridge/
    - \`track.patch\` — Modify parameters and note events for a single track (\`trackIndex\`: 0..7, \`values\`: { on, exact, steps, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus, instrument, sound })
    - \`phrase.patch\` — Modify phrase settings (\`bars\`: 4|8, \`startStep\`, \`seed\`, \`key\`, \`liveLoop\`, \`timeSignature\`: "4/4"|"3/4")
    - \`master.patch\` — Master bus controls (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`mix\`: { low, mid, high, width })
+   - \`project.patch\` — Modify top-level project settings (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`bars\`: 4|8, \`key\`: 0..23, \`seed\`, \`setup\`: "ambient"|"reactor") without modifying tracks
    - \`project.replace\` — Full replacement of a single-phrase project (including sound world \`"setup": "ambient" | "reactor"\`)
    - \`composition.replace\` — Full replacement of a multi-phrase song/composition (up to 15 phrases)
    - \`visual.patch\` — Visual scene, motion, and effect modes (\`scene\`: ORBIT/BLOOM/CURRENT, \`motion\`: DRIFT/IN TIME/PHRASE, \`effects\`: CLASSIC/COSMIC/HYPER)
@@ -572,7 +591,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
 *(Note: \`composition.replace\` accepts payload under either \`"project"\` or \`"composition"\` key).*
 
 ### Example 3: Single-Phrase 8-Bar Project Replacement (project.replace)
-*Important: for \`project.replace\`, the \`tracks\` array MUST contain exactly 8 track objects covering all voice slots [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. To update fewer tracks, use \`track.patch\`.*
+*Important: for \`project.replace\`, the \`tracks\` array MUST contain exactly 8 track objects covering all voice slots [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. Use valid sound names from instruments.json for the chosen setup.*
 \`\`\`json
 {
   "requestId": "request-003",
@@ -593,13 +612,78 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         "key": 0,
         "tracks": [
           { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "bell", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 65, "density": 70, "character": 50, "duration": 50, "space": 40 },
-          { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "pad", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 60, "space": 50 },
+          { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "air", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 60, "space": 50 },
           { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "round", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 60, "density": 60, "character": 50, "duration": 50, "space": 30 },
-          { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "piano", "on": true, "exact": true, "steps": [2, 6, 10, 14], "level": 60, "density": 60, "character": 55, "duration": 50, "space": 35 },
+          { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "string", "on": true, "exact": true, "steps": [2, 6, 10, 14], "level": 60, "density": 60, "character": 55, "duration": 50, "space": 35 },
           { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "shaker", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14], "level": 50, "density": 70, "character": 60, "duration": 40, "space": 25 },
           { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "bow", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 65, "space": 55 },
-          { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "pluck", "on": true, "exact": true, "steps": [4, 12], "level": 55, "density": 50, "character": 50, "duration": 45, "space": 35 },
-          { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "drone", "on": true, "exact": true, "steps": [0], "level": 55, "density": 50, "character": 40, "duration": 70, "space": 60 }
+          { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "marimba", "on": true, "exact": true, "steps": [4, 12], "level": 55, "density": 50, "character": 50, "duration": 45, "space": 35 },
+          { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "wind", "on": true, "exact": true, "steps": [0], "level": 55, "density": 50, "character": 40, "duration": 70, "space": 60 }
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Example 4: Compact Holiday Jingle / Theme (project.patch + track.patch) — RECOMMENDED
+*This compact pattern fits in < 1 KB, executes instantly, and avoids LLM tool buffer truncation.*
+\`\`\`json
+{
+  "requestId": "request-newyear",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "project.patch",
+      "values": {
+        "tempo": 96,
+        "bars": 8,
+        "key": 0
+      }
+    },
+    {
+      "op": "track.patch",
+      "trackIndex": 0,
+      "values": {
+        "exact": true,
+        "sound": "bell",
+        "character": 75,
+        "space": 40,
+        "level": 70,
+        "steps": [0, 2, 4, 8, 10, 12, 16, 20, 24, 28],
+        "noteEvents": [
+          { "step": 0, "notes": [72] },
+          { "step": 2, "notes": [72] },
+          { "step": 4, "notes": [72] },
+          { "step": 8, "notes": [72] },
+          { "step": 10, "notes": [76] },
+          { "step": 12, "notes": [79] },
+          { "step": 16, "notes": [77] },
+          { "step": 20, "notes": [76] },
+          { "step": 24, "notes": [74] },
+          { "step": 28, "notes": [72] }
+        ]
+      }
+    },
+    {
+      "op": "track.patch",
+      "trackIndex": 2,
+      "values": {
+        "exact": true,
+        "sound": "round",
+        "character": 50,
+        "level": 65,
+        "steps": [0, 4, 8, 12, 16, 20, 24, 28],
+        "noteEvents": [
+          { "step": 0, "notes": [36] },
+          { "step": 4, "notes": [43] },
+          { "step": 8, "notes": [36] },
+          { "step": 12, "notes": [43] },
+          { "step": 16, "notes": [38] },
+          { "step": 20, "notes": [43] },
+          { "step": 24, "notes": [36] },
+          { "step": 28, "notes": [43] }
         ]
       }
     }
@@ -786,6 +870,17 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
   const IDB_STORE = 'handles';
   const IDB_KEY = 'last-directory';
 
+  function asDirectoryHandle(obj){
+    if (!obj) return null;
+    if (typeof obj.getDirectoryHandle === 'function' && typeof obj.getFileHandle === 'function') {
+      return obj;
+    }
+    if (obj.handle && typeof obj.handle.getDirectoryHandle === 'function' && typeof obj.handle.getFileHandle === 'function') {
+      return obj.handle;
+    }
+    return null;
+  }
+
   function openIdb(win){
     return new Promise(resolve => {
       const idb = win?.indexedDB || (typeof indexedDB !== 'undefined' ? indexedDB : root.indexedDB);
@@ -807,11 +902,13 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
   }
 
   async function storeDirectoryHandle(handle, win){
+    const valid = asDirectoryHandle(handle);
+    if (!valid) return;
     try {
       const db = await openIdb(win);
       if (!db) return;
       const tx = db.transaction(IDB_STORE, 'readwrite');
-      tx.objectStore(IDB_STORE).put({ name: handle.name, handle, timestamp: Date.now() }, IDB_KEY);
+      tx.objectStore(IDB_STORE).put({ name: valid.name, handle: valid, timestamp: Date.now() }, IDB_KEY);
       await new Promise(r => {
         tx.oncomplete = r;
         tx.onerror = r;
@@ -826,11 +923,18 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       if (!db) return null;
       const tx = db.transaction(IDB_STORE, 'readonly');
       const req = tx.objectStore(IDB_STORE).get(IDB_KEY);
-      return await new Promise(r => {
+      const res = await new Promise(r => {
         req.onsuccess = () => r(req.result || null);
         req.onerror = () => r(null);
         setTimeout(() => r(null), 100);
       });
+      if (!res) return null;
+      const handle = asDirectoryHandle(res);
+      if (!handle) {
+        await clearStoredDirectory(win);
+        return null;
+      }
+      return { name: res.name || handle.name || 'HALO-Bridge', handle };
     } catch {
       return null;
     }
@@ -1066,21 +1170,30 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     }
 
     async function connect(handle){
-      dirHandle = handle;
-      state.connected = true;
-      state.directoryName = handle.name || 'HALO-Bridge';
+      const validHandle = asDirectoryHandle(handle);
+      if (!validHandle) {
+        state.error = 'Invalid directory handle: missing getDirectoryHandle or getFileHandle';
+        state.connected = false;
+        dirHandle = null;
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        notify();
+        return;
+      }
+      dirHandle = validHandle;
+      state.directoryName = validHandle.name || 'HALO-Bridge';
       state.savedDirectory = null;
       state.error = null;
       state.busy = true;
       notify();
       try {
-        await storeDirectoryHandle(handle, win);
+        await storeDirectoryHandle(validHandle, win);
         // Ensure subfolders
         await dirHandle.getDirectoryHandle('requests', { create: true });
         await dirHandle.getDirectoryHandle('responses', { create: true });
         // Sync context
         await syncAllContext(dirHandle, api);
         state.lastSync = new Date().toISOString();
+        state.connected = true;
         // Start polling
         if (pollInterval) clearInterval(pollInterval);
         const intervalMs = env.pollInterval !== undefined ? env.pollInterval : 1500;
@@ -1091,6 +1204,12 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         await checkFolder();
       } catch(e) {
         state.error = e.message;
+        state.connected = false;
+        dirHandle = null;
+        if (pollInterval) {
+          clearInterval(pollInterval);
+          pollInterval = null;
+        }
       } finally {
         state.busy = false;
         notify();
@@ -1114,7 +1233,13 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       if (state.connected || dirHandle) return;
       const stored = await retrieveStoredDirectory(win);
       if (!stored || !stored.handle) return;
-      const handle = stored.handle;
+      const handle = asDirectoryHandle(stored.handle);
+      if (!handle) {
+        await clearStoredDirectory(win);
+        state.savedDirectory = null;
+        notify();
+        return;
+      }
       try {
         if (typeof handle.queryPermission === 'function') {
           const perm = await handle.queryPermission({ mode: 'readwrite' });
@@ -1304,17 +1429,31 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
             btnReconnect.title = tr('Подтвердить разрешение браузера и продолжить синхронизацию', 'Confirm browser permission and resume synchronization');
             btnReconnect.onclick = async () => {
               try {
-                if (typeof s.savedDirectory.handle.requestPermission === 'function') {
-                  const perm = await s.savedDirectory.handle.requestPermission({ mode: 'readwrite' });
+                let targetHandle = asDirectoryHandle(s.savedDirectory?.handle) || asDirectoryHandle(s.savedDirectory);
+                if (!targetHandle) {
+                  const picker = root.showDirectoryPicker;
+                  if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
+                  const picked = await picker({ mode: 'readwrite' });
+                  await bridge.connect(picked);
+                  return;
+                }
+                if (typeof targetHandle.requestPermission === 'function') {
+                  const perm = await targetHandle.requestPermission({ mode: 'readwrite' });
                   if (perm === 'granted') {
-                    await bridge.connect(s.savedDirectory.handle);
+                    await bridge.connect(targetHandle);
                     return;
                   } else {
                     alert(tr('Доступ к папке не был разрешен пользователем', 'Folder permission was not granted by the user'));
                     return;
                   }
                 }
-                await bridge.connect(s.savedDirectory.handle);
+                const picker = root.showDirectoryPicker;
+                if (typeof picker === 'function') {
+                  const picked = await picker({ mode: 'readwrite' });
+                  await bridge.connect(picked);
+                  return;
+                }
+                await bridge.connect(targetHandle);
               } catch(e) {
                 if (e.name !== 'AbortError') alert(e.message);
               }
@@ -1544,8 +1683,8 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
 
     el('strong', tr('Пример запроса для агента (Bionic / Antigravity / Codex):', 'Example prompt for agent (Bionic / Antigravity / Codex):'), 'display:block;font-size:11px;margin-bottom:4px;');
     const promptBox = el('div', tr(
-      '«Прочитай AGENT_GUIDE.md в папке HALO-Bridge. Изучи возможности HALO и текущий проект в project-state.json. Сочини оригинальный новогодний джингл на 8 тактов, используя только встроенные инструменты. Запиши команду в папку requests/ и проверь, что ответ в responses/ подтвердил применение».',
-      '“Read AGENT_GUIDE.md in the HALO-Bridge folder. Study HALO capabilities and the current project in project-state.json. Compose an original eight-bar New Year jingle using only built-in sounds. Write your request file to the requests/ folder and verify the response in responses/ confirms application.”'
+      '«Прочитай AGENT_GUIDE.md в папке HALO-Bridge. Изучи возможности HALO и текущий проект в project-state.json. Сочини оригинальный новогодний джингл на 8 тактов, используя только встроенные инструменты. Запиши команду в папку requests/ и заверши работу, чтобы я мог подтвердить изменения в HALO».',
+      '“Read AGENT_GUIDE.md in the HALO-Bridge folder. Study HALO capabilities and the current project in project-state.json. Compose an original eight-bar New Year jingle using only built-in sounds. Write your request file to the requests/ folder and terminate your turn so I can approve the changes in HALO.”'
     ), 'font-size:10px;line-height:1.5;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#d5ebf5;user-select:all;');
   }
 

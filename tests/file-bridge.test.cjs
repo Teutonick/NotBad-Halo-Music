@@ -33,7 +33,8 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
   assert.equal(caps.limits.tracks, 8);
   assert.equal(caps.limits.bpm[0], 30);
   assert.equal(caps.limits.bpm[1], 200);
-  assert.equal(caps.operations.length, 6);
+  assert.equal(caps.operations.length, 7);
+  assert.ok(caps.operations.some(o => o.op === 'project.patch'));
 
   // instruments.json
   const inst = JSON.parse(files['instruments.json']);
@@ -285,6 +286,60 @@ test('File Bridge persists directory handle in IndexedDB across reloads', async 
   assert.equal(storage.has('last-directory'), false);
 
   bridge2.dispose();
+});
+
+test('File Bridge gracefully handles and purges corrupt directory handles from IndexedDB', async () => {
+  const {api} = createTestApp();
+  const storage = new Map();
+  // Simulate corrupt handle stored without method functions
+  storage.set('last-directory', { name: 'Corrupt-Bridge', handle: { notAHandle: true } });
+
+  const mockIdb = {
+    open(name, version) {
+      return {
+        result: {
+          objectStoreNames: { contains: () => true },
+          createObjectStore: () => {},
+          transaction(store, mode) {
+            const txObj = {
+              objectStore: () => ({
+                put(val, key) { storage.set(key, val); },
+                get(key) {
+                  const getReq = { result: storage.get(key) };
+                  setTimeout(() => getReq.onsuccess?.({ target: getReq }), 0);
+                  return getReq;
+                },
+                delete(key) { storage.delete(key); }
+              }),
+              oncomplete: null,
+              onerror: null
+            };
+            setTimeout(() => txObj.oncomplete?.(), 0);
+            return txObj;
+          }
+        },
+        set onsuccess(fn) { fn({ target: this }); },
+        set onupgradeneeded(fn) { fn({ target: this }); }
+      };
+    }
+  };
+
+  const fakeWin = { indexedDB: mockIdb };
+  const bridge = FileBridge.createBridge(api, { window: fakeWin });
+
+  await bridge.tryRestore();
+  const st = bridge.getStatus();
+  assert.equal(st.connected, false);
+  assert.equal(st.savedDirectory, null);
+  // Corrupt IDB record must be cleaned up
+  assert.equal(storage.has('last-directory'), false);
+
+  // Connecting an invalid object directly must fail cleanly without setting connected = true
+  await bridge.connect({ notAHandle: true });
+  assert.equal(bridge.getStatus().connected, false);
+  assert.match(bridge.getStatus().error, /Invalid directory handle/);
+
+  bridge.dispose();
 });
 
 test('processRequest applies full multi-phrase composition and switches world to reactor', async () => {
