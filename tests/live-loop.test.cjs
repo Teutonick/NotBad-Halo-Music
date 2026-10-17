@@ -1150,3 +1150,178 @@ test('SLICE duration scales relative to slice length with sustain hold and choke
   assert.ok(stops.includes(1.105), 'Previous voice source stopped at choke time');
 });
 
+test('Track 09 isSupportedAudioFile validates MIME types and file extensions', () => {
+  const env = createEnvironment();
+  const loop = env.HaloLiveLoop;
+  assert.ok(typeof loop.isSupportedAudioFile === 'function', 'isSupportedAudioFile must be exported');
+
+  // Valid audio MIME types
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/wav', name: 'sample.wav' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/mpeg', name: 'beat.mp3' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/ogg', name: 'track.ogg' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/flac', name: 'lossless.flac' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/aac', name: 'sound.aac' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/mp4', name: 'voice.m4a' }));
+  assert.ok(loop.isSupportedAudioFile({ type: 'audio/webm', name: 'recording.weba' }));
+
+  // Valid file extensions even without MIME type
+  assert.ok(loop.isSupportedAudioFile({ name: 'loop_120bpm.WAV' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'song.Mp3' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'take.flac' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'sample.ogg' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'audio.m4a' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'percussion.aac' }));
+  assert.ok(loop.isSupportedAudioFile({ name: 'ambient.weba' }));
+
+  // Rejected non-audio formats
+  assert.ok(!loop.isSupportedAudioFile({ type: 'application/pdf', name: 'document.pdf' }));
+  assert.ok(!loop.isSupportedAudioFile({ type: 'image/png', name: 'cover.png' }));
+  assert.ok(!loop.isSupportedAudioFile({ type: 'text/plain', name: 'notes.txt' }));
+  assert.ok(!loop.isSupportedAudioFile({ type: 'application/json', name: 'project.json' }));
+  assert.ok(!loop.isSupportedAudioFile({ name: 'script.exe' }));
+  assert.ok(!loop.isSupportedAudioFile(null));
+  assert.ok(!loop.isSupportedAudioFile({}));
+});
+
+test('Track 09 getSlicePoints and setSlicePoints manage custom slice boundaries and rebuild', () => {
+  const env = createEnvironment();
+  const loop = env.HaloLiveLoop;
+  const ctx = new env.AudioContext();
+  loop.connectToAudio({ ctx, master: ctx.createGain() });
+
+  // Add 2.0s PCM layer and set slice mode with 4 slices
+  loop.addLayer({ id: 101, duration: 2.0, sampleRate: 44100, pcmL: new Float32Array(88200) }, ctx);
+  loop.setMode('slice');
+  loop.setSettings({ sliceCount: 4, trimStart: 0, trimEnd: 100 });
+
+  // Default even grid: slicePoints is null
+  assert.equal(loop.getSlicePoints(), null);
+  let slices = loop.getSlices();
+  assert.equal(slices.length, 4);
+  assert.equal(slices[0].duration, 0.5);
+
+  // Set custom slice points (3 divider positions between 4 slices in range (0, 1))
+  const customPoints = [0.15, 0.40, 0.85];
+  loop.setSlicePoints(customPoints);
+  assert.deepEqual([...loop.getSlicePoints()], customPoints);
+
+  // Rebuilt slices must follow custom proportional boundaries
+  slices = loop.getSlices();
+  assert.equal(slices.length, 4);
+  // Slice 0: [0.00, 0.30] -> dur = 0.30s
+  assert.ok(Math.abs(slices[0].startSec - 0.0) < 0.001);
+  assert.ok(Math.abs(slices[0].endSec - 0.30) < 0.001);
+  assert.ok(Math.abs(slices[0].duration - 0.30) < 0.001);
+
+  // Slice 1: [0.30, 0.80] -> dur = 0.50s
+  assert.ok(Math.abs(slices[1].startSec - 0.30) < 0.001);
+  assert.ok(Math.abs(slices[1].endSec - 0.80) < 0.001);
+  assert.ok(Math.abs(slices[1].duration - 0.50) < 0.001);
+
+  // Slice 2: [0.80, 1.70] -> dur = 0.90s
+  assert.ok(Math.abs(slices[2].startSec - 0.80) < 0.001);
+  assert.ok(Math.abs(slices[2].endSec - 1.70) < 0.001);
+  assert.ok(Math.abs(slices[2].duration - 0.90) < 0.001);
+
+  // Slice 3: [1.70, 2.00] -> dur = 0.30s
+  assert.ok(Math.abs(slices[3].startSec - 1.70) < 0.001);
+  assert.ok(Math.abs(slices[3].endSec - 2.00) < 0.001);
+  assert.ok(Math.abs(slices[3].duration - 0.30) < 0.001);
+
+  // Contiguity check: no gaps or overlaps
+  for (let k = 1; k < slices.length; k++) {
+    assert.equal(slices[k - 1].endSec, slices[k].startSec, `Slice ${k-1} end must equal slice ${k} start`);
+  }
+
+  // Clearing layers resets slicePoints to null
+  loop.clearAllLayers();
+  assert.equal(loop.getSlicePoints(), null);
+});
+
+test('Track 09 Drag and Drop onto waveform card accepts valid audio and toasts invalid format', () => {
+  const env = createEnvironment();
+  const loop = env.HaloLiveLoop;
+
+  let toasted = null;
+  const mockAppEnv = {
+    settings: () => ({ tempo: 72 }),
+    toast: (msg) => { toasted = msg; },
+    confirm: async () => true
+  };
+
+  const elements = new Map();
+  const makeElem = (id, tag = 'DIV') => {
+    const el = {
+      id,
+      tagName: tag,
+      classList: {
+        _classes: new Set(),
+        add(c) { this._classes.add(c); },
+        remove(c) { this._classes.delete(c); },
+        contains(c) { return this._classes.has(c); },
+        toggle(c, v) { if (v ?? !this.contains(c)) this.add(c); else this.remove(c); }
+      },
+      style: {},
+      children: [],
+      addEventListener() {},
+      closest(sel) { return el; },
+      contains() { return false; }
+    };
+    elements.set(id, el);
+    return el;
+  };
+
+  const container = {
+    id: 'liveLoopPanel',
+    _html: '',
+    set innerHTML(val) {
+      this._html = val;
+      const idMatches = val.matchAll(/id=["']([^"']+)["']/g);
+      for (const m of idMatches) {
+        if (!elements.has(m[1])) makeElem(m[1]);
+      }
+    },
+    get innerHTML() { return this._html; },
+    querySelector(sel) {
+      if (sel?.startsWith('#')) return elements.get(sel.slice(1)) || null;
+      return null;
+    },
+    querySelectorAll() { return []; },
+    children: []
+  };
+
+  loop.createUI(container, mockAppEnv);
+
+  const canvas = elements.get('loopCanvas');
+  assert.ok(canvas, 'loopCanvas element must exist');
+  const waveCard = canvas.closest('.loop-waveform-card');
+  assert.ok(waveCard, 'waveCard element must exist');
+
+  // 1. Drag enter adds is-dragover
+  assert.ok(typeof waveCard.ondragenter === 'function', 'ondragenter handler must be attached');
+  const enterEvent = { preventDefault() {}, stopPropagation() {} };
+  waveCard.ondragenter(enterEvent);
+  assert.ok(waveCard.classList.contains('is-dragover'), 'waveCard must have is-dragover class on dragenter');
+
+  // 2. Drag leave removes is-dragover when depth returns to 0
+  assert.ok(typeof waveCard.ondragleave === 'function', 'ondragleave handler must be attached');
+  const leaveEvent = { preventDefault() {}, stopPropagation() {}, relatedTarget: null };
+  waveCard.ondragleave(leaveEvent);
+  assert.ok(!waveCard.classList.contains('is-dragover'), 'waveCard must remove is-dragover on dragleave');
+
+  // 3. Drop invalid non-audio file displays error toast
+  assert.ok(typeof waveCard.ondrop === 'function', 'ondrop handler must be attached');
+  const invalidDropEvent = {
+    preventDefault() {},
+    stopPropagation() {},
+    dataTransfer: {
+      files: [{ name: 'presentation.pdf', type: 'application/pdf' }]
+    }
+  };
+  waveCard.ondrop(invalidDropEvent);
+  assert.ok(toasted, 'Toast must be triggered on unsupported file drop');
+  assert.ok(toasted.includes('WAV, MP3, OGG, FLAC, M4A, AAC'), 'Toast must list supported audio formats');
+  assert.ok(!waveCard.classList.contains('is-dragover'), 'is-dragover must be removed after drop');
+});
+
+

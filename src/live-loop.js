@@ -40,7 +40,8 @@
     chorus: 0,
     cycle: 16,
     stepLength: 1,
-    offset: 0
+    offset: 0,
+    slicePoints: null
   };
 
   const IDB = {
@@ -174,7 +175,7 @@
   let initialized = false;
   let hydrated = false;
   let playbackSettings = null, playbackSlices = null;
-  const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,['sliceSteps','pitchSteps'].includes(key)?[...(value[key]||defaultSettings[key])]:value[key]??defaultSettings[key]]));
+  const copySettings = value => Object.fromEntries(Object.keys(defaultSettings).map(key=>[key,['sliceSteps','pitchSteps','slicePoints'].includes(key)?(Array.isArray(value[key])?[...value[key]]:(key==='slicePoints'?null:[...(defaultSettings[key]||[])])):value[key]??defaultSettings[key]]));
   let undoStack = [];
   let compositeBuffer = null;
   let bufferContext = null;
@@ -192,6 +193,11 @@
   let slices = [];
   let activeSliceIndex = -1;
   let activeSliceStep = -1;
+  let hoveredDividerIndex = -1;
+  let isCanvasDragOver = false;
+  let dragMode = null;
+  let dragDividerIndex = -1;
+  let dragStrip = null;
 
   function detectTransients(buf, count, windowStartSec = 0, windowDurSec = 0) {
     if (!buf) return [];
@@ -391,7 +397,7 @@
     return {source,gain,filter,stopTime:end+.005};
   }
 
-  function rebuildSlices() {
+  function rebuildSlices(forceDetect = false) {
     if (!compositeBuffer) {
       slices = [];
       return slices;
@@ -406,8 +412,25 @@
     const trimEnd = Math.max(trimStart + 0.01, Math.min(1.0, settings.trimEnd || 1));
     const startSec = offsetSec + trimStart * winDur;
     const activeDur = (trimEnd - trimStart) * winDur;
+    const count = settings.sliceCount || 8;
 
-    slices = detectTransients(compositeBuffer, settings.sliceCount || 8, startSec, activeDur);
+    if (!forceDetect && settings.slicePoints && Array.isArray(settings.slicePoints) && settings.slicePoints.length === count - 1) {
+      const boundaries = [startSec, ...settings.slicePoints.map(p => startSec + Math.max(0, Math.min(1.0, p)) * activeDur), startSec + activeDur];
+      slices = [];
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        const s0 = boundaries[i];
+        const s1 = boundaries[i + 1];
+        slices.push({
+          index: i,
+          startSec: s0,
+          endSec: s1,
+          duration: Math.max(0.02, s1 - s0)
+        });
+      }
+      return slices;
+    }
+
+    slices = detectTransients(compositeBuffer, count, startSec, activeDur);
     return slices;
   }
 
@@ -1517,6 +1540,14 @@
     ));
   }
 
+  function isSupportedAudioFile(file) {
+    if (!file) return false;
+    const type = (file.type || '').toLowerCase();
+    const name = (file.name || '').toLowerCase();
+    if (type.startsWith('audio/')) return true;
+    return /\.(wav|mp3|ogg|m4a|aac|flac|weba|webm)$/i.test(name);
+  }
+
   async function importAudioFile(file, audio, tempo) {
     if (!file) return;
     const rightsOk = await checkCopyrightConfirmation();
@@ -1572,6 +1603,7 @@
       settings.offsetSec = 0;
       settings.trimStart = 0;
       settings.trimEnd = 1.0;
+      settings.slicePoints = null;
       persistSettings();
       recordingState = 'looping';
       renderWaveform();
@@ -1610,6 +1642,7 @@
     } else {
       compositeBuffer = null;
       reversedBuffer = null;
+      settings.slicePoints = null;
       recordingState = 'idle';
       stopPlayback();
     }
@@ -1625,6 +1658,7 @@
     undoStack = [];
     compositeBuffer = null;
     reversedBuffer = null;
+    settings.slicePoints = null;
     recordingState = 'idle';
     stopPlayback();
     cancelInputCapture();inputController?.release();
@@ -1668,6 +1702,14 @@
     const trimEnd = Math.max(trimStart + 0.01, Math.min(1.0, settings.trimEnd || 1));
 
     canvas.classList.toggle('can-drag', !!compositeBuffer);
+    canvas.classList.toggle('can-import', !compositeBuffer);
+    if (!compositeBuffer) {
+      canvas.title = tr('Нажмите или перетащите аудиофайл сюда', 'Tap or drag & drop audio here');
+    } else if (settings.mode === 'slice') {
+      canvas.title = tr('SLICE: перетаскивайте полоски нарезки или нажимайте для прослушивания', 'SLICE: drag slice dividers or tap to audition');
+    } else {
+      canvas.title = '';
+    }
 
     // Update Waveform Header info
     const title = document.getElementById('loopWaveTitle');
@@ -1794,32 +1836,43 @@
             const sx1 = x1 + frac1 * (x2 - x1);
             const sx2 = x1 + frac2 * (x2 - x1);
 
-            // Active slice audition / playback glow
-            if (activeSliceIndex === k) {
+            // Active slice audition / playback glow / strip drag glow
+            const isStripActive = (activeSliceIndex === k || (dragMode === 'slice-strip' && dragStrip && dragStrip.sliceIdx === k));
+            if (isStripActive) {
               ctx.fillStyle = 'rgba(99, 210, 198, 0.32)';
               ctx.fillRect(sx1, mainY, sx2 - sx1, mainH);
             }
 
             // Divider line
             if (k > 0) {
-              ctx.strokeStyle = '#63d2c6';
-              ctx.lineWidth = 1.2;
+              const isHovered = (hoveredDividerIndex === k);
+              const isDragged = (dragMode === 'slice-divider' && dragDividerIndex === k);
+              ctx.strokeStyle = isDragged ? '#ffffff' : (isHovered ? '#b6fff8' : '#63d2c6');
+              ctx.lineWidth = isDragged ? 2.5 : (isHovered ? 2.0 : 1.2);
+              if (isDragged || isHovered) {
+                ctx.shadowColor = '#63d2c6';
+                ctx.shadowBlur = isDragged ? 8 : 4;
+              }
               ctx.beginPath();
               ctx.moveTo(sx1, mainY);
               ctx.lineTo(sx1, height);
               ctx.stroke();
+              if (isDragged || isHovered) {
+                ctx.shadowBlur = 0;
+              }
             }
 
             // Slice number badge at top of slice
             const badgeW = 14;
             const badgeH = 12;
             const badgeX = Math.min(x2 - badgeW, sx1 + 3);
-            ctx.fillStyle = (activeSliceIndex === k) ? '#63d2c6' : 'rgba(10, 26, 42, 0.85)';
+            const isDividerActive = (k > 0 && (hoveredDividerIndex === k || (dragMode === 'slice-divider' && dragDividerIndex === k)));
+            ctx.fillStyle = isDividerActive ? '#ffffff' : (isStripActive ? '#63d2c6' : 'rgba(10, 26, 42, 0.85)');
             ctx.fillRect(badgeX, mainY + 2, badgeW, badgeH);
-            ctx.strokeStyle = '#63d2c6';
-            ctx.lineWidth = 0.8;
+            ctx.strokeStyle = isDividerActive ? '#ffffff' : '#63d2c6';
+            ctx.lineWidth = isDividerActive ? 1.5 : 0.8;
             ctx.strokeRect(badgeX, mainY + 2, badgeW, badgeH);
-            ctx.fillStyle = (activeSliceIndex === k) ? '#07101f' : '#cefff3';
+            ctx.fillStyle = (isDividerActive || isStripActive) ? '#07101f' : '#cefff3';
             ctx.font = 'bold 8px Inter, system-ui, sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -1859,10 +1912,24 @@
       }
     } else {
       // Empty waveform placeholder
-      ctx.fillStyle = 'rgba(140, 175, 195, 0.35)';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(tr('Нет записи · Нажмите Запись или импортируйте аудио', 'No recording · Tap Record or import audio'), width / 2, height / 2);
+      if (isCanvasDragOver) {
+        ctx.strokeStyle = '#63d2c6';
+        ctx.setLineDash([6, 4]);
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(6, 6, width - 12, height - 12);
+        ctx.setLineDash([]);
+        ctx.fillStyle = '#cefff3';
+        ctx.font = 'bold 11px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tr('Отпустите аудиофайл для импорта (WAV, MP3, OGG, FLAC, M4A)', 'Drop audio file to import (WAV, MP3, OGG, FLAC, M4A)'), width / 2, height / 2);
+      } else {
+        ctx.fillStyle = 'rgba(140, 175, 195, 0.45)';
+        ctx.font = '10px Inter, system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tr('Нет записи · Нажмите или перетащите аудиофайл сюда', 'No recording · Tap Record or import audio'), width / 2, height / 2);
+      }
     }
   }
 
@@ -2573,55 +2640,103 @@
       });
     }
 
-    // Interactive Waveform Dragging & Navigation
+    // Interactive Waveform Dragging, Slice Editing & Navigation
     const canvas = find('loopCanvas');
     if (canvas) {
-      let dragMode = null;
       let dragStart = null;
 
       canvas.onpointerdown = (e) => {
-        if (!compositeBuffer || e.button !== 0) return;
+        if (e.button !== 0) return;
+        if (!compositeBuffer) {
+          const fileInput = find('loopFileInput');
+          if (fileInput) fileInput.click();
+          return;
+        }
         const rect = canvas.getBoundingClientRect();
         if (rect.width <= 0) return;
-        canvas.setPointerCapture?.(e.pointerId);
 
         const tempo = envRef?.settings?.().tempo || 72;
         const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
         const totalDur = compositeBuffer.duration;
         const isLonger = totalDur > loopDur + 0.05;
+        const winDur = isLonger ? loopDur : totalDur;
+        const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
+        const trimStartFrac = Math.max(0, Math.min(0.95, settings.trimStart || 0));
+        const trimEndFrac = Math.max(trimStartFrac + 0.01, Math.min(1.0, settings.trimEnd || 1));
+        const x1 = trimStartFrac * rect.width;
+        const x2 = trimEndFrac * rect.width;
+        const activeDur = (trimEndFrac - trimStartFrac) * winDur;
+        const startSec = offsetSec + trimStartFrac * winDur;
 
         const clickY = e.clientY - rect.top;
         const clickX = e.clientX - rect.left;
 
-        if (settings.mode === 'slice' && clickY > 17) {
-          const trimStartFrac = Math.max(0, Math.min(0.95, settings.trimStart || 0));
-          const trimEndFrac = Math.max(trimStartFrac + 0.01, Math.min(1.0, settings.trimEnd || 1));
-          const x1 = trimStartFrac * rect.width;
-          const x2 = trimEndFrac * rect.width;
-          if (clickX >= x1 && clickX <= x2 && slices && slices.length) {
-            const winDur = isLonger ? loopDur : totalDur;
-            const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
-            const activeDur = (trimEndFrac - trimStartFrac) * winDur;
-            const startSec = offsetSec + trimStartFrac * winDur;
-            const frac = (clickX - x1) / Math.max(1, x2 - x1);
-            const clickTime = startSec + frac * activeDur;
-            const foundIdx = slices.findIndex(s => clickTime >= s.startSec && clickTime <= s.endSec);
-            const sliceIdx = foundIdx >= 0 ? foundIdx : Math.min(slices.length - 1, Math.floor(frac * slices.length));
-            playSlice(sliceIdx);
-            renderWaveform();
-            e.preventDefault();
-            return;
-          }
-        }
-
         if (isLonger && clickY <= 17) {
           dragMode = 'overview';
+          canvas.setPointerCapture?.(e.pointerId);
           const targetCenterSec = (clickX / rect.width) * totalDur;
           settings.offsetSec = Math.max(0, Math.min(totalDur - loopDur, targetCenterSec - loopDur / 2));
           renderWaveform();
           triggerSampleRestart(true);
-        } else if (isLonger) {
+          e.preventDefault();
+          return;
+        }
+
+        if (settings.mode === 'slice' && clickY > 17) {
+          if (!slices || !slices.length) rebuildSlices();
+          if (slices && slices.length) {
+            // 1. Check if clicking/dragging near a divider line (between slices)
+            for (let k = 1; k < slices.length; k++) {
+              const slFrac = (slices[k].startSec - startSec) / Math.max(0.001, activeDur);
+              const sx = x1 + slFrac * (x2 - x1);
+              const badgeW = 14;
+              const badgeX = Math.min(x2 - badgeW, sx + 3);
+              const isNearLine = Math.abs(clickX - sx) <= 7;
+              const isOverBadge = (clickX >= badgeX && clickX <= badgeX + badgeW && clickY >= 18 && clickY <= 34);
+              if (isNearLine || isOverBadge) {
+                dragMode = 'slice-divider';
+                dragDividerIndex = k;
+                canvas.setPointerCapture?.(e.pointerId);
+                renderWaveform();
+                e.preventDefault();
+                return;
+              }
+            }
+
+            // 2. Check if clicking inside the trimmed slice region [x1, x2]
+            if (clickX >= x1 && clickX <= x2) {
+              const frac = (clickX - x1) / Math.max(1, x2 - x1);
+              const clickTime = startSec + frac * activeDur;
+              let foundIdx = slices.findIndex(s => clickTime >= s.startSec && clickTime <= s.endSec);
+              if (foundIdx < 0) foundIdx = Math.min(slices.length - 1, Math.floor(frac * slices.length));
+              const slice = slices[foundIdx];
+
+              playSlice(foundIdx);
+              renderWaveform();
+
+              dragMode = 'slice-strip-pending';
+              dragDividerIndex = -1;
+              dragStrip = {
+                sliceIdx: foundIdx,
+                startX: clickX,
+                startY: clickY,
+                origStart: slice.startSec,
+                origEnd: slice.endSec,
+                origDur: slice.duration,
+                prevStart: (foundIdx > 0) ? slices[foundIdx - 1].startSec : startSec,
+                nextEnd: (foundIdx < slices.length - 1) ? slices[foundIdx + 1].endSec : (startSec + activeDur),
+                isDragging: false
+              };
+              canvas.setPointerCapture?.(e.pointerId);
+              e.preventDefault();
+              return;
+            }
+          }
+        }
+
+        if (isLonger) {
           dragMode = 'waveform';
+          canvas.setPointerCapture?.(e.pointerId);
           dragStart = {
             x: e.clientX,
             origOffset: settings.offsetSec || 0,
@@ -2630,22 +2745,133 @@
             totalDur
           };
           canvas.classList.add('is-dragging');
+          e.preventDefault();
         }
-        e.preventDefault();
       };
 
       canvas.onpointermove = (e) => {
-        if (!dragMode) return;
         const rect = canvas.getBoundingClientRect();
         if (rect.width <= 0) return;
+        const clickX = e.clientX - rect.left;
+        const clickY = e.clientY - rect.top;
 
         const tempo = envRef?.settings?.().tempo || 72;
         const loopDur = settings.mode==='pitch'?8:(settings.bars * 4 * 60) / tempo;
-        const totalDur = compositeBuffer.duration;
+        const totalDur = compositeBuffer ? compositeBuffer.duration : 0;
         const isLonger = totalDur > loopDur + 0.05;
-        if (!isLonger) return;
+        const winDur = isLonger ? loopDur : totalDur;
+        const offsetSec = isLonger ? Math.max(0, Math.min(Math.max(0, totalDur - loopDur), settings.offsetSec || 0)) : 0;
+        const trimStartFrac = Math.max(0, Math.min(0.95, settings.trimStart || 0));
+        const trimEndFrac = Math.max(trimStartFrac + 0.01, Math.min(1.0, settings.trimEnd || 1));
+        const x1 = trimStartFrac * rect.width;
+        const x2 = trimEndFrac * rect.width;
+        const activeDur = (trimEndFrac - trimStartFrac) * winDur;
+        const startSec = offsetSec + trimStartFrac * winDur;
 
-        if (dragMode === 'overview') {
+        // Hover handling when not dragging
+        if (!dragMode) {
+          if (settings.mode === 'slice' && compositeBuffer && clickY > 17 && slices && slices.length) {
+            let nearDiv = -1;
+            for (let k = 1; k < slices.length; k++) {
+              const slFrac = (slices[k].startSec - startSec) / Math.max(0.001, activeDur);
+              const sx = x1 + slFrac * (x2 - x1);
+              const badgeW = 14;
+              const badgeX = Math.min(x2 - badgeW, sx + 3);
+              if (Math.abs(clickX - sx) <= 7 || (clickX >= badgeX && clickX <= badgeX + badgeW && clickY >= 18 && clickY <= 34)) {
+                nearDiv = k;
+                break;
+              }
+            }
+            if (nearDiv > 0) {
+              canvas.style.cursor = 'col-resize';
+              if (hoveredDividerIndex !== nearDiv) {
+                hoveredDividerIndex = nearDiv;
+                renderWaveform();
+              }
+            } else if (clickX >= x1 && clickX <= x2) {
+              canvas.style.cursor = 'grab';
+              if (hoveredDividerIndex !== -1) {
+                hoveredDividerIndex = -1;
+                renderWaveform();
+              }
+            } else {
+              canvas.style.cursor = '';
+              if (hoveredDividerIndex !== -1) {
+                hoveredDividerIndex = -1;
+                renderWaveform();
+              }
+            }
+          }
+          return;
+        }
+
+        // Dragging handlers:
+        if (dragMode === 'slice-divider') {
+          canvas.style.cursor = 'col-resize';
+          const k = dragDividerIndex;
+          if (k > 0 && k < slices.length) {
+            const frac = Math.max(0, Math.min(1.0, (clickX - x1) / Math.max(1, x2 - x1)));
+            const targetSec = startSec + frac * activeDur;
+            const minSec = slices[k - 1].startSec + 0.025;
+            const maxSec = slices[k].endSec - 0.025;
+            const clamped = Math.max(minSec, Math.min(maxSec, targetSec));
+            slices[k - 1].endSec = clamped;
+            slices[k - 1].duration = Math.max(0.02, clamped - slices[k - 1].startSec);
+            slices[k].startSec = clamped;
+            slices[k].duration = Math.max(0.02, slices[k].endSec - clamped);
+            settings.slicePoints = slices.slice(1).map(s => (s.startSec - startSec) / Math.max(0.001, activeDur));
+            playbackSlices = slices;
+            renderWaveform();
+          }
+        } else if (dragMode === 'slice-strip-pending' || dragMode === 'slice-strip') {
+          if (dragStrip) {
+            const dx = clickX - dragStrip.startX;
+            if (!dragStrip.isDragging && Math.abs(dx) > 3) {
+              dragStrip.isDragging = true;
+              dragMode = 'slice-strip';
+            }
+            if (dragStrip.isDragging) {
+              canvas.style.cursor = 'grabbing';
+              const idx = dragStrip.sliceIdx;
+              const dt = (dx / Math.max(1, x2 - x1)) * activeDur;
+              const origDur = dragStrip.origDur;
+              if (idx > 0 && idx < slices.length - 1) {
+                const minStart = dragStrip.prevStart + 0.025;
+                const maxStart = dragStrip.nextEnd - 0.025 - origDur;
+                if (maxStart >= minStart) {
+                  const newStart = Math.max(minStart, Math.min(maxStart, dragStrip.origStart + dt));
+                  const newEnd = newStart + origDur;
+                  slices[idx - 1].endSec = newStart;
+                  slices[idx - 1].duration = Math.max(0.02, newStart - slices[idx - 1].startSec);
+                  slices[idx].startSec = newStart;
+                  slices[idx].endSec = newEnd;
+                  slices[idx].duration = origDur;
+                  slices[idx + 1].startSec = newEnd;
+                  slices[idx + 1].duration = Math.max(0.02, slices[idx + 1].endSec - newEnd);
+                }
+              } else if (idx === 0 && slices.length > 1) {
+                const minEnd = startSec + 0.025;
+                const maxEnd = slices[1].endSec - 0.025;
+                const newEnd = Math.max(minEnd, Math.min(maxEnd, dragStrip.origEnd + dt));
+                slices[0].endSec = newEnd;
+                slices[0].duration = Math.max(0.02, newEnd - startSec);
+                slices[1].startSec = newEnd;
+                slices[1].duration = Math.max(0.02, slices[1].endSec - newEnd);
+              } else if (idx === slices.length - 1 && slices.length > 1) {
+                const minStart = slices[idx - 1].startSec + 0.025;
+                const maxStart = (startSec + activeDur) - 0.025;
+                const newStart = Math.max(minStart, Math.min(maxStart, dragStrip.origStart + dt));
+                slices[idx - 1].endSec = newStart;
+                slices[idx - 1].duration = Math.max(0.02, newStart - slices[idx - 1].startSec);
+                slices[idx].startSec = newStart;
+                slices[idx].duration = Math.max(0.02, (startSec + activeDur) - newStart);
+              }
+              settings.slicePoints = slices.slice(1).map(s => (s.startSec - startSec) / Math.max(0.001, activeDur));
+              playbackSlices = slices;
+              renderWaveform();
+            }
+          }
+        } else if (dragMode === 'overview') {
           const curX = e.clientX - rect.left;
           const targetCenterSec = (curX / rect.width) * totalDur;
           settings.offsetSec = Math.max(0, Math.min(totalDur - loopDur, targetCenterSec - loopDur / 2));
@@ -2653,7 +2879,6 @@
           triggerSampleRestart(false);
         } else if (dragMode === 'waveform' && dragStart) {
           const dx = e.clientX - dragStart.x;
-          // Drag left (dx < 0) -> move audio left -> increase offsetSec
           const secDelta = -(dx / dragStart.rectWidth) * dragStart.loopDur;
           settings.offsetSec = Math.max(0, Math.min(totalDur - loopDur, dragStart.origOffset + secDelta));
           renderWaveform();
@@ -2663,18 +2888,48 @@
 
       const endDrag = (e) => {
         if (!dragMode) return;
+        const prevMode = dragMode;
+        const wasStripDrag = (dragStrip && dragStrip.isDragging);
+        const stripIdx = dragStrip ? dragStrip.sliceIdx : -1;
+        const divIdx = dragDividerIndex;
+
         dragMode = null;
         dragStart = null;
+        dragDividerIndex = -1;
+        dragStrip = null;
         canvas.classList.remove('is-dragging');
+        canvas.style.cursor = '';
         if (canvas.hasPointerCapture?.(e.pointerId)) {
           canvas.releasePointerCapture(e.pointerId);
         }
-        persistSettings();
-        triggerSampleRestart(true);
+
+        if (prevMode === 'slice-divider' || wasStripDrag) {
+          persistSettings();
+          playbackSlices = slices;
+          triggerQuantizedLoopRestart();
+          renderWaveform();
+          if (wasStripDrag && stripIdx >= 0) {
+            playSlice(stripIdx);
+          } else if (divIdx > 0) {
+            playSlice(divIdx - 1);
+          }
+        } else if (prevMode === 'overview' || prevMode === 'waveform') {
+          persistSettings();
+          triggerSampleRestart(true);
+        }
       };
 
       canvas.onpointerup = endDrag;
       canvas.onpointercancel = endDrag;
+      canvas.onpointerleave = () => {
+        if (!dragMode) {
+          if (hoveredDividerIndex !== -1) {
+            hoveredDividerIndex = -1;
+            canvas.style.cursor = '';
+            renderWaveform();
+          }
+        }
+      };
     }
 
     // Sliders Helper
@@ -2819,6 +3074,65 @@
       fileInput.onchange = (e) => {
         const file = e.target.files?.[0];
         if (file) importAudioFile(file, activeAudio, envRef?.settings?.().tempo || 72);
+      };
+    }
+
+    // Drag & Drop Audio File onto Waveform Area (Requirement 2)
+    const waveWrap = find('loopCanvas')?.closest?.('.loop-waveform-card') || find('loopCanvas')?.parentElement;
+    if (waveWrap) {
+      let dragDepth = 0;
+      waveWrap.ondragenter = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepth++;
+        waveWrap.classList?.add?.('is-dragover');
+        isCanvasDragOver = true;
+        renderWaveform();
+      };
+      waveWrap.ondragover = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+        if (!waveWrap.classList?.contains?.('is-dragover')) {
+          waveWrap.classList?.add?.('is-dragover');
+          isCanvasDragOver = true;
+          renderWaveform();
+        }
+      };
+      waveWrap.ondragleave = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepth = Math.max(0, dragDepth - 1);
+        if (dragDepth === 0 || !waveWrap.contains?.(e.relatedTarget)) {
+          dragDepth = 0;
+          waveWrap.classList?.remove?.('is-dragover');
+          isCanvasDragOver = false;
+          renderWaveform();
+        }
+      };
+      waveWrap.ondrop = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragDepth = 0;
+        waveWrap.classList?.remove?.('is-dragover');
+        isCanvasDragOver = false;
+        renderWaveform();
+
+        const dt = e.dataTransfer;
+        const files = dt ? Array.from(dt.files || []) : [];
+        if (!files.length) return;
+
+        const file = files[0];
+        if (!isSupportedAudioFile(file)) {
+          envRef?.toast(tr(
+            'Неподдерживаемый формат. Принимаются аудиофайлы: WAV, MP3, OGG, FLAC, M4A, AAC',
+            'Unsupported format. Accepted audio files: WAV, MP3, OGG, FLAC, M4A, AAC'
+          ));
+          return;
+        }
+
+        const tempo = envRef?.settings?.().tempo || 72;
+        importAudioFile(file, activeAudio, tempo);
       };
     }
 
@@ -3224,6 +3538,7 @@
     renderOffline,
     renderOfflineSong,
     renderPhraseOffline,
+    clearAllLayers,
     clearAllData() {
       cancelInputCapture();inputController?.release();
       clearAllLayers();
@@ -3277,7 +3592,19 @@
         settings.sliceSteps = settings.sliceSteps.map(val => (val >= c ? (val % c) : val));
         persistSettings();
       }
-    }
+    },
+    getSlicePoints() {
+      return settings.slicePoints ? [...settings.slicePoints] : null;
+    },
+    setSlicePoints(points) {
+      if (Array.isArray(points)) {
+        settings.slicePoints = [...points];
+        rebuildSlices();
+        persistSettings();
+      }
+    },
+    isSupportedAudioFile,
+    importAudioFile
   };
 
   if (typeof window !== 'undefined') {

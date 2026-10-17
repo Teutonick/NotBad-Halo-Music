@@ -1,4 +1,22 @@
 
+### Interactive Slice Dragging & Waveform Drag & Drop — 2026-10-17
+
+- **Interactive Slice Divider & Strip Dragging (`src/live-loop.js`):**
+  - Added pointer drag support for slice boundary dividers and slice strips inside the framed waveform area in `SLICE` mode.
+  - Hovering over a slice boundary divider or badge highlights the divider (`#b6fff8`, width 2px) with a `col-resize` cursor.
+  - Dragging a divider smoothly adjusts `slices[k-1].endSec` and `slices[k].startSec` with minimum duration clamping (`MIN_SLICE_DUR = 0.025s`), updates `settings.slicePoints` normalized coordinates, persists cuts to IndexedDB, and auditions the adjusted slice on release.
+  - Dragging an entire slice strip shifts both start and end timestamps together along the timeline within adjacent bounds.
+  - Slices reconstructed in `rebuildSlices()` use `settings.slicePoints` when present, ensuring custom cuts survive loop playback, phrase switching, and offline audio exports.
+- **Waveform Drag & Drop Audio File Import Zone (`src/live-loop.js`, `index.html`):**
+  - Turned `.loop-waveform-card` and the canvas wrap into an active Drag & Drop dropzone with glowing cyan border (`#63d2c6`, `.is-dragover`), box-shadow, and a dashed drop indicator on the canvas.
+  - Strict audio file validation: `isSupportedAudioFile(file)` accepts only WAV, MP3, OGG, FLAC, M4A, AAC, and WEBA/WEBM audio files. Dropping unsupported formats rejects the drop and shows a localized toast notification.
+  - Tapping or clicking the empty waveform canvas directly opens the file picker dialog to import audio files.
+  - Exported `getSlicePoints()`, `setSlicePoints()`, `isSupportedAudioFile()`, and `clearAllLayers()` on `HaloLiveLoop`.
+- **Test Suite & Verification:**
+  - Added unit tests in `tests/live-loop.test.cjs` covering format validation, `slicePoints` management, rebuild continuity, and Drag & Drop file acceptance/rejection.
+  - Synchronized in-app bilingual manual (`index.html`), `docs/engine-capabilities.md`, and `CHANGELOG.md`.
+  - All 242 automated unit tests pass (`node --test tests/*.test.cjs`).
+
 ### Live Loop Sequencer Pad Reset & Relative Duration Sustain — 2026-10-17
 
 - **Sequencer Pad Step Reset (`src/live-loop.js`):**

@@ -52,6 +52,15 @@
   - Enhanced localStorage cleanup in `resetLocalChanges()` to clear `'halo-pattern-v1-reactor'` alongside ambient and composition keys.
 
 ### Added
+- **Interactive Waveform Slice Dragging & Auditioning (`src/live-loop.js`):**
+  - **Slice Boundary Divider Dragging:** Hovering over a slice boundary divider or badge in `SLICE` mode highlights the divider (`#b6fff8`, width 2px) and changes the cursor to `col-resize`. Dragging smoothly adjusts `slices[k-1].endSec` and `slices[k].startSec` with minimum duration clamping (`MIN_SLICE_DUR = 0.025s`), updates `settings.slicePoints` normalized coordinates, persists cuts to IndexedDB, and auditions the adjusted slice on release.
+  - **Slice Strip Dragging:** Dragging inside a slice strip shifts both start and end timestamps together along the timeline within adjacent bounds.
+  - **Slice Reconstruction Parity:** `rebuildSlices()` utilizes `settings.slicePoints` to reconstruct slices, preserving custom user edits across loop cycles, phrase switches, and offline audio exports.
+- **Waveform Drag & Drop Audio File Import Zone (`src/live-loop.js`, `index.html`):**
+  - **Drag & Drop Dropzone:** The waveform card (`.loop-waveform-card`) and canvas wrap are now an active Drag & Drop zone. Dragging files over the area activates `.is-dragover` with a cyan glowing border (`#63d2c6`), box shadow, and dashed drop box on the canvas.
+  - **Strict Format Validation:** `isSupportedAudioFile(file)` verifies MIME types and file extensions, accepting only WAV, MP3, OGG, FLAC, M4A, AAC, and WEBA/WEBM audio files. Dropping unsupported formats (PDF, images, documents, executables) triggers a localized explanatory toast: *"Неподдерживаемый формат. Принимаются аудиофайлы: WAV, MP3, OGG, FLAC, M4A, AAC"*.
+  - **Tap-to-Import:** Tapping or clicking the empty waveform canvas directly opens the file picker dialog to import audio files.
+  - **Exported API:** Added `getSlicePoints()`, `setSlicePoints()`, `isSupportedAudioFile()`, and `clearAllLayers()` to `HaloLiveLoop`.
 - **AI File Bridge Anti-Hallucination & Zero-Execution Protocol (`AGENT_GUIDE.md`, `src/file-bridge.js`, `AGENTS.md`, `.agents/rules/halo-bridge.md`, `docs/agent-api-specification.md`, `index.html`):**
   - Formally prohibited AI models from hallucinating local HTTP servers, localhost ports (3000, 3001, 8080, 5173), non-existent CLI tools (`halo`), or executing background terminal commands (`curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`).
   - Prohibited external agents from attempting browser automation or URL opening.
