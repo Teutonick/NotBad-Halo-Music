@@ -1,6 +1,11 @@
 ## [Unreleased] - 2026-10-17
 
 ### Added
+- **AI File Bridge Anti-Hallucination & Zero-Execution Protocol (`AGENT_GUIDE.md`, `src/file-bridge.js`, `AGENTS.md`, `.agents/rules/halo-bridge.md`, `docs/agent-api-specification.md`, `index.html`):**
+  - Formally prohibited AI models from hallucinating local HTTP servers, localhost ports (3000, 3001, 8080, 5173), non-existent CLI tools (`halo`), or executing background terminal commands (`curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`).
+  - Prohibited external agents from attempting browser automation or URL opening.
+  - Enforced a strict linear 3-step sequence: 1) Read context; 2) Compose and self-validate batch in-memory; 3) Write to `requests/<requestId>.json` and terminate turn immediately.
+  - Clarified that request execution is strictly Human-in-the-Loop: results in `responses/` are generated asynchronously only after the user reviews and clicks "Approve" in the web UI. Agents must never block, sleep, or poll for response files during request generation.
 - **File Bridge Toolbar Controls & Reset Local Changes (`src/file-bridge.js`, `src/agent.js`):** Added a dedicated «↺ Сбросить изменения» ("↺ Reset Changes") button to the File Bridge toolbar. It clears `requests/` and `responses/` files, resets error counters, clears dirty localStorage project keys (`halo-pattern-v1`, `notbad-halo-autosave-v1`, `halo-composition-v1`), restores clean default project state from the server/defaults, and re-syncs all 5 context files.
 - **Internal Modal Dialog Confirmation (`src/file-bridge.js`, `index.html`):** Both «✕ Отключить» ("✕ Disconnect") and «↺ Сбросить изменения» ("↺ Reset Changes") require user confirmation via HALO's internal modal dialog (`window.HaloConfirm`), preventing accidental project wipes or disconnections.
 - **In-UI Error Recovery Directive & Action (`src/file-bridge.js`):** When a command error occurs or is displayed in the bridge UI, an explicit suggestion prompt is shown: *"Если ошибка не уходит, сбросьте локальные изменения и попросите нейросеть повторить запрос."* with a 1-click button `[↺ Сбросить локальные изменения]` that triggers the confirmed reset.

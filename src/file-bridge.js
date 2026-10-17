@@ -291,7 +291,39 @@
   function generateAgentGuide(caps, state){
     return `# HALO Agent Guide / AI Instruction Manual
 
-HALO is a browser relaxation music constructor (8 voices, 16-step grid per bar for 4/4 or 12-step grid for 3/4).
+HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-step grid per bar for 4/4 or 12-step grid for 3/4).
+
+## CRITICAL DIRECTIVE: Zero Localhost, Zero CLI, No Waiting
+
+1. **NO LOCALHOST, NO WEBSERVERS, NO PORTS:**
+   HALO runs 100% client-side in the user's browser. There is **NO backend server, NO local HTTP daemon, NO API port** (no port 3000, 3001, 8080, 5173, etc.).
+   - **DO NOT** execute \`curl\`, \`fetch\`, \`netstat\`, or scan local ports.
+   - **DO NOT** search for or ping \`http://localhost:3000\` or \`http://localhost:3001\`.
+2. **NO CLI OR EXECUTABLES:**
+   There is **NO command-line tool, NO executable binary, NO npm package** for HALO.
+   - **DO NOT** run \`halo\`, \`halo.exe\`, \`where.exe halo\`, \`halo bridge run\`, \`npm\`, \`node\`, or \`python\` to run HALO or execute requests.
+3. **NO BROWSER LAUNCHING:**
+   - **DO NOT** launch Chrome, Edge, Playwright, Puppeteer, or attempt to open \`file://\` or \`localhost\` URLs. HALO is already open in the user's browser and connects to this folder via the native Web File System Access API.
+4. **DO NOT WAIT, SLEEP, OR POLL FOR responses/:**
+   - HALO uses strict **Human-in-the-Loop** confirmation. When a request is written to \`requests/\`, HALO displays a visual diff to the human user in the browser. The response in \`responses/\` is created **ONLY AFTER THE USER PHYSICALLY CLICKS "Approve"** in the web UI.
+   - Because user approval takes human time, a response file will **NEVER** appear synchronously during the agent's turn.
+   - If the user prompt says "check that response confirms application", understand this as an asynchronous instruction: write the request file, inform the user that it awaits their approval in HALO, and **TERMINATE YOUR TURN IMMEDIATELY**. Never loop or wait for the response file!
+
+## Strict 3-Step Agent Workflow (No Deviations)
+
+1. **Step 1: Read Context (Read-Only)**
+   - Read \`project-state.json\` to get current \`revision\`, active voices, tempo, key, and meter.
+   - Read \`instruments.json\` to select compatible voices, sound catalog IDs, role policies, and MIDI ranges.
+   - Read \`music-rules.json\` to follow the rhythmic grid (4/4 or 3/4) and harmony.
+   - Read \`capabilities.json\` for allowed operation types and limits.
+2. **Step 2: Compose & Validate In-Memory**
+   - Compose musical content tailored to the user's prompt.
+   - Validate JSON envelope: \`requestId\`, \`schemaVersion: 1\`, \`baseRevision\` (matching current \`revision\` from \`project-state.json\`), and valid \`operations\`.
+   - Ensure \`project.replace\` has exactly 8 tracks; sound IDs have no world prefixes; notes are within role MIDI boundaries.
+3. **Step 3: Write File & FINISH**
+   - Save the request JSON file to \`requests/<requestId>.json\`.
+   - **STOP IMMEDIATELY AND END YOUR TURN.**
+   - Output a clear message to the user: *"Request <requestId>.json has been generated and written to requests/. Please switch to your HALO browser tab and click 'Approve' to apply the changes."*
 
 ## Folder Structure
 
@@ -327,10 +359,10 @@ HALO-Bridge/
    - \`composition.replace\` — Full replacement of a multi-phrase song/composition (up to 15 phrases)
    - \`visual.patch\` — Visual scene, motion, and effect modes (\`scene\`: ORBIT/BLOOM/CURRENT, \`motion\`: DRIFT/IN TIME/PHRASE, \`effects\`: CLASSIC/COSMIC/HYPER)
    No arbitrary scripts, remote URLs, shell commands, or unverified keys are allowed.
-5. **Human-in-the-Loop Approval:**
-   Commands in HALO are never applied secretly in the background: HALO reads the request, validates it against schemas, displays a visual diff/preview to the human user, and waits for user confirmation.
+5. **Human-in-the-Loop Approval & Asynchronous Execution:**
+   Commands in HALO are never applied secretly in the background: HALO reads the request, validates it against schemas, displays a visual diff/preview to the human user, and waits for user confirmation. The response in \`responses/\` is written only after user approval. The agent must NEVER wait or poll for this response during request generation.
 6. **Execution Feedback in responses/:**
-   After processing, HALO writes a response to \`responses/<requestId>.result.json\`:
+   HALO writes a response to \`responses/<requestId>.result.json\` only after human review in the web UI:
    - On success: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
    - On rejection or failure: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
 7. **Idempotence & Revision Freshness:**
@@ -348,6 +380,8 @@ HALO-Bridge/
    Sound names must match the catalogs in \`instruments.json\` (e.g., \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Do NOT prefix with world names like \`"ambient-bell"\`.
 5. **Phrase vs Song Mode:**
    For prompts like "compose an 8-bar holiday jingle / pirate theme / ambient groove", operate on a single phrase using \`track.patch\` or \`project.replace\` (\`bars: 8\`). Do NOT create a \`composition.replace\` unless the user explicitly requested a complete multi-section song.
+6. **No Terminal/Server/Browser Execution:**
+   Never invoke curl, netstat, node, npm, python, halo CLI, or browser automation. Doing so indicates hallucination and will immediately cause execution failures.
 
 ## Composition Policy: Single Phrase vs Full Composition
 

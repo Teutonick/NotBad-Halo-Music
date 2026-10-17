@@ -1,3 +1,14 @@
+### Implemented — 2026-10-17: AI File Bridge Anti-Hallucination & Zero-Execution Protocol
+
+- **Zero Localhost & Zero CLI Prohibitions (`AGENT_GUIDE.md`, `src/file-bridge.js`, `.agents/rules/`):**
+  - Strict architectural guarantees eliminating LLM hallucination of backend servers, localhost ports, CLI binaries, and endless polling loops:
+    - HALO runs 100% client-side in the browser via Web Audio and the File System Access API; there is **NO backend server, NO local HTTP daemon, NO API port** (no port 3000, 3001, 8080, 5173), and **NO CLI command** (`halo`).
+    - External agents are strictly prohibited from executing `curl`, `netstat`, `node`, `npm`, `python`, `where.exe halo`, or port scans to "ping" or "execute" HALO.
+    - External agents are strictly prohibited from launching browser windows or opening `localhost` / `file://` URLs.
+  - **Asynchronous Human-in-the-Loop & Immediate Turn Termination:**
+    - HALO enforces human review and approval in the browser UI before applying changes. Results in `responses/` are generated asynchronously only after the user clicks «Apply Changes».
+    - External models must NEVER wait, sleep, or poll for `responses/` during request creation turns. If user prompts mention "verify that the response confirms application", agents must treat this asynchronously: assemble and validate the batch in-memory, write to `requests/<requestId>.json`, output a clear notification directing the user to approve the change in HALO, and **STOP IMMEDIATELY**.
+
 ### Implemented — 2026-10-17: Authentic 3/4 Waltz & 6/8 Pirate Swing Pattern Generation in СОЗДАТЬ
 
 - **Мировые стандарты ритма и паттернов (`src/phrases.js`):**

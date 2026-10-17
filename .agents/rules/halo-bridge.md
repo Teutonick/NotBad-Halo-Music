@@ -20,6 +20,14 @@ Whenever the user references a HALO Bridge folder (e.g. `temp/`, `HALO-Bridge/`,
    - Set unique `requestId` (e.g. `req-<timestamp>` or `req-jingle-01`).
    - Set `schemaVersion: 1`.
 
-3. **Output**:
+3. **Output & Immediate Turn Termination**:
    - Save the request JSON to `<bridge_dir>/requests/<requestId>.json`.
    - Inform the user that the request has been submitted and awaits their one-click approval in the HALO web interface.
+   - **STOP IMMEDIATELY AND END YOUR TURN**.
+
+4. **Hard Prohibitions**:
+   - **NO LOCALHOST / NO SERVERS / NO PORTS**: HALO has no backend server or API ports (no localhost:3000, 3001, etc.). Never run `curl`, `netstat`, or port scans.
+   - **NO CLI / NO COMMANDS**: There is no `halo` CLI or executable. Never run `halo bridge run`, `where.exe halo`, `node`, `npm`, or `python` to execute HALO.
+   - **NO BROWSERS**: Do not launch browsers or open URLs.
+   - **NO WAITING FOR responses/**: Requests require human approval in the web UI. Response files are written asynchronously only after human review. Never block, sleep, or loop waiting for `responses/`.
+

@@ -22,6 +22,8 @@ There is no mood-preset planner or automatic inference/repair client in HALO. Ma
 2. **Batch Protocol:** Every request requires `requestId`, `schemaVersion: 1`, `baseRevision`, and an allowlisted operations array. Reprocessing processed batches is prohibited; stale revisions are rejected with `CONFLICT_REVISION_MISMATCH`.
 3. **Allowlist & Privacy:** Only valid HALO operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`) are accepted in `requests/`. No scripts, external URLs, or OS commands. `project-state.json` is strictly read-only.
 4. **Desktop Chrome/Edge Native API:** File Bridge relies on `window.showDirectoryPicker({ mode: 'readwrite' })` without server dependencies or external libraries. Works statically on GitHub Pages.
+5. **Zero Localhost, Zero CLI, and Zero Background Execution:** HALO is a 100% static client-side web application. There is **NO backend server, NO local HTTP daemon, NO CLI tool (`halo`), and NO localhost ports** (`localhost:3000`, `3001`, `8080`, `5173`, etc.). External agents are strictly prohibited from executing `curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`, or port scans to ping or run HALO.
+6. **Asynchronous Human-in-the-Loop & Immediate Turn Termination:** Results in `responses/` are written **only after the human user reviews the changes and clicks «Apply Changes» in the browser UI**. Because human review takes time, the response will NEVER appear synchronously during the agent's turn. Agents must NEVER block, sleep, or poll waiting for `responses/`. Once the request is written to `requests/`, the agent must immediately terminate its turn and notify the user.
 
 ## Automatic discovery and WebMCP lifecycle
 
@@ -131,6 +133,7 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
   - Preset names: world prefixes (e.g. `'ambient-bell'`) are automatically stripped to canonical sound IDs (`'bell'`).
   - Top-level composition metadata: `setup`, `timeSignature`, `bars`, `name`, `title`, `label` are tolerated and inherited to phrases if omitted.
   - Track count: `project.replace` requires all 8 tracks `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`. If modifying fewer tracks, use `track.patch`.
+- **Anti-Hallucination Guard against Localhost/CLI Loops:** External models often mistake client-side Web Audio file bridges for fullstack server-backed applications. If a user prompt instructs an agent to *"write request and verify that the response confirms application"*, agents must not interpret this as a synchronous command to poll `responses/` or run local servers. Because human review in the web UI is required before a response can be generated, the response does not exist during the agent's turn. Agents must write the request, report completion, and end the turn immediately without polling, curling localhost, or launching browsers.
 
 Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. 3/4 waltz and 6/8 rocking swing are fully implemented natively on transport and step grids. Arbitrary orbit reordering remains unsupported.
 

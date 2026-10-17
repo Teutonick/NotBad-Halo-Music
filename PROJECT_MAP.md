@@ -1,4 +1,14 @@
 
+### AI File Bridge Anti-Hallucination & Zero-Execution Protocol — 2026-10-17
+
+- **Strict Prohibitions on Localhost, CLI, and Servers (`AGENT_GUIDE.md`, `src/file-bridge.js`, `AGENTS.md`, `.agents/rules/`):**
+  - Addressed model hallucination where external agents (such as Qwen in Bionic, Codex, Antigravity) entered runaway loops attempting to execute non-existent CLI tools (`halo bridge run`), pinging imaginary servers (`localhost:3000`, `3001`, `8080`), scanning ports with `netstat`, or launching browsers.
+  - Formally codified in `AGENT_GUIDE.md`, `AGENTS.md`, and bridge rule files that HALO is 100% static and client-side with **zero backend server, zero CLI tool, and zero localhost ports**. Prohibited executing terminal commands (`curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`).
+- **Linear 3-Step Execution & Immediate Turn Termination:**
+  - Codified the exact sequential workflow: 1) Read context files; 2) In-memory composition & validation; 3) Write to `requests/<requestId>.json` and **stop immediately**.
+  - Prohibited blocking or polling for `responses/`: response generation is strictly asynchronous and requires the human user to review the proposal and click «Apply Changes» in the browser. Instructed agents to end their turn immediately upon writing the request.
+- **Full Synchronization:** Synchronized in-app bilingual manual (`index.html`), `docs/engine-capabilities.md`, `docs/agent-api-specification.md`, `CHANGELOG.md`, and automated test suite (`tests/file-bridge.test.cjs`).
+
 ### File Bridge Controls, Confirmation Modals & English AI Directives — 2026-10-17
 
 - **File Bridge Toolbar Controls (`src/file-bridge.js`):** Added a dedicated «↺ Сбросить изменения» ("↺ Reset Changes") action alongside `⟳ Sync Files`, `⯈ Check requests/`, and `✕ Disconnect`.

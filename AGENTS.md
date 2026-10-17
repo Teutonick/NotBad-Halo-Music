@@ -115,9 +115,15 @@ Do not introduce fonts, images, media or third-party libraries that require paid
 ## Autonomous HALO Bridge Interaction Protocol
 
 When the user mentions, links, or points to a HALO folder (such as `temp/`, `HALO-Bridge/`, or any directory containing `AGENT_GUIDE.md` / `project-state.json`) and asks to compose, modify, or arrange music in HALO — even with a brief prompt like *"Вот папка от HALO, сочини новогодний джингл на 8 тактов"*:
-1. **Implicit automatic discovery**: Immediately inspect `project-state.json`, `instruments.json`, `capabilities.json`, and `music-rules.json` in that directory without waiting for explicit instructions.
-2. **Current revision**: Read `"revision"` from `project-state.json` and use it as `baseRevision`.
-3. **Sound and role constraints**: Choose sounds, bank slots, and MIDI note ranges strictly from `instruments.json` adhering to role policies and harmony from `music-rules.json`.
-4. **Valid operations**: Construct a batch with unique `requestId` (e.g. `req-<timestamp>`), `schemaVersion: 1`, `baseRevision`, and allowlisted operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`).
-5. **Execution gate**: Write the request file to `<folder>/requests/<requestId>.json`. Notify the user that the proposal has been placed in `requests/` and is waiting for their review and approval in the HALO web interface.
+
+### 1. Strict 3-Step Execution Sequence (No Deviations)
+1. **Implicit automatic discovery (Read-Only)**: Immediately inspect `project-state.json` (to obtain `"revision"`, tempo, meter, and active tracks), `instruments.json` (to select compatible sounds, bank slots, and MIDI note ranges according to role policies), `capabilities.json` (for allowed operation types and limits), and `music-rules.json` (for rhythmic grid and harmony).
+2. **In-memory composition and validation**: Construct and validate a batch with unique `requestId` (e.g. `req-<timestamp>`), `schemaVersion: 1`, `baseRevision` matching current `"revision"`, and allowlisted operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`). Ensure `project.replace` contains exactly 8 tracks; sound IDs have no world prefixes; notes stay within role register bounds.
+3. **Execution gate & Immediate Turn Termination**: Write the request file to `<folder>/requests/<requestId>.json`. Notify the user that the proposal has been placed in `requests/` and is waiting for their review and approval in the HALO web interface. **STOP IMMEDIATELY AND END YOUR TURN**.
+
+### 2. Hard Negative Constraints (Strictly Enforced)
+- **NO LOCALHOST, NO WEBSERVERS, NO PORTS**: HALO is 100% static, client-side, and runs in the user's browser. There is **NO backend server**, **NO local daemon**, **NO CLI tool**, and **NO localhost port** (no port 3000, 3001, 8080, 5173, etc.).
+- **NEVER RUN SYSTEM/NETWORK COMMANDS**: DO NOT execute `curl`, `fetch`, `netstat`, `where.exe halo`, `node`, `npm`, `python`, or port scans to test, ping, or execute HALO. There is no `halo` CLI or runner.
+- **NEVER LAUNCH BROWSERS OR OPEN URLS**: DO NOT launch Chrome, Edge, Playwright, or open `localhost` / `file://` URLs in browser tools. HALO is already open in the user's browser, connected to the folder via the native Web File System Access API.
+- **NEVER BLOCK, SLEEP, OR POLL FOR RESPONSES**: The result in `responses/<requestId>.result.json` is written **only after the human user reviews the changes and clicks "Approve / Применить" in the web UI**. Because human review takes time, the response will NEVER appear synchronously during the agent's turn. Any loop or timer waiting for `responses/` will stall, time out, and cause hallucinatory error loops. If a user prompt says "check that response confirms application", understand this as an asynchronous human-in-the-loop requirement: write the request file, notify the user to approve it in HALO, and exit immediately.
 

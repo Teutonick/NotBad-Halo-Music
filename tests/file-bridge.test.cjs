@@ -444,6 +444,13 @@ test('AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% E
 
   assert.equal(cyrillicRegex.test(files['AGENT_GUIDE.md']), false, 'AGENT_GUIDE.md must not contain Cyrillic characters');
   assert.equal(cyrillicRegex.test(files['music-rules.json']), false, 'music-rules.json must not contain Cyrillic characters');
+
+  // Verify Zero Localhost, Zero CLI, and No-Waiting directives
+  assert.ok(files['AGENT_GUIDE.md'].includes('NO LOCALHOST, NO WEBSERVERS, NO PORTS'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('NO CLI OR EXECUTABLES'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('DO NOT WAIT, SLEEP, OR POLL FOR responses/'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('Strict 3-Step Agent Workflow'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('TERMINATE YOUR TURN IMMEDIATELY'));
 });
 
 test('resetLocalChanges clears requests/responses, resets project, and updates context', async () => {
