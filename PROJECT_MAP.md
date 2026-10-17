@@ -1,4 +1,24 @@
 
+### Live Loop Sequencer Pad Reset & Relative Duration Sustain — 2026-10-17
+
+- **Sequencer Pad Step Reset (`src/live-loop.js`):**
+  - Added right-click (`contextmenu`) and long-press (>450ms pointerdown) step clearing to the 16-pad pattern grid (`#sliceSeqGrid`) in both `SLICE` and `PITCH` modes.
+  - Setting a pad to rest resets its value to `-1` (displayed as `—`), removes the `.active` highlight, flags the active pattern preset as `'custom'`, and suppresses ghost clicks and default browser context menus.
+  - Added keyboard accessibility on focused pads (`Delete`, `Backspace`, `0`).
+- **Natural Slice Duration & Rest Sustain Hold:**
+  - Resolved premature volume drops on slices followed by rests. Slices now sustain their full natural sliced length unless choked by a subsequent note event.
+  - Peak gain (`1.0`) is held until `holdEnd = atTime + gateDur - releaseDur` with a quick anti-click release ramp (`6-25ms`) ending precisely at the step or loop boundary.
+- **Relative Duration Scaling (5% – 100%):**
+  - The `DURATION` slider now proportionally scales each slice's natural duration (`slice.duration / rate * durFraction`) instead of imposing an arbitrary flat cutoff across disparate slice lengths.
+- **Monophonic Voice Choking:**
+  - When an active slice triggers while a previous slice is still sounding, the previous voice is smoothly ramped down to silence in 4ms (`cancelScheduledValues` / `linearRampToValueAtTime(0.0001, atTime + 0.004)`), preventing overlapping audio clipping while preserving full sustain into subsequent rests.
+- **PITCH Mode & Offline Export Parity:**
+  - Extended relative duration scaling, sustain hold, and anti-click envelopes to pitch-shifted slices in `schedulePitch`.
+  - Mirrored relative duration scaling, sustain hold, and voice choking in `renderPhraseOffline`, ensuring rendered WAV/MP3 files match live playback.
+- **Test Suite & Verification:**
+  - Added unit tests in `tests/live-loop.test.cjs` covering right-click/long-press/keyboard reset, relative duration scaling, sustain hold, and voice choking.
+  - All 239 unit tests pass (`node --test tests/*.test.cjs`).
+
 ### 3/4 & 6/8 Meter Arranger Assembly & AudioContext Closed Guard — 2026-10-17
 
 - **Arranger 3/4 & 6/8 Meter Assembly (`src/arranger.js`, `src/song.js`, `src/song-ui.js`):**

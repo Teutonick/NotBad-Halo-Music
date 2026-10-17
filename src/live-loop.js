@@ -369,20 +369,26 @@
     const window=pitchWindow(tempo),buffer=getPlaybackBuffer(ctx);
     if(!window||window.duration<.04||!buffer||!event)return null;
     const rate=event.rate;
-    const gate=Math.min(window.duration/rate*(.15+.85*settings.duration/100),remaining);
+    const durSetting=(typeof settings.duration==='number')?settings.duration:65;
+    const durFraction=Math.max(0.05,Math.min(1.0,durSetting/100));
+    const realDur=window.duration/rate;
+    const targetDur=Math.max(0.035,realDur*durFraction);
+    const gate=Math.min(targetDur,remaining);
     if(gate<.006)return null;
     if(previous){try{previous.gain.gain.cancelAndHoldAtTime?.(time);previous.gain.gain.linearRampToValueAtTime(.0001,time+.004);previous.source.stop(time+.005)}catch(_){}}
     const source=ctx.createBufferSource(),gain=ctx.createGain();source.buffer=buffer;source.playbackRate.value=rate;
     let filter=null;
     if(ctx.createBiquadFilter){filter=ctx.createBiquadFilter();filter.type='lowpass';filter.frequency.setValueAtTime(250*Math.pow(80,settings.character/100),time);source.connect(filter);filter.connect(gain)}else source.connect(gain);
     gain.connect(destination);gain.gain.setValueAtTime(.0001,time);gain.gain.linearRampToValueAtTime(.85,time+.003);
+    const releaseDur=Math.min(0.025,Math.max(0.006,gate*0.08));
+    const holdEnd=Math.max(time+0.004,time+gate-releaseDur);
     const end=time+gate;
-    gain.gain.setValueAtTime(.85,Math.max(time+.003,end-.008));
-    if(gain.gain.exponentialRampToValueAtTime)gain.gain.exponentialRampToValueAtTime(.0001,end);else gain.gain.linearRampToValueAtTime(.0001,end);
+    gain.gain.setValueAtTime(.85,holdEnd);
+    if(gain.gain.linearRampToValueAtTime)gain.gain.linearRampToValueAtTime(.0001,end);else if(gain.gain.exponentialRampToValueAtTime)gain.gain.exponentialRampToValueAtTime(.0001,end);
     const offset=settings.reverse?Math.max(0,buffer.duration-window.endSec):window.startSec;
-    source.start(time,offset,Math.min(window.duration,gate*rate));source.stop(end+.001);
+    source.start(time,offset,Math.min(window.duration,(gate*rate)+0.02));source.stop(end+.005);
     source.onended=()=>{try{source.disconnect();gain.disconnect();filter?.disconnect()}catch(_){}};
-    return {source,gain,filter,stopTime:end+.001};
+    return {source,gain,filter,stopTime:end+.005};
   }
 
   function rebuildSlices() {
@@ -405,7 +411,7 @@
     return slices;
   }
 
-  function playSlice(sliceIndex, time, audioCtx, optionalTempo) {
+  function playSlice(sliceIndex, time, audioCtx, optionalTempo, remaining = Infinity) {
     if (!compositeBuffer) return;
     if (!slices || !slices.length) rebuildSlices();
     if (!slices || !slices.length) return;
@@ -419,6 +425,13 @@
     if (activeSliceVoice) {
       try {
         if (activeSliceVoice.gain && activeSliceVoice.gain.gain) {
+          try {
+            if (activeSliceVoice.gain.gain.cancelAndHoldAtTime) {
+              activeSliceVoice.gain.gain.cancelAndHoldAtTime(atTime);
+            } else if (activeSliceVoice.gain.gain.cancelScheduledValues) {
+              activeSliceVoice.gain.gain.cancelScheduledValues(atTime);
+            }
+          } catch (_) {}
           activeSliceVoice.gain.gain.setValueAtTime(activeSliceVoice.gain.gain.value, atTime);
           activeSliceVoice.gain.gain.linearRampToValueAtTime(0.0001, atTime + 0.004);
         }
@@ -434,8 +447,9 @@
     source.buffer = playBuf;
 
     const pitchVal = Number(settings.pitch) || 0;
+    const rate = Math.pow(2, pitchVal / 12);
     if (pitchVal !== 0 && source.playbackRate) {
-      source.playbackRate.value = Math.pow(2, pitchVal / 12);
+      source.playbackRate.value = rate;
     }
 
     let filter = null;
@@ -452,16 +466,23 @@
 
     const vGain = ctx.createGain();
     const peak = 1.0;
-    vGain.gain.setValueAtTime(0.0001, atTime);
-    vGain.gain.linearRampToValueAtTime(peak, atTime + 0.003);
 
     const durSetting = (typeof settings.duration === 'number') ? settings.duration : 65;
-    const gateDur = Math.max(0.035, slice.duration * (0.15 + 0.85 * (durSetting / 100)));
-    const holdTime = Math.max(0.01, gateDur - 0.012);
-    if (vGain.gain.exponentialRampToValueAtTime) {
-      vGain.gain.exponentialRampToValueAtTime(0.0001, atTime + gateDur);
-    } else if (vGain.gain.linearRampToValueAtTime) {
-      vGain.gain.linearRampToValueAtTime(0.0001, atTime + gateDur);
+    const durFraction = Math.max(0.05, Math.min(1.0, durSetting / 100));
+    const realDur = slice.duration / rate;
+    const targetDur = Math.max(0.035, realDur * durFraction);
+    const gateDur = Math.min(targetDur, (typeof remaining === 'number' && remaining > 0) ? remaining : targetDur);
+    const releaseDur = Math.min(0.025, Math.max(0.006, gateDur * 0.08));
+    const holdEnd = Math.max(atTime + 0.004, atTime + gateDur - releaseDur);
+    const soundEnd = atTime + gateDur;
+
+    vGain.gain.setValueAtTime(0.0001, atTime);
+    vGain.gain.linearRampToValueAtTime(peak, atTime + 0.003);
+    vGain.gain.setValueAtTime(peak, holdEnd);
+    if (vGain.gain.linearRampToValueAtTime) {
+      vGain.gain.linearRampToValueAtTime(0.0001, soundEnd);
+    } else if (vGain.gain.exponentialRampToValueAtTime) {
+      vGain.gain.exponentialRampToValueAtTime(0.0001, soundEnd);
     }
 
     if (filter) {
@@ -478,10 +499,11 @@
       sliceStart = Math.max(0, Math.min(totalBufDur - slice.duration, totalBufDur - (slice.startSec + slice.duration)));
     }
 
-    source.start(atTime, sliceStart, gateDur + 0.03);
-    source.stop(atTime + gateDur + 0.04);
+    const bufferDur = Math.min(slice.duration, (gateDur * rate) + 0.02);
+    source.start(atTime, sliceStart, bufferDur);
+    source.stop(soundEnd + 0.005);
 
-    activeSliceVoice = { source, gain: vGain, filter, stopTime: atTime + gateDur + 0.04 };
+    activeSliceVoice = { source, gain: vGain, filter, stopTime: soundEnd + 0.005 };
     activeSliceIndex = sliceIndex;
 
     if (typeof root.HaloPulse === 'function') {
@@ -1112,7 +1134,8 @@
               const threshold = isAnchor ? 15 : (isMedium ? 35 : 55);
               const dens = (typeof settings.density === 'number') ? settings.density : 75;
               if (dens >= threshold) {
-                playSlice(sliceIdx, time, audio.ctx, tempo);
+                const remaining = (phraseBars * spb - absStep % (phraseBars * spb)) * 60 / tempo / 4;
+                playSlice(sliceIdx, time, audio.ctx, tempo, remaining);
               }
             }
           }
@@ -2442,15 +2465,91 @@
     // Slice 16-Step Sequencer Grid
     const seqGrid = find('sliceSeqGrid');
     if (seqGrid) {
+      const resetPadStep = (stepIdx, pad) => {
+        if (isNaN(stepIdx) || stepIdx < 0 || stepIdx > 15) return;
+        if (settings.mode === 'pitch') {
+          const steps = [...(settings.pitchSteps || [])];
+          steps[stepIdx] = -1;
+          api.setSettings({ pitchSteps: steps });
+          createUI(container);
+          return;
+        }
+        if (!Array.isArray(settings.sliceSteps) || settings.sliceSteps.length !== 16) {
+          settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
+        }
+        settings.sliceSteps[stepIdx] = -1;
+        settings.slicePattern = 'custom';
+        const patGroup = find('slicePatternGroup');
+        if (patGroup) {
+          Array.from(patGroup.children).forEach(b => {
+            if (b.dataset && b.dataset.slicePattern) b.classList.remove('active');
+          });
+        }
+        persistSettings();
+        pad.classList.remove('active');
+        const label = pad.querySelector('.slice-step-val') || pad;
+        label.textContent = '—';
+        pad.title = `${tr('Шаг', 'Step')} ${stepIdx + 1}: ${tr('Пауза', 'Rest')}`;
+      };
+
       Array.from(seqGrid.children).forEach(pad => {
-        pad.onclick = () => {
+        let longPressTimer = null;
+        let isLongPress = false;
+
+        const startLongPress = (e) => {
+          if (e.button !== undefined && e.button !== 0) return;
+          isLongPress = false;
+          clearTimeout(longPressTimer);
+          longPressTimer = setTimeout(() => {
+            isLongPress = true;
+            const stepIdx = Number(pad.dataset.sliceStep);
+            resetPadStep(stepIdx, pad);
+          }, 450);
+        };
+
+        const cancelLongPress = () => {
+          clearTimeout(longPressTimer);
+        };
+
+        pad.onpointerdown = startLongPress;
+        pad.onpointerup = cancelLongPress;
+        pad.onpointercancel = cancelLongPress;
+        pad.onpointerleave = cancelLongPress;
+
+        pad.oncontextmenu = (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          cancelLongPress();
+          const stepIdx = Number(pad.dataset.sliceStep);
+          resetPadStep(stepIdx, pad);
+        };
+
+        pad.onkeydown = (e) => {
+          if (e.key === 'Delete' || e.key === 'Backspace' || e.key === '0') {
+            e.preventDefault();
+            const stepIdx = Number(pad.dataset.sliceStep);
+            resetPadStep(stepIdx, pad);
+          }
+        };
+
+        pad.onclick = (e) => {
+          if (isLongPress) {
+            isLongPress = false;
+            e.preventDefault();
+            e.stopPropagation();
+            return;
+          }
           const stepIdx = Number(pad.dataset.sliceStep);
           if (isNaN(stepIdx) || stepIdx < 0 || stepIdx > 15) return;
           if (!Array.isArray(settings.sliceSteps) || settings.sliceSteps.length !== 16) {
             settings.sliceSteps = getPresetSlicePattern('beat', settings.sliceCount || 8);
           }
-          if(settings.mode==='pitch'){
-            const steps=[...settings.pitchSteps];steps[stepIdx]=steps[stepIdx]>=7?-1:steps[stepIdx]+1;api.setSettings({pitchSteps:steps});createUI(container);return;
+          if (settings.mode === 'pitch') {
+            const steps = [...settings.pitchSteps];
+            steps[stepIdx] = steps[stepIdx] >= 7 ? -1 : steps[stepIdx] + 1;
+            api.setSettings({ pitchSteps: steps });
+            createUI(container);
+            return;
           }
           const curVal = (typeof settings.sliceSteps[stepIdx] === 'number') ? settings.sliceSteps[stepIdx] : -1;
           const count = settings.sliceCount || 8;
@@ -2458,11 +2557,18 @@
           const nextVal = (curVal + 2 > count) ? -1 : curVal + 1;
           settings.sliceSteps[stepIdx] = nextVal;
           settings.slicePattern = 'custom';
+          const patGroup = find('slicePatternGroup');
+          if (patGroup) {
+            Array.from(patGroup.children).forEach(b => {
+              if (b.dataset && b.dataset.slicePattern) b.classList.remove('active');
+            });
+          }
           persistSettings();
           if (nextVal >= 0) playSlice(nextVal);
           pad.classList.toggle('active', nextVal >= 0);
           const label = pad.querySelector('.slice-step-val') || pad;
           label.textContent = nextVal >= 0 ? String(nextVal + 1) : '—';
+          pad.title = `${tr('Шаг', 'Step')} ${stepIdx + 1}: ${nextVal >= 0 ? tr('Слайс', 'Slice') + ' ' + (nextVal + 1) : tr('Пауза', 'Rest')}`;
         };
       });
     }
@@ -2853,6 +2959,7 @@
         if (!slices || !slices.length) rebuildSlices();
         if (!slices || !slices.length) return;
 
+        let previousVoice = null;
         const totalSteps = totalBars * 16;
         const secPerStep = (60 / tempo) / 4;
         const stepLen = settings.stepLength || 1;
@@ -2872,11 +2979,23 @@
               const threshold = isAnchor ? 15 : (isMedium ? 35 : 55);
               if (dens >= threshold) {
                 const t = step * secPerStep;
+                const triggerTime = startTime + t;
+
+                if (previousVoice) {
+                  try {
+                    previousVoice.gain.gain.cancelAndHoldAtTime?.(triggerTime);
+                    previousVoice.gain.gain.linearRampToValueAtTime(0.0001, triggerTime + 0.004);
+                    previousVoice.source.stop(triggerTime + 0.005);
+                  } catch (_) {}
+                }
+
                 const slice = slices[sliceIdx];
                 const src = ctx.createBufferSource();
                 src.buffer = playBuf;
-                if (settings.pitch && src.playbackRate) {
-                  src.playbackRate.value = Math.pow(2, settings.pitch / 12);
+                const pitchVal = Number(settings.pitch) || 0;
+                const rate = Math.pow(2, pitchVal / 12);
+                if (pitchVal !== 0 && src.playbackRate) {
+                  src.playbackRate.value = rate;
                 }
                 let filter = null;
                 if (ctx.createBiquadFilter) {
@@ -2885,16 +3004,29 @@
                     const charVal = (typeof settings.character === 'number') ? settings.character : 60;
                     const cutoff = 250 * Math.pow(20000 / 250, Math.max(0, Math.min(100, charVal)) / 100);
                     filter.type = 'lowpass';
-                    filter.frequency.setValueAtTime(cutoff, t);
+                    filter.frequency.setValueAtTime(cutoff, triggerTime);
                   } catch (_) {}
                 }
                 const vGain = ctx.createGain();
-                vGain.gain.setValueAtTime(0.0001, startTime + t);
-                vGain.gain.linearRampToValueAtTime(1.0, startTime + t + 0.003);
+                const peak = 1.0;
                 const durSetting = (typeof settings.duration === 'number') ? settings.duration : 65;
-                const gateDur = Math.max(0.035, slice.duration * (0.15 + 0.85 * (durSetting / 100)));
-                vGain.gain.setValueAtTime(1.0, startTime + t + Math.max(0.01, gateDur - 0.012));
-                vGain.gain.exponentialRampToValueAtTime(0.0001, startTime + t + gateDur);
+                const durFraction = Math.max(0.05, Math.min(1.0, durSetting / 100));
+                const realDur = slice.duration / rate;
+                const targetDur = Math.max(0.035, realDur * durFraction);
+                const remaining = Math.max(0.01, (totalBars * 4 * 60 / tempo) - t);
+                const gateDur = Math.min(targetDur, remaining);
+                const releaseDur = Math.min(0.025, Math.max(0.006, gateDur * 0.08));
+                const holdEnd = triggerTime + Math.max(0.004, gateDur - releaseDur);
+                const soundEnd = triggerTime + gateDur;
+
+                vGain.gain.setValueAtTime(0.0001, triggerTime);
+                vGain.gain.linearRampToValueAtTime(peak, triggerTime + 0.003);
+                vGain.gain.setValueAtTime(peak, holdEnd);
+                if (vGain.gain.linearRampToValueAtTime) {
+                  vGain.gain.linearRampToValueAtTime(0.0001, soundEnd);
+                } else if (vGain.gain.exponentialRampToValueAtTime) {
+                  vGain.gain.exponentialRampToValueAtTime(0.0001, soundEnd);
+                }
 
                 if (filter) {
                   src.connect(filter);
@@ -2909,7 +3041,9 @@
                   const totalBufDur = playBuf.duration;
                   sliceStart = Math.max(0, Math.min(totalBufDur - slice.duration, totalBufDur - (slice.startSec + slice.duration)));
                 }
-                src.start(startTime + t, sliceStart, Math.min(gateDur, Math.max(0.01, (totalBars * 4 * 60 / tempo) - t) * Math.pow(2,(settings.pitch||0)/12)));
+                src.start(triggerTime, sliceStart, Math.min(slice.duration, (gateDur * rate) + 0.02));
+                src.stop(soundEnd + 0.005);
+                previousVoice = { source: src, gain: vGain, stopTime: soundEnd + 0.005 };
               }
             }
           }

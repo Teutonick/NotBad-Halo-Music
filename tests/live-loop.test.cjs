@@ -970,3 +970,183 @@ test('PITCH duration survives rests beyond a sixteenth and responds to duration 
  loop.setSettings({rootNote:62,pitchOctave:0,pitchSteps:[0,...Array(15).fill(-1)],duration:100,density:100,stepLength:1});loop.onPlay(0,0);loop.tick(0,0,audio,120,4,0);const long=starts.at(-1);assert.ok(long>.125);
  loop.setSettings({duration:0,stepLength:4});loop.onPlay(0,0);loop.tick(0,0,audio,120,4,0);assert.ok(starts.at(-1)<long);
 });
+
+test('SLICE and PITCH sequencer pads reset step to rest on right-click, keyboard delete, or long-press', async () => {
+  const env = createEnvironment();
+  const loop = env.HaloLiveLoop;
+  env.HaloComposition = require('../src/composition.js');
+
+  function makeSequencerContainer() {
+    const elements = new Map();
+    const container = {
+      id: 'liveLoopPanel',
+      _html: '',
+      set innerHTML(val) {
+        this._html = val;
+        const idMatches = val.matchAll(/id=["']([^"']+)["']/g);
+        for (const m of idMatches) {
+          if (!elements.has(m[1])) {
+            elements.set(m[1], {
+              id: m[1],
+              tagName: 'DIV',
+              classList: { toggle() {}, add() {}, remove() {}, contains() { return false; } },
+              children: [],
+              addEventListener() {}
+            });
+          }
+        }
+        const seqGrid = elements.get('sliceSeqGrid');
+        if (seqGrid) {
+          const padMatches = val.matchAll(/class="([^"]*slice-seq-pad[^"]*)"\s+data-slice-step="(\d+)"/g);
+          seqGrid.children = [];
+          for (const pm of padMatches) {
+            const stepIdx = pm[2];
+            const padClasses = new Set(pm[1].split(/\s+/));
+            const labelEl = { textContent: '' };
+            const padEl = {
+              dataset: { sliceStep: stepIdx },
+              classList: {
+                add(c) { padClasses.add(c); },
+                remove(c) { padClasses.delete(c); },
+                toggle(c, force) { if (force !== undefined) { if (force) padClasses.add(c); else padClasses.delete(c); } else { if (padClasses.has(c)) padClasses.delete(c); else padClasses.add(c); } },
+                contains(c) { return padClasses.has(c); }
+              },
+              querySelector(sel) { if (sel && sel.includes('slice-step-val')) return labelEl; return null; },
+              title: ''
+            };
+            seqGrid.children.push(padEl);
+          }
+        }
+      },
+      get innerHTML() { return this._html; },
+      querySelector(sel) {
+        if (sel && sel.startsWith('#')) return elements.get(sel.slice(1)) || null;
+        return null;
+      },
+      querySelectorAll() { return []; },
+      children: []
+    };
+    return { container, elements };
+  }
+
+  // 1. SLICE mode
+  loop.setMode('slice');
+  loop.setSettings({ sliceCount: 8, sliceSteps: [0, 1, 2, 3, 4, 5, 6, 7, 0, 1, 2, 3, 4, 5, 6, 7] });
+  const { container } = makeSequencerContainer();
+  loop.createUI(container);
+
+  const seqGrid = container.querySelector('#sliceSeqGrid');
+  assert.ok(seqGrid && seqGrid.children.length === 16, 'Grid has 16 pads');
+
+  // Verify initial step 0 has active slice
+  assert.ok(loop.getSettings().sliceSteps[0] >= 0);
+
+  // Right-click on pad 0
+  let prevented = false;
+  seqGrid.children[0].oncontextmenu({ preventDefault() { prevented = true; }, stopPropagation() {} });
+  assert.ok(prevented, 'contextmenu event default was prevented');
+  assert.equal(loop.getSettings().sliceSteps[0], -1, 'Pad 0 reset to rest (-1)');
+  assert.equal(loop.getSettings().slicePattern, 'custom', 'Pattern switched to custom');
+  assert.ok(!seqGrid.children[0].classList.contains('active'), 'Active class removed');
+  assert.equal(seqGrid.children[0].querySelector('.slice-step-val').textContent, '—');
+
+  // Keyboard delete on pad 1
+  assert.ok(loop.getSettings().sliceSteps[1] >= 0);
+  seqGrid.children[1].onkeydown({ key: 'Delete', preventDefault() {} });
+  assert.equal(loop.getSettings().sliceSteps[1], -1, 'Pad 1 reset via Delete key');
+
+  // Long-press on pad 2
+  assert.ok(loop.getSettings().sliceSteps[2] >= 0);
+  seqGrid.children[2].onpointerdown({ button: 0 });
+  await new Promise(r => setTimeout(r, 480));
+  assert.equal(loop.getSettings().sliceSteps[2], -1, 'Pad 2 reset via long-press');
+
+  // 2. PITCH mode
+  loop.setMode('pitch');
+  loop.setSettings({ pitchSteps: [0, 1, 2, 3, 4, 5, 6, 7, -1, -1, -1, -1, -1, -1, -1, -1] });
+  loop.createUI(container);
+
+  assert.equal(loop.getSettings().pitchSteps[3], 3);
+  seqGrid.children[3].oncontextmenu({ preventDefault() {}, stopPropagation() {} });
+  assert.equal(loop.getSettings().pitchSteps[3], -1, 'PITCH pad 3 reset to -1 via contextmenu');
+});
+
+test('SLICE duration scales relative to slice length with sustain hold and chokes overlapping voices', () => {
+  const env = createEnvironment();
+  const loop = env.HaloLiveLoop;
+  const ctx = new env.AudioContext();
+
+  const gains = [];
+  const starts = [];
+  const stops = [];
+
+  ctx.createGain = () => {
+    const gainObj = {
+      gain: {
+        value: 1,
+        events: [],
+        setValueAtTime(v, t) { this.events.push({ type: 'set', v, t }); },
+        linearRampToValueAtTime(v, t) { this.events.push({ type: 'linear', v, t }); },
+        setTargetAtTime(v, t, tc) { this.events.push({ type: 'target', v, t, tc }); },
+        cancelScheduledValues(t) { this.events.push({ type: 'cancel', t }); },
+        cancelAndHoldAtTime(t) { this.events.push({ type: 'cancelAndHold', t }); }
+      },
+      connect() {},
+      disconnect() {}
+    };
+    gains.push(gainObj);
+    return gainObj;
+  };
+
+  ctx.createBufferSource = () => {
+    const src = {
+      playbackRate: { value: 1 },
+      connect() {},
+      disconnect() {},
+      start(t, o, d) { starts.push({ t, o, d }); },
+      stop(t) { stops.push(t); }
+    };
+    return src;
+  };
+
+  const audio = { ctx, master: ctx.createGain() };
+  loop.connectToAudio(audio);
+
+  // 2 seconds PCM buffer
+  loop.addLayer({ id: 888, duration: 2.0, sampleRate: 44100, pcmL: new Float32Array(88200) }, ctx);
+  loop.setMode('slice');
+  loop.setSettings({ sliceCount: 8, duration: 100 }); // 8 slices of 0.25s each
+
+  const slices = loop.getSlices();
+  assert.equal(slices.length, 8);
+  const slice0Dur = slices[0].duration; // 0.25s
+
+  // Play slice 0 at t=1.0 with duration=100%
+  loop.playSlice(0, 1.0, ctx, 120, Infinity);
+  assert.equal(starts.length, 1);
+  assert.equal(starts[0].t, 1.0);
+
+  // Check voice gain envelope
+  const vGain = gains[gains.length - 1].gain;
+  // Attack at 1.003
+  const attack = vGain.events.find(e => e.type === 'linear' && Math.abs(e.t - 1.003) < 0.001);
+  assert.ok(attack, 'Attack ramped to peak at 1.003');
+  assert.equal(attack.v, 1.0);
+
+  // Hold end should sustain until near the end of the slice (0.25s gate, release ~ 0.02s)
+  const hold = vGain.events.find(e => e.type === 'set' && e.v === 1.0 && e.t > 1.004);
+  assert.ok(hold, 'Gain sustained at peak until near end of slice');
+  assert.ok(hold.t >= 1.20, 'Hold time kept high for full slice duration');
+
+  // Sound ends at 1.0 + 0.25 = 1.25
+  const release = vGain.events.find(e => e.type === 'linear' && Math.abs(e.t - (1.0 + slice0Dur)) < 0.001);
+  assert.ok(release, 'Linear ramp to zero at slice end');
+
+  // Triggering next slice chokes previous slice
+  loop.playSlice(1, 1.1, ctx, 120, Infinity);
+  // Previous voice should have received choke ramp
+  const choke = vGain.events.find(e => e.type === 'linear' && Math.abs(e.t - 1.104) < 0.001);
+  assert.ok(choke, 'Previous voice choked to 0.0001 within 4ms of next slice trigger');
+  assert.ok(stops.includes(1.105), 'Previous voice source stopped at choke time');
+});
+

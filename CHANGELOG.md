@@ -1,6 +1,13 @@
 ## [Unreleased] - 2026-10-17
 
 ### Fixed
+- **Live Loop Sequencer Pad Reset & Relative Duration Sustain (`src/live-loop.js`):**
+  - **Sequencer Pad Step Reset (`#sliceSeqGrid`):** Right-clicking (`contextmenu`) or long-pressing (>450ms) on any of the 16 pattern pads in `SLICE` or `PITCH` modes resets the step to rest (`-1`, displayed as `—`), removes active styling, flags the pattern as `'custom'`, and suppresses context menus and ghost clicks. Keyboard shortcuts (`Delete`, `Backspace`, `0`) also clear the focused pad.
+  - **Natural Slice Duration & Rest Sustain Hold:** Slices followed by rests now sustain their natural sliced audio length instead of decaying prematurely. The audio envelope maintains peak volume (`1.0`) until `holdEnd = atTime + gateDur - releaseDur` with a quick anti-click release (`6-25ms`) immediately preceding the next boundary, allowing slices to ring out naturally when not choked by subsequent steps.
+  - **Relative Duration Scaling (5% – 100%):** The `DURATION` slider now scales playback length proportionally relative to each slice's natural duration (`slice.duration / rate * durFraction`) rather than clamping all slices to an arbitrary flat cutoff.
+  - **Monophonic Voice Choking:** When a new active slice triggers before the previous slice has finished, the previous voice is choked smoothly in 4ms (`cancelScheduledValues` / `linearRampToValueAtTime(0.0001, atTime + 0.004)`), eliminating overlapping voice phase distortion while maintaining full sustain into empty steps.
+  - **PITCH Mode Parity:** Extended relative duration scaling, sustain hold, and anti-click release curves to pitch-shifted slices in `schedulePitch`.
+  - **Synchronized Offline Export:** Updated `renderPhraseOffline` in `src/live-loop.js` to mirror relative duration scaling, sustain hold, and voice choking in rendered audio exports.
 - **Arranger 3/4 & 6/8 Meter Assembly & AudioContext Closed Guard (`src/arranger.js`, `src/song.js`, `src/song-ui.js`, `src/live-loop.js`):**
   - Resolved `INVALID_STEPS: steps for track "GLASS" must be unique integers between 0 and 47` occurring when building compositions («Собрать композицию») with 3/4 meter (3/4 waltz and 6/8 pirate swing):
     - `src/arranger.js` now dynamically calculates steps per bar (`spb = timeSignature === '3/4' ? 12 : 16`), bounding 4-bar intro/outro steps strictly to 0..47 (`p.bars * spb = 48`) instead of hardcoding 16 steps per bar (which retained and generated steps up to 63).
