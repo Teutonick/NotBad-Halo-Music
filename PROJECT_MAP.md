@@ -1,4 +1,17 @@
 
+### Fix: Reset Local Changes Crash & Infinite Canvas Render Loop — 2026-10-17
+
+- **Root Cause & Fix for Reset Local Changes Crash (`src/agent.js`, `index.html`, `src/file-bridge.js`):**
+  - Identified root cause of `Uncaught Error: Invalid numeric value` occurring when clicking «↺ Сбросить изменения» ("Reset Local Changes"): `agent.resetProject()` omitted `startStep` and defaulted tracks to legacy generator 1, causing `applyProjectState()` to set `step = undefined` and `frozenBeat = NaN`.
+  - In `src/agent.js`, `resetProject()` now outputs `startStep: 0` and preserves Generator 3 role and sequence parameters from ambient defaults.
+  - In `index.html`, `applyProjectState()` guards `step` and `frozenBeat` with finite number coercion (`step = Number.isFinite(project.startStep) ? Math.max(0, Math.floor(project.startStep)) : 0; frozenBeat = step / 4;`).
+  - In `index.html`, `phraseWindowStart()`, `snapshotProject()`, and `getMasterBeat()` guard against non-finite beats, completely eliminating `NaN` propagation to `HaloProject.capture()` and `validate()`.
+- **Render Loop Stabilization & Indestructible Animation Frame:**
+  - In `index.html`, `draw()` animation loop validates `pos.x` and `pos.y` before calling `ctx.createRadialGradient()`, preventing `Failed to execute 'createRadialGradient' on 'CanvasRenderingContext2D': The provided double value is non-finite`.
+  - Wrapped `draw()` frame execution in a `try...catch...finally` block, ensuring `requestAnimationFrame(draw)` is never terminated by an unhandled rendering error.
+  - Cleaned up `'halo-pattern-v1-reactor'` in `resetLocalChanges()` in `src/file-bridge.js`.
+  - Added full automated test coverage in `tests/agent.test.cjs` and `tests/file-bridge.test.cjs`. All 230 automated unit tests pass.
+
 ### AI File Bridge Anti-Hallucination & Zero-Execution Protocol — 2026-10-17
 
 - **Strict Prohibitions on Localhost, CLI, and Servers (`AGENT_GUIDE.md`, `src/file-bridge.js`, `AGENTS.md`, `.agents/rules/`):**

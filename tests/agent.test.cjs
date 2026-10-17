@@ -38,3 +38,30 @@ test('composition.replace tolerates top-level metadata, composition payload alia
   assert.throws(()=>api.previewOperations(request(api,[{op:'composition.replace',composition:c}])),/UNKNOWN_FIELD: unexpected field\(s\) \[unexpectedField\] in composition/);
 });
 
+test('resetProject resets to clean ambient state with startStep: 0, generator: 3, and passes project validation',async()=>{
+  const {api}=fixture();
+  const res=await api.resetProject();
+  assert.equal(res.project.format,'notbad-halo-project');
+  assert.equal(res.project.version,1);
+  assert.equal(res.project.setup,'ambient');
+  assert.equal(res.project.bars,4);
+  assert.equal(res.project.startStep,0);
+  assert.equal(res.project.tempo,72);
+  assert.equal(res.project.tracks.length,8);
+
+  // Validate the reset project using core validator
+  const validated=project.validate(res.project,sounds);
+  assert.equal(validated.startStep,0);
+  for(const t of validated.tracks){
+    assert.equal(t.generator,3);
+    assert.equal(t.exact,false);
+    assert.ok(t.role);
+    assert.ok(t.sequence);
+    assert.ok(Number.isFinite(t.level));
+  }
+
+  // Simulate snapshot / capture with startStep=0
+  const captured=project.capture(validated.tracks,validated.bars,validated.tempo,validated.seed,validated.key,sounds,motion,validated.masterVolume,validated.mix,validated.startStep);
+  assert.equal(captured.startStep,0);
+});
+

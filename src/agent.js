@@ -99,36 +99,46 @@
    const def=env.defaults?env.defaults():null;
    const baseTracks=(def?.ambientTracks&&def.ambientTracks.length===8)?def.ambientTracks:(env.sounds?.roles?.roles||[]).map(r=>{
      const init=env.sounds?.roles?.initial?env.sounds.roles.initial('ambient',r.slot):{instrument:r.slot,sound:'pulse'};
-     return {name:r.slot,instrument:init.instrument||r.slot,generator:1,sound:init.sound||'pulse',on:true,exact:false,steps:[0,4,8,12],level:65,density:65,character:50,duration:50,space:50,delay:0,delayTime:'1/8',chorus:0};
+     return {name:r.slot,instrument:init.instrument||r.slot,generator:3,sound:init.sound||'pulse',on:true,exact:false,steps:[0,4,8,12],level:65,density:65,character:50,duration:50,space:50,delay:0,delayTime:'1/8',chorus:0};
    });
    const defaultProject={
     format:'notbad-halo-project',
     version:1,
     setup:'ambient',
     bars:4,
+    startStep:0,
     timeSignature:'4/4',
     tempo:def?.tempo||72,
     masterVolume:def?.masterVolume||50,
     mix:def?.mix||{low:0,mid:0,high:0,width:35},
     seed:1,
     key:0,
-    tracks:baseTracks.map(t=>({
-      name:t.name,
-      instrument:t.instrument||t.name,
-      generator:1,
-      sound:t.sound,
-      on:true,
-      exact:false,
-      steps:[0,4,8,12],
-      level:t.level??65,
-      density:t.density??65,
-      character:t.character??50,
-      duration:t.duration??50,
-      space:t.space??50,
-      delay:0,
-      delayTime:'1/8',
-      chorus:0
-    }))
+    tracks:baseTracks.map(t=>{
+      const g=t.generator||(t.role?3:1);
+      const clean={
+        name:t.name,
+        instrument:t.instrument||t.name,
+        generator:g,
+        sound:t.sound,
+        on:t.on!==undefined?t.on:true,
+        exact:t.exact===true,
+        steps:Array.isArray(t.steps)&&t.steps.length?t.steps:[0,4,8,12],
+        level:t.level??65,
+        density:t.density??65,
+        character:t.character??50,
+        duration:t.duration??50,
+        space:t.space??50,
+        delay:t.delay??0,
+        delayTime:t.delayTime||'1/8',
+        chorus:t.chorus??0
+      };
+      if(g===3){
+        clean.role=t.role||env.sounds?.roles?.forTrack(t)?.id||t.name.toLowerCase();
+        clean.sequence=t.sequence||env.sounds?.roles?.sequence?.();
+        clean.exact=t.exact===true;
+      }
+      return clean;
+    })
    };
    await env.write(copy(defaultProject));
    if(env.writeVisual)env.writeVisual({scene:'ORBIT',motion:'DRIFT',effects:'COSMIC'});

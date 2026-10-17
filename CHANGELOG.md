@@ -1,5 +1,13 @@
 ## [Unreleased] - 2026-10-17
 
+### Fixed
+- **Reset Local Changes Crash & Infinite Canvas Render Loop (`src/agent.js`, `index.html`, `src/file-bridge.js`):**
+  - Resolved `Uncaught Error: Invalid numeric value` occurring during File Bridge «↺ Сбросить изменения» ("Reset Local Changes"): `agent.resetProject()` now explicitly outputs `startStep: 0` and preserves Generator 3 role and sequence metadata instead of overriding tracks with generator 1.
+  - Hardened `applyProjectState()` in `index.html` to guarantee `step` and `frozenBeat` always evaluate to finite numbers (`0` when `startStep` is omitted or undefined), preventing `frozenBeat = NaN`.
+  - Guarded `phraseWindowStart()`, `snapshotProject()`, and `getMasterBeat()` against non-finite beats, eliminating `NaN` propagation to `HaloProject.capture()` and `validate()`.
+  - Protected `draw()` animation loop in `index.html` with finite coordinate validation before calling `ctx.createRadialGradient()` and wrapped frame rendering in a `try...catch...finally` block, ensuring `requestAnimationFrame` never dies and orbit visual rendering remains resilient.
+  - Enhanced localStorage cleanup in `resetLocalChanges()` to clear `'halo-pattern-v1-reactor'` alongside ambient and composition keys.
+
 ### Added
 - **AI File Bridge Anti-Hallucination & Zero-Execution Protocol (`AGENT_GUIDE.md`, `src/file-bridge.js`, `AGENTS.md`, `.agents/rules/halo-bridge.md`, `docs/agent-api-specification.md`, `index.html`):**
   - Formally prohibited AI models from hallucinating local HTTP servers, localhost ports (3000, 3001, 8080, 5173), non-existent CLI tools (`halo`), or executing background terminal commands (`curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`).

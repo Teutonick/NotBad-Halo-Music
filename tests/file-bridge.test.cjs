@@ -547,11 +547,13 @@ test('resetLocalChanges clears requests/responses, resets project, and updates c
 
   // Verify localStorage cleared
   assert.equal(fakeWin.localStorage.items['halo-pattern-v1'], undefined);
+  assert.equal(fakeWin.localStorage.items['halo-pattern-v1-reactor'], undefined);
   assert.equal(fakeWin.localStorage.items['notbad-halo-autosave-v1'], undefined);
   assert.equal(fakeWin.localStorage.items['halo-composition-v1'], undefined);
 
-  // Verify project reset back to default 72 bpm
+  // Verify project reset back to default 72 bpm and startStep 0
   assert.equal(api.getProjectState().project.tempo, 72);
+  assert.equal(api.getProjectState().project.startStep, 0);
 
   // Verify toast
   assert.ok(toastMsg.includes('сброшены'));

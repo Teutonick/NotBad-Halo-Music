@@ -1083,6 +1083,7 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
 
         try {
           win?.localStorage?.removeItem?.('halo-pattern-v1');
+          win?.localStorage?.removeItem?.('halo-pattern-v1-reactor');
           win?.localStorage?.removeItem?.('notbad-halo-autosave-v1');
           win?.localStorage?.removeItem?.('halo-composition-v1');
         } catch {}
