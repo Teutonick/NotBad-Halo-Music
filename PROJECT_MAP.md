@@ -1,3 +1,7 @@
+### Filexa Drifter header experiment — removed 2026-10-18
+
+The animated Filexa character was removed from the site header and its page animation code was deleted. A separate static WebP portrait is shown in the first-use terms dialog, with two-thirds of the dialog reserved for bilingual terms and one-third for the portrait; the text column scrolls independently. The portrait is a local static asset and has no animation.
+
 ### Production packaging — 2026-10-18
 
 Pages runs the Node suite and packages allowlisted static directories with `scripts/package-pages.sh`; it no longer uploads the entire repository. Generated diagnostics are ignored; durable score fixtures live in `examples/ai/`. No runtime dependency or mandatory build step was introduced. Acceptance and remaining gates: [release validation](docs/release-validation.md).

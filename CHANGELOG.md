@@ -1,3 +1,17 @@
+## 2026-10-18 — Filexa portrait in first-use terms
+
+- Added the supplied static portrait to the right third of the first-use terms dialog; bilingual terms occupy the left two-thirds and scroll independently.
+- The portrait is decorative and static, served as local WebP. Existing language switching and acceptance controls remain in the text column.
+
+## 2026-10-18 — Removed Filexa header animation
+
+- Removed the Filexa character from the header and removed its CSS animation/filter code and lifecycle script. Its asset folders remain unused in the repository.
+- Styled the first-use terms dialog scrollbar as a thin native-color track without system arrow buttons.
+
+## 2026-10-18 — Initial Filexa header experiment (superseded)
+
+- Tried a layered animated Filexa in the header, then removed it after review. Current placement is a static portrait in the first-use terms dialog.
+
 ## 2026-10-18 — Production repository preparation
 
 - Removed temporary diagnostic artifacts and consolidated historical acceptance reports into `docs/release-validation.md`; preserved music fixtures under `examples/ai/`.
