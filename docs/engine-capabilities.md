@@ -885,3 +885,6 @@ DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4
 - С карточки `.agent-panel` и `.agent-panel.filebridge-mode` удалены свойства `max-height` и `overflow: auto`, исключая появление вложенных двойных полос прокрутки.
 - Карточка свободно расширяется по вертикали в потоке контента контейнера `.bottom`, наследуя единый глобальный скроллбар приложения в точном соответствии с компоновкой карточки 9-го трека (`.live-loop-panel`).
 
+
+### First-use terms — 2026-10-18
+A required RU/EN native modal covers hearing/feedback, visual discomfort, equipment, data loss, content rights, folder/device permissions, external AI and liability within applicable law. Checkbox and explicit acceptance are required; Escape/backdrop cannot dismiss it. Acceptance version 2026-10-18.1 and timestamp are localStorage-only, scoped to this browser origin/profile; unavailable storage means acceptance for this page session. Reset/clearing storage or changing terms version prompts again. WebMCP returns TERMS_NOT_ACCEPTED before acceptance. Permissions remain separately browser-controlled. HALO does not upload user content; external agents, intentional sharing and hosting technical logs are distinct. No legal enforceability or exhaustive risk guarantee is claimed.

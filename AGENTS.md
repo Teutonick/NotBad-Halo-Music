@@ -124,7 +124,9 @@ When the user mentions, links, or points to a HALO folder (such as `temp/`, `HAL
    - If an error result exists (`"ok": false`), read `"error"`, `"help"`, and `"instructionForAgent"`, correct your batch in-memory, overwrite the request file, and verify again (up to 2 retries).
    - Require `status: "pending_approval"` before reporting a validated proposal; `ok: true` alone does not distinguish pending from applied. `status: "applied"` confirms application; `status: "rejected"` means respect the decision. No response means unconfirmed: report it and ask the user to check the page/folder connection, never infer success. After explicit pending acknowledgement, notify the user to click "Approve" in HALO and end the composition turn. Browser regression explicitly requested by the user may exercise approval as part of its test.
 
-### 2. Hard Negative Constraints (Strictly Enforced)
+### 2. Hard Negative Constraints (Bridge composition only)
+
+Scope: the following prohibitions apply ONLY to external agents composing or arranging music through an already connected HALO Bridge folder. They do NOT apply to repository development, debugging, or browser regression/visual checks. For development and QA, use ./scripts/preview.ps1 and http://127.0.0.1:8766/ as specified above; opening browsers and running Node tests are allowed.
 - **NO LOCALHOST, NO WEBSERVERS, NO PORTS**: HALO is 100% static, client-side, and runs in the user's browser. There is **NO backend server**, **NO local daemon**, **NO CLI tool**, and **NO localhost port** (no port 3000, 3001, 8080, 5173, etc.).
 - **NEVER RUN SYSTEM/NETWORK COMMANDS**: DO NOT execute `curl`, `fetch`, `netstat`, `where.exe halo`, `node`, `npm`, `python`, or port scans to test, ping, or execute HALO. There is no `halo` CLI or runner.
 - **NEVER LAUNCH BROWSERS OR OPEN URLS**: DO NOT launch Chrome, Edge, Playwright, or open `localhost` / `file://` URLs in browser tools. HALO is already open in the user's browser, connected to the folder via the native Web File System Access API.

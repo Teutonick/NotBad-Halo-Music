@@ -714,3 +714,6 @@ Track 09 SOLO smoothly silences the eight core voices without changing their mut
 
 
 DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4/8/16/32 and STEP 1/16, 1/8, 1/4 beside the pattern grid (16 cells; CYCLE 32 repeats them twice). DURATION selects a fraction of natural slice/sample-window playback length, accounting for pitch; PITCH is no longer capped at one step. Rests let notes ring; a new trigger gently chokes the previous voice. PITCH remains bounded by the phrase end in live/offline playback. No slice time stretching is introduced.
+
+## 2026-10-18 — First-use terms
+- Added required localized risk/rights/privacy terms with versioned local acceptance and a pre-acceptance WebMCP gate. Browser permissions remain separate; lawful liability limits are preserved.

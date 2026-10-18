@@ -30,7 +30,7 @@
    if(Object.hasOwn(args,'playing')&&typeof args.playing!=='boolean')throw Error('INVALID_ARGUMENTS');
   }
   async function callTool(name,args={},options={}){
-   if(disposed)throw Error('SITE_TOOLS_DISPOSED');if(options.signal?.aborted)throw Error('CANCELLED');
+   if(root.HaloTerms&&!root.HaloTerms.isAccepted())throw Error('TERMS_NOT_ACCEPTED');if(disposed)throw Error('SITE_TOOLS_DISPOSED');if(options.signal?.aborted)throw Error('CANCELLED');
    const def=definitions.get(name);if(!def)throw Error('UNKNOWN_TOOL');check(args,def.inputSchema);
    // Only registered WebMCP callbacks dispatch musical commands.
    return clone(await def.run(args));

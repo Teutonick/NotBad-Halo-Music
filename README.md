@@ -122,3 +122,5 @@ Agents default to composing single phrase loops, but can construct full multi-se
 ### File Bridge reliability — 2026-10-18
 
 Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
+
+First use requires explicit acceptance of bilingual safety, content-rights, local-storage and external-agent terms. Device and folder permissions are requested separately.
