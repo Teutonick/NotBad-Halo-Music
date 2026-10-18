@@ -4,7 +4,7 @@ The animated Filexa character was removed from the site header and its page anim
 
 ### Production packaging — 2026-10-18
 
-Pages runs the Node suite and packages allowlisted static directories with `scripts/package-pages.sh`; it no longer uploads the entire repository. Generated diagnostics are ignored; durable score fixtures live in `examples/ai/`. No runtime dependency or mandatory build step was introduced. Acceptance and remaining gates: [release validation](docs/release-validation.md).
+Pages runs the Node suite and packages allowlisted static directories with `scripts/package-pages.sh`; it no longer uploads the entire repository. The package explicitly includes the local `assets/filexa-terms.webp` portrait used by the first-use terms dialog. Generated diagnostics are ignored; durable score fixtures live in `examples/ai/`. No runtime dependency or mandatory build step was introduced. Acceptance and remaining gates: [release validation](docs/release-validation.md).
 
 ### File Bridge reliability — 2026-10-18
 

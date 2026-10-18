@@ -1,3 +1,7 @@
+## 2026-10-18 — Include terms portrait in Pages package
+
+- Fixed the static Pages package to copy assets/filexa-terms.webp, which was omitted from the assets allowlist and caused a production 404.
+
 ## 2026-10-18 — Filexa portrait in first-use terms
 
 - Added the supplied static portrait to the right third of the first-use terms dialog; bilingual terms occupy the left two-thirds and scroll independently.
