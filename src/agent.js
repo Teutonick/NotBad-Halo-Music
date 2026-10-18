@@ -6,7 +6,7 @@
  const visualOptions={scene:['ORBIT','BLOOM','CURRENT'],motion:['DRIFT','IN TIME','PHRASE'],effects:['CLASSIC','COSMIC','HYPER']};
  function create(env){
   let enabled=false,busy=false,last='',revision=0,undo=[],redo=[];
-  function state(){const value={project:check(env.read()),...(env.visual?{visual:env.visual()}:{} )},text=JSON.stringify(value);if(text!==last){revision++;last=text}return {revision,...copy(value)}}
+  function state(snapshot=true){const value={project:check(env.read()),...(env.visual?{visual:env.visual()}:{} )},text=JSON.stringify(value);if(text!==last){revision++;last=text}return snapshot?{revision,...copy(value)}:{revision}}
   function only(value,allowed,path){
    if(!value||typeof value!=='object'||Array.isArray(value))throw Error('INVALID_TYPE: expected object for '+path);
    const unknown=Object.keys(value).filter(k=>!allowed.includes(k));
@@ -195,7 +195,7 @@
    if(env.writeVisual)env.writeVisual({scene:'ORBIT',motion:'DRIFT',effects:'COSMIC'});
    return state();
   }
-  return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after'),resetProject};
+  return {getCapabilities:()=>copy(capabilities()),getProjectState:state,getRevision:()=>state(false).revision,getContext:context,isEnabled:()=>enabled,setEnabled(value){enabled=value===true;return enabled},async setPlayback(value){if(!enabled)throw Error('AGENT_DISABLED');if(!value||typeof value.playing!=='boolean')throw Error('INVALID_PLAYBACK');if(!env.playback)throw Error('PLAYBACK_UNAVAILABLE');if(busy)throw Error('AGENT_BUSY');busy=true;try{return await env.playback(value.playing)}finally{busy=false}},previewOperations:preview,validateOperations(r){try{preview(r);return {valid:true}}catch(e){return {valid:false,error:e.message}}},async applyOperations(r){const p=preview(r),before={project:p.before,...(env.visual?{visual:p.visualBefore}:{})},result=await write(p.after,p.visualAfter);undo.push({before,after:copy(result)});if(undo.length>10)undo.shift();redo=[];return result},undo:()=>history(undo,redo,'before'),redo:()=>history(redo,undo,'after'),resetProject};
  }
  function panel(host,api,language){
   const tr=(ru,en)=>language()==='ru'?ru:en;

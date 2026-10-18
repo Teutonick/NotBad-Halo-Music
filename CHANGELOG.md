@@ -750,3 +750,16 @@ DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4
 File Bridge accepts track fields directly on an operation or inside values, digit-string indices 0..7 and ID case/whitespace variants. Conflicting values and musical constraints remain errors. The response submissionVersion covers the manifest and companion contents; after a correction wait for a fresh receipt before diagnosing an old error again.
 
 Normalization is File Bridge only; WebMCP and core musical validation retain their strict contract. Use canonical `{op:"track.patch",trackIndex:5,values:{...}}`; a companion contains the values object. Keep one request ID and manifest for corrections. Write companions first and manifest last. Flat references resolve beside the manifest, bundle references inside the bundle; renaming files requires updating references. Slot/role diagnostics identify the track and distinguish role, exact flag and sound compatibility errors. No new dependency or deployment step.
+
+
+## 2026-10-18 — Integration and rendering performance
+
+- Pause automatic folder scans outside the visible File Bridge panel and on hidden browser pages; retain explicit refresh/check.
+- Cache unchanged file text by metadata, submission validation and response parsing, with mandatory fresh approval-time content checks.
+- Avoid full project snapshot cloning for revision-only reads, whole-page translation on small DOM changes and nested dock backdrop filters.
+- Existing project revision detection still compares serialized in-memory state; no audible or FPS acceptance is claimed.
+
+- Show folder-picker waiting/cancellation/errors in both languages instead of silently suppressing AbortError; update script cache versions. Idle scans no longer clone unchanged pending proposals.
+
+
+2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.

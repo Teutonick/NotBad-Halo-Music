@@ -1813,3 +1813,41 @@ test('File normalization retains strict unknown fields, indices and musical boun
     assert.equal(result.ok,false);
   }
 });
+
+
+test('automatic scans stop outside integration and on hidden pages; manual scan remains available', async()=>{
+ const {api}=createTestApp(),folder=bridgeFolder(),doc={hidden:false};
+ const bridge=FileBridge.createBridge(api,{pollInterval:0,window:{document:doc}});
+ await bridge.connect(folder);
+ const requests=folder.dirs.get('requests');let scans=0;
+ const entries=requests.entries.bind(requests);requests.entries=async function*(){scans++;yield* entries()};
+ bridge.setActive(false);await bridge.checkFolder(true);assert.equal(scans,0);
+ bridge.setActive(true);doc.hidden=true;await bridge.checkFolder(true);assert.equal(scans,0);
+ await bridge.checkFolder();assert.equal(scans,1);
+ doc.hidden=false;await bridge.checkFolder(true);assert.equal(scans,2);
+ bridge.dispose();
+});
+
+test('unchanged metadata avoids file text reads but approval forces a companion read',async()=>{
+ const {api}=createTestApp(),folder=bridgeFolder(),requests=await folder.getDirectoryHandle('requests',{create:true});
+ const bundle=await requests.getDirectoryHandle('req-cache',{create:true});
+ bundle.files.set('manifest.json',JSON.stringify({requestId:'req-cache',schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'master.patch',file:'master.json'}]}));
+ bundle.files.set('master.json','{"tempo":90}');
+ const original=bundle.getFileHandle.bind(bundle);let reads=0;
+ bundle.getFileHandle=async(...args)=>{const handle=await original(...args);const get=handle.getFile.bind(handle);handle.getFile=async()=>{const f=await get();const text=await f.text();return {size:text.length,lastModified:1,text:async()=>{reads++;return text}}};return handle};
+ const bridge=FileBridge.createBridge(api,{pollInterval:0});await bridge.connect(folder);
+ assert.ok(bridge.getStatus().pending);const initial=reads;
+ await bridge.checkFolder();assert.equal(reads,initial);
+ // Same metadata is only an idle optimization, never approval authority.
+ bundle.files.set('master.json','{"tempo":91}');
+ await bridge.applyPending();assert.match(bridge.getStatus().error,/REQUEST_CHANGED/);
+ assert.equal(api.getProjectState().project.tempo,72);assert.ok(reads>initial);bridge.dispose();
+});
+
+
+test('idle scans do not clone and notify the same pending score repeatedly',async()=>{
+ const f=await modularFixture({content:'{"tempo":90}'});let notifications=0;
+ f.bridge.subscribe(()=>notifications++);const initial=notifications;
+ await f.bridge.checkFolder();await f.bridge.checkFolder();assert.equal(notifications,initial);
+ f.bridge.dispose();
+});

@@ -50,3 +50,15 @@ test('all instrument setting hints are localized titles on labels without extra 
  assert.equal(hints.length,15);
  for(const [,text] of hints){const ru=I.translate(text,'ru');assert.notEqual(ru,text);assert.equal(I.translate(ru,'en'),text)}
 });
+
+
+test('dynamic translation scans only changed connected subtrees and full language switch still works',()=>{
+ const walked=[];let onMutation;
+ const label={isConnected:true,tagName:'SPAN',closest:()=>null,matches:()=>false,querySelectorAll:()=>[],contains:()=>false};
+ const text={nodeValue:'Play or pause',parentElement:label};label.text=[text];
+ const body={...label,text:[text],contains:n=>n===label};
+ const previous={document:global.document,NodeFilter:global.NodeFilter,MutationObserver:global.MutationObserver};
+ global.document={body,documentElement:{},querySelectorAll:()=>[],querySelector:()=>null,createTreeWalker(scope){walked.push(scope);let i=0;return {nextNode:()=>scope.text[i++]}}};
+ global.NodeFilter={SHOW_TEXT:4};global.MutationObserver=class{constructor(fn){onMutation=fn}observe(){}disconnect(){}};
+ try{const locale=I.setup('ru');assert.equal(text.nodeValue,'Воспроизвести или приостановить');walked.length=0;text.nodeValue='Master volume';onMutation([{type:'characterData',target:text}]);assert.deepEqual(walked,[label]);assert.equal(text.nodeValue,'Общая громкость');locale.set('en');assert.equal(walked.at(-1),body);assert.equal(text.nodeValue,'Master volume')}finally{Object.assign(global,previous)}
+});

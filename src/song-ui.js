@@ -121,7 +121,7 @@
    function render(){
     if(drag)return;showPhrase();
     const isInst=tab==='instruments',isComp=tab==='composition',isLoop=tab==='live-loop';
-    tracks.hidden=!isInst;panel.hidden=!isComp;loopPanel.hidden=!isLoop;agentPanel.hidden=tab!=='agents';if(tab==='agents'&&agent)root.HaloAgent.panel(agentPanel,agent,env.language);
+    tracks.hidden=!isInst;panel.hidden=!isComp;loopPanel.hidden=!isLoop;agentPanel.hidden=tab!=='agents';if(tab!=='agents')agentPanel._haloAgentUnsubscribe?.();if(tab==='agents'&&agent)root.HaloAgent.panel(agentPanel,agent,env.language);
     bottom.classList.toggle('composition-view',isComp);
     bottom.classList.toggle('live-loop-view',isLoop);
     bottom.classList.toggle('agent-view',tab==='agents');

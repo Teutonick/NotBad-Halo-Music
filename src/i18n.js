@@ -77,7 +77,8 @@
     ['Track 09 muted','9-й трек выключен'],['Track 09 active','9-й трек включён'],
     ['Track 09 solo ON','9-й трек в режиме соло'],['Track 09 solo OFF','Соло 9-го трека выключено']
   );
-  const en=new Map(),ru=new Map();for(const [a,b]of pairs){if(/[А-Яа-я]/.test(a)){en.set(a,b);ru.set(b,a)}else{ru.set(a,b);en.set(b,a)}}
+  pairs.push(['Report a bug','Сообщить об ошибке']);
+ const en=new Map(),ru=new Map();for(const [a,b]of pairs){if(/[А-Яа-я]/.test(a)){en.set(a,b);ru.set(b,a)}else{ru.set(a,b);en.set(b,a)}}
  function detect(language){return typeof language==='string'&&/^ru(?:-|$)/i.test(language)?'ru':'en'}
  function translate(text,locale){
   if(!text||!text.trim())return text;
@@ -92,10 +93,15 @@
  }
  function setup(locale){
   let current=locale;const originals=new WeakMap(),attrs=new WeakMap();
-  function apply(){document.documentElement.lang=current;for(const meta of document.querySelectorAll('meta[name=description],meta[property="og:description"],meta[name="twitter:description"],meta[property="og:image:alt"]')){const value=meta.getAttribute('content'),rendered=translate(value,current);if(value!==rendered)meta.setAttribute('content',rendered)}document.querySelector('meta[property="og:locale"]')?.setAttribute('content',current==='ru'?'ru_RU':'en_US');document.querySelector('meta[property="og:locale:alternate"]')?.setAttribute('content',current==='ru'?'en_US':'ru_RU');const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(['SCRIPT','STYLE'].includes(node.parentElement?.tagName)||node.parentElement?.closest?.('#guideModal, #haloTerms'))continue;const old=originals.get(node);const source=old&&node.nodeValue===old.rendered?old.source:node.nodeValue;const rendered=translate(source,current);originals.set(node,{source,rendered});if(node.nodeValue!==rendered)node.nodeValue=rendered}
-   for(const el of document.querySelectorAll('[aria-label],[title],[placeholder]')){if(el.closest?.('#guideModal, #haloTerms')&&el.id!=='guideBtn')continue;let saved=attrs.get(el)||{};for(const name of ['aria-label','title','placeholder']){const value=el.getAttribute(name);if(value===null)continue;const old=saved[name],source=old&&value===old.rendered?old.source:value,rendered=translate(source,current);saved[name]={source,rendered};if(value!==rendered)el.setAttribute(name,rendered)}attrs.set(el,saved)}
+  function apply(scope=document.body){if(scope===document.body){document.documentElement.lang=current;for(const meta of document.querySelectorAll('meta[name=description],meta[property="og:description"],meta[name="twitter:description"],meta[property="og:image:alt"]')){const value=meta.getAttribute('content'),rendered=translate(value,current);if(value!==rendered)meta.setAttribute('content',rendered)}document.querySelector('meta[property="og:locale"]')?.setAttribute('content',current==='ru'?'ru_RU':'en_US');document.querySelector('meta[property="og:locale:alternate"]')?.setAttribute('content',current==='ru'?'en_US':'ru_RU');}const walker=document.createTreeWalker(scope,NodeFilter.SHOW_TEXT);let node;while((node=walker.nextNode())){if(['SCRIPT','STYLE'].includes(node.parentElement?.tagName)||node.parentElement?.closest?.('#guideModal, #haloTerms'))continue;const old=originals.get(node);const source=old&&node.nodeValue===old.rendered?old.source:node.nodeValue;const rendered=translate(source,current);originals.set(node,{source,rendered});if(node.nodeValue!==rendered)node.nodeValue=rendered}
+   for(const el of [...(scope.matches?.('[aria-label],[title],[placeholder]')?[scope]:[]),...scope.querySelectorAll('[aria-label],[title],[placeholder]')]){if(el.closest?.('#guideModal, #haloTerms')&&el.id!=='guideBtn')continue;let saved=attrs.get(el)||{};for(const name of ['aria-label','title','placeholder']){const value=el.getAttribute(name);if(value===null)continue;const old=saved[name],source=old&&value===old.rendered?old.source:value,rendered=translate(source,current);saved[name]={source,rendered};if(value!==rendered)el.setAttribute(name,rendered)}attrs.set(el,saved)}
   }
-  const observer=new MutationObserver(()=>{observer.disconnect();apply();observe()});const observe=()=>observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-label','title','placeholder']});apply();observe();
+  const observer=new MutationObserver(records=>{
+   // Translate only changed subtrees; transport labels must not rescan the page.
+   const scopes=new Set(records.map(r=>r.type==='characterData'?r.target.parentElement:r.target));
+   observer.disconnect();
+   try{for(const scope of scopes){if(!scope?.isConnected)continue;if([...scopes].some(other=>other!==scope&&other?.contains(scope)))continue;apply(scope)}}finally{observe()}
+  });const observe=()=>observer.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['aria-label','title','placeholder']});apply();observe();
   return {set(locale){current=locale==='ru'?'ru':'en';observer.disconnect();apply();observe()}};
  }
  const api={detect,translate,setup};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloI18n=api;

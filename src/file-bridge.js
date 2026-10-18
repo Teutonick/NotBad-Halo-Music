@@ -911,7 +911,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       return { ok: false, error: 'INVALID_OPERATIONS: operations must be a non-empty array', id: requestId };
     }
 
-    const currentRevision = api.getProjectState().revision;
+    const currentRevision = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
     const isRevisionMismatch = transaction.baseRevision !== currentRevision;
     if (isRevisionMismatch && !options.allowRebase) {
       return {
@@ -1035,7 +1035,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         error: e.message,
         help: guidance.help,
         instructionForAgent: guidance.instructionForAgent,
-        currentRevision: api.getProjectState().revision
+        currentRevision: (api.getRevision ? api.getRevision() : api.getProjectState().revision)
       };
     }
   }
@@ -1168,6 +1168,24 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
   function createBridge(api, env = {}){
     let dirHandle = null;
     let pollInterval = null;
+    let active = true, panelVisible = null, cachedBytes = 0;
+    const doc = env.window?.document || root.document;
+    const fileCache = new Map();
+    const responseCache = new Map();
+    const submissionCache = new Map();
+    async function cachedText(handle, key, force = false){
+      const file = await handle.getFile();
+      const version = Number.isFinite(file.lastModified) && Number.isFinite(file.size) ? file.lastModified + ':' + file.size : null;
+      const old = fileCache.get(key);
+      if (!force && version !== null && old?.version === version) return old.text;
+      if (file.size > requestByteLimit) throw Error('PAYLOAD_TOO_LARGE');
+      const text = await file.text();
+      if (fileCache.size >= 512 || cachedBytes + text.length * 2 > 4194304) { fileCache.clear(); cachedBytes = 0; }
+      cachedBytes -= (fileCache.get(key)?.text.length || 0) * 2;
+      fileCache.set(key, {version, text}); cachedBytes += text.length * 2;
+      return text;
+    }
+    function canPoll(){ return active && !doc?.hidden && (!panelVisible || panelVisible()); }
     let consecutiveErrors = 0;
     let lastSyncedRevision = null;
     const listeners = new Set();
@@ -1190,7 +1208,13 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       supported: typeof win?.showDirectoryPicker === 'function' || typeof root.showDirectoryPicker === 'function'
     };
 
+    let notificationSnapshot = null;
     function notify(){
+      // lastCheck changes on every idle scan but is not a UI change. Avoid
+      // cloning a potentially large pending score just to redraw nothing.
+      const next = [state.connected,state.directoryName,state.savedDirectory,state.lastSync,state.pending,state.lastResult,state.error,state.busy,state.autoApply,state.supported];
+      if (notificationSnapshot && next.every((value,index)=>value===notificationSnapshot[index])) return;
+      notificationSnapshot = next;
       for (const fn of listeners) {
         try { fn(clone(state)); } catch {}
       }
@@ -1198,15 +1222,27 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
 
     // A submission is a snapshot of the root AND every referenced companion.
     // Cache reads within one scan so repeated references resolve consistently.
-    async function readSubmission(directory, text, fallbackId){
+    async function readSubmission(directory, text, fallbackId, force = false){
+      const cached = submissionCache.get(fallbackId);
+      if (!force && cached?.rootText === text) {
+        let unchanged = true;
+        for (const [path, value] of cached.companions) {
+          if (value.error) { unchanged = false; break; }
+          try {
+            const handle = await directory.getFileHandle(path, {create:false});
+            if (await cachedText(handle, fallbackId + '/' + path) !== value.text) { unchanged = false; break; }
+          } catch { unchanged = false; break; }
+        }
+        if (unchanged) return cached;
+      }
       const files = new Map();
       let bytes = new TextEncoder().encode(text).length;
       const maxBytes = requestByteLimit;
-      let parsed;
+      let parsed, resolved;
       try {
         if (bytes > maxBytes) throw Error('PAYLOAD_TOO_LARGE');
         const raw = JSON.parse(text);
-        const resolved = await resolveRequestPayload(raw, async path => {
+        resolved = await resolveRequestPayload(raw, async path => {
           if (files.has(path)) {
             const cached = files.get(path);
             if (cached.error) throw Error(cached.error);
@@ -1214,7 +1250,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
           }
           try {
             const file = await directory.getFileHandle(path, {create:false});
-            const content = await readFsFile(file);
+            const content = await cachedText(file, fallbackId + "/" + path, force);
             bytes += new TextEncoder().encode(content).length;
             if (bytes > maxBytes) throw Error('PAYLOAD_TOO_LARGE');
             files.set(path, {text:content});
@@ -1226,15 +1262,21 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
           }
         });
         // Rebase only to prepare a proposal, never to skip approval-time conflicts.
-        parsed = parseAndValidateRequest(api, resolved, fallbackId, {allowRebase:true});
+        // Validation happens after the content identity check below.
       } catch(error) {
         parsed = {ok:false, id:fallbackId, error:error.message};
       }
       const fingerprint = JSON.stringify([text, [...files].sort(([a],[b])=>a.localeCompare(b))]);
+      const previous = submissionCache.get(fallbackId);
+      if (!force && previous?.fingerprint === fingerprint) return previous;
+      if (!parsed) parsed = parseAndValidateRequest(api, resolved, fallbackId, {allowRebase:true});
       // Correlation token, not a security hash. Includes companion content.
       let hash = 2166136261;
       for (let i=0;i<fingerprint.length;i++) hash = Math.imul(hash ^ fingerprint.charCodeAt(i), 16777619);
-      return {parsed, fingerprint, submissionVersion:(hash >>> 0).toString(16).padStart(8,'0')};
+      const submission = {parsed, fingerprint, rootText:text, companions:[...files], submissionVersion:(hash >>> 0).toString(16).padStart(8,'0')};
+      if (submissionCache.size >= 16) submissionCache.clear();
+      submissionCache.set(fallbackId, submission);
+      return submission;
     }
 
     async function writeResponse(response, baseId){
@@ -1248,14 +1290,14 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
     function errorResponse(id, error){
       const guidance = generateErrorGuidance(error, ++consecutiveErrors);
       return {ok:false, status:'error', id, error, ...guidance, consecutiveErrors,
-        currentRevision:api.getProjectState().revision, timestamp:new Date().toISOString()};
+        currentRevision:(api.getRevision ? api.getRevision() : api.getProjectState().revision), timestamp:new Date().toISOString()};
     }
 
-    async function checkFolder(){
-      if (!dirHandle || state.busy) return;
+    async function checkFolder(automatic = false){
+      if (!dirHandle || state.busy || (automatic && !canPoll())) return;
       state.busy = true;
       try {
-        const currentRev = api.getProjectState().revision;
+        const currentRev = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
         if (currentRev !== lastSyncedRevision) {
           await syncStateOnly(dirHandle, api);
           lastSyncedRevision = currentRev;
@@ -1266,7 +1308,11 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         for await (const [name, handle] of resDir.entries()) {
           if (handle.kind !== 'file' || !name.endsWith('.result.json')) continue;
           try {
-            const result = JSON.parse(await readFsFile(handle));
+            const responseText = await cachedText(handle, 'response/' + name);
+            if (responseCache.get(name) === responseText) continue;
+            if (responseCache.size >= 512) responseCache.clear();
+            responseCache.set(name, responseText);
+            const result = JSON.parse(responseText);
             if (result.status === 'rejected' || (result.ok === false && result.error === 'REJECTED_BY_USER') || (result.ok === true && (result.status === 'applied' || (!result.status && Number.isInteger(result.appliedRevision))))) {
               terminalIds.add(name.slice(0, -12));
             }
@@ -1286,7 +1332,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
             }
             if (!manifest) continue;
           } else if (handle.kind !== 'file' || !name.endsWith('.json') || name.startsWith('_') || name.startsWith('.') || /^t[0-7]\.json$/i.test(name) || /[.-](track|part|t)[0-7]?\./i.test(name)) continue;
-          const text = await readFsFile(manifest);
+          const text = await cachedText(manifest, 'manifest/' + baseId);
           if (handle.kind === 'file') {
             try {
               const raw = JSON.parse(text);
@@ -1331,9 +1377,9 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       let committedResponse = null;
       try {
         if (pendingSource) {
-          const current = await readSubmission(pendingSource.directory, await readFsFile(pendingSource.manifest), p.baseId);
+          const current = await readSubmission(pendingSource.directory, await readFsFile(pendingSource.manifest), p.baseId, true);
           if (current.fingerprint !== pendingSource.fingerprint) {
-            processedContent.delete(p.baseId);
+            processedContent.delete(p.baseId); fileCache.clear(); cachedBytes = 0; submissionCache.delete(p.baseId);
             state.pending = null; pendingSource = null;
             throw Error('REQUEST_CHANGED: Files changed after validation; wait for a new proposal and review it again.');
           }
@@ -1391,7 +1437,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
           help: guidance.help,
           instructionForAgent: guidance.instructionForAgent,
           consecutiveErrors,
-          currentRevision: api.getProjectState().revision,
+          currentRevision: (api.getRevision ? api.getRevision() : api.getProjectState().revision),
           timestamp: new Date().toISOString()
         };
         await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(rejRes, null, 2));
@@ -1422,6 +1468,8 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         notify();
         return;
       }
+      fileCache.clear(); cachedBytes = 0; responseCache.clear(); submissionCache.clear(); processedContent.clear(); terminalIds.clear();
+      pendingSource = null; state.pending = null;
       dirHandle = validHandle;
       state.directoryName = validHandle.name || 'HALO-Bridge';
       state.savedDirectory = null;
@@ -1437,7 +1485,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         console.log('[HALO File Bridge] ensured requests/ and responses/ directories');
         // Sync context
         await syncAllContext(dirHandle, api);
-        lastSyncedRevision = api.getProjectState().revision;
+        lastSyncedRevision = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
         state.lastSync = new Date().toISOString();
         state.connected = true;
         console.log('[HALO File Bridge] connected successfully, revision:', lastSyncedRevision);
@@ -1445,7 +1493,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         if (pollInterval) clearInterval(pollInterval);
         const intervalMs = env.pollInterval !== undefined ? env.pollInterval : 1500;
         if (intervalMs > 0) {
-          pollInterval = setInterval(checkFolder, intervalMs);
+          pollInterval = setInterval(() => { if (canPoll()) void checkFolder(true); }, intervalMs);
           if (typeof pollInterval?.unref === 'function') pollInterval.unref();
         }
         state.busy = false;
@@ -1523,7 +1571,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       notify();
       try {
         await syncAllContext(dirHandle, api);
-        lastSyncedRevision = api.getProjectState().revision;
+        lastSyncedRevision = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
         state.lastSync = new Date().toISOString();
       } catch(e) {
         state.error = e.message;
@@ -1559,6 +1607,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
         }
 
         processedContent.clear();
+        fileCache.clear(); cachedBytes = 0; responseCache.clear(); submissionCache.clear();
         terminalIds.clear();
         consecutiveErrors = 0;
         state.pending = null;
@@ -1567,7 +1616,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
 
         // Re-export current project state without resetting project or touching localStorage
         await syncAllContext(dirHandle, api);
-        lastSyncedRevision = api.getProjectState().revision;
+        lastSyncedRevision = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
         state.lastSync = new Date().toISOString();
         console.log('[HALO File Bridge] resynced context files with current project, revision:', lastSyncedRevision);
 
@@ -1593,10 +1642,10 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       notify();
       try {
         await syncStateOnly(dirHandle, api);
-        lastSyncedRevision = api.getProjectState().revision;
+        lastSyncedRevision = (api.getRevision ? api.getRevision() : api.getProjectState().revision);
         state.lastSync = new Date().toISOString();
 
-        processedContent.clear();
+        processedContent.clear(); submissionCache.clear();
         state.error = null;
         state.lastResult = null;
         consecutiveErrors = 0;
@@ -1621,6 +1670,17 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       applyPending,
       rejectPending,
       rebaseAndRetry,
+      beginFolderSelection(){ state.busy = true; state.error = null; console.log('[HALO File Bridge] waiting for directory picker'); notify(); },
+      reportConnectionError(error, locale){
+        state.busy = false;
+        const cancelled = error?.name === 'AbortError';
+        state.error = locale === 'ru'
+          ? (cancelled ? 'Выбор папки отменён или браузер не завершил подключение. Попробуйте настольный Chrome/Edge.' : 'Не удалось подключить папку: ' + error.message)
+          : (cancelled ? 'Folder selection was cancelled or the browser did not complete the connection. Try desktop Chrome/Edge.' : 'Could not connect folder: ' + error.message);
+        console.warn('[HALO File Bridge] directory picker:', error?.name, error?.message);
+        notify();
+      },
+      setActive(value, visible){ active = !!value; if (visible) panelVisible = visible; },
       setAutoApply(v){ state.autoApply = !!v; notify(); },
       getStatus: () => clone(state),
       subscribe(fn){
@@ -1648,6 +1708,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       bridges.set(api, bridge);
     }
 
+    bridge.setActive(true, () => !host.getClientRects || host.getClientRects().length > 0);
     host.replaceChildren();
 
     function el(tag, text, css){
@@ -1675,7 +1736,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
 
     let lastView = '';
     function updateView(s){
-      const key = JSON.stringify([s.connected,s.directoryName,s.savedDirectory?.name,s.supported,s.lastSync,s.pending,s.lastResult,s.error,api.getProjectState().revision]);
+      const key = JSON.stringify([s.connected,s.directoryName,s.savedDirectory?.name,s.supported,s.busy,s.lastSync,s.pending,s.lastResult,s.error,(api.getRevision ? api.getRevision() : api.getProjectState().revision)]);
       if (key === lastView) return;
       lastView = key;
       const focused = host.contains(document.activeElement) ? document.activeElement : null;
@@ -1685,6 +1746,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       const topRow = document.createElement('div');
       topRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:8px;';
       statusBox.append(topRow);
+      if (s.busy) { const progress=document.createElement('p'); progress.textContent=tr('Ожидание выбора папки или завершения операции браузером…','Waiting for folder selection or browser operation…'); statusBox.append(progress); }
 
       const statusBadge = document.createElement('span');
       statusBadge.style.cssText = 'font-size:11px;font-weight:550;letter-spacing:.05em;display:flex;align-items:center;gap:6px;';
@@ -1715,7 +1777,8 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
                 if (!targetHandle) {
                   const picker = root.showDirectoryPicker;
                   if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
-                  const picked = await picker({ mode: 'readwrite' });
+                  bridge.beginFolderSelection();
+                  const picked = await picker.call(root, { mode: 'readwrite' });
                   await bridge.connect(picked);
                   return;
                 }
@@ -1731,13 +1794,14 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
                 }
                 const picker = root.showDirectoryPicker;
                 if (typeof picker === 'function') {
-                  const picked = await picker({ mode: 'readwrite' });
+                  bridge.beginFolderSelection();
+                  const picked = await picker.call(root, { mode: 'readwrite' });
                   await bridge.connect(picked);
                   return;
                 }
                 await bridge.connect(targetHandle);
               } catch(e) {
-                if (e.name !== 'AbortError') alert(e.message);
+                bridge.reportConnectionError(e, language());
               }
             };
 
@@ -1749,10 +1813,11 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
               try {
                 const picker = root.showDirectoryPicker;
                 if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
-                const handle = await picker({ mode: 'readwrite' });
+                bridge.beginFolderSelection();
+                const handle = await picker.call(root, { mode: 'readwrite' });
                 await bridge.connect(handle);
               } catch(e) {
-                if (e.name !== 'AbortError') alert(e.message);
+                bridge.reportConnectionError(e, language());
               }
             };
 
@@ -1773,10 +1838,11 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
               try {
                 const picker = root.showDirectoryPicker;
                 if (typeof picker !== 'function') throw Error(tr('File System Access API недоступен в этом браузере', 'File System Access API is not supported in this browser'));
-                const handle = await picker({ mode: 'readwrite' });
+                bridge.beginFolderSelection();
+                const handle = await picker.call(root, { mode: 'readwrite' });
                 await bridge.connect(handle);
               } catch(e) {
-                if (e.name !== 'AbortError') alert(e.message);
+                bridge.reportConnectionError(e, language());
               }
             };
             actionGroup.append(btnConnect);
@@ -1851,7 +1917,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       if (s.connected) {
         const hasError = (s.lastResult && !s.lastResult.ok) || !!s.error;
         meta.innerHTML = `
-          <div>${tr('Ревизия проекта:','Project revision:')} <strong>${api.getProjectState().revision}</strong> · ${tr('Опрос requests/ каждые 1.5с: активен','Polling requests/ every 1.5s: active')}</div>
+          <div>${tr('Ревизия проекта:','Project revision:')} <strong>${(api.getRevision ? api.getRevision() : api.getProjectState().revision)}</strong> · ${tr('Опрос 1,5 с только в открытой вкладке File Bridge','Polling every 1.5s only while File Bridge is visible')}</div>
           ${s.lastSync ? `<div>${tr('Последний экспорт паспорта:','Last passport sync:')} ${new Date(s.lastSync).toLocaleTimeString()}</div>` : ''}
           ${s.lastResult ? `<div style="margin-top:4px;color:${s.lastResult.ok ? '#8fe5d2' : '#f8a39a'};">${s.lastResult.ok ? '✓ ' + tr('Команда успешно обработана: ','Command applied: ') + s.lastResult.id : '⚠ ' + tr('Ошибка команды ','Command error ') + s.lastResult.id + ': ' + s.lastResult.error}</div>` : ''}
           ${s.error ? `<div style="color:#f89a9a;margin-top:4px;">⚠ ${s.error}</div>` : ''}
@@ -2000,7 +2066,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
     }
 
     const unsub = bridge.subscribe(updateView);
-    host._haloCleanup = () => { unsub(); };
+    host._haloCleanup = () => { bridge.setActive(false); unsub(); };
 
     // Structure info
     const guideHead = el('strong', tr('Структура папки HALO-Bridge', 'HALO-Bridge Folder Structure'), 'display:block;font-size:11px;margin-top:14px;margin-bottom:6px;');
