@@ -1659,9 +1659,13 @@ for(const flat of [false,true])test(`companion-only corrections, explicit acknow
   const f=await modularFixture({flat,stale:true});
   assert.equal(f.result().status,'error');
   assert.doesNotMatch(f.result().error,/CONFLICT_REVISION/, 'Rebased numeric error must not be hidden behind stale revision');
+  const previousReceipt=f.result().submissionVersion;
+  assert.match(previousReceipt,/^[0-9a-f]{8}$/);
+  await f.bridge.checkFolder();assert.equal(f.result().submissionVersion,previousReceipt);
   f.bundle.files.set('master.json','{"tempo":104}');
   await f.bridge.checkFolder();
   assert.equal(f.result().status,'pending_approval');assert.equal(f.result().applied,false);
+  assert.notEqual(f.result().submissionVersion,previousReceipt,'Companion correction must have a fresh receipt');
   assert.equal(f.api.getProjectState().project.tempo,72,'Acknowledgement is not application');
   // Changed after preview, before next poll: do not apply a different snapshot.
   f.bundle.files.set('master.json','{"tempo":108}');
@@ -1781,4 +1785,31 @@ test('legacy rejection receipts without status remain terminal on reconnect',asy
  req.files.set('req-legacy.json',JSON.stringify({requestId:'req-legacy',schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'master.patch',values:{tempo:104}}]}));
  res.files.set('req-legacy.result.json',JSON.stringify({ok:false,id:'req-legacy',error:'REJECTED_BY_USER'}));
  const b=FileBridge.createBridge(api,{pollInterval:0});await b.connect(root);assert.equal(b.getStatus().pending,null);assert.equal(api.getProjectState().project.tempo,72);b.dispose();
+});
+
+
+test('File-only normalization accepts presentation variants without changing musical values', () => {
+  const {api}=createTestApp();
+  const request={schemaVersion:1,requestId:'tolerant',baseRevision:api.getProjectState().revision,
+    operations:[{op:' TRACK.PATCH ',trackIndex:'5',instrument:' glass ',sound:' AMBIENT-BELL ',steps:[0,32],noteEvents:[{step:0,notes:[76]},{step:32,notes:[79]}]}]};
+  const result=FileBridge.parseAndValidateRequest(api,request,'tolerant');
+  assert.equal(result.ok,true,result.error);
+  assert.deepEqual(result.transaction.operations[0].values.noteEvents,request.operations[0].noteEvents);
+  assert.equal(result.transaction.operations[0].values.instrument,'GLASS');
+  assert.equal(result.transaction.operations[0].values.sound,'bell');
+  assert.equal(request.operations[0].trackIndex,'5');
+  request.operations[0].values={sound:'wind'};
+  assert.match(FileBridge.parseAndValidateRequest(api,request,'tolerant').error,/AMBIGUOUS_FIELD/);
+});
+
+test('File normalization retains strict unknown fields, indices and musical bounds', () => {
+  const {api}=createTestApp();
+  for(const operation of [
+    {op:'track.patch',trackIndex:5,values:{invented:true}},
+    {op:'track.patch',trackIndex:'8',values:{level:50}},
+    {op:'track.patch',trackIndex:5,values:{level:999}}
+  ]) {
+    const result=FileBridge.parseAndValidateRequest(api,{schemaVersion:1,requestId:'strict',baseRevision:api.getProjectState().revision,operations:[operation]},'strict');
+    assert.equal(result.ok,false);
+  }
 });

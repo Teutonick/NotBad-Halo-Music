@@ -32,6 +32,8 @@
         recommended: 'Write requests/<requestId>/ companion files first; manifest.json last.',
         response: 'responses/<requestId>.result.json',
         statuses: ['pending_approval', 'applied', 'error', 'rejected'],
+        receiptVersion: 'submissionVersion covers manifest and companions; an unchanged receipt after an edit is stale, wait for a new scan.',
+        tolerantInput: 'File only: direct track fields, digit-string trackIndex, case/whitespace in IDs, world-prefixed sound IDs; conflicting duplicates remain errors.',
         noResponse: 'Unconfirmed; never infer success from silence.',
         correction: 'Companion-only changes are detected. Pending changes require a new review; applied request IDs are immutable.',
         fileToolLimits: 'Split writes to fit the external file tool. No universal 1.5 KB engine limit.'
@@ -428,6 +430,12 @@ Translate the user's musical intention into original explicit MIDI parts. No tec
 \`\`\`
 Companion track-5.json contains mutable values, for example {"instrument":"GLASS","sound":"bell","on":true,"noteTranspose":-2,"steps":[0,32,64,96,124],"noteEvents":[{"step":0,"notes":[76]},{"step":32,"notes":[77]},{"step":64,"notes":[79]},{"step":96,"notes":[76]},{"step":124,"notes":[72]}]}. This is a sparse format illustration, not a complete holiday score. For full replacement use project.replace with exactly eight tracks, each optionally {"file":"track-N.json"}. For a song use composition.replace, phrases[{id,label,project}], and sections[{phrase,name,repeats,fade}]. Labels: 1..10 letters/digits, no spaces. All references are relative to the bundle root; no absolute paths or parent traversal. Existing flat files, include aliases and parts arrays remain compatible, but folder bundles are the recommended long-score path.
 4. Wait 4-5 seconds, then inspect responses/<requestId>.result.json. status="pending_approval" means validated and awaiting the human's approval; status="applied" means appliedRevision is committed; status="error" means inspect error/help/instructionForAgent, fix the indicated files and retry at most twice; status="rejected" means stop and respect the decision. No response means UNCONFIRMED, never success: ask the user to check the folder connection/page or an earlier pending proposal. Do not poll indefinitely. End the turn after an explicit pending acknowledgement. Do not change files after acknowledgement: HALO applies only the validated snapshot; edits invalidate it and require a new review. Use a NEW requestId after application.
+
+## Copyable inline form and correction receipts
+Inline track operation: {"op":"track.patch","trackIndex":5,"values":{"instrument":"GLASS","sound":"bell","steps":[0],"noteEvents":[{"step":0,"notes":[76]}]}}.
+A companion contains the values object itself, NOT an array. Flat layout is equally supported: requests/req-holiday.json references "req-holiday-track-5.json" beside it. Never rename companion files without updating references. A missing file is a publication/path error, not a musical error. Publish the manifest last even when your export tool reorders files.
+File-only acceptance tolerates track fields directly on an operation, digit-string trackIndex, case/whitespace in operation/instrument/sound IDs and ambient-/reactor- sound prefixes. Conflicting duplicate fields are errors. Unknown fields, unsafe paths, incompatible sounds, note bounds and revision safeguards remain strict. Prefer the canonical values form above.
+Responses contain submissionVersion, a token covering the manifest AND referenced files. After a correction, an unchanged token/timestamp is an OLD receipt: wait for the next scan before diagnosing it again. Keep the same requestId and filenames for corrections; do not leave several competing manifests. Never treat an older error as evidence that the corrected version failed. If a fresh receipt does not arrive, report unconfirmed connection/publication rather than rewriting the score again.
 
 ## CRITICAL DIRECTIVE: Read-Only vs Mutable Fields
 STRICTLY PROHIBITED IN \`values\`: role, name, slot, trackIndex. track.patch targets trackIndex 0..7; in a multi-phrase composition also specify phraseId. Allowed values are listed in capabilities.json.trackFields. Custom steps/noteEvents imply exact=true when omitted; explicit exact=false remains invalid. Supply steps containing every noteEvents.step. For literal MIDI set noteTranspose to keysAndScales.circleOfFifths[key].offset, NOT the key index. Choose instrument and canonicalId from instruments.json.sounds, with compatibleRoles containing the slot role. Bank identity is independent of track slot. Sound IDs have no world prefix.
@@ -834,6 +842,27 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
     return parseAndValidateRequest(api, resolved, fallbackId, options);
   }
 
+  // File-only compatibility layer: never coerce musical values or discard unknown fields.
+  function normalizeFileRequest(parsed, api){
+    const req = clone(parsed), tx = req.transaction || req;
+    const fields = api.getCapabilities().trackFields || [];
+    for (const op of tx.operations || []) {
+      if (!op || typeof op !== 'object') continue;
+      if (typeof op.op === 'string') op.op = op.op.trim().toLowerCase();
+      if (op.op !== 'track.patch') continue;
+      if (typeof op.trackIndex === 'string' && /^[0-7]$/.test(op.trackIndex)) op.trackIndex = Number(op.trackIndex);
+      if (op.values === undefined) op.values = {};
+      if (!op.values || typeof op.values !== 'object' || Array.isArray(op.values)) continue;
+      for (const key of fields) if (Object.hasOwn(op, key)) {
+        if (Object.hasOwn(op.values, key) && JSON.stringify(op.values[key]) !== JSON.stringify(op[key])) throw Error('AMBIGUOUS_FIELD: ' + key + ' differs between operation and values');
+        op.values[key] = op[key]; delete op[key];
+      }
+      if (typeof op.values.instrument === 'string') op.values.instrument = op.values.instrument.trim().toUpperCase();
+      if (typeof op.values.sound === 'string') op.values.sound = op.values.sound.trim().toLowerCase().replace(/^(ambient|reactor)-/, '');
+    }
+    return req;
+  }
+
   function parseAndValidateRequest(api, textContent, fallbackId, options = {}){
     let parsed;
     try {
@@ -853,6 +882,8 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       }
     }
 
+    try { parsed = normalizeFileRequest(parsed, api); }
+    catch (err) { return {ok:false, error:err.message, id:String(parsed.requestId || fallbackId)}; }
     const transaction = parsed.transaction || parsed;
     const requestId = String(parsed.requestId || transaction.requestId || fallbackId);
 
@@ -927,6 +958,8 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       } else {
         help = 'An unexpected property was found: ' + msg + '. Consult capabilities.json and AGENT_GUIDE.md for allowed fields. In track.patch, only mutable voice parameters are allowed (role and name are read-only slot identifiers).';
       }
+    } else if (msg.includes('Invalid track role')) {
+      help = msg + '. Slot role is fixed by trackIndex, independently of instrument bank. Read instruments.json compatibleRoles; do not move files or change their names to fix a role error.';
     } else if (msg.includes('INVALID_SOUND')) {
       if (msg.includes('belongs to the "REACTOR" setup') || msg.includes('belongs to the "AMBIENT" setup')) {
         help = 'Sound setup/vibe mismatch: ' + msg + ' To use this sound, set "setup": "reactor" (or "world": "reactor") in project.replace, or choose sounds available in the current setup from instruments.json.';
@@ -1187,8 +1220,9 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
             files.set(path, {text:content});
             return content;
           } catch(error) {
-            files.set(path, {error:error.message});
-            throw error;
+            const detail = error.name === 'NotFoundError' ? 'FILE_NOT_FOUND: Companion file '+JSON.stringify(path)+' is missing relative to the manifest directory' : 'COMPANION_READ_ERROR: '+JSON.stringify(path)+': '+error.message;
+            files.set(path, {error:detail});
+            throw Error(detail);
           }
         });
         // Rebase only to prepare a proposal, never to skip approval-time conflicts.
@@ -1196,7 +1230,11 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       } catch(error) {
         parsed = {ok:false, id:fallbackId, error:error.message};
       }
-      return {parsed, fingerprint:JSON.stringify([text, [...files].sort(([a],[b])=>a.localeCompare(b))])};
+      const fingerprint = JSON.stringify([text, [...files].sort(([a],[b])=>a.localeCompare(b))]);
+      // Correlation token, not a security hash. Includes companion content.
+      let hash = 2166136261;
+      for (let i=0;i<fingerprint.length;i++) hash = Math.imul(hash ^ fingerprint.charCodeAt(i), 16777619);
+      return {parsed, fingerprint, submissionVersion:(hash >>> 0).toString(16).padStart(8,'0')};
     }
 
     async function writeResponse(response, baseId){
@@ -1262,7 +1300,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
           const parsed = submission.parsed;
           if (terminalIds.has(parsed.id)) continue;
           if (!parsed.ok) {
-            const response = errorResponse(parsed.id, parsed.error);
+            const response = {...errorResponse(parsed.id, parsed.error), submissionVersion:submission.submissionVersion};
             await writeResponse(response, baseId);
             state.lastResult = response; state.error = parsed.error;
             continue;
@@ -1273,7 +1311,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
             rebased:!!parsed.rebased, originalBaseRevision:parsed.originalBaseRevision};
           // Private handles/fingerprint are not serialized into UI or context files.
           pendingSource = {directory, manifest, fingerprint:submission.fingerprint};
-          const response = {ok:true, status:'pending_approval', applied:false, id:parsed.id,
+          const response = {ok:true, status:'pending_approval', applied:false, id:parsed.id, submissionVersion:submission.submissionVersion,
             baseRevision:parsed.transaction.baseRevision, currentRevision:parsed.currentRevision,
             ...(parsed.rebased ? {rebasedFrom:parsed.originalBaseRevision} : {}), timestamp:new Date().toISOString()};
           await writeResponse(response, baseId);

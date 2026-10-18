@@ -3,3 +3,4 @@
 /artifacts/
 /_site/
 .DS_Store
+.codex/

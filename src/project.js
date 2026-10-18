@@ -117,7 +117,7 @@
    const steps=Array.isArray(t.steps)?t.steps:[];
    if(steps.length>128||steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(steps).size!==steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
    const clean={name:trackName,instrument,generator,sound:soundId,on:t.on!==false,steps:[...steps].sort((a,b)=>a-b)};
-   if(generator===3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
+   if(generator===3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role)throw Error('Invalid track role: slot '+trackName+' requires role '+role+', received '+t.role);if(t.exact!==undefined&&typeof t.exact!=='boolean')throw Error('INVALID_EXACT: track '+trackName+' exact must be boolean');if(!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role: slot '+trackName+' ('+role+') is incompatible with instrument '+instrument+' / sound '+soundId+'; choose a sound with compatibleRoles containing '+role+' in instruments.json');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field]??(field==='space'?30:50),0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';

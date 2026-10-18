@@ -124,3 +124,10 @@ Agents default to composing single phrase loops, but can construct full multi-se
 Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
 
 First use requires explicit acceptance of bilingual safety, content-rights, local-storage and external-agent terms. Device and folder permissions are requested separately.
+
+
+### File Bridge input and receipt audit — 2026-10-18
+
+File Bridge accepts track fields directly on an operation or inside values, digit-string indices 0..7 and ID case/whitespace variants. Conflicting values and musical constraints remain errors. The response submissionVersion covers the manifest and companion contents; after a correction wait for a fresh receipt before diagnosing an old error again.
+
+Normalization is File Bridge only; WebMCP and core musical validation retain their strict contract. Use canonical `{op:"track.patch",trackIndex:5,values:{...}}`; a companion contains the values object. Keep one request ID and manifest for corrections. Write companions first and manifest last. Flat references resolve beside the manifest, bundle references inside the bundle; renaming files requires updating references. Slot/role diagnostics identify the track and distinguish role, exact flag and sound compatibility errors. No new dependency or deployment step.
