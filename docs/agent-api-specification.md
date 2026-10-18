@@ -1,3 +1,27 @@
+### File Bridge submission protocol — 2026-10-18
+
+This section supersedes earlier instructions about silence or immediate termination.
+The recommended long-score path is `requests/<requestId>/`: complete companion JSON files first, read them back, then write `manifest.json` last. Bound **each file-tool call** to the external agent harness limit. Large individual files can be completed with bounded append/edit calls; complete compositions can reference multiple track/phrase files. File Bridge does not impose a universal 1.5 KB file limit or restrict the agent to two tracks. WebMCP payloads are a separate transport and say nothing about file-tool truncation. Engine transactions remain bounded to 512 KiB and 256 operations; file submission additionally bounds the total root plus unique companion UTF-8 content to 512 KiB.
+
+HALO reads each referenced companion once per scan and tracks its content together with the root. Companion-only corrections, including missing/truncated-file recovery, trigger validation without touching the manifest. One proposal awaits review at a time. Changes while pending invalidate that snapshot and require review again; approval also checks the files and the project revision before applying. Applied and rejected request IDs do not replay across reconnects; use a new ID for new work. An ID is 1..128 ASCII letters, digits, hyphens or underscores. Legacy flat requests, aliases and parts remain supported.
+
+`responses/<requestId>.result.json` has these explicit lifecycle states:
+
+| status | ok | Meaning |
+| --- | --- | --- |
+| `pending_approval` | true | Validated snapshot; `applied:false`, baseRevision/currentRevision; not yet applied |
+| `applied` | true | Applied; `applied:true`, appliedRevision/currentRevision |
+| `error` | false | Validation/application error; error, help, instructionForAgent and currentRevision |
+| `rejected` | false | Human rejected this request; respect the decision |
+
+After submitting, wait 4–5 seconds and read the response. End the composition turn on **explicit** pending_approval acknowledgement and invite approval; applied is a completed mutation. Fix an error at most twice, then report it. No response is **unconfirmed**, not successful: check page/folder connection or a previous pending proposal; do not wait indefinitely for human approval. Poll timing is best effort and can slow when a browser is suspended. A stale base revision is rebased only to prepare a review; errors in the rebased content are returned directly. A revision change after review is not silently rebased at application.
+
+`instruments.json` context schemaVersion **2** has one `sounds` registry. Each sound has `id` (`<world>:<canonicalId>`), `instrument`, `canonicalId`, setups, compatibleRoles/affinityRoles and noteRange. `tracks[].soundsBySetup`, `tracks[].compatibleSounds`, and `soundWorlds.<setup>.soundIds` contain references to those IDs. Use `canonicalId` (without world prefix) as the request's sound field. Portable musical projects and transactions remain version 1. The other four context files retain their existing versions. All five files are refreshed when connecting or pressing Update Files.
+
+Recipe keys come from the engine table: C major is index **2**, source offset **-2**; D minor is index **0**, offset **0**. Set noteTranspose to that **offset** for literal MIDI. Write notes across all requested bars (8-bar 4/4: 0..127; 8-bar 3/4: 0..95). Exactly eight slots remain available; mutes are explicit, not assumed. `project.patch` is present in WebMCP inputSchema as well as capabilities; the tool schema derives its operation enum from the actual API.
+
+No backend, new runtime dependency, external audio service or new permission is introduced. Default application remains human-confirmed. The folder protocol is application-specific JSON, not MCP-over-files.
+
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
 Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/file-bridge.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
@@ -23,7 +47,6 @@ There is no mood-preset planner or automatic inference/repair client in HALO. Ma
 3. **Allowlist & Privacy:** Only valid HALO operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`) are accepted in `requests/`. No scripts, external URLs, or OS commands. `project-state.json` is strictly read-only.
 4. **Desktop Chrome/Edge Native API:** File Bridge relies on `window.showDirectoryPicker({ mode: 'readwrite' })` without server dependencies or external libraries. Works statically on GitHub Pages.
 5. **Zero Localhost, Zero CLI, and Zero Background Execution:** HALO is a 100% static client-side web application. There is **NO backend server, NO local HTTP daemon, NO CLI tool (`halo`), and NO localhost ports** (`localhost:3000`, `3001`, `8080`, `5173`, etc.). External agents are strictly prohibited from executing `curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`, or port scans to ping or run HALO.
-6. **Asynchronous Human-in-the-Loop & Immediate Turn Termination:** Results in `responses/` are written **only after the human user reviews the changes and clicks «Apply Changes» in the browser UI**. Because human review takes time, the response will NEVER appear synchronously during the agent's turn. Agents must NEVER block, sleep, or poll waiting for `responses/`. Once the request is written to `requests/`, the agent must immediately terminate its turn and notify the user.
 
 ## Automatic discovery and WebMCP lifecycle
 
@@ -156,13 +179,12 @@ When the user gives a brief creative task without technical parameters (e.g. *"�
   - Track roles & names: `role` and `name` are permanent slot identifiers fixed by `trackIndex: 0..7`; passing them inside `track.patch.values` throws `UNKNOWN_FIELD`.
   - Step editing & Generator 3: When `track.patch` supplies custom `steps` or `noteEvents`, HALO automatically sets `exact = true` if `exact` is omitted, ensuring custom patterns play without throwing `EXACT_REQUIRED`. Explicitly passing `exact: false` while supplying custom steps continues to enforce the requirement.
   - Phrase bars & startStep alignment: When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`), preventing `Invalid phrase position` errors during live playback loops.
-- **5-Second Verification Loop vs Human Approval:** HALO's background folder poller scans `requests/` every 1.5 seconds. If a request is invalid, HALO writes an immediate error response to `responses/<requestId>.result.json` within 1.5–3 seconds. External AI agents must wait 4 to 5 seconds and inspect `responses/<requestId>.result.json`. If an error result exists (`"ok": false`), the agent reads `"error"`, `"help"`, and `"instructionForAgent"`, self-corrects the batch, and rewrites the request (up to 2 retries). If no error result exists, the proposal is valid and queued in the web UI for human review. Agents must not enter an infinite loop waiting for human approval, but they must check for immediate automated validation errors before completing their turn.
 - **Anti-Hallucination Guard against Localhost/CLI Loops:** External models often mistake client-side Web Audio file bridges for fullstack server-backed applications. HALO runs 100% in the user's browser with no local backend daemon, port, or CLI binary. Agents must not invoke `curl`, `netstat`, `node`, `npm`, `python`, `where.exe halo`, or launch browsers.
-- **Token Budget & Modular Multi-File Architecture:** When communicating with LLM tool-calling harnesses (e.g. Bionic, Qwen, Antigravity), generating massive monolithic 8-track `project.replace` objects with extensive note arrays across all 128 steps easily exceeds tool-call single-string argument buffers, causing JSON truncation crashes (`Unterminated string in JSON at position ~2158`). HALO overcomes this with first-class support for **Modular Multi-File Requests** and **Folder Bundles**, allowing external agents to orchestrate all 8 voices simultaneously with full creative freedom across separate files.
+- **File tool write budgets:** Modular files bound individual agent write calls; limits depend on the harness. Publish the manifest last and require the explicit response described above.
 
 ### Modular Multi-File Requests & Full 8-Track Scoring Architecture
 Agents can split complex multi-voice scores across multiple files, which HALO resolves automatically into a single atomic proposal in the UI:
-1. **Folder Bundles (`requests/<requestId>/`):** The cleanest and recommended approach for scoring all 8 tracks without token truncation. Create a subfolder in `requests/` containing `manifest.json` alongside companion track files:
+1. **Folder Bundles (`requests/<requestId>/`):** The cleanest and recommended approach for scoring all 8 tracks with bounded file-writing calls. Create a subfolder in `requests/` containing `manifest.json` alongside companion track files:
    - `requests/req-001/manifest.json`: Root project envelope declaring tempo, bars, key, and references to companion files (`tracks: [{ file: "t0-pulse.json" }, { file: "t1-accent.json" }, ...]`).
    - `requests/req-001/t0-pulse.json` ... `t7-aura.json`: Individual track scoring files containing detailed 16th-note steps and chords.
    - HALO discovers directory handles in `requests/`, parses `manifest.json` (or `request.json` / `<bundle>.json`), and resolves all relative companion files within that subfolder.
@@ -186,6 +208,6 @@ HALO issues no model/network requests and stores no agent credentials. Reading e
 
 ## Verification
 
-See [WebMCP acceptance record](regression-webmcp-2026-10-16.md). Native Site Tools were discovered and called by Codex on the real local app, composing a new original G-major eight-bar score. This is not a mock model response. Public Pages still needs deployment of this change; the current published build has no tools. The page-context fallback was removed; current Windows acceptance is recorded separately in regression-webmcp-windows-2026-10-16.md. Physical mobile and Safari/iOS remain untested.
+See [release validation](release-validation.md) for local WebMCP and File Bridge acceptance and remaining device/audio gates. The final changes have not been deployed; public-site acceptance must be repeated after publication.
 
 History loading may normalize the selected phrase master/Track 09 metadata. Undo/Redo compares against the actual canonical state returned by that load, and still rejects later manual edits. See the Windows regression report for the verified cross-format round trip.

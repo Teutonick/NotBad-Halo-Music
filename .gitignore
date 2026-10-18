@@ -1,2 +1,5 @@
 .sample-work/
-temp/
+/temp/
+/artifacts/
+/_site/
+.DS_Store

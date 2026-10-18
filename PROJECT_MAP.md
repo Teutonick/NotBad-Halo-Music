@@ -1,3 +1,13 @@
+### Production packaging — 2026-10-18
+
+Pages runs the Node suite and packages allowlisted static directories with `scripts/package-pages.sh`; it no longer uploads the entire repository. Generated diagnostics are ignored; durable score fixtures live in `examples/ai/`. No runtime dependency or mandatory build step was introduced. Acceptance and remaining gates: [release validation](docs/release-validation.md).
+
+### File Bridge reliability — 2026-10-18
+
+Verification: 270 Node tests pass. Native Chrome passed companion-only correction, explicit receipts, keyboard approval, both complete scores, 390×844 PHRASE placement and natural song completion; canonical adventure notes matched the folder readback. Legacy-rejection compatibility has unit coverage. No deployment or listening-quality sign-off is claimed.
+
+Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
+
 
 ### Modular Multi-File Requests, Folder Bundles & Full 8-Track Scoring — 2026-10-18
 
@@ -28,8 +38,8 @@
   - Added *Prompt-to-Architecture Decision Matrix* in `AGENT_GUIDE.md` mapping prompts to Mode (`project.patch` vs `composition.replace`), Setup (`ambient` vs `reactor`), Meter (`4/4` vs `3/4`), Key, and Voices.
   - Added *The Full-Span Duration Principle* in `AGENT_GUIDE.md` and `music-rules.json` (`fullPhraseCoverageWarning`, `fullPhraseCoverageRule`), emphasizing that 8-bar phrases require steps spanning `0..127` in 4/4 and `0..95` in 3/4. Restricting steps to `0..15` leaves bars 2–8 completely silent.
   - Added canonical recipes:
-    - **Recipe A (Holiday / New Year 8-Bar Jingle):** C Major (`key: 0`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
-    - **Recipe B (Epic Cinematic / Pirates of the Caribbean):** D Minor (`key: 14`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`). Strictly allowlisted section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
+    - **Recipe A (Holiday / New Year 8-Bar Jingle):** C Major (`key: 2`, `noteTranspose: -2`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
+    - **Recipe B (Epic Cinematic / Pirates of the Caribbean):** D Minor (`key: 0`, `noteTranspose: 0`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`). Strictly allowlisted section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
 - **Double Scrollbar Elimination (`index.html`):**
   - Removed `max-height: min(440px, 50vh)`, `min-height: 180px`, `overflow: auto`, `overscroll-behavior: contain`, and custom scrollbar definitions from `.agent-panel`.
   - Completely removed `.agent-panel.filebridge-mode{max-height:min(500px,60vh);min-height:280px}`.
@@ -340,7 +350,7 @@
 - `src/live-loop.js` shares the PITCH note scheduler between live/offline contexts; `src/song-ui.js` and `src/export.js` pass each phrase key. GENERATE/RANDOM/RESET preserve source root and trim. Captures in PITCH are limited to eight seconds; section transitions finalize the take in the outgoing phrase.
 - New classic local `src/audio-input.js` owns microphone/instrument audioinput selection, permission probes, direct input listening, exact device constraints, local device preferences and capture cleanup. All three modes accept import or selected input recording; monitoring is explicit and does not auto-start on reload. Input IDs stay out of project/share state.
 - HTTPS/localhost and OS/browser-visible audio inputs are required. Recording is mono through the existing ScriptProcessor pipeline; no system-output/ASIO/MIDI/channel-selector support is claimed. Physical input devices, listening/latency and Safari/iOS still need hardware acceptance. Static relative-script GitHub Pages support remains intact; no external assets or dependencies.
-- See `docs/regression-pitch-input-2026-10-15.md` for checks and limitations. Bilingual guide, engine registry, API, READMEs and changelog synchronized.
+- See `docs/release-validation.md` for checks and limitations. Bilingual guide, engine registry, API, READMEs and changelog synchronized.
 
 
 ### Latest implemented update — 2026-10-15: phrase-owned Track 09 and shared restart
@@ -349,7 +359,7 @@
 - `src/live-loop.js` keeps an immutable local PCM library, restores only a phrase's layers and reconnects mixer nodes when the AudioContext changes. Undo/current-track clear preserve other phrase references; workspace reset clears the library. Legacy global audio is adopted only by the active phrase at startup. Unreferenced PCM remains until full reset.
 - `src/song-ui.js` selects Track 09 at section boundaries on the same audio timestamp as the eight instruments. All listed sample edits request the authoritative phrase restart; with Instant Restart disabled, loop/window/pitch/reverse edits wait for the next 4/8-bar phrase boundary.
 - `src/export.js` renders each phrase's layer references and treatment at its own song position. JSON/share links carry no PCM and cannot transfer recordings to another browser. Missing local layers are silent.
-- Regression evidence and browser/device limitations: `docs/regression-2026-10-15.md`. Static relative-script deployment remains unchanged; no dependencies, backend or external assets added.
+- Regression evidence and browser/device limitations: `docs/release-validation.md`. Static relative-script deployment remains unchanged; no dependencies, backend or external assets added.
 
 
 ### Latest documentation update — 2026-10-14: bilingual product showcase

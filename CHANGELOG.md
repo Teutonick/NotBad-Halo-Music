@@ -1,3 +1,14 @@
+## 2026-10-18 — Production repository preparation
+
+- Removed temporary diagnostic artifacts and consolidated historical acceptance reports into `docs/release-validation.md`; preserved music fixtures under `examples/ai/`.
+- Pages now runs regression tests and uploads an explicit static package instead of the full repository. Added ignore rules for generated evidence and package output; refreshed bridge script cache versions.
+
+## 2026-10-18 — Reliable File Bridge submissions
+
+- Unified folder/flat polling, tracked companion changes, added explicit pending/applied/error/rejected responses and approval-time snapshot checks; applied/rejected IDs, including legacy rejection receipts, remain terminal across reconnects.
+- Shortened folder-agent guide, corrected key recipes, versioned the deduplicated instruments context as v2; retained full eight-track scoring and file-tool-aware modular writes without conflating WebMCP budgets.
+- Matched WebMCP schemas to actual operations, reserved layout space for the default PHRASE panel and corrected the stopped-song caption. Synchronized bilingual manual and API/capabilities docs. No backend, assets or dependencies added.
+
 ## [Unreleased] - 2026-10-18
 
 ### Added

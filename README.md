@@ -1,3 +1,5 @@
+Production packaging: `sh scripts/package-pages.sh` copies the static site into a new `_site/` folder. Pages runs the Node regression suite before uploading this package; development files and temporary evidence are excluded. See [release validation](docs/release-validation.md).
+
 <div align="center">
 
 # NotBad HALO
@@ -116,3 +118,7 @@ HALO can be composed and arranged by external AI agents (such as Codex, Antigrav
 - **File Bridge (Local Folder Sync):** Direct folder sync for desktop Chrome/Edge using native `window.showDirectoryPicker`. HALO exports context files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`) and reads incoming requests from `requests/` with explicit user confirmation and responses written to `responses/`. Directory connections are remembered across page reloads via IndexedDB (`halo-file-bridge-v1`) with 1-click reconnect.
 
 Agents default to composing single phrase loops, but can construct full multi-section song arrangements (*Intro → Verse → Chorus → Verse 2 → Bridge → Outro*) with section repeats, capped safely at 15 unique phrases. Supported meters include standard `4/4` (4/8 bars) and `3/4` (4 bars = 3/4 waltz, 8 bars = 6/8 pirate swing). All processing and audio remain 100% client-side and static on GitHub Pages.
+
+### File Bridge reliability — 2026-10-18
+
+Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).

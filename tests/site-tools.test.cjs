@@ -12,7 +12,7 @@ test('tab lifecycle keeps tools for BFCache and disposes on ordinary teardown',a
 test('sample metadata catalog remains exactly matched to the local rights manifest, without PCM',()=>{const catalog=require('../src/sample-catalog.js'),manifest=require('../assets/reactor/manifest.json');assert.deepEqual(catalog,manifest.samples.map(({id,bank,root,duration,localFile})=>({id,bank,root,duration,localFile})));assert.equal(catalog.length,130);assert.doesNotMatch(JSON.stringify(catalog),/base64|downloadURL/)});
 
 test('actual WebMCP control score is a portable exact eight-bar project with original parts and safe bounded master',async()=>{
- const score=require('../artifacts/webmcp/new-year-jingle.halo.json'),a=app();await a.tools.ready;
+ const score=require('../examples/ai/webmcp-jingle.halo.json'),a=app();await a.tools.ready;
  const request=tx(a.api,[{op:'project.replace',project:score}]);
  assert.equal((await a.call('halo_validate_operations',{transaction:request})).valid,true);
  await a.call('halo_apply_operations',{transaction:request});
@@ -20,4 +20,16 @@ test('actual WebMCP control score is a portable exact eight-bar project with ori
  assert.deepEqual(saved,score);assert.equal(score.bars,8);assert.equal(score.key,5);assert.equal(score.tempo,108);
  assert.equal(score.tracks.filter(t=>t.on).length,7);
  const pcs=new Set([7,9,11,0,2,4,6]);for(const i of [4,5,6,7]){const t=score.tracks[i];assert.equal(t.exact,true);assert.equal(t.noteTranspose,5);assert.ok(t.noteEvents.length>0);for(const e of t.noteEvents){assert.ok(e.step<128);assert.ok(e.notes.every(n=>pcs.has(n%12)))}}
+});
+
+test('published WebMCP operation enum matches engine capabilities including project.patch',async()=>{
+ const registered=new Map(),a=app({registerTool:d=>registered.set(d.name,d)});await a.tools.ready;
+ const context=await a.call('halo_get_context');
+ for(const name of ['halo_validate_operations','halo_preview_operations','halo_apply_operations']){
+  const schema=registered.get(name).inputSchema.properties.transaction.properties.operations.items;
+  assert.deepEqual([...schema.properties.op.enum].sort(),[...context.capabilities.operations].sort());
+ }
+ const request=tx(a.api,[{op:'project.patch',values:{tempo:96,bars:8,key:2}}]);
+ assert.equal((await a.call('halo_validate_operations',{transaction:request})).valid,true);
+ await a.call('halo_apply_operations',{transaction:request});assert.equal((await a.call('halo_get_state')).project.key,2);a.tools.dispose();
 });

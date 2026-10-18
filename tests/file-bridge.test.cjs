@@ -38,7 +38,7 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
 
   // instruments.json
   const inst = JSON.parse(files['instruments.json']);
-  assert.equal(inst.schemaVersion, 1);
+  assert.equal(inst.schemaVersion, 2);
   assert.equal(inst.tracks.length, 8);
   for (let i = 0; i < 8; i++) {
     assert.equal(inst.tracks[i].trackIndex, i);
@@ -503,9 +503,10 @@ test('AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% E
   // Verify Zero Localhost, Zero CLI, and 5-Second Verification Loop directives
   assert.ok(files['AGENT_GUIDE.md'].includes('NO LOCALHOST, NO WEBSERVERS, NO PORTS'));
   assert.ok(files['AGENT_GUIDE.md'].includes('NO CLI OR EXECUTABLES'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('5-SECOND ERROR VERIFICATION vs HUMAN APPROVAL'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('pending_approval'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('No response means UNCONFIRMED'));
   assert.ok(files['AGENT_GUIDE.md'].includes('Strict 4-Step Agent Workflow & Verification Protocol'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('5-Second Verification & Self-Correction'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('manifest.json LAST'));
 
   // All 5 files must be 100% English
   for (const filename of ['AGENT_GUIDE.md', 'capabilities.json', 'instruments.json', 'music-rules.json', 'project-state.json']) {
@@ -699,7 +700,9 @@ test('instruments.json exposes vibeAndSetupPolicy, soundsBySetup, and multi-setu
     assert.ok(track.soundsBySetup, `track ${track.slot} must have soundsBySetup`);
     assert.ok(Array.isArray(track.soundsBySetup.ambient), `ambient sounds array required for ${track.slot}`);
     assert.ok(Array.isArray(track.soundsBySetup.reactor), `reactor sounds array required for ${track.slot}`);
-    for (const s of track.compatibleSounds) {
+    for (const id of track.compatibleSounds) {
+      const s = inst.sounds.find(sound => sound.id === id);
+      assert.ok(s, 'Every role sound reference resolves');
       assert.ok(Array.isArray(s.setups), `sound ${s.sound} must have setups array`);
       assert.ok(s.canonicalId, `sound ${s.sound} must have canonicalId`);
     }
@@ -837,7 +840,7 @@ test('request modification after error triggers re-validation, clears error, and
   await bridge.checkFolder();
 
   // Verify stale error removed, state.error cleared, and pending set
-  assert.equal(resFiles.has('req-holiday.result.json'), false, 'Stale error response must be removed on valid retry');
+  assert.equal(JSON.parse(resFiles.get('req-holiday.result.json')).status, 'pending_approval', 'Valid retry replaces the error with an explicit acknowledgement');
   assert.equal(bridge.getStatus().error, null);
   assert.ok(bridge.getStatus().pending, 'Pending proposal must be awaiting user approval');
   assert.equal(bridge.getStatus().pending.id, 'req-holiday');
@@ -1627,3 +1630,155 @@ test('All 5 context files contain 0 Cyrillic characters (100% English AI instruc
 
 
 
+
+// Realistic filesystem contract: reads are snapshots, writes become visible on close.
+function bridgeFolder(){
+  function directory(name='root'){
+    const files=new Map(),dirs=new Map();
+    return {kind:'directory',name,files,dirs,
+      async getFileHandle(n,{create=false}={}){if(!files.has(n)){if(!create)throw Error('FILE_NOT_FOUND: '+n);files.set(n,'')}
+        return {kind:'file',name:n,async getFile(){const text=files.get(n);return {text:async()=>text}},async createWritable(){let value;return {async write(s){value=s},async close(){files.set(n,value)}}}}},
+      async getDirectoryHandle(n,{create=false}={}){if(!dirs.has(n)){if(!create)throw Error('DIRECTORY_NOT_FOUND: '+n);dirs.set(n,directory(n))}return dirs.get(n)},
+      async removeEntry(n){files.delete(n);dirs.delete(n)},
+      async *entries(){for(const [n,d]of dirs)yield[n,d];for(const n of files.keys())yield[n,await this.getFileHandle(n)]}
+    };
+  }
+  return directory();
+}
+async function modularFixture({flat=false,content='{"tempo":201}',stale=false}={}){
+  const {api}=createTestApp(),root=bridgeFolder();
+  const req=await root.getDirectoryHandle('requests',{create:true}),res=await root.getDirectoryHandle('responses',{create:true});
+  const bundle=flat?req:await req.getDirectoryHandle('req-proof',{create:true});
+  const revision=api.getProjectState().revision;
+  bundle.files.set('master.json',content);
+  bundle.files.set(flat?'req-proof.json':'manifest.json',JSON.stringify({requestId:'req-proof',schemaVersion:1,baseRevision:stale?revision-1:revision,operations:[{op:'master.patch',file:'master.json'}]}));
+  const bridge=FileBridge.createBridge(api,{pollInterval:0});await bridge.connect(root);
+  return {api,root,req,res,bundle,bridge,result:()=>JSON.parse(res.files.get('req-proof.result.json'))};
+}
+for(const flat of [false,true])test(`companion-only corrections, explicit acknowledgement and immutable application (${flat?'flat':'bundle'})`,async()=>{
+  const f=await modularFixture({flat,stale:true});
+  assert.equal(f.result().status,'error');
+  assert.doesNotMatch(f.result().error,/CONFLICT_REVISION/, 'Rebased numeric error must not be hidden behind stale revision');
+  f.bundle.files.set('master.json','{"tempo":104}');
+  await f.bridge.checkFolder();
+  assert.equal(f.result().status,'pending_approval');assert.equal(f.result().applied,false);
+  assert.equal(f.api.getProjectState().project.tempo,72,'Acknowledgement is not application');
+  // Changed after preview, before next poll: do not apply a different snapshot.
+  f.bundle.files.set('master.json','{"tempo":108}');
+  await f.bridge.applyPending();
+  assert.match(f.result().error,/REQUEST_CHANGED/);assert.equal(f.api.getProjectState().project.tempo,72);
+  await f.bridge.checkFolder();assert.equal(f.result().status,'pending_approval');
+  assert.equal(f.bridge.getStatus().pending.transaction.operations[0].values.tempo,108);
+  await f.bridge.applyPending();assert.equal(f.result().status,'applied');assert.equal(f.api.getProjectState().project.tempo,108);
+  f.bundle.files.set('master.json','{"tempo":120}');await f.bridge.checkFolder();
+  assert.equal(f.api.getProjectState().project.tempo,108,'Applied request ID never replays');
+  f.bridge.dispose();
+  const reconnect=FileBridge.createBridge(f.api,{pollInterval:0});await reconnect.connect(f.root);
+  assert.equal(reconnect.getStatus().pending,null);assert.equal(f.api.getProjectState().project.tempo,108);reconnect.dispose();
+});
+test('truncated or missing companions recover without rewriting manifest; pending is rediscovered on reconnect',async()=>{
+  const f=await modularFixture({content:'{"tempo":'});assert.equal(f.result().status,'error');
+  f.bundle.files.delete('master.json');await f.bridge.checkFolder();assert.equal(f.result().status,'error');
+  f.bundle.files.set('master.json','{"tempo":100}');await f.bridge.checkFolder();assert.equal(f.result().status,'pending_approval');
+  f.bridge.dispose();const b=FileBridge.createBridge(f.api,{pollInterval:0});await b.connect(f.root);
+  assert.equal(b.getStatus().pending.id,'req-proof','Pending ack must not be mistaken for an applied result');
+  await b.rejectPending();assert.equal(f.result().status,'rejected');b.dispose();
+  const c=FileBridge.createBridge(f.api,{pollInterval:0});await c.connect(f.root);assert.equal(c.getStatus().pending,null,'Respect rejected request across reconnect');c.dispose();
+});
+test('pending companion change on poll replaces the proposal instead of applying old notes',async()=>{
+  const f=await modularFixture({content:'{"tempo":100}'});assert.equal(f.result().status,'pending_approval');
+  f.bundle.files.set('master.json','{"tempo":102}');await f.bridge.checkFolder();
+  assert.equal(f.bridge.getStatus().pending.transaction.operations[0].values.tempo,102);
+  assert.equal(f.api.getProjectState().project.tempo,72);f.bridge.dispose();
+});
+test('request identity cannot create response paths outside the chosen folder',()=>{
+  const {api}=createTestApp();const result=FileBridge.parseAndValidateRequest(api,{schemaVersion:1,requestId:'../escape',baseRevision:api.getProjectState().revision,operations:[{op:'master.patch',values:{tempo:100}}]},'req-safe');
+  assert.equal(result.ok,false);assert.match(result.error,/INVALID_REQUEST_ID/);assert.equal(result.id,'req-safe');
+});
+test('compact context has one canonical sound registry and recipes use authoritative keys',()=>{
+  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=api.getCapabilities();
+  const inst=JSON.parse(files['instruments.json']),guide=files['AGENT_GUIDE.md'];
+  assert.equal(inst.sounds.length,62);assert.ok(Buffer.byteLength(files['instruments.json'])<85000);
+  assert.ok(Buffer.byteLength(guide)<10000);assert.doesNotMatch(guide,/KEEP YOUR REQUEST JSON UNDER|ONLY on 1 or 2 tracks/);
+  for(const role of inst.tracks)for(const [setup,ids]of Object.entries(role.soundsBySetup))for(const id of ids){
+    const sound=inst.sounds.find(s=>s.id===id);assert.ok(sound);assert.ok(sound.setups.includes(setup));assert.ok(sound.compatibleRoles.includes(role.role));
+  }
+  for(const name of ['C MAJOR','D MINOR']){const key=caps.harmony.keys.findIndex(k=>k.name===name);assert.match(guide,new RegExp('key '+key+', noteTranspose '+caps.harmony.keys[key].offset));}
+});
+test('both delivered full scores resolve and apply via the file transport with literal pitches',async()=>{
+  const fs=require('node:fs');
+  for(const filename of ['holiday-loop.halo.json','adventure-song.halo.json']){
+    const {api}=createTestApp(),project=JSON.parse(fs.readFileSync(require('node:path').join(__dirname,'../examples/ai',filename),'utf8'));
+    const root=bridgeFolder(),req=await root.getDirectoryHandle('requests',{create:true}),dir=await req.getDirectoryHandle('req-score',{create:true});
+    dir.files.set('score.json',JSON.stringify(project));dir.files.set('manifest.json',JSON.stringify({requestId:'req-score',schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:project.phrases?'composition.replace':'project.replace',file:'score.json'}]}));
+    const b=FileBridge.createBridge(api,{pollInterval:0});await b.connect(root);assert.ok(b.getStatus().pending);await b.applyPending();
+    const saved=api.getProjectState().project;const phrases=saved.phrases?saved.phrases.map(p=>p.project):[saved];
+    for(const p of phrases){assert.equal(p.tracks.length,8);const key=api.getCapabilities().harmony.keys[p.key];for(const t of p.tracks){assert.equal(t.exact,true);assert.equal(t.noteTranspose,key.offset);for(const e of t.noteEvents||[])assert.ok(t.steps.includes(e.step));}}
+    const music=api.getContext().music;
+    for(const [pi,p]of phrases.entries())for(const [ti,t]of p.tracks.entries())for(const event of t.noteEvents||[]){
+      const resolved=music[pi].tracks[ti].events.find(e=>e.step===event.step);
+      assert.ok(resolved);assert.deepEqual(resolved.notes.map(n=>n%12).sort((a,b)=>a-b),event.notes.map(n=>n%12).sort((a,b)=>a-b),'Literal MIDI pitch classes survive role/sample octave folding');
+    }
+    if(saved.phrases){assert.equal(saved.phrases.length,4);assert.equal(saved.sections.reduce((n,s)=>n+8*s.repeats,0),72);}else assert.equal(saved.key,2);
+    b.dispose();
+  }
+});
+
+test('failed acknowledgement/context I/O after application cannot roll back the reported application or replay the request',async()=>{
+ const f=await modularFixture({content:'{"tempo":99}'});assert.equal(f.result().status,'pending_approval');
+ const getHandle=f.res.getFileHandle;f.res.getFileHandle=async()=>{throw Error('Permission denied')};
+ await f.bridge.applyPending();
+ assert.equal(f.api.getProjectState().project.tempo,99);assert.equal(f.bridge.getStatus().lastResult.status,'applied');
+ assert.match(f.bridge.getStatus().error,/RESPONSE_SYNC_FAILED/);assert.equal(f.bridge.getStatus().pending,null);
+ f.res.getFileHandle=getHandle;await f.bridge.checkFolder();assert.equal(f.bridge.getStatus().pending,null);f.bridge.dispose();
+});
+
+test('idle polling preserves the pending Apply button and keyboard focus',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm');const {api}=createTestApp(),root=bridgeFolder();
+ const req=await root.getDirectoryHandle('requests',{create:true});req.files.set('req-focus.json',JSON.stringify({requestId:'req-focus',schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'master.patch',values:{tempo:100}}]}));
+ let poll;
+ const doc={activeElement:null,createElement(tag){return {tag,children:[],style:{},textContent:'',append(...nodes){for(const n of nodes){this.children.push(n);n.parent=this}},replaceChildren(){if(this.contains(doc.activeElement))doc.activeElement=null;this.children=[]},contains(n){return n===this||this.children.some(c=>c.contains(n))},querySelectorAll(tag){return this.children.flatMap(c=>[...(c.tag===tag?[c]:[]),...c.querySelectorAll(tag)])},focus(){doc.activeElement=this}}}};
+ const context={document:doc,console:{log(){},warn(){},error(){}},TextEncoder,showDirectoryPicker:async()=>root,setInterval(fn){poll=fn;return 1},clearInterval(){},setTimeout,clearTimeout};
+ vm.createContext(context);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../src/file-bridge.js'),'utf8'),context);
+ const host=doc.createElement('host');context.HaloFileBridge.panel(host,api,()=> 'en');
+ await host.querySelectorAll('button').find(b=>b.textContent.includes('Connect HALO')).onclick();
+ const apply=host.querySelectorAll('button').find(b=>b.textContent.includes('Apply Changes'));assert.ok(apply);apply.focus();
+ await poll();await poll();assert.equal(doc.activeElement,apply);assert.ok(host.contains(apply));
+ host._haloCleanup();
+});
+
+test('real directory roundtrip: bounded writes, manifest-last, both full scores, no duplicate application',async()=>{
+ const fs=require('node:fs/promises'),path=require('node:path'),os=require('node:os');
+ const folder=await fs.mkdtemp(path.join(os.tmpdir(),'halo-bridge-regression-'));
+ function handle(location){return {kind:'directory',name:path.basename(location),
+  async getDirectoryHandle(name,{create=false}={}){const next=path.join(location,name);if(create)await fs.mkdir(next,{recursive:true});else await fs.access(next);return handle(next)},
+  async getFileHandle(name,{create=false}={}){const file=path.join(location,name);if(create){try{await fs.access(file)}catch{await fs.writeFile(file,'')}}else await fs.access(file);
+   return {kind:'file',name,async getFile(){const snapshot=await fs.readFile(file,'utf8');return {text:async()=>snapshot}},async createWritable(){let content='';return {async write(text){content=text},async close(){await fs.writeFile(file+'.tmp',content);await fs.rename(file+'.tmp',file)}}}}},
+  async removeEntry(name,{recursive=false}={}){await fs.rm(path.join(location,name),{recursive})},
+  async *entries(){for(const entry of await fs.readdir(location,{withFileTypes:true})){yield [entry.name,entry.isDirectory()?handle(path.join(location,entry.name)):await this.getFileHandle(entry.name)]}}
+ }}
+ const {api}=createTestApp();const b=FileBridge.createBridge(api,{pollInterval:0});
+ try{
+  await b.connect(handle(folder));const context=JSON.parse(await fs.readFile(path.join(folder,'instruments.json'),'utf8'));assert.equal(context.schemaVersion,2);
+  for(const [index,filename]of ['holiday-loop.halo.json','adventure-song.halo.json'].entries()){
+   const score=JSON.parse(await fs.readFile(path.join(__dirname,'../examples/ai',filename),'utf8'));
+   const id='req-disk-'+index,dir=path.join(folder,'requests',id);await fs.mkdir(dir);
+   async function boundedWrite(name,value){const json=JSON.stringify(value),destination=path.join(dir,name);await fs.writeFile(destination,'');for(let offset=0;offset<json.length;offset+=1000){const chunk=json.slice(offset,offset+1000);assert.ok(Buffer.byteLength(chunk)<1500);await fs.appendFile(destination,chunk)}assert.deepEqual(JSON.parse(await fs.readFile(destination,'utf8')),value)}
+   const projects=score.phrases?score.phrases.map(p=>p.project):[score];
+   for(const [pi,p]of projects.entries())for(let ti=0;ti<8;ti++){const name=`phrase-${pi}-track-${ti}.json`;await boundedWrite(name,p.tracks[ti]);p.tracks[ti]={file:name}}
+   await b.checkFolder();assert.equal(b.getStatus().pending,null,'No manifest: no premature proposal');
+   await boundedWrite('manifest.json',{requestId:id,schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:score.phrases?'composition.replace':'project.replace',project:score}]});
+   await b.checkFolder();let result=JSON.parse(await fs.readFile(path.join(folder,'responses',id+'.result.json'),'utf8'));assert.equal(result.status,'pending_approval');
+   await b.applyPending();result=JSON.parse(await fs.readFile(path.join(folder,'responses',id+'.result.json'),'utf8'));assert.equal(result.status,'applied');
+   const live=api.getProjectState(),snapshot=JSON.parse(await fs.readFile(path.join(folder,'project-state.json'),'utf8'));assert.deepEqual(snapshot.project,live.project);
+   await b.checkFolder();assert.equal(b.getStatus().pending,null);assert.deepEqual(api.getProjectState().project,live.project);
+  }
+ }finally{b.dispose();await fs.rm(folder,{recursive:true,force:true})}
+});
+
+test('legacy rejection receipts without status remain terminal on reconnect',async()=>{
+ const {api}=createTestApp(),root=bridgeFolder();const req=await root.getDirectoryHandle('requests',{create:true}),res=await root.getDirectoryHandle('responses',{create:true});
+ req.files.set('req-legacy.json',JSON.stringify({requestId:'req-legacy',schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'master.patch',values:{tempo:104}}]}));
+ res.files.set('req-legacy.result.json',JSON.stringify({ok:false,id:'req-legacy',error:'REJECTED_BY_USER'}));
+ const b=FileBridge.createBridge(api,{pollInterval:0});await b.connect(root);assert.equal(b.getStatus().pending,null);assert.equal(api.getProjectState().project.tempo,72);b.dispose();
+});

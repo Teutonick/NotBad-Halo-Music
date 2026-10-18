@@ -1,0 +1,3680 @@
+{
+  "format": "halo-composition",
+  "version": 1,
+  "tempo": 104,
+  "masterVolume": 50,
+  "repeat": false,
+  "timeSignature": "3/4",
+  "phrases": [
+    {
+      "id": 1,
+      "label": "Harbor",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "reactor",
+        "bars": 8,
+        "startStep": 0,
+        "tempo": 104,
+        "masterVolume": 50,
+        "mix": {
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "width": 35
+        },
+        "seed": 1810,
+        "key": 0,
+        "tracks": [
+          {
+            "name": "GLASS",
+            "instrument": "GLASS",
+            "generator": 3,
+            "sound": "dry-kick",
+            "on": false,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "pulse",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 32,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "TIDAL",
+            "instrument": "TIDAL",
+            "generator": 3,
+            "sound": "dry-snare",
+            "on": false,
+            "steps": [
+              6,
+              18,
+              30,
+              42,
+              54,
+              66,
+              78,
+              90
+            ],
+            "role": "accent",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 18,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "ROOT",
+            "instrument": "ROOT",
+            "generator": 3,
+            "sound": "tight-hat",
+            "on": true,
+            "steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14,
+              16,
+              18,
+              20,
+              22,
+              24,
+              26,
+              28,
+              30,
+              32,
+              34,
+              36,
+              38,
+              40,
+              42,
+              44,
+              46,
+              48,
+              50,
+              52,
+              54,
+              56,
+              58,
+              60,
+              62,
+              64,
+              66,
+              68,
+              70,
+              72,
+              74,
+              76,
+              78,
+              80,
+              82,
+              84,
+              86,
+              88,
+              90,
+              92,
+              94
+            ],
+            "role": "percussion",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "EMBER",
+            "instrument": "EMBER",
+            "generator": 3,
+            "sound": "war-tom",
+            "on": true,
+            "steps": [
+              10,
+              22,
+              34,
+              46,
+              58,
+              70,
+              82,
+              94
+            ],
+            "role": "texture",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 12,
+            "density": 75,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "RAIN",
+            "instrument": "RAIN",
+            "generator": 3,
+            "sound": "pick-bass",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "bass",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 44,
+            "density": 85,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  38
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "VEIL",
+            "instrument": "VEIL",
+            "generator": 3,
+            "sound": "palm-guitar",
+            "on": false,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "melody",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 52,
+            "density": 75,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  50
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "MOSS",
+            "instrument": "MOSS",
+            "generator": 3,
+            "sound": "octave-lead",
+            "on": false,
+            "steps": [
+              0,
+              3,
+              6,
+              10,
+              12,
+              15,
+              18,
+              22,
+              24,
+              27,
+              30,
+              34,
+              36,
+              39,
+              42,
+              46,
+              48,
+              51,
+              54,
+              58,
+              60,
+              63,
+              66,
+              70,
+              72,
+              75,
+              78,
+              82,
+              84,
+              87,
+              90,
+              94
+            ],
+            "role": "arpeggio",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 3,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 10,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 15,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 22,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  70
+                ]
+              },
+              {
+                "step": 27,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 34,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 39,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 46,
+                "notes": [
+                  58
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 51,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  60
+                ]
+              },
+              {
+                "step": 58,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 63,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 70,
+                "notes": [
+                  72
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 75,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 82,
+                "notes": [
+                  61
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 87,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 94,
+                "notes": [
+                  62
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "AURA",
+            "instrument": "AURA",
+            "generator": 3,
+            "sound": "dark-piano",
+            "on": true,
+            "steps": [
+              0,
+              12,
+              24,
+              36,
+              48,
+              60,
+              72,
+              84
+            ],
+            "role": "harmony",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 90,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45,
+                  48,
+                  52
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          }
+        ],
+        "liveLoop": {
+          "version": 1,
+          "layerIds": [],
+          "settings": {
+            "bars": 4,
+            "level": 75,
+            "pan": 0,
+            "space": 20,
+            "delay": 0,
+            "trimStart": 0,
+            "trimEnd": 1,
+            "offsetSec": 0,
+            "latencyMs": 40,
+            "pitch": 0,
+            "rootNote": 62,
+            "pitchOctave": 0,
+            "character": 60,
+            "duration": 65,
+            "density": 75,
+            "chorus": 0,
+            "cycle": 16,
+            "stepLength": 1,
+            "offset": 0,
+            "mute": false,
+            "solo": false,
+            "monitor": false,
+            "copyrightConfirmed": false,
+            "instantRestart": true,
+            "reverse": false,
+            "mode": "loop",
+            "sliceCount": 8,
+            "slicePattern": "beat",
+            "delayTime": "1/8",
+            "pitchSteps": [
+              0,
+              -1,
+              2,
+              -1,
+              4,
+              -1,
+              2,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              4,
+              -1,
+              2,
+              7
+            ],
+            "sliceSteps": [
+              0,
+              -1,
+              1,
+              -1,
+              2,
+              -1,
+              1,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              2,
+              -1,
+              1,
+              3
+            ],
+            "slicePoints": null
+          }
+        },
+        "timeSignature": "3/4"
+      }
+    },
+    {
+      "id": 2,
+      "label": "Storm",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "reactor",
+        "bars": 8,
+        "startStep": 0,
+        "tempo": 104,
+        "masterVolume": 50,
+        "mix": {
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "width": 35
+        },
+        "seed": 1810,
+        "key": 0,
+        "tracks": [
+          {
+            "name": "GLASS",
+            "instrument": "GLASS",
+            "generator": 3,
+            "sound": "dry-kick",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "pulse",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 32,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "TIDAL",
+            "instrument": "TIDAL",
+            "generator": 3,
+            "sound": "dry-snare",
+            "on": true,
+            "steps": [
+              6,
+              18,
+              30,
+              42,
+              54,
+              66,
+              78,
+              90
+            ],
+            "role": "accent",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 18,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "ROOT",
+            "instrument": "ROOT",
+            "generator": 3,
+            "sound": "tight-hat",
+            "on": true,
+            "steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14,
+              16,
+              18,
+              20,
+              22,
+              24,
+              26,
+              28,
+              30,
+              32,
+              34,
+              36,
+              38,
+              40,
+              42,
+              44,
+              46,
+              48,
+              50,
+              52,
+              54,
+              56,
+              58,
+              60,
+              62,
+              64,
+              66,
+              68,
+              70,
+              72,
+              74,
+              76,
+              78,
+              80,
+              82,
+              84,
+              86,
+              88,
+              90,
+              92,
+              94
+            ],
+            "role": "percussion",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "EMBER",
+            "instrument": "EMBER",
+            "generator": 3,
+            "sound": "war-tom",
+            "on": true,
+            "steps": [
+              10,
+              22,
+              34,
+              46,
+              58,
+              70,
+              82,
+              94
+            ],
+            "role": "texture",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 12,
+            "density": 75,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "RAIN",
+            "instrument": "RAIN",
+            "generator": 3,
+            "sound": "pick-bass",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "bass",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 44,
+            "density": 85,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  38
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "VEIL",
+            "instrument": "VEIL",
+            "generator": 3,
+            "sound": "palm-guitar",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "melody",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 52,
+            "density": 75,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  50
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "MOSS",
+            "instrument": "MOSS",
+            "generator": 3,
+            "sound": "octave-lead",
+            "on": true,
+            "steps": [
+              0,
+              3,
+              6,
+              10,
+              12,
+              15,
+              18,
+              22,
+              24,
+              27,
+              30,
+              34,
+              36,
+              39,
+              42,
+              46,
+              48,
+              51,
+              54,
+              58,
+              60,
+              63,
+              66,
+              70,
+              72,
+              75,
+              78,
+              82,
+              84,
+              87,
+              90,
+              94
+            ],
+            "role": "arpeggio",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 3,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 10,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 15,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 22,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  70
+                ]
+              },
+              {
+                "step": 27,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 34,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 39,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 46,
+                "notes": [
+                  58
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 51,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  60
+                ]
+              },
+              {
+                "step": 58,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 63,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 70,
+                "notes": [
+                  72
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 75,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 82,
+                "notes": [
+                  61
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 87,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 94,
+                "notes": [
+                  62
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "AURA",
+            "instrument": "AURA",
+            "generator": 3,
+            "sound": "dark-piano",
+            "on": true,
+            "steps": [
+              0,
+              12,
+              24,
+              36,
+              48,
+              60,
+              72,
+              84
+            ],
+            "role": "harmony",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 90,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45,
+                  48,
+                  52
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          }
+        ],
+        "liveLoop": {
+          "version": 1,
+          "layerIds": [],
+          "settings": {
+            "bars": 4,
+            "level": 75,
+            "pan": 0,
+            "space": 20,
+            "delay": 0,
+            "trimStart": 0,
+            "trimEnd": 1,
+            "offsetSec": 0,
+            "latencyMs": 40,
+            "pitch": 0,
+            "rootNote": 62,
+            "pitchOctave": 0,
+            "character": 60,
+            "duration": 65,
+            "density": 75,
+            "chorus": 0,
+            "cycle": 16,
+            "stepLength": 1,
+            "offset": 0,
+            "mute": false,
+            "solo": false,
+            "monitor": false,
+            "copyrightConfirmed": false,
+            "instantRestart": true,
+            "reverse": false,
+            "mode": "loop",
+            "sliceCount": 8,
+            "slicePattern": "beat",
+            "delayTime": "1/8",
+            "pitchSteps": [
+              0,
+              -1,
+              2,
+              -1,
+              4,
+              -1,
+              2,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              4,
+              -1,
+              2,
+              7
+            ],
+            "sliceSteps": [
+              0,
+              -1,
+              1,
+              -1,
+              2,
+              -1,
+              1,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              2,
+              -1,
+              1,
+              3
+            ],
+            "slicePoints": null
+          }
+        },
+        "timeSignature": "3/4"
+      }
+    },
+    {
+      "id": 3,
+      "label": "OpenSea",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "reactor",
+        "bars": 8,
+        "startStep": 0,
+        "tempo": 104,
+        "masterVolume": 50,
+        "mix": {
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "width": 35
+        },
+        "seed": 1810,
+        "key": 0,
+        "tracks": [
+          {
+            "name": "GLASS",
+            "instrument": "GLASS",
+            "generator": 3,
+            "sound": "dry-kick",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "pulse",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 32,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "TIDAL",
+            "instrument": "TIDAL",
+            "generator": 3,
+            "sound": "dry-snare",
+            "on": true,
+            "steps": [
+              6,
+              18,
+              30,
+              42,
+              54,
+              66,
+              78,
+              90
+            ],
+            "role": "accent",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 18,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "ROOT",
+            "instrument": "ROOT",
+            "generator": 3,
+            "sound": "tight-hat",
+            "on": true,
+            "steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14,
+              16,
+              18,
+              20,
+              22,
+              24,
+              26,
+              28,
+              30,
+              32,
+              34,
+              36,
+              38,
+              40,
+              42,
+              44,
+              46,
+              48,
+              50,
+              52,
+              54,
+              56,
+              58,
+              60,
+              62,
+              64,
+              66,
+              68,
+              70,
+              72,
+              74,
+              76,
+              78,
+              80,
+              82,
+              84,
+              86,
+              88,
+              90,
+              92,
+              94
+            ],
+            "role": "percussion",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "EMBER",
+            "instrument": "EMBER",
+            "generator": 3,
+            "sound": "war-tom",
+            "on": true,
+            "steps": [
+              10,
+              22,
+              34,
+              46,
+              58,
+              70,
+              82,
+              94
+            ],
+            "role": "texture",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 12,
+            "density": 75,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "RAIN",
+            "instrument": "RAIN",
+            "generator": 3,
+            "sound": "pick-bass",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "bass",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 44,
+            "density": 85,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  38
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "VEIL",
+            "instrument": "VEIL",
+            "generator": 3,
+            "sound": "palm-guitar",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "melody",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 52,
+            "density": 75,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  50
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "MOSS",
+            "instrument": "MOSS",
+            "generator": 3,
+            "sound": "singing-lead",
+            "on": true,
+            "steps": [
+              0,
+              3,
+              6,
+              10,
+              12,
+              15,
+              18,
+              22,
+              24,
+              27,
+              30,
+              34,
+              36,
+              39,
+              42,
+              46,
+              48,
+              51,
+              54,
+              58,
+              60,
+              63,
+              66,
+              70,
+              72,
+              75,
+              78,
+              82,
+              84,
+              87,
+              90,
+              94
+            ],
+            "role": "arpeggio",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 3,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 10,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 15,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 22,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  70
+                ]
+              },
+              {
+                "step": 27,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 34,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 39,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 46,
+                "notes": [
+                  58
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 51,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  60
+                ]
+              },
+              {
+                "step": 58,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 63,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 70,
+                "notes": [
+                  72
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 75,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 82,
+                "notes": [
+                  61
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 87,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 94,
+                "notes": [
+                  62
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "AURA",
+            "instrument": "AURA",
+            "generator": 3,
+            "sound": "dark-piano",
+            "on": true,
+            "steps": [
+              0,
+              12,
+              24,
+              36,
+              48,
+              60,
+              72,
+              84
+            ],
+            "role": "harmony",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 90,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45,
+                  48,
+                  52
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          }
+        ],
+        "liveLoop": {
+          "version": 1,
+          "layerIds": [],
+          "settings": {
+            "bars": 4,
+            "level": 75,
+            "pan": 0,
+            "space": 20,
+            "delay": 0,
+            "trimStart": 0,
+            "trimEnd": 1,
+            "offsetSec": 0,
+            "latencyMs": 40,
+            "pitch": 0,
+            "rootNote": 62,
+            "pitchOctave": 0,
+            "character": 60,
+            "duration": 65,
+            "density": 75,
+            "chorus": 0,
+            "cycle": 16,
+            "stepLength": 1,
+            "offset": 0,
+            "mute": false,
+            "solo": false,
+            "monitor": false,
+            "copyrightConfirmed": false,
+            "instantRestart": true,
+            "reverse": false,
+            "mode": "loop",
+            "sliceCount": 8,
+            "slicePattern": "beat",
+            "delayTime": "1/8",
+            "pitchSteps": [
+              0,
+              -1,
+              2,
+              -1,
+              4,
+              -1,
+              2,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              4,
+              -1,
+              2,
+              7
+            ],
+            "sliceSteps": [
+              0,
+              -1,
+              1,
+              -1,
+              2,
+              -1,
+              1,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              2,
+              -1,
+              1,
+              3
+            ],
+            "slicePoints": null
+          }
+        },
+        "timeSignature": "3/4"
+      }
+    },
+    {
+      "id": 4,
+      "label": "Homeward",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "reactor",
+        "bars": 8,
+        "startStep": 0,
+        "tempo": 104,
+        "masterVolume": 50,
+        "mix": {
+          "low": 0,
+          "mid": 0,
+          "high": 0,
+          "width": 35
+        },
+        "seed": 1810,
+        "key": 0,
+        "tracks": [
+          {
+            "name": "GLASS",
+            "instrument": "GLASS",
+            "generator": 3,
+            "sound": "dry-kick",
+            "on": false,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "pulse",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 32,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "TIDAL",
+            "instrument": "TIDAL",
+            "generator": 3,
+            "sound": "dry-snare",
+            "on": false,
+            "steps": [
+              6,
+              18,
+              30,
+              42,
+              54,
+              66,
+              78,
+              90
+            ],
+            "role": "accent",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 18,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "ROOT",
+            "instrument": "ROOT",
+            "generator": 3,
+            "sound": "tight-hat",
+            "on": true,
+            "steps": [
+              0,
+              2,
+              4,
+              6,
+              8,
+              10,
+              12,
+              14,
+              16,
+              18,
+              20,
+              22,
+              24,
+              26,
+              28,
+              30,
+              32,
+              34,
+              36,
+              38,
+              40,
+              42,
+              44,
+              46,
+              48,
+              50,
+              52,
+              54,
+              56,
+              58,
+              60,
+              62,
+              64,
+              66,
+              68,
+              70,
+              72,
+              74,
+              76,
+              78,
+              80,
+              82,
+              84,
+              86,
+              88,
+              90,
+              92,
+              94
+            ],
+            "role": "percussion",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 50,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "EMBER",
+            "instrument": "EMBER",
+            "generator": 3,
+            "sound": "war-tom",
+            "on": true,
+            "steps": [
+              10,
+              22,
+              34,
+              46,
+              58,
+              70,
+              82,
+              94
+            ],
+            "role": "texture",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 12,
+            "density": 75,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [],
+            "noteTranspose": 0
+          },
+          {
+            "name": "RAIN",
+            "instrument": "RAIN",
+            "generator": 3,
+            "sound": "pick-bass",
+            "on": true,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "bass",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 44,
+            "density": 85,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  34
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  36
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  33
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  38
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  38
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "VEIL",
+            "instrument": "VEIL",
+            "generator": 3,
+            "sound": "palm-guitar",
+            "on": false,
+            "steps": [
+              0,
+              6,
+              12,
+              18,
+              24,
+              30,
+              36,
+              42,
+              48,
+              54,
+              60,
+              66,
+              72,
+              78,
+              84,
+              90
+            ],
+            "role": "melody",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 52,
+            "density": 75,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  46
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  48
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  45
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  50
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "MOSS",
+            "instrument": "MOSS",
+            "generator": 3,
+            "sound": "octave-lead",
+            "on": false,
+            "steps": [
+              0,
+              3,
+              6,
+              10,
+              12,
+              15,
+              18,
+              22,
+              24,
+              27,
+              30,
+              34,
+              36,
+              39,
+              42,
+              46,
+              48,
+              51,
+              54,
+              58,
+              60,
+              63,
+              66,
+              70,
+              72,
+              75,
+              78,
+              82,
+              84,
+              87,
+              90,
+              94
+            ],
+            "role": "arpeggio",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 65,
+            "character": 50,
+            "duration": 50,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 3,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 6,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 10,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 15,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 18,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 22,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  70
+                ]
+              },
+              {
+                "step": 27,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 30,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 34,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 39,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 42,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 46,
+                "notes": [
+                  58
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 51,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 54,
+                "notes": [
+                  60
+                ]
+              },
+              {
+                "step": 58,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 63,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 66,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 70,
+                "notes": [
+                  72
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 75,
+                "notes": [
+                  67
+                ]
+              },
+              {
+                "step": 78,
+                "notes": [
+                  64
+                ]
+              },
+              {
+                "step": 82,
+                "notes": [
+                  61
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  62
+                ]
+              },
+              {
+                "step": 87,
+                "notes": [
+                  65
+                ]
+              },
+              {
+                "step": 90,
+                "notes": [
+                  69
+                ]
+              },
+              {
+                "step": 94,
+                "notes": [
+                  62
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          },
+          {
+            "name": "AURA",
+            "instrument": "AURA",
+            "generator": 3,
+            "sound": "dark-piano",
+            "on": true,
+            "steps": [
+              0,
+              12,
+              24,
+              36,
+              48,
+              60,
+              72,
+              84
+            ],
+            "role": "harmony",
+            "sequence": {
+              "length": 16,
+              "stepLength": 1,
+              "offset": 0
+            },
+            "exact": true,
+            "level": 24,
+            "density": 90,
+            "character": 50,
+            "duration": 70,
+            "space": 20,
+            "delay": 0,
+            "delayTime": "1/8",
+            "chorus": 0,
+            "noteEvents": [
+              {
+                "step": 0,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 12,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              },
+              {
+                "step": 24,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 36,
+                "notes": [
+                  46,
+                  49,
+                  53
+                ]
+              },
+              {
+                "step": 48,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 60,
+                "notes": [
+                  48,
+                  51,
+                  55
+                ]
+              },
+              {
+                "step": 72,
+                "notes": [
+                  45,
+                  48,
+                  52
+                ]
+              },
+              {
+                "step": 84,
+                "notes": [
+                  50,
+                  53,
+                  57
+                ]
+              }
+            ],
+            "noteTranspose": 0
+          }
+        ],
+        "liveLoop": {
+          "version": 1,
+          "layerIds": [],
+          "settings": {
+            "bars": 4,
+            "level": 75,
+            "pan": 0,
+            "space": 20,
+            "delay": 0,
+            "trimStart": 0,
+            "trimEnd": 1,
+            "offsetSec": 0,
+            "latencyMs": 40,
+            "pitch": 0,
+            "rootNote": 62,
+            "pitchOctave": 0,
+            "character": 60,
+            "duration": 65,
+            "density": 75,
+            "chorus": 0,
+            "cycle": 16,
+            "stepLength": 1,
+            "offset": 0,
+            "mute": false,
+            "solo": false,
+            "monitor": false,
+            "copyrightConfirmed": false,
+            "instantRestart": true,
+            "reverse": false,
+            "mode": "loop",
+            "sliceCount": 8,
+            "slicePattern": "beat",
+            "delayTime": "1/8",
+            "pitchSteps": [
+              0,
+              -1,
+              2,
+              -1,
+              4,
+              -1,
+              2,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              4,
+              -1,
+              2,
+              7
+            ],
+            "sliceSteps": [
+              0,
+              -1,
+              1,
+              -1,
+              2,
+              -1,
+              1,
+              -1,
+              0,
+              -1,
+              3,
+              -1,
+              2,
+              -1,
+              1,
+              3
+            ],
+            "slicePoints": null
+          }
+        },
+        "timeSignature": "3/4"
+      }
+    }
+  ],
+  "sections": [
+    {
+      "phrase": 1,
+      "name": "intro",
+      "repeats": 1,
+      "fade": "in"
+    },
+    {
+      "phrase": 2,
+      "name": "verse",
+      "repeats": 2,
+      "fade": "none"
+    },
+    {
+      "phrase": 3,
+      "name": "chorus",
+      "repeats": 2,
+      "fade": "none"
+    },
+    {
+      "phrase": 2,
+      "name": "verse2",
+      "repeats": 1,
+      "fade": "none"
+    },
+    {
+      "phrase": 3,
+      "name": "chorus",
+      "repeats": 2,
+      "fade": "none"
+    },
+    {
+      "phrase": 4,
+      "name": "outro",
+      "repeats": 1,
+      "fade": "out"
+    }
+  ]
+}

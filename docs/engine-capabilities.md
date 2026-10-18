@@ -1,3 +1,27 @@
+### File Bridge submission protocol — 2026-10-18
+
+This section supersedes earlier instructions about silence or immediate termination.
+The recommended long-score path is `requests/<requestId>/`: complete companion JSON files first, read them back, then write `manifest.json` last. Bound **each file-tool call** to the external agent harness limit. Large individual files can be completed with bounded append/edit calls; complete compositions can reference multiple track/phrase files. File Bridge does not impose a universal 1.5 KB file limit or restrict the agent to two tracks. WebMCP payloads are a separate transport and say nothing about file-tool truncation. Engine transactions remain bounded to 512 KiB and 256 operations; file submission additionally bounds the total root plus unique companion UTF-8 content to 512 KiB.
+
+HALO reads each referenced companion once per scan and tracks its content together with the root. Companion-only corrections, including missing/truncated-file recovery, trigger validation without touching the manifest. One proposal awaits review at a time. Changes while pending invalidate that snapshot and require review again; approval also checks the files and the project revision before applying. Applied and rejected request IDs do not replay across reconnects; use a new ID for new work. An ID is 1..128 ASCII letters, digits, hyphens or underscores. Legacy flat requests, aliases and parts remain supported.
+
+`responses/<requestId>.result.json` has these explicit lifecycle states:
+
+| status | ok | Meaning |
+| --- | --- | --- |
+| `pending_approval` | true | Validated snapshot; `applied:false`, baseRevision/currentRevision; not yet applied |
+| `applied` | true | Applied; `applied:true`, appliedRevision/currentRevision |
+| `error` | false | Validation/application error; error, help, instructionForAgent and currentRevision |
+| `rejected` | false | Human rejected this request; respect the decision |
+
+After submitting, wait 4–5 seconds and read the response. End the composition turn on **explicit** pending_approval acknowledgement and invite approval; applied is a completed mutation. Fix an error at most twice, then report it. No response is **unconfirmed**, not successful: check page/folder connection or a previous pending proposal; do not wait indefinitely for human approval. Poll timing is best effort and can slow when a browser is suspended. A stale base revision is rebased only to prepare a review; errors in the rebased content are returned directly. A revision change after review is not silently rebased at application.
+
+`instruments.json` context schemaVersion **2** has one `sounds` registry. Each sound has `id` (`<world>:<canonicalId>`), `instrument`, `canonicalId`, setups, compatibleRoles/affinityRoles and noteRange. `tracks[].soundsBySetup`, `tracks[].compatibleSounds`, and `soundWorlds.<setup>.soundIds` contain references to those IDs. Use `canonicalId` (without world prefix) as the request's sound field. Portable musical projects and transactions remain version 1. The other four context files retain their existing versions. All five files are refreshed when connecting or pressing Update Files.
+
+Recipe keys come from the engine table: C major is index **2**, source offset **-2**; D minor is index **0**, offset **0**. Set noteTranspose to that **offset** for literal MIDI. Write notes across all requested bars (8-bar 4/4: 0..127; 8-bar 3/4: 0..95). Exactly eight slots remain available; mutes are explicit, not assumed. `project.patch` is present in WebMCP inputSchema as well as capabilities; the tool schema derives its operation enum from the actual API.
+
+No backend, new runtime dependency, external audio service or new permission is introduced. Default application remains human-confirmed. The folder protocol is application-specific JSON, not MCP-over-files.
+
 ### Implemented — 2026-10-17: File Bridge Context Package, exact=true Auto-Promotion, startStep Alignment & 5s Verification Loop
 
 - **Automatic `exact = true` Promotion in `track.patch` (`src/agent.js`):**
@@ -7,10 +31,6 @@
 - **Automatic `startStep` Phrase Alignment on `bars` Modification (`src/agent.js`):**
   - When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted in `values`, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`).
   - Resolves `Invalid phrase position` which previously crashed batches when projects in active playback (`startStep: 64`) were patched with `bars: 8` (`64 % 128 !== 0`).
-- **5-Second Verification Loop & Error Self-Correction (`AGENT_GUIDE.md`, `AGENTS.md`):**
-  - Specified a 4-step workflow for external agents: after writing `requests/<requestId>.json`, agents wait 4 to 5 seconds and inspect `responses/<requestId>.result.json`.
-  - If an automated validation failure occurs (`"ok": false`), the agent reads `"error"`, `"help"`, and `"instructionForAgent"`, self-corrects the batch, and rewrites the request.
-  - If no error exists after 4-5 seconds, the request is valid and queued for human approval in the HALO web UI.
 - **Cross-Referenced 5-File Technical Context Package (`src/file-bridge.js`):**
   - Added mutual `references` manifests across all 5 exported files (`AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, `project-state.json`).
   - Added `fieldAccess` mapping and `readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex']` to `capabilities.json` and `project-state.json`, preventing external LLMs from attempting to patch immutable slot identities.
@@ -81,9 +101,6 @@
     - HALO runs 100% client-side in the browser via Web Audio and the File System Access API; there is **NO backend server, NO local HTTP daemon, NO API port** (no port 3000, 3001, 8080, 5173), and **NO CLI command** (`halo`).
     - External agents are strictly prohibited from executing `curl`, `netstat`, `node`, `npm`, `python`, `where.exe halo`, or port scans to "ping" or "execute" HALO.
     - External agents are strictly prohibited from launching browser windows or opening `localhost` / `file://` URLs.
-  - **Asynchronous Human-in-the-Loop & Immediate Turn Termination:**
-    - HALO enforces human review and approval in the browser UI before applying changes. Results in `responses/` are generated asynchronously only after the user clicks «Apply Changes».
-    - External models must NEVER wait, sleep, or poll for `responses/` during request creation turns. If user prompts mention "verify that the response confirms application", agents must treat this asynchronously: assemble and validate the batch in-memory, write to `requests/<requestId>.json`, output a clear notification directing the user to approve the change in HALO, and **STOP IMMEDIATELY**.
 
 ### Implemented — 2026-10-17: Authentic 3/4 Waltz & 6/8 Pirate Swing Pattern Generation in СОЗДАТЬ
 

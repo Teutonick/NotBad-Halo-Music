@@ -1,6 +1,6 @@
 # HALO through WebMCP / HALO через WebMCP
 
-2026-10-16. The only supported agent transport is WebMCP. Internal musical APIs are implementation details, not alternative client interfaces.
+WebMCP connects compatible browser agents. File Bridge is a separate supported folder transport; see [Agent API](agent-api-specification.md). Internal musical APIs are implementation details.
 
 ## Включение
 
@@ -18,7 +18,7 @@
 3. После успешного чтения: «Через WebMCP сочини и примени оригинальный новогодний джингл на 8 тактов: своя мелодия колокольчиков, бас, гармония и мягкая перкуссия. Сначала проверь и просмотри пакет изменений, затем примени и прочитай результат».
 4. Нажмите Play. Пример следующего запроса: «Через WebMCP уменьши реверберацию мелодии, не меняя остальные партии». Для отмены: «Через WebMCP отмени последнее изменение».
 
-Codex проверяется в текущем встроенном браузере Windows; результаты в [отчёте](regression-webmcp-windows-2026-10-16.md). Claude и Antigravity — теоретический порядок, поддержка конкретных подключений не проверена. Не утверждаем наличие определённой кнопки или настройки в этих клиентах.
+Codex проверяется в текущем встроенном браузере Windows; результаты в [отчёте](release-validation.md). Claude и Antigravity — теоретический порядок, поддержка конкретных подключений не проверена. Не утверждаем наличие определённой кнопки или настройки в этих клиентах.
 
 ## Кейс 2: Bionic
 

@@ -1,4 +1,4 @@
-> Earlier embedded-client control score, retained as a historical music example. Current external-agent acceptance uses [the native WebMCP score](../../artifacts/webmcp/new-year-jingle.halo.json).
+> Earlier embedded-client control score, retained as a historical music example. Current external-agent acceptance uses [the native WebMCP score](webmcp-jingle.halo.json).
 
 # Original AI control score: Snow lights / Снежные огоньки
 
@@ -12,4 +12,6 @@
 
 The acceptance browser received this agent-authored plan through a temporary loopback HTTP fixture to exercise the user workflow without a provider key. That fixture is not a neural model, not a preset in the app and not shipped as a dependency. It does not prove the musical quality of an arbitrary external LLM.
 
-The accompanying local WAV is in `artifacts/ai-composer/new-year-jingle.wav`; it was rendered/exported by HALO. It is an output artifact, not a new runtime sample. Original procedural synthesis only; no imported third-party audio or rights requirement was added.
+
+
+2026-10-18: `holiday-loop.halo.json` and `adventure-song.halo.json` are original, explicit eight-track portable fixtures (C major 8-bar loop; D minor 72-bar adventure arrangement). File Bridge regression loads them through companion project files, explicit acknowledgement and application. Literal MIDI source offsets are stored. See the current agent protocol for manifest-last submission and file-tool call budgets.

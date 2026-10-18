@@ -28,6 +28,14 @@
           readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
         }
       },
+      submission: {
+        recommended: 'Write requests/<requestId>/ companion files first; manifest.json last.',
+        response: 'responses/<requestId>.result.json',
+        statuses: ['pending_approval', 'applied', 'error', 'rejected'],
+        noResponse: 'Unconfirmed; never infer success from silence.',
+        correction: 'Companion-only changes are detected. Pending changes require a new review; applied request IDs are immutable.',
+        fileToolLimits: 'Split writes to fit the external file tool. No universal 1.5 KB engine limit.'
+      },
       modularRequests: {
         supported: true,
         bundleFolders: 'requests/<requestId>/manifest.json (or request.json) resolves relative files within folder',
@@ -207,7 +215,7 @@
     };
 
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
       references: {
         agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
@@ -235,16 +243,20 @@
         },
         rule: 'To use REACTOR acoustic drums or rock guitars, set "setup": "reactor" in project.replace. In AMBIENT setup ("setup": "ambient"), only AMBIENT procedural sounds are available. A sound may belong to multiple setups if listed in its "setups" array.'
       },
-      tracks: roles,
+      sounds: allSounds.map(sound => ({ ...sound, id: sound.world + ':' + sound.canonicalId })),
+      tracks: roles.map(r => ({ ...r,
+        soundsBySetup: Object.fromEntries(Object.entries(r.soundsBySetup).map(([setup, sounds]) => [setup, sounds.map(s => allSounds.find(x => x.sound === s.sound && x.instrument === s.instrument).world + ':' + s.canonicalId)])),
+        compatibleSounds: r.compatibleSounds.map(s => s.world + ':' + s.canonicalId)
+      })),
       parameterGlossary,
       soundWorlds: {
         ambient: {
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
-          catalog: caps.catalog?.ambient || {}
+          soundIds: allSounds.filter(s => s.setups.includes('ambient')).map(s => s.world + ':' + s.canonicalId)
         },
         reactor: {
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
-          catalog: caps.catalog?.reactor || {}
+          soundIds: allSounds.filter(s => s.setups.includes('reactor')).map(s => s.world + ':' + s.canonicalId)
         }
       }
     };
@@ -397,632 +409,47 @@
   }
 
   function generateAgentGuide(caps, state){
+    const keys = caps.harmony?.keys || [];
+    const keyIndex = name => keys.findIndex(k => k.name === name);
     return `# HALO Agent Guide / AI Instruction Manual
 
-## MANDATORY TOKEN BUDGET & COMPACT BATCH DIRECTIVE (CRITICAL FOR TOOL HARNESSES)
-
-⚠️ **KEEP YOUR REQUEST JSON UNDER 1.5 KB!**
-When external LLM harnesses (Cursor, Claude Code, LiteLLM, OpenAI functions) invoke tools like \`write_file\`, the entire file payload is encoded as a string parameter inside a single-line JSON tool call.
-If you generate a massive 3 KB+ JSON file or thousands of characters of formatted arrays, the tool call buffer will be cut off mid-stream, throwing the fatal error:
-\`Error: Unterminated string in JSON at position ...\`
-
-**HOW TO COMPOSE SAFELY & COMPACTLY (< 1.5 KB):**
-1. **Never generate monolithic 8-track \`project.replace\` for loops or jingles!**
-2. Use \`project.patch\` for global parameters (\`tempo\`, \`bars\`, \`key\`).
-3. Use targeted \`track.patch\` operations ONLY on 1 or 2 tracks (e.g. Lead Melody on Track 5 and Bassline on Track 4).
-4. Leave other voices unpatched! In HALO, all 8 voices are active and harmonious by default. Unpatched voices automatically play their role-specific patterns.
-5. Format \`noteEvents\` compactly: place step and notes concisely (e.g. \`{ "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }\`).
-
-## ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE (Mandatory)
-
-The human user will provide ONLY a high-level creative prompt (such as "napishi novogodniy loop-jingle" / "write an 8-bar holiday jingle", or "sochini kompozitsiyu po motivam OST piraty karibskogo morya" / "compose a composition inspired by Pirates of the Caribbean OST").
-The user will NEVER provide technical JSON schemas, parameter names, step indices, or MIDI note values.
-
-**YOUR ROLE AS THE AGENT:**
-You must autonomously translate the user's creative prompt into the appropriate HALO mode, sound world setup, time signature, key, structure, and explicit notes spanning the entire duration of the piece!
-
-### Quick Prompt-to-Architecture Decision Matrix
-
-| User Prompt Intent | Mode & Target Op | Sound World (\`setup\`) | Meter (\`timeSignature\`) | Bars | Key | Voices & Orchestration |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Holiday / New Year Loop** (e.g. "napishi novogodniy loop-jingle", "holiday bells loop", "celebratory jingle") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"ambient"\` | \`"4/4"\` (16 steps/bar) | \`8\` (128 steps total) | C Major (\`key: 0\`) | Crystal bells melody on VEIL/GLASS across all 8 bars, festive sleigh-bell shaker on RAIN, warm sub-bass on ROOT, rich pad chords on AURA |
-| **Cinematic Soundtrack / Epic Adventure** (e.g. "sochini kompozitsiyu po motivam OST piraty karibskogo morya", "pirate battle theme", "epic orchestral rock") | Multi-section Composition (\`composition.replace\`) | \`"reactor"\` | \`"3/4"\` (8 bars = 96 steps of 6/8 pirate swing) | \`8\` per phrase | D Minor (\`key: 14\`) | 4 phrases (Intro, Verse, Chorus, Outro) arranged into 6 sections; punchy rock drums, galloping bass, distorted electric guitar lead, acoustic piano chords |
-| **Meditative Ambient Soundscape** (e.g. "calm cosmic ambient", "deep sleep meditation", "relaxing space") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"ambient"\` | \`"4/4"\` | \`4\` or \`8\` | A Minor (\`key: 2\`) or F Major (\`key: 1\`) | Generative plucks on EMBER, soft bowed cello on VEIL, wide reverb (\`space: 60..80\`), slow attack |
-| **Driving Rock Groove** (e.g. "driving rock riff", "energetic drum and bass") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"reactor"\` | \`"4/4"\` | \`4\` or \`8\` | E Minor (\`key: 8\`) | Punchy kick/snare on BEAT, overdriven bass on BASS, power chord riff on RIFF |
-
----
-
-## THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)
-
-A common and critical failure mode of AI music composers is writing notes ONLY for the first bar (steps 0..15) and leaving the rest of the phrase completely dead and silent!
-
-**Step Boundaries by Time Signature and Bar Length:**
-- **In 4/4 meter (16 steps per bar):**
-  - **4-Bar phrase = 64 steps total:** Bar 1: \`0..15\`, Bar 2: \`16..31\`, Bar 3: \`32..47\`, Bar 4: \`48..63\`.
-  - **8-Bar phrase = 128 steps total:**
-    - Bar 1: \`0..15\`
-    - Bar 2: \`16..31\`
-    - Bar 3: \`32..47\`
-    - Bar 4: \`48..63\`
-    - Bar 5: \`64..79\`
-    - Bar 6: \`80..95\`
-    - Bar 7: \`96..111\`
-    - Bar 8: \`112..127\`
-- **In 3/4 meter (12 steps per bar):**
-  - **4-Bar phrase (3/4 Waltz) = 48 steps total:** Bar 1: \`0..11\`, Bar 2: \`12..23\`, Bar 3: \`24..35\`, Bar 4: \`36..47\`.
-  - **8-Bar phrase (6/8 Pirate Swing) = 96 steps total:**
-    - Bar 1: \`0..11\`
-    - Bar 2: \`12..23\`
-    - Bar 3: \`24..35\`
-    - Bar 4: \`36..47\`
-    - Bar 5: \`48..59\`
-    - Bar 6: \`60..71\`
-    - Bar 7: \`72..83\`
-    - Bar 8: \`84..95\`
-
-**FATAL ERROR TO AVOID:**
-Writing \`steps: [0, 4, 8, 12]\` for an 8-bar loop only plays notes during Bar 1! During Bars 2 through 8 (steps 16..127), that track will be 100% silent!
-When you compose an 8-bar melody or bassline, you MUST distribute your musical steps and noteEvents across the ENTIRE phrase (from step 0 to step 127 in 4/4, or step 0 to step 95 in 3/4).
-
----
-
-## CANONICAL CREATIVE RECIPES
-
-### RECIPE A: Holiday / New Year 8-Bar Jingle ("napishi novogodniy loop-jingle")
-- **Creative Goal:** Celebratory, sparkling festive jingle in AMBIENT procedural synthesis.
-- **Key & Tempo:** C Major (\`key: 0\`), 96 BPM (\`tempo: 96\`), 8 Bars (\`bars: 8\`, 128 steps total).
-- **Orchestration:**
-  - Track 5 (VEIL, bell): Lead melody ("Jingle Bells" / festive chimes) playing across all 8 bars (steps 0..112).
-  - Track 4 (RAIN, round): Warm bassline supporting C -> F -> G -> C chord roots across all 8 bars (steps 0..120).
-  - Track 2 (ROOT, shaker): Sleigh bells / festive shaker pulse on eighth notes across the entire phrase.
-  - Track 7 (AURA, wind): Rich 4-note ambient chord pads on bar downbeats (steps 0, 32, 64, 96, 112).
-
-### RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean ("sochini kompozitsiyu po motivam OST piraty karibskogo morya")
-- **Creative Goal:** Multi-part orchestral adventure rock composition in REACTOR CC0 recordings.
-- **Key & Meter:** D Minor (\`key: 14\`), 104 BPM (\`tempo: 104\`), 8 bars per phrase in \`timeSignature: "3/4"\` (produces authentic 96-step 6/8 galloping pirate swing!).
-- **Multi-Phrase Architecture (\`composition.replace\`):**
-  - **Phrase 1 (Intro):** Sparse brooding piano (\`dark-piano\`) playing D minor chords on compound downbeats (steps 0, 24, 48, 72), subtle hats.
-  - **Phrase 2 (Verse / Main Theme):** Driving rock beat kick on 0 and snare on 6 (\`[0, 6, 12, 18...]\`), galloping bass (\`pick-bass\`), rhythm guitar (\`palm-guitar\`), and famous galloping lead motif on guitar (\`octave-lead\`).
-  - **Phrase 3 (Chorus / Battle Climax):** Full rock orchestra! Crashing cymbals, thunderous kick/snare, roaring lead guitar (\`singing-lead\`), power chords (\`power-guitar\`), maximum presence and high brightness (\`character: 85\`).
-  - **Phrase 4 (Outro):** Heroic final cadence resolving to Dm, ringing reverb wash, fading out into silence (\`fade: "out"\`).
-- **Arrangement Flow & Section Names:** \`intro\` (phrase 1, x1) -> \`verse\` (phrase 2, x2) -> \`chorus\` (phrase 3, x2) -> \`verse2\` (phrase 2, x1) -> \`chorus\` (phrase 3, x2) -> \`outro\` (phrase 4, x1, fade out). (Note: allowed section names are strictly \`["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]\`).
-
----
-
 ## Context Files Map & Documentation Architecture
+Read this guide, project-state.json (READ-ONLY revision and score), capabilities.json (operations and constraints), instruments.json (canonical sounds and role references), and music-rules.json (grid and indexed keys). Do not edit exported context files.
 
-Before composing, understand the roles of the 5 synchronized context files in this folder:
-
-| File | Format | Primary Role & Information Contained | When to Consult |
-| --- | --- | --- | --- |
-| \`AGENT_GUIDE.md\` | Markdown | Master operational instructions, batch envelope, schema rules, mutable vs read-only properties, and batch examples | Read first for workflow, batch envelope, and patch structure |
-| \`capabilities.json\` | JSON | Engine limits, operation schemas, field mutability allowlists, FX and master specifications | Check before creating operations to verify allowed/forbidden fields |
-| \`instruments.json\` | JSON | 8 voice slots (0..7), sound matrix by setup (\`ambient\` / \`reactor\`), MIDI note registers, role polyphony | Consult to pick compatible sounds, registers, and timbral parameters |
-| \`music-rules.json\` | JSON | Rhythmic grid (4/4 and 3/4), step indexing, Circle of Fifths keys (0..23), scales, chord polyphony | Consult for step numbers, chord notes, key transpositions, and meters |
-| \`project-state.json\` | JSON | READ-ONLY live composition snapshot: base \`revision\`, tempo, meter, active voices, and note events | Read to get \`baseRevision\` and inspect sounding tracks |
-
-## CRITICAL DIRECTIVE: Read-Only vs Mutable Fields (Strict Schema Enforcement)
-
-HALO enforces strict schema validation on all operations. Passing unrecognized or read-only properties throws fatal \`UNKNOWN_FIELD\` errors!
-
-### 1. \`track.patch\` (Targeting a single track 0..7):
-- **\`trackIndex\`**: Integer \`0..7\` (required). Specifies the target slot (0: GLASS, 1: TIDAL, 2: ROOT, 3: EMBER, 4: RAIN, 5: VEIL, 6: MOSS, 7: AURA).
-- **\`values\`**: Object containing ONLY mutable track parameters.
-  - **ALLOWED MUTABLE FIELDS**:
-    \`[ "instrument", "sound", "generator", "on", "steps", "exact", "sequence", "noteEvents", "noteTranspose", "level", "density", "character", "duration", "space", "delay", "delayTime", "chorus" ]\`
-  - **STRICTLY PROHIBITED IN \`values\`**:
-    \`role\`, \`name\`, \`slot\`, \`trackIndex\`.
-    *Why?* In HALO, \`role\` (e.g. "pulse", "bass", "melody") and \`name\` (e.g. "GLASS", "ROOT") are permanent slot identities fixed by \`trackIndex: 0..7\`. They are read-only metadata in \`project-state.json\`. If you include \`"role"\` or \`"name"\` inside \`track.patch.values\`, HALO rejects the request with:
-    \`UNKNOWN_FIELD: unexpected field(s) [role] in track.patch. Allowed fields: [instrument, sound, generator, on, steps, exact, sequence, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus]\`.
-- **MANUAL STEPS & \`exact: true\`**:
-  In Generator 3 (the default mode), tracks use procedural generation unless \`exact: true\`. When providing custom rhythm via \`steps: [0, 4, 8, ...]\` or \`noteEvents: [...]\`, include \`"exact": true\` in \`values\`. HALO also automatically sets \`exact = true\` when custom steps or noteEvents are supplied if \`exact\` is omitted, ensuring your manual pattern is played rather than ignored.
-
-### 2. \`project.patch\` (Targeting global project parameters):
-- **\`values\`**: Object containing top-level project settings.
-  - **ALLOWED MUTABLE FIELDS**:
-    \`[ "tempo", "masterVolume", "bars", "startStep", "key", "seed", "setup", "world", "soundWorld", "timeSignature", "mix", "liveLoop" ]\`
-  - **PROHIBITED IN \`project.patch\`**:
-    \`tracks\`, \`phrases\`, \`sections\`, \`revision\`, \`schemaVersion\`, \`format\`, \`version\`. (To replace tracks, use \`project.replace\` or \`track.patch\`).
-
-### 3. \`project.replace\` (Full 8-track project snapshot):
-- **\`project\`**: Complete project object. MUST contain an array of **EXACTLY 8 tracks** covering all voice slots 0..7.
-- Inside track objects of \`project.replace\`, \`name\` is required and \`role\` is optional for identification, but when patching tracks via \`track.patch\`, \`role\` is forbidden.
-
-## CRITICAL DIRECTIVE: Zero Localhost, Zero CLI, 5-Second Verification Loop
-
-1. **NO LOCALHOST, NO WEBSERVERS, NO PORTS:**
-   HALO runs 100% client-side in the user's browser. There is **NO backend server, NO local HTTP daemon, NO API port** (no port 3000, 3001, 8080, 5173, etc.).
-   - **DO NOT** execute \`curl\`, \`fetch\`, \`netstat\`, or scan local ports.
-   - **DO NOT** search for or ping \`http://localhost:3000\` or \`http://localhost:3001\`.
-2. **NO CLI OR EXECUTABLES:**
-   There is **NO command-line tool, NO executable binary, NO npm package** for HALO.
-   - **DO NOT** run \`halo\`, \`halo.exe\`, \`where.exe halo\`, \`halo bridge run\`, \`npm\`, \`node\`, or \`python\` to run HALO or execute requests.
-3. **NO BROWSER LAUNCHING:**
-   - **DO NOT** launch Chrome, Edge, Playwright, Puppeteer, or attempt to open \`file://\` or \`localhost\` URLs. HALO is already open in the user's browser and connects to this folder via the native Web File System Access API.
-4. **5-SECOND ERROR VERIFICATION vs HUMAN APPROVAL:**
-   - HALO polls \`requests/\` every 1.5 seconds.
-   - **When a request fails validation**, HALO writes an immediate error response to \`responses/<requestId>.result.json\` within 1.5–3 seconds.
-   - **When a request is valid**, HALO creates a pending proposal in the web UI and waits for the human user to click "Approve".
-   - Therefore, after writing your request, **wait 4 to 5 seconds and inspect \`responses/<requestId>.result.json\`**:
-     - If an error result exists (\`"ok": false\`), read \`error\` and \`help\`, fix the request, and rewrite it.
-     - If NO error exists after 4–5 seconds, the request is valid and queued for human approval! Only then finish your turn.
+## ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE
+Translate the user's musical intention into original explicit MIDI parts. No technical prompting is required from the user. All eight voices are available for scoring; inspect mute states instead of assuming all are enabled.
 
 ## Strict 4-Step Agent Workflow & Verification Protocol
-
-1. **Step 1: Read Context (Read-Only)**
-   - Read \`project-state.json\` to get current \`revision\`, active voices, tempo, key, and meter.
-   - Read \`instruments.json\` to select compatible voices, sound catalog IDs, role policies, and MIDI ranges.
-   - Read \`music-rules.json\` to follow the rhythmic grid (4/4 or 3/4) and harmony.
-   - Read \`capabilities.json\` for allowed operation types and limits.
-2. **Step 2: Compose & Validate In-Memory**
-   - Compose musical content tailored to the user's prompt.
-   - Validate JSON envelope: \`requestId\`, \`schemaVersion: 1\`, \`baseRevision\` (matching current \`revision\` from \`project-state.json\`), and valid \`operations\`.
-   - Ensure \`project.replace\` has exactly 8 tracks; sound IDs have no world prefixes; notes are within role MIDI boundaries.
-3. **Step 3: Write Request File to requests/<requestId>.json**
-   - Save the request JSON file to \`requests/<requestId>.json\`.
-4. **Step 4: 5-Second Verification & Self-Correction (DO NOT Rush to Report Done!)**
-   - Wait 4 to 5 seconds and read \`responses/<requestId>.result.json\`:
-     - **CASE A: ERROR DETECTED (\`"ok": false\`):**
-       - Read \`"error"\`, \`"help"\`, and \`"instructionForAgent"\`.
-       - Understand the exact issue (e.g. unknown field, setup mismatch, unaligned steps).
-       - Correct your batch in-memory, overwrite \`requests/<requestId>.json\` (or create a new request file), and check \`responses/\` again.
-       - Maximum 2 self-correction retries allowed. Do NOT leave the user with an unresolved error!
-     - **CASE B: SUCCESS / PENDING APPROVAL (No error result, or \`"ok": true\`):**
-       - The request passed validation! HALO has accepted the proposal and queued it for human review in the web UI.
-       - **ONLY NOW** output your summary to the user and terminate your turn:
-         *"Request <requestId>.json has been validated by HALO and is awaiting your approval in the web UI. Please switch to your HALO browser tab and click 'Approve' to apply the changes."*
-
-## Anti-Looping Protocol & Error Handling
-
-1. **Never Guess Parameters:**
-   All property names, operations, valid ranges, and enum values are strictly specified in \`capabilities.json\`, \`instruments.json\`, and \`music-rules.json\`. Do not invent non-existent properties (such as guessing \`"composition"\` inside \`project.replace\` or wrapping operations in unapproved keys).
-2. **Maximum 2 Retries:**
-   If a command batch fails, carefully inspect \`"error"\`, \`"help"\`, and \`"instructionForAgent"\` in \`responses/<requestId>.result.json\`. If a revised attempt fails again, **STOP IMMEDIATELY**. Report the exact error text to the human user and ask for guidance instead of endlessly guessing parameters.
-3. **Exactly 8 Tracks in project.replace:**
-   The \`project.replace\` operation ALWAYS requires an array of exactly 8 track objects: \`[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]\`. Do not provide a truncated 4-track array. To modify 1–4 specific instruments, use individual \`track.patch\` operations!
-4. **Sound Identifiers Have No World Prefix:**
-   Sound names must match the catalogs in \`instruments.json\` (e.g., \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Do NOT prefix with world names like \`"ambient-bell"\`.
-5. **Composing Real Music: noteEvents is Mandatory for Melodies, Chords & Themes:**
-   Do NOT simply send \`steps: [0, 4, 8, 12]\` without notes and claim you composed a melody! Without \`noteEvents\`, tracks have no musical pitch data. When asked to compose a melody, jingle, or progression, you MUST supply explicit \`noteEvents\` containing MIDI note pitches for each step across the requested bars (e.g. steps 0..127 for 8 bars). For chords on AURA (slot 7), supply up to 4 notes per event (e.g. \`{ "step": 0, "notes": [48, 52, 55, 60] }\`). For lead melody on VEIL (slot 5) or GLASS (slot 0), supply 1 note per event (e.g. \`{ "step": 0, "notes": [72] }\`).
-
-## Modular Multi-File Requests & Full 8-Track Scoring Architecture
-
-### Complete Orchestral Freedom: Score All 8 Voices Without Restrictions
-HALO is an 8-voice polyphonic constructor. You are NEVER restricted to modifying only 1 or 2 voices. You have complete creative freedom to rewrite and orchestrate **all 8 tracks simultaneously** in full 16th-note detail across all 4 or 8 bars (128 steps per track).
-
-### Why Modular Multi-File Requests?
-External LLM tool runners (Cursor, Claude Code, Aider, LiteLLM) pass file-writing arguments as single-string JSON buffers. When generating an exhaustive 8-track score containing hundreds of note events, monolithic payloads exceed tool buffer limits (~2 KB) and get truncated mid-string (\`Unterminated string in JSON at position 2158\`).
-
-To eliminate this buffer limit entirely and allow unlimited musical depth, HALO natively supports **Modular Multi-File Requests** and **Folder Bundles**:
-
-### Approach 1: Folder Bundle (\`requests/<requestId>/\`) — RECOMMENDED FOR FULL 8-TRACK SCORING
-Organize your composition as a folder bundle inside \`requests/\`:
-1. Create directory \`requests/<requestId>/\` (e.g. \`requests/request-newyear/\`).
-2. Write each track's sound, steps, and notes into lightweight companion files \`track-0.json\` ... \`track-7.json\` (each file is only 200–500 bytes and never truncates).
-3. Write \`manifest.json\` (or \`request.json\` / \`<requestId>.json\`) in that folder linking the tracks.
-
-#### Bundle Manifest Example: \`requests/request-newyear/manifest.json\`
+1. Read the context and current revision (${state.revision} at export). For long edits prefer a paused transport. Select compatible sounds by the active setup and role.
+2. Compose the full requested duration. Write JSON companion files first, preferably one track or phrase per file in requests/<requestId>/. Keep each write comfortably below YOUR file-writing tool's argument/output limit; use smaller parts for separate operations, or bounded append/edit calls to complete a larger individual file. There is no universal 1.5 KB HALO limit and no 1-2 track restriction. Read back and parse the files with your available file tools before publishing. Do not execute HALO to validate them.
+3. Write manifest.json LAST, after all companion files are complete. Use a fresh requestId containing only letters, digits, hyphens or underscores (maximum 128 characters). Small single-file requests remain supported. Example:
 \`\`\`json
-{
-  "requestId": "request-newyear",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    { "op": "project.patch", "values": { "tempo": 96, "bars": 8, "key": 0 } },
-    { "op": "track.patch", "trackIndex": 0, "file": "track-0.json" },
-    { "op": "track.patch", "trackIndex": 1, "file": "track-1.json" },
-    { "op": "track.patch", "trackIndex": 2, "file": "track-2.json" },
-    { "op": "track.patch", "trackIndex": 3, "file": "track-3.json" },
-    { "op": "track.patch", "trackIndex": 4, "file": "track-4.json" },
-    { "op": "track.patch", "trackIndex": 5, "file": "track-5.json" },
-    { "op": "track.patch", "trackIndex": 6, "file": "track-6.json" },
-    { "op": "track.patch", "trackIndex": 7, "file": "track-7.json" }
-  ]
-}
+{"requestId":"req-holiday","schemaVersion":1,"baseRevision":${state.revision},"operations":[{"op":"project.patch","values":{"setup":"ambient","bars":8,"tempo":96,"key":${keyIndex('C MAJOR')}}},{"op":"track.patch","trackIndex":5,"file":"track-5.json"}]}
 \`\`\`
+Companion track-5.json contains mutable values, for example {"instrument":"GLASS","sound":"bell","on":true,"noteTranspose":-2,"steps":[0,32,64,96,124],"noteEvents":[{"step":0,"notes":[76]},{"step":32,"notes":[77]},{"step":64,"notes":[79]},{"step":96,"notes":[76]},{"step":124,"notes":[72]}]}. This is a sparse format illustration, not a complete holiday score. For full replacement use project.replace with exactly eight tracks, each optionally {"file":"track-N.json"}. For a song use composition.replace, phrases[{id,label,project}], and sections[{phrase,name,repeats,fade}]. Labels: 1..10 letters/digits, no spaces. All references are relative to the bundle root; no absolute paths or parent traversal. Existing flat files, include aliases and parts arrays remain compatible, but folder bundles are the recommended long-score path.
+4. Wait 4-5 seconds, then inspect responses/<requestId>.result.json. status="pending_approval" means validated and awaiting the human's approval; status="applied" means appliedRevision is committed; status="error" means inspect error/help/instructionForAgent, fix the indicated files and retry at most twice; status="rejected" means stop and respect the decision. No response means UNCONFIRMED, never success: ask the user to check the folder connection/page or an earlier pending proposal. Do not poll indefinitely. End the turn after an explicit pending acknowledgement. Do not change files after acknowledgement: HALO applies only the validated snapshot; edits invalidate it and require a new review. Use a NEW requestId after application.
 
-#### Companion Track File Example: \`requests/request-newyear/track-5.json\` (Lead Melody)
-\`\`\`json
-{
-  "sound": "bell",
-  "character": 75,
-  "space": 40,
-  "level": 70,
-  "steps": [0, 4, 8, 16, 20, 24, 32, 36, 40, 44, 48, 64, 68, 72, 76, 80, 84, 88, 96, 100, 104, 108, 112],
-  "noteEvents": [
-    { "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }, { "step": 8, "notes": [64] },
-    { "step": 16, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 24, "notes": [64] },
-    { "step": 32, "notes": [64] }, { "step": 36, "notes": [67] }, { "step": 40, "notes": [60] },
-    { "step": 44, "notes": [62] }, { "step": 48, "notes": [64] },
-    { "step": 64, "notes": [65] }, { "step": 68, "notes": [65] }, { "step": 72, "notes": [65] },
-    { "step": 76, "notes": [65] }, { "step": 80, "notes": [65] }, { "step": 84, "notes": [64] },
-    { "step": 88, "notes": [64] },
-    { "step": 96, "notes": [67] }, { "step": 100, "notes": [67] }, { "step": 104, "notes": [65] },
-    { "step": 108, "notes": [62] }, { "step": 112, "notes": [60] }
-  ]
-}
-\`\`\`
+## CRITICAL DIRECTIVE: Read-Only vs Mutable Fields
+STRICTLY PROHIBITED IN \`values\`: role, name, slot, trackIndex. track.patch targets trackIndex 0..7; in a multi-phrase composition also specify phraseId. Allowed values are listed in capabilities.json.trackFields. Custom steps/noteEvents imply exact=true when omitted; explicit exact=false remains invalid. Supply steps containing every noteEvents.step. For literal MIDI set noteTranspose to keysAndScales.circleOfFifths[key].offset, NOT the key index. Choose instrument and canonicalId from instruments.json.sounds, with compatibleRoles containing the slot role. Bank identity is independent of track slot. Sound IDs have no world prefix.
 
-#### Modular \`project.replace\` Example (Folder Bundle):
-\`\`\`json
-{
-  "requestId": "request-newyear",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "project.replace",
-      "project": {
-        "format": "notbad-halo-project",
-        "version": 1,
-        "setup": "ambient",
-        "bars": 8,
-        "tempo": 96,
-        "key": 0,
-        "tracks": [
-          { "file": "track-0.json" },
-          { "file": "track-1.json" },
-          { "file": "track-2.json" },
-          { "file": "track-3.json" },
-          { "file": "track-4.json" },
-          { "file": "track-5.json" },
-          { "file": "track-6.json" },
-          { "file": "track-7.json" }
-        ]
-      }
-    }
-  ]
-}
-\`\`\`
+## 8 Voice Slots & Role Polyphony Architecture
+${(caps.roles || []).map((r,i)=>`${i}: ${r.slot} / ${r.id}, maximum ${r.maxNotes} notes per event`).join('\n')}
+Exactly eight tracks for a replacement. Explicit notes for every pitched event; percussion can use steps alone. No per-note duration or velocity; envelope settings are per track. Preserve unrelated tracks and Track 09 local references when editing.
 
-### Approach 2: Flat Modular Files in \`requests/\`
-You can also place companion files directly in \`requests/\`:
-- \`requests/req-001.json\` (the root manifest)
-- \`requests/req-001-t0.json\` ... \`requests/req-001-t7.json\`
-Referenced via \`"file": "req-001-t0.json"\`.
+## THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)
+4/4: 16 steps/bar, 4 bars=64 or 8 bars=128 steps. 3/4: 12 steps/bar, 4 bars=48 or 8 bars=96 steps; eight-bar mode displays the compound 6/8 feel. Exact steps do not repeat a one-bar pattern automatically. Score across all bars with intentional rests, not accidental silence after step 15.
 
-### Approach 3: Multi-Part Operations with \`parts\`
-Group your score into logical musical sections:
-\`\`\`json
-{
-  "requestId": "request-newyear",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "parts": [
-    "part-rhythm.json",
-    "part-harmony.json",
-    "part-melody.json"
-  ]
-}
-\`\`\`
+## Quick Prompt-to-Architecture Decision Matrix
+DEFAULT MODE: SINGLE PHRASE for a loop/jingle. A complete song explicitly requested by the user uses composition.replace. AMBIENT vs REACTOR: ambient procedural bells/pads for calm holiday music; reactor local CC0 drums/guitar/piano for adventure rock. MAXIMUM 15 UNIQUE PHRASES, 32 sections, 128 total bars. Reuse phrase IDs for recurring sections. Allowed section names: intro, verse, verse2, chorus, bridge, outro, phrase. Intro -> Verse -> Chorus -> Verse2 -> Chorus -> Outro is one possible form, not a mandatory template.
 
-### Approach 4: Compact Monolithic Single-File
-For smaller batches (1–3 tracks) or compact patterns, single-file \`requests/<requestId>.json\` is fully supported.
+### RECIPE A: Holiday / New Year 8-Bar Jingle
+C Major: key ${keyIndex('C MAJOR')}, noteTranspose ${keys[keyIndex('C MAJOR')]?.offset}, ambient, 96 BPM, 8 bars in 4/4. Original bell melody (slot5), bass (slot4), light rhythm (slot2), four-note harmony (slot7). Score other voices deliberately; all eight may be rewritten. Select exact sound/bank IDs from the registry.
 
-## Composition Policy: Single Phrase vs Full Composition
+### RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean
+D Minor: key ${keyIndex('D MINOR')}, noteTranspose ${keys[keyIndex('D MINOR')]?.offset}, reactor, 104 BPM, 8-bar phrases in 3/4 (96 steps). Write an ORIGINAL adventure theme with compound accents at 0 and 6, bass, guitar lead and piano chords. Use independent Intro, Verse, Chorus and Outro phrases with deliberate dynamics, repeats and a final fade out. Do not claim orchestral instruments absent from the catalog.
 
-- **DEFAULT MODE: SINGLE PHRASE:**
-  Unless the user explicitly specifies a full multi-part song or arrangement (e.g. "compose a full song", "write a complete composition with intro and chorus"), the agent works **exclusively with the current phrase/loop** via \`project.patch\` + \`track.patch\` or \`project.replace\`.
-- **FULL COMPOSITION (Multi-section Song):**
-  Created **ONLY** when the user explicitly requests: *"compose a song"*, *"write a complete composition"*, *"create a full arrangement with intro, verses, and chorus"*, or thematic soundtrack like *"compose Pirates of the Caribbean soundtrack"*.
-  In this scenario, use \`composition.replace\`.
-
-### Song Form Canons:
-1. **Intro (1..2 repeats):**
-   Sparse texture. Atmospheric pads, celestial bells, gentle rain, or subtle pulse. No heavy bass or overdriven lead riffs. Establishes the key and acoustic breathing room.
-2. **Verse (1..2 repeats):**
-   Rhythmic groove and bassline enter. Establishes the primary harmonic progression and understated melodic motif.
-3. **Chorus / Climax (1..2 repeats):**
-   Peak energy and density. All primary voices active (lead, harmony, chord, bass, beat). Elevated brightness (\`character\`: 60..80) and level. Memorable melodic hook.
-4. **Verse 2 (1..2 repeats):**
-   Melodic or rhythmic variation upon Verse 1, counterpoint arpeggios or drum fills.
-5. **Bridge (1..2 repeats):**
-   Harmonic or rhythmic contrast: key modulation, altered density, filtered frequencies, or syncopated breakdown leading into the final chorus.
-6. **Outro / Coda (1..2 repeats, fade: "out"):**
-   Gradual instrumental dissolution, ringing reverb tails, gentle fade into silence.
-
-### Composition Engine Limits:
-- **MAXIMUM 15 UNIQUE PHRASES (\`phrases.length <= 15\`):**
-  Strict engine safeguard. Batches exceeding 15 phrases are rejected.
-- **Section Repeats (\`repeats: 1..8\`):**
-  Reuse phrases by setting \`repeats\` in section objects (e.g., \`{ "phrase": 2, "name": "chorus", "repeats": 2 }\`), and reference the same phrase ID across multiple sections (e.g. verse 1 and verse 2 sharing phrase 2).
-- **Total Song Duration:** Maximum 128 bars (\`MAX_BARS = 128\`).
-- **Sections:** Up to 32 sections in the \`sections\` array.
-
-## Sound Worlds: AMBIENT vs REACTOR
-
-HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "reactor"\`:
-
-### 1. AMBIENT (Meditative, Ethereal, Cosmic)
-- **Synthesis:** 100% real-time procedural Web Audio synthesis (pure sines, FM, soft filters, cosmic pink noise).
-- **Vibe:** Calm, contemplative, meditative, spacious, organic breathing.
-- **Tempo:** 60..85 BPM (default 72 BPM).
-- **Acoustic Space:** Deep 2.8s convolution reverb (\`space\`: 35..80%), stereo chorus, soft attack/decay envelopes.
-- **8 Default Voices:**
-  - 0: GLASS (celestial crystal bells, clean overtone spectrum)
-  - 1: TIDAL (breathing soft atmospheric pads)
-  - 2: ROOT (deep analog sub-bass foundation)
-  - 3: EMBER (warm plucked harp/kalimba/piano timbres)
-  - 4: RAIN (gentle rainfall texture, soft transient clicks)
-  - 5: VEIL (velvet bowed strings and cello warmth)
-  - 6: MOSS (slow wooden marimba, mellow tuned percussion)
-  - 7: AURA (environmental background drone, cosmic wash)
-
-### 2. REACTOR (Driving, Energetic, Organic Rock & Acoustic)
-- **Samples:** 32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.
-- **Vibe:** Punchy, energetic drive, acoustic presence, rhythmic momentum.
-- **Tempo:** 90..140 BPM (default 100 BPM; for 6/8 pirate swing use 3/4 meter with 8 bars).
-- **Acoustic Space:** Focused, punchy mix (\`space\`: 10..30%), rapid transients, tight stereo imaging.
-- **8 Default Voices:**
-  - 0: BEAT / GLASS (punchy acoustic kick and snare backbeat)
-  - 1: TIDAL / SNARE (crack and steel snares)
-  - 2: ROOT / METAL (cymbals, hi-hats, acoustic ride)
-  - 3: EMBER / TOMS (floor, mid, high, war toms)
-  - 4: RAIN / BASS (overdriven rock bass with tube warmth)
-  - 5: VEIL / RIFF (palm-muted and power electric guitars)
-  - 6: MOSS / LEAD (singing and octave lead guitars)
-  - 7: AURA / KEYS (acoustic grand piano, dark piano, analog synth)
-
-### 8 Voice Slots & Role Polyphony Architecture:
-| Slot (\`trackIndex\`) | Slot Name | Fixed Role | Polyphony Limit | Register | Recommended Ambient Sound | Recommended Reactor Sound |
-| --- | --- | --- | --- | --- | --- | --- |
-| 0 | GLASS | Pulse / Anchor | 1 note (or unpitched) | Reference | bell, chime, pulse | dry-kick, arena-kick |
-| 1 | TIDAL | Accent / Backbeat | 1-2 notes (or unpitched) | Reference | air, breath, wood | dry-snare, steel-snare |
-| 2 | ROOT | Bass (Ambient) / Metal (Reactor) | 1 note (mono) | Low / High | round, sub, pulse | tight-hat, open-hat, ride |
-| 3 | EMBER | Pluck / Toms | 1-2 notes | Mid | string, harp, kalimba | floor-tom, war-tom |
-| 4 | RAIN | Shaker (Ambient) / Bass (Reactor) | Empty notes \`[]\` or 1 note | Transient / Low | shaker, noise, clicks | pick-bass, tube-bass |
-| 5 | VEIL | Lead Melody / Riff | 1-2 notes | High / Mid | bow, crystal, vibe | power-guitar, palm-guitar |
-| 6 | MOSS | Arpeggio / Lead | Strictly 1 note (mono) | Mid/High | marimba, wood, sine | octave-lead, singing-lead |
-| 7 | AURA | Harmony / Keys Bed | Up to 4 notes (poly) | Broad (MIDI 36..84) | wind, drone, pad | dark-piano, attack-piano |
-
-## Example Requests
-
-### Example 1: Track Note & Parameter Modification (track.patch)
-\`\`\`json
-{
-  "requestId": "request-001",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "track.patch",
-      "trackIndex": 5,
-      "values": {
-        "exact": true,
-        "steps": [0, 4, 8, 12],
-        "noteEvents": [
-          { "step": 0, "notes": [72] },
-          { "step": 4, "notes": [76] },
-          { "step": 8, "notes": [79] },
-          { "step": 12, "notes": [84] }
-        ],
-        "character": 65,
-        "space": 40
-      }
-    }
-  ]
-}
-\`\`\`
-
-### Example 2: Compact Monolithic Holiday / New Year 8-Bar Jingle (project.patch + track.patch)
-*Composes an 8-bar holiday jingle in C major with explicit notes in a single compact ~1.2 KB payload.*
-\`\`\`json
-{
-  "requestId": "request-newyear",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "project.patch",
-      "values": {
-        "tempo": 96,
-        "bars": 8,
-        "key": 0
-      }
-    },
-    {
-      "op": "track.patch",
-      "trackIndex": 5,
-      "values": {
-        "sound": "bell",
-        "character": 75,
-        "space": 40,
-        "level": 70,
-        "steps": [0, 4, 8, 16, 20, 24, 32, 36, 40, 44, 48, 64, 68, 72, 76, 80, 84, 88, 96, 100, 104, 108, 112],
-        "noteEvents": [
-          { "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }, { "step": 8, "notes": [64] },
-          { "step": 16, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 24, "notes": [64] },
-          { "step": 32, "notes": [64] }, { "step": 36, "notes": [67] }, { "step": 40, "notes": [60] },
-          { "step": 44, "notes": [62] }, { "step": 48, "notes": [64] },
-          { "step": 64, "notes": [65] }, { "step": 68, "notes": [65] }, { "step": 72, "notes": [65] },
-          { "step": 76, "notes": [65] }, { "step": 80, "notes": [65] }, { "step": 84, "notes": [64] },
-          { "step": 88, "notes": [64] },
-          { "step": 96, "notes": [67] }, { "step": 100, "notes": [67] }, { "step": 104, "notes": [65] },
-          { "step": 108, "notes": [62] }, { "step": 112, "notes": [60] }
-        ]
-      }
-    },
-    {
-      "op": "track.patch",
-      "trackIndex": 4,
-      "values": {
-        "sound": "round",
-        "character": 50,
-        "level": 65,
-        "steps": [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120],
-        "noteEvents": [
-          { "step": 0, "notes": [36] }, { "step": 8, "notes": [36] }, { "step": 16, "notes": [36] }, { "step": 24, "notes": [36] },
-          { "step": 32, "notes": [36] }, { "step": 40, "notes": [36] }, { "step": 48, "notes": [36] }, { "step": 56, "notes": [36] },
-          { "step": 64, "notes": [41] }, { "step": 72, "notes": [41] }, { "step": 80, "notes": [36] }, { "step": 88, "notes": [36] },
-          { "step": 96, "notes": [43] }, { "step": 104, "notes": [43] }, { "step": 112, "notes": [36] }, { "step": 120, "notes": [36] }
-        ]
-      }
-    }
-  ]
-}
-\`\`\`
-
-### Example 3: Full Multi-section Composition — Pirates of the Caribbean OST (composition.replace)
-*Composes a 6-section pirate soundtrack in D minor with 6/8 pirate swing (3/4 time signature, 8 bars per phrase).*
-\`\`\`json
-{
-  "requestId": "request-pirates-ost",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "composition.replace",
-      "project": {
-        "format": "halo-composition",
-        "version": 1,
-        "tempo": 104,
-        "masterVolume": 55,
-        "mix": { "low": 1, "mid": 0, "high": 0, "width": 45 },
-        "repeat": true,
-        "timeSignature": "3/4",
-        "phrases": [
-          {
-            "id": 1,
-            "label": "Intro",
-            "project": {
-              "format": "notbad-halo-project",
-              "version": 1,
-              "setup": "reactor",
-              "bars": 8,
-              "tempo": 104,
-              "key": 14,
-              "timeSignature": "3/4",
-              "tracks": [
-                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": false, "level": 60, "space": 15 },
-                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": false, "level": 60, "space": 20 },
-                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "tight-hat", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 45, "space": 25 },
-                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": false, "level": 60, "space": 25 },
-                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "tube-bass", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 55, "space": 20 },
-                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": false, "level": 60, "space": 20 },
-                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "picked-lead", "on": false, "level": 60, "space": 20 },
-                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 24, "notes": [46, 50, 53, 58] }, { "step": 48, "notes": [48, 52, 55, 60] }, { "step": 72, "notes": [50, 53, 57, 62] }], "level": 65, "space": 35 }
-              ]
-            }
-          },
-          {
-            "id": 2,
-            "label": "Theme",
-            "project": {
-              "format": "notbad-halo-project",
-              "version": 1,
-              "setup": "reactor",
-              "bars": 8,
-              "tempo": 104,
-              "key": 14,
-              "timeSignature": "3/4",
-              "tracks": [
-                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 70, "space": 10 },
-                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": true, "exact": true, "steps": [6, 18, 30, 42, 54, 66, 78, 90], "level": 70, "space": 20 },
-                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "tight-hat", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "level": 55, "space": 10 },
-                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": true, "exact": true, "steps": [44, 46, 92, 94], "level": 60, "space": 25 },
-                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "pick-bass", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 70, "space": 10 },
-                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": true, "exact": true, "steps": [0, 3, 4, 6, 9, 10, 12, 15, 16, 18, 21, 22, 24, 27, 28, 30, 33, 34, 36, 39, 40, 42, 45, 46, 48, 51, 52, 54, 57, 58, 60, 63, 64, 66, 69, 70, 72, 75, 76, 78, 81, 82, 84, 87, 88, 90, 93, 94], "level": 65, "space": 15 },
-                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "octave-lead", "on": true, "exact": true, "steps": [0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24, 26, 27, 28, 30, 32, 33, 34, 36, 38, 39, 40, 42, 44, 45, 46, 48, 50, 51, 52, 54, 56, 57, 58, 60, 62, 63, 64, 66, 68, 69, 70, 72, 74, 75, 76, 78, 80, 81, 82, 84, 86, 87, 88, 90, 92, 93, 94], "noteEvents": [{ "step": 0, "notes": [62] }, { "step": 2, "notes": [62] }, { "step": 3, "notes": [62] }, { "step": 4, "notes": [65] }, { "step": 6, "notes": [67] }, { "step": 8, "notes": [67] }, { "step": 9, "notes": [67] }, { "step": 10, "notes": [69] }, { "step": 12, "notes": [65] }, { "step": 14, "notes": [65] }, { "step": 15, "notes": [65] }, { "step": 16, "notes": [67] }, { "step": 18, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 21, "notes": [65] }, { "step": 22, "notes": [62] }], "level": 75, "space": 25 },
-                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 24, "notes": [46, 50, 53, 58] }, { "step": 48, "notes": [48, 52, 55, 60] }, { "step": 72, "notes": [50, 53, 57, 62] }], "level": 60, "space": 25 }
-              ]
-            }
-          },
-          {
-            "id": 3,
-            "label": "Climax",
-            "project": {
-              "format": "notbad-halo-project",
-              "version": 1,
-              "setup": "reactor",
-              "bars": 8,
-              "tempo": 104,
-              "key": 14,
-              "timeSignature": "3/4",
-              "tracks": [
-                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "arena-kick", "on": true, "exact": true, "steps": [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93], "level": 75, "space": 10 },
-                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "steel-snare", "on": true, "exact": true, "steps": [6, 18, 30, 42, 54, 66, 78, 90], "level": 75, "space": 20 },
-                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "crash", "on": true, "exact": true, "steps": [0, 24, 48, 72], "level": 60, "space": 30 },
-                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": true, "exact": true, "steps": [20, 22, 44, 46, 68, 70, 92, 94], "level": 65, "space": 20 },
-                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "fuzz-bass", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 75, "space": 10 },
-                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "power-guitar", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 75, "space": 15 },
-                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "singing-lead", "on": true, "exact": true, "steps": [0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24, 26, 27, 28, 30, 32, 33, 34, 36, 38, 39, 40, 42, 44, 45, 46, 48, 50, 51, 52, 54, 56, 57, 58, 60, 62, 63, 64, 66, 68, 69, 70, 72, 74, 75, 76, 78, 80, 81, 82, 84, 86, 87, 88, 90, 92, 93, 94], "noteEvents": [{ "step": 0, "notes": [62] }, { "step": 2, "notes": [62] }, { "step": 3, "notes": [62] }, { "step": 4, "notes": [65] }, { "step": 6, "notes": [67] }, { "step": 8, "notes": [67] }, { "step": 9, "notes": [67] }, { "step": 10, "notes": [69] }, { "step": 12, "notes": [65] }, { "step": 14, "notes": [65] }, { "step": 15, "notes": [65] }, { "step": 16, "notes": [67] }, { "step": 18, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 21, "notes": [65] }, { "step": 22, "notes": [62] }], "level": 80, "character": 85, "space": 25 },
-                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "attack-piano", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 70, "space": 25 }
-              ]
-            }
-          },
-          {
-            "id": 4,
-            "label": "Outro",
-            "project": {
-              "format": "notbad-halo-project",
-              "version": 1,
-              "setup": "reactor",
-              "bars": 8,
-              "tempo": 104,
-              "key": 14,
-              "timeSignature": "3/4",
-              "tracks": [
-                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": false, "level": 60, "space": 15 },
-                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": false, "level": 60, "space": 20 },
-                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "ride", "on": true, "exact": true, "steps": [0, 12, 24, 36], "level": 40, "space": 40 },
-                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": false, "level": 60, "space": 25 },
-                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "tube-bass", "on": true, "exact": true, "steps": [0, 48], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 48, "notes": [38] }], "level": 55, "space": 30 },
-                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": false, "level": 60, "space": 20 },
-                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "feedback-lead", "on": true, "exact": true, "steps": [0], "noteEvents": [{ "step": 0, "notes": [62] }], "level": 60, "space": 50 },
-                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 48], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 48, "notes": [50, 53, 57, 62] }], "level": 60, "space": 50 }
-              ]
-            }
-          }
-        ],
-        "sections": [
-          { "phrase": 1, "name": "intro", "repeats": 1, "fade": "none" },
-          { "phrase": 2, "name": "verse", "repeats": 2, "fade": "none" },
-          { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
-          { "phrase": 2, "name": "verse2", "repeats": 1, "fade": "none" },
-          { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
-          { "phrase": 4, "name": "outro", "repeats": 1, "fade": "out" }
-        ]
-      }
-    }
-  ]
-}
-\`\`\`
-
-### Example 4: Single-Phrase 8-Bar Project Replacement (project.replace)
-*Important: for \`project.replace\`, the \`tracks\` array MUST contain exactly 8 track objects covering all voice slots [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. Use valid sound names from instruments.json for the chosen setup.*
-\`\`\`json
-{
-  "requestId": "request-004",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "project.replace",
-      "project": {
-        "format": "notbad-halo-project",
-        "version": 1,
-        "setup": "ambient",
-        "bars": 8,
-        "tempo": 76,
-        "masterVolume": 58,
-        "mix": { "low": 0, "mid": 0, "high": 0, "width": 35 },
-        "seed": 1,
-        "key": 0,
-        "tracks": [
-          { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "bell", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 65, "density": 70, "character": 50, "duration": 50, "space": 40 },
-          { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "air", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 60, "space": 50 },
-          { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "round", "on": true, "exact": true, "steps": [0, 4, 8, 12], "level": 60, "density": 60, "character": 50, "duration": 50, "space": 30 },
-          { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "string", "on": true, "exact": true, "steps": [2, 6, 10, 14], "level": 60, "density": 60, "character": 55, "duration": 50, "space": 35 },
-          { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "shaker", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14], "level": 50, "density": 70, "character": 60, "duration": 40, "space": 25 },
-          { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "bow", "on": true, "exact": true, "steps": [0, 8], "level": 60, "density": 60, "character": 50, "duration": 65, "space": 55 },
-          { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "marimba", "on": true, "exact": true, "steps": [4, 12], "level": 55, "density": 50, "character": 50, "duration": 45, "space": 35 },
-          { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "wind", "on": true, "exact": true, "steps": [0], "level": 55, "density": 50, "character": 40, "duration": 70, "space": 60 }
-        ]
-      }
-    }
-  ]
-}
-\`\`\`
+## File Bridge boundaries
+NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. NO BROWSER LAUNCHING by a folder-only composition agent. HALO is already open and connected; use file tools only. No server, model key, account or uploads. File-writing tool limits belong to the external harness, not WebMCP. Request size and engine limits remain in capabilities.json. Approval and audio startup remain user-controlled.
 `;
   }
 
@@ -1429,6 +856,9 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     const transaction = parsed.transaction || parsed;
     const requestId = String(parsed.requestId || transaction.requestId || fallbackId);
 
+    if (!/^[a-zA-Z0-9_-]{1,128}$/.test(requestId)) return {ok:false,error:'INVALID_REQUEST_ID: use 1..128 letters, digits, hyphens or underscores',id:fallbackId};
+
+
     if (Array.isArray(transaction.parts) && transaction.parts.length > 0) {
       return { ok: false, error: 'UNRESOLVED_MODULAR_REFERENCE: Request contains modular "parts" that have not been resolved', id: requestId };
     }
@@ -1708,10 +1138,10 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     let consecutiveErrors = 0;
     let lastSyncedRevision = null;
     const listeners = new Set();
-    const processedIds = new Set();
     const processedContent = new Map();
-    const appliedIds = new Set();
+    const terminalIds = new Set();
     const win = env.window || root;
+    const requestByteLimit = api.getCapabilities().limits.bytes || 524288;
 
     const state = {
       connected: false,
@@ -1733,340 +1163,182 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
       }
     }
 
+    // A submission is a snapshot of the root AND every referenced companion.
+    // Cache reads within one scan so repeated references resolve consistently.
+    async function readSubmission(directory, text, fallbackId){
+      const files = new Map();
+      let bytes = new TextEncoder().encode(text).length;
+      const maxBytes = requestByteLimit;
+      let parsed;
+      try {
+        if (bytes > maxBytes) throw Error('PAYLOAD_TOO_LARGE');
+        const raw = JSON.parse(text);
+        const resolved = await resolveRequestPayload(raw, async path => {
+          if (files.has(path)) {
+            const cached = files.get(path);
+            if (cached.error) throw Error(cached.error);
+            return cached.text;
+          }
+          try {
+            const file = await directory.getFileHandle(path, {create:false});
+            const content = await readFsFile(file);
+            bytes += new TextEncoder().encode(content).length;
+            if (bytes > maxBytes) throw Error('PAYLOAD_TOO_LARGE');
+            files.set(path, {text:content});
+            return content;
+          } catch(error) {
+            files.set(path, {error:error.message});
+            throw error;
+          }
+        });
+        // Rebase only to prepare a proposal, never to skip approval-time conflicts.
+        parsed = parseAndValidateRequest(api, resolved, fallbackId, {allowRebase:true});
+      } catch(error) {
+        parsed = {ok:false, id:fallbackId, error:error.message};
+      }
+      return {parsed, fingerprint:JSON.stringify([text, [...files].sort(([a],[b])=>a.localeCompare(b))])};
+    }
+
+    async function writeResponse(response, baseId){
+      const resDir = await dirHandle.getDirectoryHandle('responses', {create:true});
+      for (const id of new Set([response.id, baseId])) {
+        if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id)) continue;
+        await writeFsFile(resDir, `${id}.result.json`, JSON.stringify(response, null, 2));
+      }
+    }
+
+    function errorResponse(id, error){
+      const guidance = generateErrorGuidance(error, ++consecutiveErrors);
+      return {ok:false, status:'error', id, error, ...guidance, consecutiveErrors,
+        currentRevision:api.getProjectState().revision, timestamp:new Date().toISOString()};
+    }
+
     async function checkFolder(){
       if (!dirHandle || state.busy) return;
       state.busy = true;
       try {
-        // Continuous auto-sync: keep project-state.json fresh on disk whenever in-memory revision changes
         const currentRev = api.getProjectState().revision;
-        if (lastSyncedRevision === null || currentRev !== lastSyncedRevision) {
+        if (currentRev !== lastSyncedRevision) {
+          await syncStateOnly(dirHandle, api);
+          lastSyncedRevision = currentRev;
+          state.lastSync = new Date().toISOString();
+        }
+        const reqDir = await dirHandle.getDirectoryHandle('requests', {create:true});
+        const resDir = await dirHandle.getDirectoryHandle('responses', {create:true});
+        for await (const [name, handle] of resDir.entries()) {
+          if (handle.kind !== 'file' || !name.endsWith('.result.json')) continue;
           try {
-            await syncStateOnly(dirHandle, api);
-            lastSyncedRevision = currentRev;
-            state.lastSync = new Date().toISOString();
-          } catch(syncErr) {
-            console.warn('File Bridge auto-sync warning:', syncErr);
-          }
+            const result = JSON.parse(await readFsFile(handle));
+            if (result.status === 'rejected' || (result.ok === false && result.error === 'REJECTED_BY_USER') || (result.ok === true && (result.status === 'applied' || (!result.status && Number.isInteger(result.appliedRevision))))) {
+              terminalIds.add(name.slice(0, -12));
+            }
+          } catch {}
         }
-
-        const reqDir = await dirHandle.getDirectoryHandle('requests', { create: true });
-        const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
-
-        // Scan existing responses to populate appliedIds
-        for await (const [name, handle] of resDir.entries()){
-          if (handle.kind === 'file' && name.endsWith('.result.json')){
-            const id = name.replace(/\.result\.json$/i, '');
-            try {
-              const resText = await readFsFile(handle);
-              const resData = JSON.parse(resText);
-              if (resData && resData.ok === true) {
-                appliedIds.add(id);
-              }
-            } catch {}
-          }
-        }
-
-        // If there's already a pending request awaiting user confirmation, don't pick another one yet
-        if (state.pending) {
-          state.lastCheck = new Date().toISOString();
-          notify();
-          return;
-        }
-
-        for await (const [name, handle] of reqDir.entries()){
-          // CASE 1: Folder Bundle (Directory in requests/)
+        for await (const [name, handle] of reqDir.entries()) {
+          const baseId = handle.kind === 'directory' ? name : name.replace(/\.json$/i, '');
+          if (!/^[a-zA-Z0-9_-]{1,128}$/.test(baseId) || terminalIds.has(baseId)) continue;
+          // One human review at a time; other requests remain unacknowledged.
+          if (state.pending && state.pending.baseId !== baseId) continue;
+          let directory = reqDir, manifest = handle, filename = name;
           if (handle.kind === 'directory') {
-            const bundleId = name;
-            let manifestHandle = null;
-            let manifestName = null;
-            for (const candidate of ['manifest.json', 'request.json', `${bundleId}.json`, 'index.json']) {
-              try {
-                manifestHandle = await handle.getFileHandle(candidate, { create: false });
-                manifestName = candidate;
-                break;
-              } catch {}
+            directory = handle;
+            manifest = null;
+            for (const candidate of ['manifest.json','request.json',`${baseId}.json`,'index.json']) {
+              try { manifest = await handle.getFileHandle(candidate, {create:false}); filename = `${name}/${candidate}`; break; } catch {}
             }
-            if (!manifestHandle) continue;
-
-            const text = await readFsFile(manifestHandle);
-            const bundleContentKey = `bundle:${bundleId}:${text}`;
-            if (processedContent.get(bundleId) === bundleContentKey) continue;
-            if (appliedIds.has(bundleId) && !processedContent.has(bundleId)) {
-              processedContent.set(bundleId, bundleContentKey);
-              continue;
-            }
-
-            processedContent.set(bundleId, bundleContentKey);
-
-            const bundleFileReader = async (relPath) => {
-              const fHandle = await handle.getFileHandle(relPath, { create: false });
-              return await readFsFile(fHandle);
-            };
-
-            let parsed = await resolveAndValidateRequest(api, text, bundleFileReader, bundleId);
-
-            if (!parsed.ok && parsed.error && parsed.error.includes('CONFLICT_REVISION_MISMATCH')) {
-              const rebaseAttempt = await resolveAndValidateRequest(api, text, bundleFileReader, bundleId, { allowRebase: true });
-              if (rebaseAttempt.ok) {
-                parsed = rebaseAttempt;
-              }
-            }
-
-            if (!parsed.ok) {
-              consecutiveErrors++;
-              try {
-                await syncStateOnly(dirHandle, api);
-                lastSyncedRevision = api.getProjectState().revision;
-                state.lastSync = new Date().toISOString();
-              } catch {}
-
-              const guidance = generateErrorGuidance(parsed.error, consecutiveErrors);
-              const errRes = {
-                ok: false,
-                id: parsed.id,
-                error: parsed.error,
-                help: guidance.help,
-                instructionForAgent: guidance.instructionForAgent,
-                consecutiveErrors,
-                currentRevision: parsed.currentRevision || api.getProjectState().revision,
-                timestamp: new Date().toISOString()
-              };
-              await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(errRes, null, 2));
-              if (bundleId !== parsed.id) {
-                await writeFsFile(resDir, `${bundleId}.result.json`, JSON.stringify(errRes, null, 2));
-              }
-              processedIds.add(bundleId);
-              state.lastResult = errRes;
-              state.error = parsed.error;
-              notify();
-              continue;
-            }
-
-            consecutiveErrors = 0;
-            state.error = null;
-            await resDir.removeEntry(`${parsed.id}.result.json`).catch(() => {});
-            if (bundleId !== parsed.id) {
-              await resDir.removeEntry(`${bundleId}.result.json`).catch(() => {});
-            }
-
-            // Rule 1: Never apply automatically by default
-            if (!state.autoApply) {
-              state.pending = {
-                id: parsed.id,
-                filename: `${bundleId}/${manifestName}`,
-                transaction: parsed.transaction,
-                preview: parsed.preview,
-                baseId: bundleId,
-                rebased: !!parsed.rebased,
-                originalBaseRevision: parsed.originalBaseRevision
-              };
-              state.lastResult = null;
-              state.error = null;
-              notify();
-              break; // Wait for user decision
-            } else {
-              api.setEnabled(true);
-              const applied = await api.applyOperations(parsed.transaction);
-              appliedIds.add(bundleId);
-              appliedIds.add(parsed.id);
-              const okRes = {
-                ok: true,
-                id: parsed.id,
-                appliedRevision: applied.revision,
-                currentRevision: applied.revision,
-                ...(parsed.rebased ? { rebasedFrom: parsed.originalBaseRevision } : {}),
-                timestamp: new Date().toISOString()
-              };
-              await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
-              if (bundleId !== parsed.id) {
-                await writeFsFile(resDir, `${bundleId}.result.json`, JSON.stringify(okRes, null, 2));
-              }
-              await syncStateOnly(dirHandle, api);
-              lastSyncedRevision = applied.revision;
-              state.lastSync = new Date().toISOString();
-              processedIds.add(bundleId);
-              state.lastResult = okRes;
-              notify();
-            }
-            continue;
-          }
-
-          // CASE 2: Files in requests/
-          if (handle.kind !== 'file' || !name.endsWith('.json')) continue;
-          const baseId = name.replace(/\.json$/i, '');
-
-          // Skip companion files
-          if (name.startsWith('_') || name.startsWith('.') || /^t[0-7]\.json$/i.test(name) || /[\.-](track|part|t)[0-7]?\./i.test(name)) {
-            continue;
-          }
-
-          const text = await readFsFile(handle);
-
-          // Fast inspection: skip non-root companion files
-          let parsedRaw;
-          try {
-            parsedRaw = JSON.parse(text);
-          } catch(e) {
-            if (!/^(request|req)[-_]/i.test(name)) {
-              continue;
-            }
-          }
-
-          if (parsedRaw) {
-            const hasRootHallmarks = parsedRaw.schemaVersion === 1 || parsedRaw.operations || parsedRaw.parts || parsedRaw.requestId;
-            if (!hasRootHallmarks && (Array.isArray(parsedRaw) || parsedRaw.values || parsedRaw.steps || parsedRaw.notes || parsedRaw.trackIndex !== undefined)) {
-              continue;
-            }
-          }
-
-          if (processedContent.get(baseId) === text) continue;
-          if (appliedIds.has(baseId) && !processedContent.has(baseId)) {
-            processedContent.set(baseId, text);
-            continue;
-          }
-
-          processedContent.set(baseId, text);
-
-          const reqDirFileReader = async (relPath) => {
-            const fHandle = await reqDir.getFileHandle(relPath, { create: false });
-            return await readFsFile(fHandle);
-          };
-
-          let parsed = await resolveAndValidateRequest(api, text, reqDirFileReader, baseId);
-
-          if (!parsed.ok && parsed.error && parsed.error.includes('CONFLICT_REVISION_MISMATCH')) {
-            const rebaseAttempt = await resolveAndValidateRequest(api, text, reqDirFileReader, baseId, { allowRebase: true });
-            if (rebaseAttempt.ok) {
-              parsed = rebaseAttempt;
-            }
-          }
-
-          if (!parsed.ok) {
-            consecutiveErrors++;
+            if (!manifest) continue;
+          } else if (handle.kind !== 'file' || !name.endsWith('.json') || name.startsWith('_') || name.startsWith('.') || /^t[0-7]\.json$/i.test(name) || /[.-](track|part|t)[0-7]?\./i.test(name)) continue;
+          const text = await readFsFile(manifest);
+          if (handle.kind === 'file') {
             try {
-              await syncStateOnly(dirHandle, api);
-              lastSyncedRevision = api.getProjectState().revision;
-              state.lastSync = new Date().toISOString();
-            } catch {}
-
-            const guidance = generateErrorGuidance(parsed.error, consecutiveErrors);
-            const errRes = {
-              ok: false,
-              id: parsed.id,
-              error: parsed.error,
-              help: guidance.help,
-              instructionForAgent: guidance.instructionForAgent,
-              consecutiveErrors,
-              currentRevision: parsed.currentRevision || api.getProjectState().revision,
-              timestamp: new Date().toISOString()
-            };
-            await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(errRes, null, 2));
-            if (baseId !== parsed.id) {
-              await writeFsFile(resDir, `${baseId}.result.json`, JSON.stringify(errRes, null, 2));
-            }
-            processedIds.add(baseId);
-            state.lastResult = errRes;
-            state.error = parsed.error;
-            notify();
+              const raw = JSON.parse(text);
+              if (!raw || (!raw.schemaVersion && !raw.operations && !raw.parts && !raw.requestId && !raw.transaction)) continue;
+            } catch { if (!/^(request|req)[-_]/i.test(name)) continue; }
+          }
+          const submission = await readSubmission(directory, text, baseId);
+          if (processedContent.get(baseId) === submission.fingerprint) continue;
+          processedContent.set(baseId, submission.fingerprint);
+          if (state.pending?.baseId === baseId) { state.pending = null; pendingSource = null; }
+          const parsed = submission.parsed;
+          if (terminalIds.has(parsed.id)) continue;
+          if (!parsed.ok) {
+            const response = errorResponse(parsed.id, parsed.error);
+            await writeResponse(response, baseId);
+            state.lastResult = response; state.error = parsed.error;
             continue;
           }
-
           consecutiveErrors = 0;
           state.error = null;
-          await resDir.removeEntry(`${parsed.id}.result.json`).catch(() => {});
-          if (baseId !== parsed.id) {
-            await resDir.removeEntry(`${baseId}.result.json`).catch(() => {});
-          }
-
-          // Rule 1: Never apply automatically by default
-          if (!state.autoApply) {
-            state.pending = {
-              id: parsed.id,
-              filename: name,
-              transaction: parsed.transaction,
-              preview: parsed.preview,
-              baseId,
-              rebased: !!parsed.rebased,
-              originalBaseRevision: parsed.originalBaseRevision
-            };
-            state.lastResult = null;
-            state.error = null;
-            notify();
-            break; // Wait for user decision
-          } else {
-            api.setEnabled(true);
-            const applied = await api.applyOperations(parsed.transaction);
-            appliedIds.add(baseId);
-            appliedIds.add(parsed.id);
-            const okRes = {
-              ok: true,
-              id: parsed.id,
-              appliedRevision: applied.revision,
-              currentRevision: applied.revision,
-              ...(parsed.rebased ? { rebasedFrom: parsed.originalBaseRevision } : {}),
-              timestamp: new Date().toISOString()
-            };
-            await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
-            if (baseId !== parsed.id) {
-              await writeFsFile(resDir, `${baseId}.result.json`, JSON.stringify(okRes, null, 2));
-            }
-            await syncStateOnly(dirHandle, api);
-            lastSyncedRevision = applied.revision;
-            state.lastSync = new Date().toISOString();
-            processedIds.add(baseId);
-            state.lastResult = okRes;
-            notify();
-          }
+          state.pending = {id:parsed.id, filename, transaction:parsed.transaction, preview:parsed.preview, baseId,
+            rebased:!!parsed.rebased, originalBaseRevision:parsed.originalBaseRevision};
+          // Private handles/fingerprint are not serialized into UI or context files.
+          pendingSource = {directory, manifest, fingerprint:submission.fingerprint};
+          const response = {ok:true, status:'pending_approval', applied:false, id:parsed.id,
+            baseRevision:parsed.transaction.baseRevision, currentRevision:parsed.currentRevision,
+            ...(parsed.rebased ? {rebasedFrom:parsed.originalBaseRevision} : {}), timestamp:new Date().toISOString()};
+          await writeResponse(response, baseId);
+          state.lastResult = null;
+          if (state.autoApply) await commitPending();
+          break;
         }
         state.lastCheck = new Date().toISOString();
-      } catch(err) {
-        state.error = err.message;
-      } finally {
-        state.busy = false;
-        notify();
+      } catch(error) { state.error = error.message; }
+      finally { state.busy = false; notify(); }
+    }
+
+    let pendingSource = null;
+    async function commitPending(){
+      if (!state.pending || !dirHandle) return;
+      const p = state.pending;
+      let committedResponse = null;
+      try {
+        if (pendingSource) {
+          const current = await readSubmission(pendingSource.directory, await readFsFile(pendingSource.manifest), p.baseId);
+          if (current.fingerprint !== pendingSource.fingerprint) {
+            processedContent.delete(p.baseId);
+            state.pending = null; pendingSource = null;
+            throw Error('REQUEST_CHANGED: Files changed after validation; wait for a new proposal and review it again.');
+          }
+        }
+        api.setEnabled(true);
+        const applied = await api.applyOperations(p.transaction);
+        // Mark before I/O so a failed response write cannot re-apply in this session.
+        terminalIds.add(p.baseId); terminalIds.add(p.id);
+        state.pending = null; pendingSource = null;
+        consecutiveErrors = 0;
+        const response = {ok:true, status:'applied', applied:true, id:p.id,
+          appliedRevision:applied.revision, currentRevision:applied.revision,
+          ...(p.rebased ? {rebasedFrom:p.originalBaseRevision} : {}), timestamp:new Date().toISOString()};
+        committedResponse = response;
+        state.lastResult = response; state.error = null;
+        await writeResponse(response, p.baseId);
+        await syncStateOnly(dirHandle, api);
+        lastSyncedRevision = applied.revision;
+        state.lastSync = new Date().toISOString();
+        state.lastResult = response; state.error = null;
+      } catch(error) {
+        if (committedResponse) {
+          state.lastResult = committedResponse;
+          state.error = 'RESPONSE_SYNC_FAILED: Project applied; folder update failed: ' + error.message;
+          return;
+        }
+        const response = errorResponse(p.id, error.message);
+        // A conflict requires a fresh validation and human review.
+        if (state.pending) { state.pending = null; pendingSource = null; processedContent.delete(p.baseId); }
+        state.lastResult = response; state.error = error.message;
+        try { await writeResponse(response, p.baseId); } catch(writeError) { state.error += '; RESPONSE_SYNC_FAILED: ' + writeError.message; }
       }
     }
 
     async function applyPending(){
-      if (!state.pending || !dirHandle) return;
-      const p = state.pending;
+      if (state.busy || !state.pending) return;
       state.busy = true;
-      try {
-        const resDir = await dirHandle.getDirectoryHandle('responses', { create: true });
-        api.setEnabled(true);
-        const applied = await api.applyOperations(p.transaction);
-        consecutiveErrors = 0;
-        const okRes = {
-          ok: true,
-          id: p.id,
-          appliedRevision: applied.revision,
-          currentRevision: applied.revision,
-          ...(p.rebased ? { rebasedFrom: p.originalBaseRevision } : {}),
-          timestamp: new Date().toISOString()
-        };
-        await writeFsFile(resDir, `${p.id}.result.json`, JSON.stringify(okRes, null, 2));
-        if (p.baseId && p.baseId !== p.id) {
-          await writeFsFile(resDir, `${p.baseId}.result.json`, JSON.stringify(okRes, null, 2));
-        }
-        await syncStateOnly(dirHandle, api);
-        lastSyncedRevision = applied.revision;
-        state.lastSync = new Date().toISOString();
-        appliedIds.add(p.baseId);
-        appliedIds.add(p.id);
-        processedIds.add(p.baseId);
-        state.lastResult = okRes;
-        state.pending = null;
-        state.error = null;
-      } catch(e) {
-        state.error = e.message;
-      } finally {
-        state.busy = false;
-        notify();
-      }
+      try { await commitPending(); }
+      finally { state.busy = false; notify(); }
     }
 
     async function rejectPending(){
-      if (!state.pending || !dirHandle) return;
+      if (state.busy || !state.pending || !dirHandle) return;
       const p = state.pending;
       state.busy = true;
       try {
@@ -2076,6 +1348,7 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         const rejRes = {
           ok: false,
           id: p.id,
+          status: 'rejected',
           error: 'REJECTED_BY_USER',
           help: guidance.help,
           instructionForAgent: guidance.instructionForAgent,
@@ -2087,7 +1360,8 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         if (p.baseId && p.baseId !== p.id) {
           await writeFsFile(resDir, `${p.baseId}.result.json`, JSON.stringify(rejRes, null, 2));
         }
-        processedIds.add(p.baseId);
+        terminalIds.add(p.baseId); terminalIds.add(p.id);
+        pendingSource = null;
         state.lastResult = rejRes;
         state.pending = null;
       } catch(e) {
@@ -2246,9 +1520,8 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
           console.warn('[HALO File Bridge] note on cleaning responses/:', e?.message);
         }
 
-        processedIds.clear();
         processedContent.clear();
-        appliedIds.clear();
+        terminalIds.clear();
         consecutiveErrors = 0;
         state.pending = null;
         state.lastResult = null;
@@ -2285,13 +1558,11 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         lastSyncedRevision = api.getProjectState().revision;
         state.lastSync = new Date().toISOString();
 
-        if (state.lastResult?.id) {
-          processedContent.delete(state.lastResult.id);
-          processedIds.delete(state.lastResult.id);
-        }
+        processedContent.clear();
         state.error = null;
         state.lastResult = null;
         consecutiveErrors = 0;
+        state.busy = false;
         await checkFolder();
       } catch(e) {
         state.error = e.message;
@@ -2364,7 +1635,13 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
     pendingBox.style.cssText = 'display:none;background:rgba(35,52,78,.9);border:1px solid #75dfd6;border-radius:10px;padding:12px;margin-bottom:14px;';
     host.append(pendingBox);
 
+    let lastView = '';
     function updateView(s){
+      const key = JSON.stringify([s.connected,s.directoryName,s.savedDirectory?.name,s.supported,s.lastSync,s.pending,s.lastResult,s.error,api.getProjectState().revision]);
+      if (key === lastView) return;
+      lastView = key;
+      const focused = host.contains(document.activeElement) ? document.activeElement : null;
+      const focusedText = focused?.textContent;
       statusBox.replaceChildren();
 
       const topRow = document.createElement('div');
@@ -2678,6 +1955,10 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
         pendingBox.style.display = 'none';
         pendingBox.replaceChildren();
       }
+      if (focused && !host.contains(focused)) {
+        const replacement = [...host.querySelectorAll('button')].find(button => button.textContent === focusedText);
+        replacement?.focus();
+      }
     }
 
     const unsub = bridge.subscribe(updateView);
@@ -2698,8 +1979,8 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
 
     el('strong', tr('Пример запроса для агента (Bionic / Antigravity / Codex):', 'Example prompt for agent (Bionic / Antigravity / Codex):'), 'display:block;font-size:11px;margin-bottom:4px;');
     const promptBox = el('div', tr(
-      '«Прочитай AGENT_GUIDE.md в папке HALO-Bridge. Изучи возможности HALO и текущий проект в project-state.json. Сочини оригинальный новогодний джингл на 8 тактов, используя только встроенные инструменты. Запиши команду в папку requests/ и заверши работу, чтобы я мог подтвердить изменения в HALO».',
-      '“Read AGENT_GUIDE.md in the HALO-Bridge folder. Study HALO capabilities and the current project in project-state.json. Compose an original eight-bar New Year jingle using only built-in sounds. Write your request file to the requests/ folder and terminate your turn so I can approve the changes in HALO.”'
+      '«Прочитай AGENT_GUIDE.md в папке HALO-Bridge. Изучи возможности HALO и текущий проект в project-state.json. Сочини оригинальный новогодний джингл на 8 тактов, используя только встроенные инструменты. Запиши файлы партий, затем манифест в requests/. Дождись ответа pending_approval в responses/, чтобы я мог подтвердить изменения в HALO».',
+      '“Read AGENT_GUIDE.md in the HALO-Bridge folder. Study HALO capabilities and the current project in project-state.json. Compose an original eight-bar New Year jingle using only built-in sounds. Write companion files first, then the manifest in requests/. Wait for pending_approval in responses/ so I can approve the changes in HALO.”'
     ), 'font-size:10px;line-height:1.5;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#d5ebf5;user-select:all;');
   }
 

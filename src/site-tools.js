@@ -4,7 +4,7 @@
  const bridges=new WeakMap();
  const clone=x=>JSON.parse(JSON.stringify(x));
  const empty={type:'object',properties:{},additionalProperties:false};
- const transaction={type:'object',required:['schemaVersion','baseRevision','operations'],additionalProperties:false,properties:{schemaVersion:{type:'integer',const:1},baseRevision:{type:'integer',minimum:0},operations:{type:'array',minItems:1,maxItems:256,items:{type:'object',required:['op'],properties:{op:{type:'string',enum:['track.patch','phrase.patch','master.patch','project.replace','composition.replace','visual.patch']},trackIndex:{type:'integer',minimum:0,maximum:7},phraseId:{type:'integer',minimum:1},values:{type:'object'},project:{type:'object'}},additionalProperties:false}}}};
+ const transaction={type:'object',required:['schemaVersion','baseRevision','operations'],additionalProperties:false,properties:{schemaVersion:{type:'integer',const:1},baseRevision:{type:'integer',minimum:0},operations:{type:'array',minItems:1,maxItems:256,items:{type:'object',required:['op'],properties:{op:{type:'string',enum:['track.patch','phrase.patch','master.patch','project.patch','project.replace','composition.replace','visual.patch']},trackIndex:{type:'integer',minimum:0,maximum:7},phraseId:{type:'integer',minimum:1},values:{type:'object'},project:{type:'object'}},additionalProperties:false}}}};
  function install(api,env={}){
   const listeners=new Set(),definitions=new Map();let controller=null,disposed=false,generation=0;
   let status={state:'initializing',surface:null,registered:[],errors:[]};
@@ -15,7 +15,8 @@
   add('halo_get_context',guidance+' Returns catalog, limits, current score, resolved notes, visual state and history counts.',empty,true,()=>({...api.getContext(),agentInstructions:guidance}));
   add('halo_get_capabilities','Read actual built-in sounds/sample metadata, role compatibility, MIDI/key/FX/master/visual limits and operation fields. No PCM.',empty,true,()=>api.getCapabilities());
   add('halo_get_state','Read the current canonical project, visual settings and revision after an edit. No audio data.',empty,true,()=>api.getProjectState());
-  const batch={type:'object',properties:{transaction},required:['transaction'],additionalProperties:false};
+  const transactionSchema=clone(transaction);transactionSchema.properties.operations.items.properties.op.enum=api.getCapabilities().operations;
+  const batch={type:'object',properties:{transaction:transactionSchema},required:['transaction'],additionalProperties:false};
   add('halo_validate_operations','Validate an entire musical transaction without changes. Return precise errors; fix invalid commands instead of inventing capabilities.',batch,true,({transaction:t})=>api.validateOperations(t));
   add('halo_preview_operations','Compute before/after project and visual state on copies. Does not play or apply. A stale revision fails.',batch,true,({transaction:t})=>api.previewOperations(t));
   add('halo_apply_operations','Apply one validated batch to the actual open HALO score, with session Undo/Redo and autosave. Supports tracks/notes, phrases, complete arrangements, FX, master and supported visual modes. Musical loading pauses playback; no automatic download or microphone access.',batch,false,async({transaction:t})=>{authorize();return api.applyOperations(t)});

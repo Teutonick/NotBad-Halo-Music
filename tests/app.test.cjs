@@ -571,3 +571,30 @@ test('AI provider/model scope selects retain normal keyboard navigation without 
  assert.equal(play.classList.contains('is-playing'),false);
  assert.equal(a.calls.filter(c=>c[0]==='update').length,0);
 });
+
+test('default PHRASE panel reserves space above transport on narrow and wide layouts; manual placement stays intact',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const code=html.slice(html.indexOf('function layoutUI(){'),html.indexOf('window.HaloLayout=layoutUI'));
+ for(const width of [390,1280]){
+  const height=844,guide={hidden:false,style:{},getBoundingClientRect:()=>({left:0,top:0,width:Math.min(width-24,500),height:82})};
+  const bottom={style:{},getBoundingClientRect(){return {top:height-16-Math.min(600,parseFloat(this.style.maxHeight)||600)}}};
+  const menu={style:{},getBoundingClientRect:()=>({bottom:300})},header={getBoundingClientRect:()=>({bottom:110})};
+  const copy={getBoundingClientRect:()=>({width:0,bottom:0})},promo={style:{setProperty(){}},classList:{toggle(){}},getBoundingClientRect:()=>({height:100})};
+  const elements={phraseGuide:guide,productPromo:promo};const selections={'.bottom':bottom,'.music-controls':menu,'.topbar':header,'.center-copy':copy};
+  const context={window:{innerWidth:width,innerHeight:height},H:height,$:id=>elements[id],document:{querySelector:s=>selections[s]||null,documentElement:{style:{setProperty(){}}}},collapsePromo(){}};
+  vm.createContext(context);vm.runInContext(code+';layoutUI()',context);
+  assert.ok(parseFloat(guide.style.top)>=312);assert.ok(parseFloat(guide.style.top)+82+14<=bottom.getBoundingClientRect().top);
+  Object.assign(guide.style,{position:'fixed',top:'25px',left:'31px'});vm.runInContext('layoutUI()',context);
+  assert.equal(guide.style.top,'25px');assert.equal(guide.style.left,'31px');
+ }
+});
+test('natural song end updates transport text at the scheduled audio boundary',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const start=html.indexOf(' finish(time){'),end=html.indexOf(',\n retriggerPhrase',start);
+ const callback=html.slice(start,end);assert.ok(start>0&&end>start);
+ const nodes={play:{classList:{remove(){}}},transportTitle:{textContent:'YOUR UNIVERSE IS ALIVE'},transportDesc:{textContent:'playing'}};
+ let timer;const context={playing:true,frozenBeat:12,scheduler:1,audio:{ctx:{currentTime:5}},$:id=>nodes[id],clearInterval(){},setTimeout(fn,ms){timer={fn,ms}}};
+ vm.createContext(context);vm.runInContext('const receiver={'+callback+'};receiver.finish(5.16)',context);
+ assert.ok(Math.abs(timer.ms-160)<0.01);assert.equal(nodes.transportTitle.textContent,'YOUR UNIVERSE IS ALIVE');
+ timer.fn();assert.equal(context.playing,false);assert.equal(nodes.transportTitle.textContent,'UNIVERSE PAUSED');assert.equal(nodes.transportDesc.textContent,'Tap to continue your soundscape');
+});
