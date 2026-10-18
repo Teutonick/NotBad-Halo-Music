@@ -1,3 +1,7 @@
+### Static Filexa backdrop — 2026-10-18
+
+The local left-edge Filexa portrait is presentation only. There are no new API operations, serialized settings or musical parameters; existing visual operations retain their contracts.
+
 ### File Bridge submission protocol — 2026-10-18
 
 This section supersedes earlier instructions about silence or immediate termination.

@@ -1,3 +1,11 @@
+- 2026-10-18: Added the by FLX header credit and aligned the visible terms portrait to the right edge.
+
+- 2026-10-18: Strengthened Filexa fading toward the orbits, with earlier fade and reduced opacity on narrow windows.
+
+### 2026-10-18 — Filexa backdrop
+
+- Added a mirrored, softly faded local Filexa portrait at the left beneath the orbits and controls; responsive height and static Pages packaging.
+
 ## 2026-10-18 — Include terms portrait in Pages package
 
 - Fixed the static Pages package to copy assets/filexa-terms.webp, which was omitted from the assets allowlist and caused a production 404.

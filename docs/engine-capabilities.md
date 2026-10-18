@@ -1,3 +1,7 @@
+### Static Filexa backdrop — 2026-10-18
+
+A local decorative portrait is mirrored at the left, vertically centered, beneath orbit rendering and UI. CSS controls viewport-relative sizing, opacity and edge fading. It remains visible in visual-only mode, is inert and has no audio/transport effect or configurable engine parameter.
+
 ### File Bridge submission protocol — 2026-10-18
 
 This section supersedes earlier instructions about silence or immediate termination.

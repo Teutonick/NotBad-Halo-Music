@@ -1,3 +1,11 @@
+Header branding now reads NotBad HALO by FLX, with the credit sharing the subdued NotBad styling. The terms portrait is shifted right by its transparent right margin (23.5% of source width), aligning the visible character with the dialog edge without editing the asset.
+
+The portrait now fades earlier toward the orbits; windows up to 1000px use a stronger directional mask and 50% opacity (42% up to 700px) to prioritize orbit readability. This is a cosmetic adjustment only.
+
+### Filexa background — 2026-10-18
+
+The existing local `assets/hearing.webp` is mirrored with CSS, flush left and vertically centered at 76% viewport height (60% on narrow screens). A directional mask, restrained saturation and opacity blend it above the nebula but beneath orbits, vignette and UI. It ignores pointer events, remains in visual-only mode, and adds no motion or musical state. Pages packaging includes the image. Verified in the in-app browser at desktop and 390×844 viewport sizes; no console warnings/errors observed. All 32 app integration tests pass. Safari/iOS and physical-device checks were not performed.
+
 ### Filexa Drifter header experiment — removed 2026-10-18
 
 The animated Filexa character was removed from the site header and its page animation code was deleted. A separate static WebP portrait is shown in the first-use terms dialog, with two-thirds of the dialog reserved for bilingual terms and one-third for the portrait; the text column scrolls independently. The portrait is a local static asset and has no animation.
