@@ -763,3 +763,10 @@ Normalization is File Bridge only; WebMCP and core musical validation retain the
 
 
 2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.
+
+
+## 2026-10-18 — Compact File Bridge context
+
+Consolidated duplicated instructions and role sound indexes across five context files; removed the derived score from state export. Preserved musical recommendations, all sounds/roles, operation validation and approval flow. Context-only schema updates: instruments 3, project-state 2; refresh exported folders with Update Files.
+
+Context schema versions after consolidation: capabilities 2, instruments 3, music-rules 2, project-state 2; request schemaVersion remains 1.

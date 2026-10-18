@@ -18,7 +18,7 @@ Pages runs the Node suite and packages allowlisted static directories with `scri
 
 Verification: 270 Node tests pass. Native Chrome passed companion-only correction, explicit receipts, keyboard approval, both complete scores, 390×844 PHRASE placement and natural song completion; canonical adventure notes matched the folder readback. Legacy-rejection compatibility has unit coverage. No deployment or listening-quality sign-off is claimed.
 
-Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
+Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The current compact context uses one sound registry and sound-level compatibility instead of derived role/setup indexes. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
 
 
 ### Modular Multi-File Requests, Folder Bundles & Full 8-Track Scoring — 2026-10-18
@@ -1079,3 +1079,12 @@ Idle scans do not re-notify UI subscribers or clone unchanged pending scores.
 
 
 2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.
+
+
+### File Bridge context consolidation — 2026-10-18
+
+The five context files now have separate responsibilities: workflow, technical schemas, sound/role registry, musical guidance, and current state. Instruments schema 3 removes derived compatibility indexes; project-state schema 2 removes the duplicate resolved score and field-access lists. Musical recommendations remain in music-rules.json. Refresh connected folders with Update Files. Request/project formats, validation, playback, approval and WebMCP remain unchanged. No runtime dependency or Pages path change.
+
+Context schema versions after consolidation: capabilities 2, instruments 3, music-rules 2, project-state 2; request schemaVersion remains 1.
+
+Validation for context consolidation: 280/280 Node tests pass with repository-local TEMP/TMP; git diff --check passes. Same four-bar test fixture: 108,994 → 68,625 UTF-8 bytes across five files (37.0% smaller); guide 8,280 → 2,782 bytes. Complete composition state, 62 sound metadata entries and role policies/ranges are regression-checked. No browser, listening or external-model acceptance run was performed for this context-only change.

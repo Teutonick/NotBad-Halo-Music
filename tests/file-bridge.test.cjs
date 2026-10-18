@@ -28,7 +28,7 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
 
   // capabilities.json
   const caps = JSON.parse(files['capabilities.json']);
-  assert.equal(caps.schemaVersion, 1);
+  assert.equal(caps.schemaVersion, 2);
   assert.equal(caps.engine, 'NotBad Halo Music Constructor');
   assert.equal(caps.limits.tracks, 8);
   assert.equal(caps.limits.bpm[0], 30);
@@ -38,13 +38,13 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
 
   // instruments.json
   const inst = JSON.parse(files['instruments.json']);
-  assert.equal(inst.schemaVersion, 2);
+  assert.equal(inst.schemaVersion, 3);
   assert.equal(inst.tracks.length, 8);
   for (let i = 0; i < 8; i++) {
     assert.equal(inst.tracks[i].trackIndex, i);
     assert.ok(inst.tracks[i].role);
     assert.ok(inst.tracks[i].noteRange);
-    assert.deepEqual(inst.tracks[i].allowedBanks, ['ambient', 'reactor']);
+    assert.ok(inst.tracks[i].maxNotes > 0);
   }
   assert.ok(inst.parameterGlossary.character);
   assert.ok(inst.parameterGlossary.duration);
@@ -55,7 +55,7 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
 
   // music-rules.json
   const rules = JSON.parse(files['music-rules.json']);
-  assert.equal(rules.schemaVersion, 1);
+  assert.equal(rules.schemaVersion, 2);
   assert.equal(rules.timeSignature, '4/4');
   assert.equal(rules.grid.stepsPerBar, 16);
   assert.deepEqual(rules.grid.quarterNotes, [0, 4, 8, 12]);
@@ -66,10 +66,10 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
 
   // project-state.json
   const state = JSON.parse(files['project-state.json']);
-  assert.equal(state.schemaVersion, 1);
+  assert.equal(state.schemaVersion, 2);
   assert.equal(typeof state.revision, 'number');
   assert.equal(state.project.tracks.length, 8);
-  assert.ok(state.music.length > 0);
+  assert.equal(state.music, undefined); assert.deepEqual(state.project, api.getProjectState().project);
 
   // AGENT_GUIDE.md
   assert.match(files['AGENT_GUIDE.md'], /HALO Agent Guide/);
@@ -187,7 +187,7 @@ test('File Bridge capabilities and music rules declare 15 phrases limit, sound w
   const guide = files['AGENT_GUIDE.md'];
 
   assert.equal(caps.limits.phrases, 15);
-  assert.equal(rules.songFormAndComposition.limits.maxPhrases, 15);
+  assert.equal(rules.songFormAndComposition.limits, undefined);
   assert.equal(rules.songFormAndComposition.defaultMode, 'single_phrase');
   assert.ok(rules.songFormAndComposition.canonicalForm.some(s => s.name === 'intro'));
   assert.ok(rules.songFormAndComposition.canonicalForm.some(s => s.name === 'chorus'));
@@ -197,11 +197,8 @@ test('File Bridge capabilities and music rules declare 15 phrases limit, sound w
   assert.match(rules.soundWorlds.ambient.vibe, /Meditative/);
   assert.match(rules.soundWorlds.reactor.vibe, /Driving/);
 
-  assert.match(guide, /AMBIENT vs REACTOR/);
-  assert.match(guide, /MAXIMUM 15 UNIQUE PHRASES/);
-  assert.match(guide, /Intro/);
-  assert.match(guide, /Chorus/);
-  assert.match(guide, /DEFAULT MODE: SINGLE PHRASE/);
+  assert.ok(rules.creativeExamples.holiday);
+  assert.ok(rules.creativeExamples.adventure);
 });
 
 test('File Bridge persists directory handle in IndexedDB across reloads', async () => {
@@ -534,24 +531,11 @@ test('Context files contain mutual cross-references and explicit read-only vs mu
   // 2. Capabilities fieldAccess & readOnlyProhibited
   assert.ok(caps.fieldAccess?.trackPatch?.readOnlyProhibited?.includes('role'));
   assert.ok(caps.fieldAccess?.trackPatch?.readOnlyProhibited?.includes('name'));
-  const trackPatchOp = caps.operations.find(o => o.op === 'track.patch');
-  assert.ok(trackPatchOp.readOnlyProhibited.includes('role'));
-  assert.ok(trackPatchOp.readOnlyProhibited.includes('name'));
-
-  // 3. Instruments trackPatchRules
-  assert.ok(inst.trackPatchRules?.readOnlyProhibitedFields?.includes('role'));
-  assert.ok(inst.tracks[0].trackPatchRule);
-
-  // 4. Project state notice and fieldAccess
+  assert.equal(caps.operations.find(o => o.op === 'track.patch').allowedValues, 'trackFields');
+  assert.equal(inst.trackPatchRules, undefined);
+  assert.equal(state.fieldAccess, undefined);
   assert.ok(state.notice.includes('READ-ONLY'));
-  assert.ok(state.fieldAccess.readOnlyFields.includes('track.role'));
-  assert.ok(state.fieldAccess.readOnlyFields.includes('track.name'));
-
-  // 5. AGENT_GUIDE.md contains Context Map, Read-Only directive and 8 Voice table
-  assert.ok(guide.includes('Context Files Map & Documentation Architecture'));
-  assert.ok(guide.includes('CRITICAL DIRECTIVE: Read-Only vs Mutable Fields'));
-  assert.ok(guide.includes('STRICTLY PROHIBITED IN `values`'));
-  assert.ok(guide.includes('8 Voice Slots & Role Polyphony Architecture'));
+  assert.ok(guide.includes('Context map'));
 
   // 6. Error guidance for UNKNOWN_FIELD with role/name
   const badReq = {
@@ -697,16 +681,11 @@ test('instruments.json exposes vibeAndSetupPolicy, soundsBySetup, and multi-setu
   assert.ok(inst.vibeAndSetupPolicy.rule);
 
   for (const track of inst.tracks) {
-    assert.ok(track.soundsBySetup, `track ${track.slot} must have soundsBySetup`);
-    assert.ok(Array.isArray(track.soundsBySetup.ambient), `ambient sounds array required for ${track.slot}`);
-    assert.ok(Array.isArray(track.soundsBySetup.reactor), `reactor sounds array required for ${track.slot}`);
-    for (const id of track.compatibleSounds) {
-      const s = inst.sounds.find(sound => sound.id === id);
-      assert.ok(s, 'Every role sound reference resolves');
-      assert.ok(Array.isArray(s.setups), `sound ${s.sound} must have setups array`);
-      assert.ok(s.canonicalId, `sound ${s.sound} must have canonicalId`);
-    }
+    assert.equal(track.soundsBySetup, undefined);
+    assert.equal(track.compatibleSounds, undefined);
+    assert.ok(inst.sounds.some(s => s.compatibleRoles.includes(track.role)));
   }
+
 });
 
 test('request modification after error triggers re-validation, clears error, and sets pending', async () => {
@@ -1070,15 +1049,9 @@ test('AGENT_GUIDE.md provides zero-prompt directives and canonical recipes valid
   const guide = files['AGENT_GUIDE.md'];
   const rules = JSON.parse(files['music-rules.json']);
 
-  // Guide assertions
-  assert.ok(guide.includes('ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE'));
-  assert.ok(guide.includes('Quick Prompt-to-Architecture Decision Matrix'));
-  assert.ok(guide.includes('THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)'));
-  assert.ok(guide.includes('RECIPE A: Holiday / New Year 8-Bar Jingle'));
-  assert.ok(guide.includes('RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean'));
-
-  // Music rules assertions
-  assert.ok(rules.grid.fullPhraseCoverageWarning);
+  assert.ok(guide.includes('original music'));
+  assert.ok(rules.creativeExamples.holiday);
+  assert.ok(rules.creativeExamples.adventure);
   assert.ok(rules.compositionGuidelines.fullPhraseCoverageRule);
 
   // Validate Recipe A (Holiday Jingle 8-bar loop)
@@ -1704,10 +1677,14 @@ test('compact context has one canonical sound registry and recipes use authorita
   const inst=JSON.parse(files['instruments.json']),guide=files['AGENT_GUIDE.md'];
   assert.equal(inst.sounds.length,62);assert.ok(Buffer.byteLength(files['instruments.json'])<85000);
   assert.ok(Buffer.byteLength(guide)<10000);assert.doesNotMatch(guide,/KEEP YOUR REQUEST JSON UNDER|ONLY on 1 or 2 tracks/);
-  for(const role of inst.tracks)for(const [setup,ids]of Object.entries(role.soundsBySetup))for(const id of ids){
-    const sound=inst.sounds.find(s=>s.id===id);assert.ok(sound);assert.ok(sound.setups.includes(setup));assert.ok(sound.compatibleRoles.includes(role.role));
+  for(const role of inst.tracks) {
+    assert.equal(role.soundsBySetup, undefined);
+    assert.ok(inst.sounds.some(s=>s.compatibleRoles.includes(role.role)));
   }
-  for(const name of ['C MAJOR','D MINOR']){const key=caps.harmony.keys.findIndex(k=>k.name===name);assert.match(guide,new RegExp('key '+key+', noteTranspose '+caps.harmony.keys[key].offset));}
+  assert.ok(Buffer.byteLength(guide)<4000);
+  assert.ok(Buffer.byteLength(files['instruments.json'])<45000);
+  assert.equal(JSON.parse(files['project-state.json']).music,undefined);
+
 });
 test('both delivered full scores resolve and apply via the file transport with literal pitches',async()=>{
   const fs=require('node:fs');
@@ -1763,7 +1740,7 @@ test('real directory roundtrip: bounded writes, manifest-last, both full scores,
  }}
  const {api}=createTestApp();const b=FileBridge.createBridge(api,{pollInterval:0});
  try{
-  await b.connect(handle(folder));const context=JSON.parse(await fs.readFile(path.join(folder,'instruments.json'),'utf8'));assert.equal(context.schemaVersion,2);
+  await b.connect(handle(folder));const context=JSON.parse(await fs.readFile(path.join(folder,'instruments.json'),'utf8'));assert.equal(context.schemaVersion,3);
   for(const [index,filename]of ['holiday-loop.halo.json','adventure-song.halo.json'].entries()){
    const score=JSON.parse(await fs.readFile(path.join(__dirname,'../examples/ai',filename),'utf8'));
    const id='req-disk-'+index,dir=path.join(folder,'requests',id);await fs.mkdir(dir);
@@ -1850,4 +1827,32 @@ test('idle scans do not clone and notify the same pending score repeatedly',asyn
  f.bridge.subscribe(()=>notifications++);const initial=notifications;
  await f.bridge.checkFolder();await f.bridge.checkFolder();assert.equal(notifications,initial);
  f.bridge.dispose();
+});
+
+
+test('compact export preserves complete song state without computing a second score', () => {
+  const fs=require('node:fs'),path=require('node:path');
+  const {api}=createTestApp();
+  const project=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/ai/adventure-song.halo.json'),'utf8'));
+  const state={revision:17,project,visual:{scene:'ORBIT'}};
+  const files=FileBridge.getContextFiles({getCapabilities:()=>api.getCapabilities(),getProjectState:()=>state,getContext(){throw Error('Derived score must not be requested')}});
+  const exported=JSON.parse(files['project-state.json']);
+  assert.deepEqual(exported.project,project);
+  assert.equal(exported.revision,17);
+  assert.equal(exported.music,undefined);
+  const caps=JSON.parse(files['capabilities.json']);
+  for(const op of caps.operations)if(typeof op.allowedValues==='string')assert.ok(Array.isArray(caps[op.allowedValues]));
+  const inst=JSON.parse(files['instruments.json']),engine=api.getCapabilities();
+  assert.equal(inst.sounds.length,62);
+  for(const role of inst.tracks){
+    const source=engine.roles[role.trackIndex];
+    assert.equal(role.maxNotes,source.maxNotes);
+    assert.deepEqual(role.policy,source.policy);
+    assert.deepEqual(role.noteRange,{minMidi:source.minMidi??24,maxMidi:source.maxMidi??96});
+  }
+  for(const sound of inst.sounds){
+    const source=engine.catalog[sound.world][sound.instrument].sounds.find(s=>s.id===sound.sound);
+    assert.deepEqual(sound.compatibleRoles,source.playback.compatibleRoles);
+    assert.deepEqual(sound.noteRange,source.playback.range);
+  }
 });

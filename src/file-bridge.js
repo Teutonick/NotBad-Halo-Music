@@ -7,19 +7,19 @@
 
   function generateCapabilities(caps){
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       engine: 'NotBad Halo Music Constructor',
       version: caps.version || 2,
       transport: 'Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools',
       references: {
-        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        agentGuide: 'AGENT_GUIDE.md (submission workflow)',
         instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
-        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)',
+        musicRules: 'music-rules.json (grid, keys, composition advice)',
         projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
       },
       fieldAccess: {
         trackPatch: {
-          mutableValues: caps.trackFields,
+          mutableValues: 'trackFields',
           readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex'],
           rule: 'Track roles and names are permanent slot identifiers fixed by trackIndex 0..7. Never include role or name inside track.patch.values.'
         },
@@ -27,16 +27,6 @@
           mutableValues: ['tempo', 'masterVolume', 'bars', 'startStep', 'key', 'seed', 'setup', 'world', 'soundWorld', 'timeSignature', 'mix', 'liveLoop'],
           readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
         }
-      },
-      submission: {
-        recommended: 'Write requests/<requestId>/ companion files first; manifest.json last.',
-        response: 'responses/<requestId>.result.json',
-        statuses: ['pending_approval', 'applied', 'error', 'rejected'],
-        receiptVersion: 'submissionVersion covers manifest and companions; an unchanged receipt after an edit is stale, wait for a new scan.',
-        tolerantInput: 'File only: direct track fields, digit-string trackIndex, case/whitespace in IDs, world-prefixed sound IDs; conflicting duplicates remain errors.',
-        noResponse: 'Unconfirmed; never infer success from silence.',
-        correction: 'Companion-only changes are detected. Pending changes require a new review; applied request IDs are immutable.',
-        fileToolLimits: 'Split writes to fit the external file tool. No universal 1.5 KB engine limit.'
       },
       modularRequests: {
         supported: true,
@@ -52,21 +42,20 @@
           description: 'Update specific mutable parameters, steps, and notes of a voice slot (0..7). Do NOT include role or name in values.',
           required: ['op', 'trackIndex'],
           optional: ['values (object)', 'file (relative path to companion track JSON)', 'include', 'phraseId (required in multi-phrase compositions)'],
-          allowedValues: caps.trackFields,
-          readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex'],
+          allowedValues: 'trackFields',
           rule: 'role and name are immutable properties of track slots 0..7. Passing role or name inside values throws UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted.'
         },
         {
           op: 'phrase.patch',
           description: 'Update phrase properties: bars, startStep, seed, key, liveLoop, timeSignature',
           required: ['op', 'values'],
-          allowedValues: caps.phraseFields
+          allowedValues: 'phraseFields'
         },
         {
           op: 'master.patch',
           description: 'Update master tempo (30..200 BPM), volume (0..100%), 3-band EQ (-9..9 dB) and stereo width (0..100%)',
           required: ['op', 'values'],
-          allowedValues: caps.masterFields
+          allowedValues: 'masterFields'
         },
         {
           op: 'project.patch',
@@ -97,6 +86,11 @@
       trackFields: caps.trackFields,
       phraseFields: caps.phraseFields,
       masterFields: caps.masterFields,
+      request: {schemaVersion: 1, requestId: 'Unique letters/digits/hyphens/underscores, 1..128 characters', baseRevision: 'Current project-state.json.revision', operations: 'Array of operations below'},
+      projectSchema: {format: 'notbad-halo-project', version: 1, tracks: 'Exactly eight objects with name = instruments.json.tracks[index].slot and mutable trackFields', settings: 'project.patch allowedValues; copy current project for replacement and preserve untouched settings'},
+      normalization: 'File only: direct track fields, digit-string trackIndex, ID case/whitespace and world-prefixed sounds are accepted; conflicting duplicates, unknown fields and semantic violations remain errors.',
+      paths: 'Companion paths are relative to the request/bundle root; no absolute paths or parent traversal.',
+      notes: {event: {step: 'Integer 0..bars*stepsPerBar-1', notes: 'MIDI integers 0..127, bounded by role.maxNotes; see instruments.json'}, rule: 'steps must include every noteEvents.step. Generator 3 manual steps/notes imply exact=true when omitted; explicit false is invalid. No per-note duration, velocity or microtiming. Pitched events need explicit notes; percussion may use steps alone.'},
       parameters: caps.parameters,
       visuals: caps.visuals,
       track09: caps.track09,
@@ -132,49 +126,11 @@
       ...findCompatible(caps.catalog?.reactor, 'reactor')
     ];
 
-    const roles = (caps.roles || []).map((r, i) => {
-      const compatible = allSounds.filter(s => s.compatibleRoles.includes(r.id));
-      const soundsBySetup = {
-        ambient: compatible.filter(s => (s.setups || [s.world]).includes('ambient')).map(s => ({
-          instrument: s.instrument,
-          sound: s.sound,
-          canonicalId: s.canonicalId,
-          name: s.name,
-          affinity: s.affinityRoles.includes(r.id),
-          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
-        })),
-        reactor: compatible.filter(s => (s.setups || [s.world]).includes('reactor')).map(s => ({
-          instrument: s.instrument,
-          sound: s.sound,
-          canonicalId: s.canonicalId,
-          name: s.name,
-          affinity: s.affinityRoles.includes(r.id),
-          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
-        }))
-      };
-      return {
-        trackIndex: i,
-        slot: r.slot,
-        role: r.id,
-        name: r.label,
-        description: r.description,
-        policy: r.policy,
-        noteRange: { minMidi: r.minMidi || 24, maxMidi: r.maxMidi || 96 },
-        allowedBanks: ['ambient', 'reactor'],
-        trackPatchRule: `Use { op: 'track.patch', trackIndex: ${i}, values: { ... } }. NEVER include 'role' or 'name' in values.`,
-        soundsBySetup,
-        compatibleSounds: compatible.map(s => ({
-          world: s.world,
-          setups: s.setups || [s.world],
-          instrument: s.instrument,
-          sound: s.sound,
-          canonicalId: s.canonicalId,
-          name: s.name,
-          affinity: s.affinityRoles.includes(r.id),
-          noteRange: { minMidi: s.noteRange[0], maxMidi: s.noteRange[1] }
-        }))
-      };
-    });
+    const roles = (caps.roles || []).map((r, i) => ({
+      trackIndex: i, slot: r.slot, role: r.id, name: r.label,
+      description: r.description, policy: r.policy, maxNotes: r.maxNotes,
+      noteRange: { minMidi: r.minMidi ?? 24, maxMidi: r.maxMidi ?? 96 }
+    }));
 
     const parameterGlossary = {
       character: {
@@ -217,19 +173,13 @@
     };
 
     return {
-      schemaVersion: 2,
+      schemaVersion: 3,
       description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
       references: {
-        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        agentGuide: 'AGENT_GUIDE.md (submission workflow)',
         capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
-        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)',
+        musicRules: 'music-rules.json (grid, keys, composition advice)',
         projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
-      },
-      trackPatchRules: {
-        usage: "Target a track using { op: 'track.patch', trackIndex: 0..7, values: { ... } }.",
-        mutableFields: caps.trackFields,
-        readOnlyProhibitedFields: ['role', 'name', 'slot', 'trackIndex'],
-        warning: "CRITICAL: Do NOT include 'role' or 'name' inside track.patch.values. They are immutable slot identifiers. Passing them will fail with UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
       },
       vibeAndSetupPolicy: {
         description: 'HALO soundscapes and motifs are strictly vibe-dependent. All 8 tracks must use sounds from the active project setup (world). In project.replace, specify "setup": "ambient" or "setup": "reactor" (or "world": "ambient"/"reactor").',
@@ -246,19 +196,16 @@
         rule: 'To use REACTOR acoustic drums or rock guitars, set "setup": "reactor" in project.replace. In AMBIENT setup ("setup": "ambient"), only AMBIENT procedural sounds are available. A sound may belong to multiple setups if listed in its "setups" array.'
       },
       sounds: allSounds.map(sound => ({ ...sound, id: sound.world + ':' + sound.canonicalId })),
-      tracks: roles.map(r => ({ ...r,
-        soundsBySetup: Object.fromEntries(Object.entries(r.soundsBySetup).map(([setup, sounds]) => [setup, sounds.map(s => allSounds.find(x => x.sound === s.sound && x.instrument === s.instrument).world + ':' + s.canonicalId)])),
-        compatibleSounds: r.compatibleSounds.map(s => s.world + ':' + s.canonicalId)
-      })),
+      tracks: roles,
       parameterGlossary,
       soundWorlds: {
         ambient: {
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
-          soundIds: allSounds.filter(s => s.setups.includes('ambient')).map(s => s.world + ':' + s.canonicalId)
+          selection: 'Filter sounds by setups containing ambient and compatibleRoles containing the target role.'
         },
         reactor: {
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
-          soundIds: allSounds.filter(s => s.setups.includes('reactor')).map(s => s.world + ':' + s.canonicalId)
+          selection: 'Filter sounds by setups containing reactor and compatibleRoles containing the target role.'
         }
       }
     };
@@ -266,10 +213,10 @@
 
   function generateMusicRules(caps){
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       description: 'HALO Musical Rules, Transport, Time Signatures, Rhythmic Grid, and Harmony Guidelines.',
       references: {
-        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        agentGuide: 'AGENT_GUIDE.md (submission workflow)',
         capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
         instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
         projectState: 'project-state.json (Read-only live state snapshot, base revision, active voices)'
@@ -309,7 +256,6 @@
           description: '12 sixteenth steps per bar. In 4 bars, forms a 3/4 waltz; in 8 bars, forms a rocking 6/8 pirate swing.'
         }
       },
-      tempo: { min: 30, max: 200, default: 72 },
       grid: {
         stepsPerBar: 16,
         stepDuration: '1 sixteenth note (1/16)',
@@ -317,13 +263,11 @@
         eighthNotes: [0, 2, 4, 6, 8, 10, 12, 14],
         sixteenthNotes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
         rests: 'A rest or pause is created simply by omitting the step index from the "steps" array.',
-        fullPhraseCoverageWarning: 'CRITICAL: In an 8-bar loop in 4/4 (128 steps) or 3/4 (96 steps), you must write steps and noteEvents across ALL bars (e.g. Bar 1: 0..15, Bar 2: 16..31, ... Bar 8: 112..127). Writing steps only within 0..15 leaves bars 2 through 8 completely silent!'
+        indexing: 'Absolute phrase step = barIndex * timeSignatures[meter].stepsPerBar + stepWithinBar (zero-based).'
       },
       phraseLengths: {
         allowedBars: [4, 8],
-        stepsIn4Bars: 64,
-        stepsIn8Bars: 128,
-        maxSongBars: 128
+        lengths: 'See timeSignatures[meter].phraseSteps; technical song limits are in capabilities.json.limits.'
       },
       keysAndScales: {
         circleOfFifths: caps.harmony?.keys || [],
@@ -333,17 +277,10 @@
         }
       },
       compositionGuidelines: {
-        generatorMode: 'Set "generator": 3 and "exact": true for deterministic manual note scheduling.',
-        fullPhraseCoverageRule: 'When composing a melody, chords, or bassline for an 8-bar loop, distribute notes across the entire duration (0..127 in 4/4; 0..95 in 3/4). Do NOT stop at step 15!',
-        stepsAndNoteEvents: 'The "steps" array contains the integer step indices where notes trigger (0..bars*16-1). The "noteEvents" array contains objects "{ step: N, notes: [MIDI...] }". Every step with pitched notes must match an entry in "steps".',
-        noteTranspose: 'Set "noteTranspose" to the key\'s offset (from harmony.keys[key].offset) so that noteEvents MIDI numbers are played as literal pitches.',
-        rolePolyphonyConstraints: {
-          bass: 'Mono: maximum 1 note per step (MIDI 24..60)',
-          lead: 'Mono or duo: 1 to 2 notes per step (MIDI 48..96)',
-          harmony: 'Polyphonic: up to 4 notes per step (MIDI 36..84)',
-          arpeggio: 'Mono: 1 note per step, fast and short (MIDI 48..84)',
-          pulse_and_percussion: 'Rhythmic: empty notes array "notes: []" triggers the percussive timbre'
-        }
+        fullPhraseCoverageRule: 'Exact steps do not repeat automatically: develop motifs across every requested bar, with intentional rests. A one-bar pattern alone leaves the remaining bars silent.',
+        phrasing: 'Shape a recognizable motif, answer it, vary its rhythm or contour, and resolve toward the tonal center. Leave breathing space; avoid filling all eight voices continuously.',
+        orchestration: 'Give melody, bass and harmony distinct registers. Support strong beats with bass roots, use passing tones deliberately, and restrain simultaneous attacks, brightness and reverb.',
+        noteTranspose: "For literal MIDI, use keysAndScales.circleOfFifths[key].offset, not the key index."
       },
       soundWorlds: {
         ambient: {
@@ -364,15 +301,13 @@
         },
         switchingPolicy: 'Set "setup": "ambient" or "setup": "reactor" in project.replace or in every phrase of composition.replace. All phrases within a composition must share the same sound world. Instruments can be freely assigned from any bank to any track, but the overall acoustic environment and default styling are governed by setup.'
       },
+      creativeExamples: {
+        holiday: 'Original eight-bar AMBIENT jingle in C major, 96 BPM, 4/4: bell melody, bass roots, light percussion and restrained four-note pads. Develop an answer and cadence, rather than repeating one bar.',
+        adventure: 'Original REACTOR adventure theme in D minor, 104 BPM, 3/4 with compound accents at 0 and 6: bass, guitar lead and piano chords. If a song is requested, develop intro, verse, chorus and outro with contrasts, recurring phrases and a final fade.'
+      },
       songFormAndComposition: {
         defaultMode: 'single_phrase',
         policy: 'HALO works with individual 4/8-bar phrases by default unless a full composition/song is explicitly requested ("song", "full composition", "arrangement").',
-        limits: {
-          maxPhrases: 15,
-          maxSections: 32,
-          maxBars: 128,
-          repeatsPerSection: [1, 8]
-        },
         canonicalForm: [
           { name: 'intro', description: 'Introduction: sparse texture, atmosphere, bells, no heavy bass, 1..2 repeats' },
           { name: 'verse', description: 'First Verse: groove enters, bassline establishes tonal center, 1..2 repeats' },
@@ -386,91 +321,56 @@
     };
   }
 
-  function generateProjectState(state, context){
+  function generateProjectState(state){
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       notice: 'READ-ONLY LIVE SNAPSHOT. Do not edit this file directly. Submit change requests to requests/<requestId>.json.',
       references: {
-        agentGuide: 'AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)',
+        agentGuide: 'AGENT_GUIDE.md (submission workflow)',
         capabilities: 'capabilities.json (Engine limits, operations allowlist, mutable vs read-only schema)',
         instruments: 'instruments.json (8 voices, sound catalogs by setup, note registers, role policies)',
-        musicRules: 'music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)'
-      },
-      fieldAccess: {
-        readOnlyFields: ['revision', 'schemaVersion', 'exportedAt', 'music', 'history', 'track.name', 'track.role'],
-        trackPatchMutableValues: ['instrument', 'sound', 'generator', 'on', 'steps', 'exact', 'sequence', 'noteEvents', 'noteTranspose', 'level', 'density', 'character', 'duration', 'space', 'delay', 'delayTime', 'chorus'],
-        warning: "CRITICAL: 'role' and 'name' are read-only slot identifiers. NEVER include 'role' or 'name' inside track.patch.values!"
+        musicRules: 'music-rules.json (grid, keys, composition advice)'
       },
       revision: state.revision,
       exportedAt: new Date().toISOString(),
       project: state.project,
-      visual: state.visual || null,
-      music: context?.music || [],
-      history: context?.history || { undo: 0, redo: 0 }
+      visual: state.visual || null
     };
   }
 
   function generateAgentGuide(caps, state){
-    const keys = caps.harmony?.keys || [];
-    const keyIndex = name => keys.findIndex(k => k.name === name);
-    return `# HALO Agent Guide / AI Instruction Manual
+    return `# HALO Agent Guide
 
-## Context Files Map & Documentation Architecture
-Read this guide, project-state.json (READ-ONLY revision and score), capabilities.json (operations and constraints), instruments.json (canonical sounds and role references), and music-rules.json (grid and indexed keys). Do not edit exported context files.
-
-## ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE
-Translate the user's musical intention into original explicit MIDI parts. No technical prompting is required from the user. All eight voices are available for scoring; inspect mute states instead of assuming all are enabled.
+## Context map
+Read project-state.json for revision and the current project. Read capabilities.json for operation schemas and technical limits, instruments.json for sounds/roles, and music-rules.json for grids, keys and composition advice. Context files are READ-ONLY; submit requests instead. Start with the requested part; consult composition, track09 or visuals only when needed. Preserve unrelated parts and local audio references.
 
 ## Strict 4-Step Agent Workflow & Verification Protocol
-1. Read the context and current revision (${state.revision} at export). For long edits prefer a paused transport. Select compatible sounds by the active setup and role.
-2. Compose the full requested duration. Write JSON companion files first, preferably one track or phrase per file in requests/<requestId>/. Keep each write comfortably below YOUR file-writing tool's argument/output limit; use smaller parts for separate operations, or bounded append/edit calls to complete a larger individual file. There is no universal 1.5 KB HALO limit and no 1-2 track restriction. Read back and parse the files with your available file tools before publishing. Do not execute HALO to validate them.
-3. Write manifest.json LAST, after all companion files are complete. Use a fresh requestId containing only letters, digits, hyphens or underscores (maximum 128 characters). Small single-file requests remain supported. Example:
+1. Read the current revision (export: ${state.revision}) and the relevant context above. Translate the user's intention into original music, using the musical recommendations. Default to one phrase for a melody/loop/jingle; arrange a song only when requested.
+2. Compose the requested duration in memory. Write companion JSON files into requests/<requestId>/; each track companion is a values OBJECT, not an array. Split writes to fit YOUR file tool, read back and parse completed files. All eight voices may be scored; there is no universal 1.5 KB file limit. Do not execute HALO for validation.
+3. Write manifest.json LAST. Copyable example (track-5.json contains {"steps":[0],"noteEvents":[{"step":0,"notes":[76]}]}):
 \`\`\`json
-{"requestId":"req-holiday","schemaVersion":1,"baseRevision":${state.revision},"operations":[{"op":"project.patch","values":{"setup":"ambient","bars":8,"tempo":96,"key":${keyIndex('C MAJOR')}}},{"op":"track.patch","trackIndex":5,"file":"track-5.json"}]}
+{"requestId":"req-melody","schemaVersion":1,"baseRevision":${state.revision},"operations":[{"op":"track.patch","trackIndex":5,"file":"track-5.json"}]}
 \`\`\`
-Companion track-5.json contains mutable values, for example {"instrument":"GLASS","sound":"bell","on":true,"noteTranspose":-2,"steps":[0,32,64,96,124],"noteEvents":[{"step":0,"notes":[76]},{"step":32,"notes":[77]},{"step":64,"notes":[79]},{"step":96,"notes":[76]},{"step":124,"notes":[72]}]}. This is a sparse format illustration, not a complete holiday score. For full replacement use project.replace with exactly eight tracks, each optionally {"file":"track-N.json"}. For a song use composition.replace, phrases[{id,label,project}], and sections[{phrase,name,repeats,fade}]. Labels: 1..10 letters/digits, no spaces. All references are relative to the bundle root; no absolute paths or parent traversal. Existing flat files, include aliases and parts arrays remain compatible, but folder bundles are the recommended long-score path.
-4. Wait 4-5 seconds, then inspect responses/<requestId>.result.json. status="pending_approval" means validated and awaiting the human's approval; status="applied" means appliedRevision is committed; status="error" means inspect error/help/instructionForAgent, fix the indicated files and retry at most twice; status="rejected" means stop and respect the decision. No response means UNCONFIRMED, never success: ask the user to check the folder connection/page or an earlier pending proposal. Do not poll indefinitely. End the turn after an explicit pending acknowledgement. Do not change files after acknowledgement: HALO applies only the validated snapshot; edits invalidate it and require a new review. Use a NEW requestId after application.
+For a small request, replace file with values containing that object and write requests/req-melody.json. Use compatible sound/instrument and literal-pitch transpose from the other context files when selecting a new sound/key. The example shows format, not a complete score.
+4. Wait 4-5 seconds and read responses/<requestId>.result.json. pending_approval = validated, awaiting human approval: notify the user and end the turn. applied = applied; rejected = stop. On error, read error/help/instructionForAgent, correct the same files and retry at most twice. No response means UNCONFIRMED: ask the user to check the page/folder connection; never infer success or poll indefinitely.
 
-## Copyable inline form and correction receipts
-Inline track operation: {"op":"track.patch","trackIndex":5,"values":{"instrument":"GLASS","sound":"bell","steps":[0],"noteEvents":[{"step":0,"notes":[76]}]}}.
-A companion contains the values object itself, NOT an array. Flat layout is equally supported: requests/req-holiday.json references "req-holiday-track-5.json" beside it. Never rename companion files without updating references. A missing file is a publication/path error, not a musical error. Publish the manifest last even when your export tool reorders files.
-File-only acceptance tolerates track fields directly on an operation, digit-string trackIndex, case/whitespace in operation/instrument/sound IDs and ambient-/reactor- sound prefixes. Conflicting duplicate fields are errors. Unknown fields, unsafe paths, incompatible sounds, note bounds and revision safeguards remain strict. Prefer the canonical values form above.
-Responses contain submissionVersion, a token covering the manifest AND referenced files. After a correction, an unchanged token/timestamp is an OLD receipt: wait for the next scan before diagnosing it again. Keep the same requestId and filenames for corrections; do not leave several competing manifests. Never treat an older error as evidence that the corrected version failed. If a fresh receipt does not arrive, report unconfirmed connection/publication rather than rewriting the score again.
+## Correction receipts
+submissionVersion covers manifest AND companions. After editing, an unchanged token/timestamp is an old receipt: wait for a fresh scan before diagnosing. Keep requestId and filenames while correcting; update references if renaming. After pending acknowledgement, edits require new review. Applied/rejected IDs must not be reused. Missing files are publication errors, not musical errors. HALO validates requests; use the returned diagnostics rather than guessing constraints.
 
-## CRITICAL DIRECTIVE: Read-Only vs Mutable Fields
-STRICTLY PROHIBITED IN \`values\`: role, name, slot, trackIndex. track.patch targets trackIndex 0..7; in a multi-phrase composition also specify phraseId. Allowed values are listed in capabilities.json.trackFields. Custom steps/noteEvents imply exact=true when omitted; explicit exact=false remains invalid. Supply steps containing every noteEvents.step. For literal MIDI set noteTranspose to keysAndScales.circleOfFifths[key].offset, NOT the key index. Choose instrument and canonicalId from instruments.json.sounds, with compatibleRoles containing the slot role. Bank identity is independent of track slot. Sound IDs have no world prefix.
-
-## 8 Voice Slots & Role Polyphony Architecture
-${(caps.roles || []).map((r,i)=>`${i}: ${r.slot} / ${r.id}, maximum ${r.maxNotes} notes per event`).join('\n')}
-Exactly eight tracks for a replacement. Explicit notes for every pitched event; percussion can use steps alone. No per-note duration or velocity; envelope settings are per track. Preserve unrelated tracks and Track 09 local references when editing.
-
-## THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)
-4/4: 16 steps/bar, 4 bars=64 or 8 bars=128 steps. 3/4: 12 steps/bar, 4 bars=48 or 8 bars=96 steps; eight-bar mode displays the compound 6/8 feel. Exact steps do not repeat a one-bar pattern automatically. Score across all bars with intentional rests, not accidental silence after step 15.
-
-## Quick Prompt-to-Architecture Decision Matrix
-DEFAULT MODE: SINGLE PHRASE for a loop/jingle. A complete song explicitly requested by the user uses composition.replace. AMBIENT vs REACTOR: ambient procedural bells/pads for calm holiday music; reactor local CC0 drums/guitar/piano for adventure rock. MAXIMUM 15 UNIQUE PHRASES, 32 sections, 128 total bars. Reuse phrase IDs for recurring sections. Allowed section names: intro, verse, verse2, chorus, bridge, outro, phrase. Intro -> Verse -> Chorus -> Verse2 -> Chorus -> Outro is one possible form, not a mandatory template.
-
-### RECIPE A: Holiday / New Year 8-Bar Jingle
-C Major: key ${keyIndex('C MAJOR')}, noteTranspose ${keys[keyIndex('C MAJOR')]?.offset}, ambient, 96 BPM, 8 bars in 4/4. Original bell melody (slot5), bass (slot4), light rhythm (slot2), four-note harmony (slot7). Score other voices deliberately; all eight may be rewritten. Select exact sound/bank IDs from the registry.
-
-### RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean
-D Minor: key ${keyIndex('D MINOR')}, noteTranspose ${keys[keyIndex('D MINOR')]?.offset}, reactor, 104 BPM, 8-bar phrases in 3/4 (96 steps). Write an ORIGINAL adventure theme with compound accents at 0 and 6, bass, guitar lead and piano chords. Use independent Intro, Verse, Chorus and Outro phrases with deliberate dynamics, repeats and a final fade out. Do not claim orchestral instruments absent from the catalog.
-
-## File Bridge boundaries
-NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. NO BROWSER LAUNCHING by a folder-only composition agent. HALO is already open and connected; use file tools only. No server, model key, account or uploads. File-writing tool limits belong to the external harness, not WebMCP. Request size and engine limits remain in capabilities.json. Approval and audio startup remain user-controlled.
+## Folder-only boundaries
+NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. NO BROWSER LAUNCHING. HALO is already open and connected; use file tools only. Approval and audio startup remain user-controlled.
 `;
   }
 
   function getContextFiles(api){
     const caps = api.getCapabilities();
     const state = api.getProjectState();
-    const context = api.getContext();
     return {
       'AGENT_GUIDE.md': generateAgentGuide(caps, state),
       'capabilities.json': JSON.stringify(generateCapabilities(caps), null, 2),
       'instruments.json': JSON.stringify(generateInstruments(caps), null, 2),
       'music-rules.json': JSON.stringify(generateMusicRules(caps), null, 2),
-      'project-state.json': JSON.stringify(generateProjectState(state, context), null, 2)
+      'project-state.json': JSON.stringify(generateProjectState(state), null, 2)
     };
   }
 
@@ -964,7 +864,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
       if (msg.includes('belongs to the "REACTOR" setup') || msg.includes('belongs to the "AMBIENT" setup')) {
         help = 'Sound setup/vibe mismatch: ' + msg + ' To use this sound, set "setup": "reactor" (or "world": "reactor") in project.replace, or choose sounds available in the current setup from instruments.json.';
       } else {
-        help = 'Sound ID not found or not available in this slot/setup. Check soundsBySetup in instruments.json for your active setup ("ambient" or "reactor") and slot name. Ensure sound names do not have invalid prefixes.';
+        help = 'Sound ID not found or not available in this slot/setup. Filter instruments.json.sounds by active setups and compatibleRoles for the target slot. Ensure sound names do not have invalid prefixes.';
       }
     } else if (msg.includes('UNSUPPORTED_FORMAT')) {
       help = 'For single-phrase project, format must be "notbad-halo-project" or "halo-project". For multi-phrase songs, format must be "halo-composition".';
@@ -1071,8 +971,7 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
 
   async function syncStateOnly(dirHandle, api){
     const state = api.getProjectState();
-    const context = api.getContext();
-    const content = JSON.stringify(generateProjectState(state, context), null, 2);
+    const content = JSON.stringify(generateProjectState(state), null, 2);
     await writeFsFile(dirHandle, 'project-state.json', content);
   }
 
@@ -2072,10 +1971,10 @@ NO LOCALHOST, NO WEBSERVERS, NO PORTS. NO CLI OR EXECUTABLES for running HALO. N
     const guideHead = el('strong', tr('Структура папки HALO-Bridge', 'HALO-Bridge Folder Structure'), 'display:block;font-size:11px;margin-top:14px;margin-bottom:6px;');
     const list = el('ul', '', 'font-size:10px;line-height:1.6;color:#a8c0cf;margin:0 0 12px 18px;padding:0;');
     list.innerHTML = `
-      <li><code>AGENT_GUIDE.md</code> — ${tr('Инструкция агенту: правила создания музыки и форматы команд','Agent instructions: music creation rules and request schema')}</li>
+      <li><code>AGENT_GUIDE.md</code> — ${tr('Короткий алгоритм отправки и проверки ответа','Short submission and response workflow')}</li>
       <li><code>capabilities.json</code> — ${tr('Паспорт движка: операции, параметры, FX, мастер, лимиты','Engine passport: operations, parameters, FX, master, limits')}</li>
       <li><code>instruments.json</code> — ${tr('8 голосов, пресеты, совместимость и звуковой смысл каждого параметра','8 voices, presets, compatibility, and sonic meaning of each parameter')}</li>
-      <li><code>music-rules.json</code> — ${tr('Сетка 16 шагов 4/4, 24 тональности квинтового круга, гаммы, полифония','16-step 4/4 grid, 24 Circle of Fifths keys, scales, polyphony')}</li>
+      <li><code>music-rules.json</code> — ${tr('Сетки 4/4 и 3/4, тональности, гаммы и советы по сочинению','4/4 and 3/4 grids, keys, scales and composition advice')}</li>
       <li><code>project-state.json</code> — ${tr('Снимок текущей композиции (ревизия, ноты, фразы) — только для чтения','Snapshot of active composition (revision, notes, phrases) — read-only')}</li>
       <li><code>requests/</code> — ${tr('Папка входящих команд агента: отдельные JSON или бандлы-папки (например, request-001.json или request-001/manifest.json)','Incoming agent command folder: standalone JSON or subfolder bundles (e.g. request-001.json or request-001/manifest.json)')}</li>
       <li><code>responses/</code> — ${tr('Папка ответов HALO (например, request-001.result.json)','HALO response folder (e.g. request-001.result.json)')}</li>

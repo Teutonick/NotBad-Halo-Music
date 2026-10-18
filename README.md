@@ -147,3 +147,10 @@ Folder selection now displays waiting status and inline cancellation/errors in R
 
 
 2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.
+
+
+### File Bridge context consolidation — 2026-10-18
+
+The five context files now have separate responsibilities: workflow, technical schemas, sound/role registry, musical guidance, and current state. Instruments schema 3 removes derived compatibility indexes; project-state schema 2 removes the duplicate resolved score and field-access lists. Musical recommendations remain in music-rules.json. Refresh connected folders with Update Files. Request/project formats, validation, playback, approval and WebMCP remain unchanged. No runtime dependency or Pages path change.
+
+Context schema versions after consolidation: capabilities 2, instruments 3, music-rules 2, project-state 2; request schemaVersion remains 1.
