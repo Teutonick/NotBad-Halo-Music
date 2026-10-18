@@ -1061,4 +1061,569 @@ test('File Bridge auto-aligns startStep to phrase boundaries when bars changes',
   assert.equal(check.preview.after.startStep, 0);
 });
 
+test('AGENT_GUIDE.md provides zero-prompt directives and canonical recipes validate cleanly', async () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+  const guide = files['AGENT_GUIDE.md'];
+  const rules = JSON.parse(files['music-rules.json']);
+
+  // Guide assertions
+  assert.ok(guide.includes('ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE'));
+  assert.ok(guide.includes('Quick Prompt-to-Architecture Decision Matrix'));
+  assert.ok(guide.includes('THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)'));
+  assert.ok(guide.includes('RECIPE A: Holiday / New Year 8-Bar Jingle'));
+  assert.ok(guide.includes('RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean'));
+
+  // Music rules assertions
+  assert.ok(rules.grid.fullPhraseCoverageWarning);
+  assert.ok(rules.compositionGuidelines.fullPhraseCoverageRule);
+
+  // Validate Recipe A (Holiday Jingle 8-bar loop)
+  const jinglePayload = {
+    requestId: 'test-recipe-a-jingle',
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      {
+        op: 'project.patch',
+        values: { tempo: 96, bars: 8, key: 0 }
+      },
+      {
+        op: 'track.patch',
+        trackIndex: 5,
+        values: {
+          sound: 'bell',
+          character: 75,
+          steps: [0, 4, 8, 16, 20, 24, 32, 36, 40, 44, 48, 64, 68, 72, 76, 80, 84, 88, 96, 100, 104, 108, 112],
+          noteEvents: [
+            { step: 0, notes: [64] }, { step: 4, notes: [64] }, { step: 8, notes: [64] },
+            { step: 16, notes: [64] }, { step: 20, notes: [64] }, { step: 24, notes: [64] },
+            { step: 32, notes: [64] }, { step: 36, notes: [67] }, { step: 40, notes: [60] },
+            { step: 44, notes: [62] }, { step: 48, notes: [64] },
+            { step: 64, notes: [65] }, { step: 68, notes: [65] }, { step: 72, notes: [65] },
+            { step: 76, notes: [65] }, { step: 80, notes: [65] }, { step: 84, notes: [64] },
+            { step: 88, notes: [64] },
+            { step: 96, notes: [67] }, { step: 100, notes: [67] }, { step: 104, notes: [65] },
+            { step: 108, notes: [62] }, { step: 112, notes: [60] }
+          ]
+        }
+      },
+      {
+        op: 'track.patch',
+        trackIndex: 4,
+        values: {
+          sound: 'round',
+          steps: [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120],
+          noteEvents: [
+            { step: 0, notes: [36] }, { step: 8, notes: [36] }, { step: 16, notes: [36] }, { step: 24, notes: [36] },
+            { step: 32, notes: [36] }, { step: 40, notes: [36] }, { step: 48, notes: [36] }, { step: 56, notes: [36] },
+            { step: 64, notes: [41] }, { step: 72, notes: [41] }, { step: 80, notes: [36] }, { step: 88, notes: [36] },
+            { step: 96, notes: [43] }, { step: 104, notes: [43] }, { step: 112, notes: [36] }, { step: 120, notes: [36] }
+          ]
+        }
+      }
+    ]
+  };
+  const jingleCheck = FileBridge.parseAndValidateRequest(api, JSON.stringify(jinglePayload), 'test-recipe-a-jingle');
+  assert.equal(jingleCheck.ok, true);
+  assert.equal(jingleCheck.preview.after.bars, 8);
+  assert.equal(jingleCheck.preview.after.tracks[5].exact, true);
+  assert.equal(jingleCheck.preview.after.tracks[5].steps.length, 23);
+  assert.equal(jingleCheck.preview.after.tracks[5].steps[22], 112);
+
+  // Validate Recipe B (Pirates of the Caribbean composition with 3/4 6/8 pirate swing)
+  const defaultTracks = [
+    { name: 'GLASS', instrument: 'GLASS', generator: 3, sound: 'dry-kick', on: true, level: 70, density: 50, character: 50, duration: 50, space: 15, steps: [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90] },
+    { name: 'TIDAL', instrument: 'TIDAL', generator: 3, sound: 'dry-snare', on: true, level: 65, density: 50, character: 50, duration: 50, space: 20, steps: [6, 18, 30, 42, 54, 66, 78, 90] },
+    { name: 'ROOT', instrument: 'ROOT', generator: 3, sound: 'tight-hat', on: true, level: 55, density: 50, character: 50, duration: 50, space: 10, steps: [0, 2, 4, 6, 8, 10] },
+    { name: 'EMBER', instrument: 'EMBER', generator: 3, sound: 'war-tom', on: true, level: 60, density: 50, character: 50, duration: 50, space: 25, steps: [0, 12, 24, 36, 48, 60, 72, 84] },
+    { name: 'RAIN', instrument: 'RAIN', generator: 3, sound: 'pick-bass', on: true, level: 70, density: 50, character: 50, duration: 50, space: 10, steps: [0, 6, 12, 18, 24, 30, 36, 42] },
+    { name: 'VEIL', instrument: 'VEIL', generator: 3, sound: 'power-guitar', on: true, level: 70, density: 50, character: 50, duration: 50, space: 15, steps: [0, 6, 12, 18, 24, 30, 36, 42] },
+    { name: 'MOSS', instrument: 'MOSS', generator: 3, sound: 'octave-lead', on: true, level: 75, density: 50, character: 50, duration: 50, space: 25, steps: [0, 3, 6, 9, 12, 15, 18, 21] },
+    { name: 'AURA', instrument: 'AURA', generator: 3, sound: 'dark-piano', on: true, level: 65, density: 50, character: 50, duration: 50, space: 25, steps: [0, 12, 24, 36, 48, 60, 72, 84] }
+  ];
+  const piratesPayload = {
+    requestId: 'test-recipe-b-pirates',
+    schemaVersion: 1,
+    baseRevision: api.getProjectState().revision,
+    operations: [
+      {
+        op: 'composition.replace',
+        project: {
+          format: 'halo-composition',
+          version: 1,
+          tempo: 104,
+          repeat: true,
+          timeSignature: '3/4',
+          phrases: [
+            {
+              id: 1,
+              label: 'Intro',
+              project: {
+                format: 'notbad-halo-project',
+                version: 1,
+                setup: 'reactor',
+                bars: 8,
+                tempo: 104,
+                key: 14,
+                timeSignature: '3/4',
+                tracks: defaultTracks
+              }
+            },
+            {
+              id: 2,
+              label: 'Theme',
+              project: {
+                format: 'notbad-halo-project',
+                version: 1,
+                setup: 'reactor',
+                bars: 8,
+                tempo: 104,
+                key: 14,
+                timeSignature: '3/4',
+                tracks: defaultTracks
+              }
+            }
+          ],
+          sections: [
+            { phrase: 1, name: 'intro', repeats: 1, fade: 'none' },
+            { phrase: 2, name: 'verse', repeats: 2, fade: 'none' },
+            { phrase: 1, name: 'outro', repeats: 1, fade: 'out' }
+          ]
+        }
+      }
+    ]
+  };
+  const piratesCheck = FileBridge.parseAndValidateRequest(api, JSON.stringify(piratesPayload), 'test-recipe-b-pirates');
+  assert.equal(piratesCheck.ok, true);
+  assert.equal(piratesCheck.preview.after.format, 'halo-composition');
+  assert.equal(piratesCheck.preview.after.timeSignature, '3/4');
+  assert.equal(piratesCheck.preview.after.tempo, 104);
+  assert.equal(piratesCheck.preview.after.phrases.length, 2);
+  assert.equal(piratesCheck.preview.after.sections.length, 3);
+});
+
+test('resolveRequestPayload and resolveRequestPayloadSync resolve modular track.patch operations from companion files', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  const companionFiles = {
+    'track-5.json': JSON.stringify({
+      sound: 'bell',
+      character: 75,
+      steps: [0, 4, 8, 12],
+      noteEvents: [
+        { step: 0, notes: [64] },
+        { step: 4, notes: [64] },
+        { step: 8, notes: [64] },
+        { step: 12, notes: [67] }
+      ]
+    })
+  };
+
+  const req = {
+    requestId: 'req-modular-001',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [
+      {
+        op: 'track.patch',
+        trackIndex: 5,
+        file: 'track-5.json'
+      }
+    ]
+  };
+
+  // 1. Sync resolution
+  const syncResolved = FileBridge.resolveRequestPayloadSync(req, p => companionFiles[p]);
+  assert.equal(syncResolved.operations[0].trackIndex, 5);
+  assert.equal(syncResolved.operations[0].values.sound, 'bell');
+  assert.deepEqual(syncResolved.operations[0].values.steps, [0, 4, 8, 12]);
+  assert.equal(syncResolved.operations[0].file, undefined);
+
+  // 2. Async resolution
+  const asyncResolved = await FileBridge.resolveRequestPayload(req, async p => companionFiles[p]);
+  assert.equal(asyncResolved.operations[0].trackIndex, 5);
+  assert.equal(asyncResolved.operations[0].values.character, 75);
+
+  // 3. parseAndValidateRequest with options.files
+  const validated = FileBridge.parseAndValidateRequest(api, JSON.stringify(req), 'req-modular-001', { files: companionFiles });
+  assert.equal(validated.ok, true);
+  assert.equal(validated.id, 'req-modular-001');
+  assert.equal(validated.preview.after.tracks[5].sound, 'bell');
+  assert.deepEqual(validated.preview.after.tracks[5].steps, [0, 4, 8, 12]);
+});
+
+test('Modular project.replace resolves all 8 companion track files and scores entire orchestra note-by-note', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  const trackFiles = {};
+  const names = ['GLASS', 'TIDAL', 'ROOT', 'EMBER', 'RAIN', 'VEIL', 'MOSS', 'AURA'];
+  const sounds = ['pulse', 'wood', 'shaker', 'wind', 'round', 'bell', 'string', 'air'];
+  const instruments = ['ROOT', 'MOSS', 'RAIN', 'AURA', 'ROOT', 'GLASS', 'EMBER', 'TIDAL'];
+
+  for (let i = 0; i < 8; i++) {
+    trackFiles[`t${i}.json`] = JSON.stringify({
+      name: names[i],
+      instrument: instruments[i],
+      sound: sounds[i],
+      steps: [0, 4, 8, 12],
+      noteEvents: [
+        { step: 0, notes: [48 + i * 4] },
+        { step: 4, notes: [50 + i * 4] },
+        { step: 8, notes: [52 + i * 4] },
+        { step: 12, notes: [55 + i * 4] }
+      ]
+    });
+  }
+
+  const manifest = {
+    requestId: 'req-full-orchestra',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [
+      {
+        op: 'project.replace',
+        project: {
+          format: 'notbad-halo-project',
+          version: 1,
+          setup: 'ambient',
+          bars: 8,
+          tempo: 96,
+          key: 0,
+          tracks: [
+            { file: 't0.json' },
+            { file: 't1.json' },
+            { file: 't2.json' },
+            { file: 't3.json' },
+            { file: 't4.json' },
+            { file: 't5.json' },
+            { file: 't6.json' },
+            { file: 't7.json' }
+          ]
+        }
+      }
+    ]
+  };
+
+  const validated = await FileBridge.resolveAndValidateRequest(api, JSON.stringify(manifest), async p => trackFiles[p], 'req-full-orchestra');
+  assert.equal(validated.ok, true);
+  assert.equal(validated.preview.after.tracks.length, 8);
+  for (let i = 0; i < 8; i++) {
+    assert.equal(validated.preview.after.tracks[i].sound, sounds[i]);
+    assert.deepEqual(validated.preview.after.tracks[i].steps, [0, 4, 8, 12]);
+    assert.equal(validated.preview.after.tracks[i].noteEvents.length, 4);
+    assert.equal(validated.preview.after.tracks[i].exact, true);
+  }
+});
+
+test('Modular request supports "parts" array expanding into atomic operations', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  const partFiles = {
+    'part-drums.json': JSON.stringify([
+      { op: 'track.patch', trackIndex: 0, values: { sound: 'pulse', steps: [0, 4, 8, 12] } },
+      { op: 'track.patch', trackIndex: 1, values: { sound: 'wood', steps: [4, 12] } }
+    ]),
+    'part-lead.json': JSON.stringify({
+      op: 'track.patch',
+      trackIndex: 5,
+      values: { sound: 'bow', steps: [0, 8], noteEvents: [{ step: 0, notes: [72] }, { step: 8, notes: [76] }] }
+    })
+  };
+
+  const rootReq = {
+    requestId: 'req-parts',
+    schemaVersion: 1,
+    baseRevision: rev,
+    parts: [
+      'part-drums.json',
+      'part-lead.json'
+    ]
+  };
+
+  const resolved = await FileBridge.resolveRequestPayload(rootReq, async p => partFiles[p]);
+  assert.equal(resolved.operations.length, 3);
+  assert.equal(resolved.operations[0].trackIndex, 0);
+  assert.equal(resolved.operations[1].trackIndex, 1);
+  assert.equal(resolved.operations[2].trackIndex, 5);
+
+  const validated = FileBridge.parseAndValidateRequest(api, resolved, 'req-parts');
+  assert.equal(validated.ok, true);
+});
+
+test('Path traversal security guard rejects unsafe relative and absolute paths', async () => {
+  const unsafePaths = ['../secret.json', '..\\secret.json', '/etc/passwd', '\\Windows\\System32', 'C:\\autoexec.bat'];
+
+  for (const p of unsafePaths) {
+    assert.throws(() => {
+      FileBridge.resolveRequestPayloadSync({
+        schemaVersion: 1,
+        baseRevision: 1,
+        operations: [{ op: 'track.patch', trackIndex: 0, file: p }]
+      }, () => '{}');
+    }, /SECURITY_PATH_TRAVERSAL/);
+  }
+});
+
+test('Invalid JSON syntax or missing companion file reports clean error guidance', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  // Missing file
+  const reqMissing = {
+    requestId: 'req-missing',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [{ op: 'track.patch', trackIndex: 0, file: 'nonexistent.json' }]
+  };
+  const resMissing = await FileBridge.resolveAndValidateRequest(api, reqMissing, async () => null, 'req-missing');
+  assert.equal(resMissing.ok, false);
+  assert.match(resMissing.error, /FILE_NOT_FOUND/);
+
+  // Invalid JSON in companion
+  const reqBadJson = {
+    requestId: 'req-badjson',
+    schemaVersion: 1,
+    baseRevision: rev,
+    operations: [{ op: 'track.patch', trackIndex: 0, file: 'corrupt.json' }]
+  };
+  const resBadJson = await FileBridge.resolveAndValidateRequest(api, reqBadJson, async () => '{ bad: json', 'req-badjson');
+  assert.equal(resBadJson.ok, false);
+  assert.match(resBadJson.error, /INVALID_JSON/);
+});
+
+test('checkFolder scans Folder Bundles in requests/ and resolves relative companion track files', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  // Create mock folder structure
+  const bundleFiles = new Map([
+    ['manifest.json', JSON.stringify({
+      requestId: 'req-bundle-001',
+      schemaVersion: 1,
+      baseRevision: rev,
+      operations: [
+        { op: 'project.patch', values: { tempo: 110 } },
+        { op: 'track.patch', trackIndex: 0, file: 'track-0.json' }
+      ]
+    })],
+    ['track-0.json', JSON.stringify({
+      sound: 'pulse',
+      steps: [0, 4, 8, 12],
+      noteEvents: [{ step: 0, notes: [60] }]
+    })]
+  ]);
+
+  const responsesMap = new Map();
+  const requestsSubdirs = new Map();
+
+  function makeMockDir(filesMap, subdirsMap = new Map()){
+    return {
+      kind: 'directory',
+      name: 'mockDir',
+      async getFileHandle(name, opts = {}){
+        if (!filesMap.has(name)) {
+          if (opts.create) filesMap.set(name, '');
+          else throw new Error(`FileNotFound: ${name}`);
+        }
+        return {
+          kind: 'file',
+          name,
+          async createWritable(){
+            return {
+              async write(c){ filesMap.set(name, c); },
+              async close(){}
+            };
+          },
+          async getFile(){
+            return {
+              async text(){ return filesMap.get(name) || ''; }
+            };
+          }
+        };
+      },
+      async getDirectoryHandle(name, opts = {}){
+        if (subdirsMap.has(name)) return subdirsMap.get(name);
+        if (opts.create) {
+          const newDir = makeMockDir(new Map());
+          subdirsMap.set(name, newDir);
+          return newDir;
+        }
+        throw new Error(`DirNotFound: ${name}`);
+      },
+      async removeEntry(name, opts = {}){
+        filesMap.delete(name);
+        subdirsMap.delete(name);
+      },
+      async *entries(){
+        for (const [k, v] of subdirsMap.entries()){
+          yield [k, v];
+        }
+        for (const [k, v] of filesMap.entries()){
+          yield [k, {
+            kind: 'file',
+            name: k,
+            async getFile(){ return { async text(){ return v; } }; }
+          }];
+        }
+      }
+    };
+  }
+
+  const bundleDir = makeMockDir(bundleFiles);
+  requestsSubdirs.set('req-bundle-001', bundleDir);
+  const requestsDir = makeMockDir(new Map(), requestsSubdirs);
+  const responsesDir = makeMockDir(responsesMap);
+
+  const rootDir = {
+    name: 'HALO-Bridge-Bundle-Test',
+    async getDirectoryHandle(name, opts){
+      if (name === 'requests') return requestsDir;
+      if (name === 'responses') return responsesDir;
+      throw new Error(`DirNotFound: ${name}`);
+    },
+    async getFileHandle(name, opts){
+      return {
+        async createWritable(){ return { async write(){}, async close(){} }; }
+      };
+    }
+  };
+
+  const bridge = FileBridge.createBridge(api, { pollInterval: 0 });
+  await bridge.connect(rootDir);
+
+  // Status should have pending bundle request
+  const st = bridge.getStatus();
+  assert.equal(st.connected, true);
+  assert.ok(st.pending, 'Pending request should be set from bundle');
+  assert.equal(st.pending.id, 'req-bundle-001');
+  assert.equal(st.pending.filename, 'req-bundle-001/manifest.json');
+  assert.equal(st.pending.transaction.operations[0].values.tempo, 110);
+  assert.equal(st.pending.transaction.operations[1].values.sound, 'pulse');
+
+  // Apply pending
+  await bridge.applyPending();
+  assert.equal(bridge.getStatus().pending, null);
+  assert.equal(api.getProjectState().project.tempo, 110);
+  assert.ok(responsesMap.has('req-bundle-001.result.json'));
+  const resObj = JSON.parse(responsesMap.get('req-bundle-001.result.json'));
+  assert.equal(resObj.ok, true);
+
+  bridge.dispose();
+});
+
+test('checkFolder skips companion files in flat requests/ without triggering bogus errors', async () => {
+  const {api} = createTestApp();
+  const rev = api.getProjectState().revision;
+
+  const reqFiles = new Map([
+    // Companion files (must NOT be treated as root requests)
+    ['_t0.json', JSON.stringify({ sound: 'pulse', steps: [0, 4] })],
+    ['req-001-t1.json', JSON.stringify({ sound: 'wood', steps: [8, 12] })],
+    ['t2.json', JSON.stringify({ sound: 'round', steps: [0, 8] })],
+    // Root request
+    ['req-001.json', JSON.stringify({
+      requestId: 'req-001',
+      schemaVersion: 1,
+      baseRevision: rev,
+      operations: [
+        { op: 'track.patch', trackIndex: 0, file: '_t0.json' },
+        { op: 'track.patch', trackIndex: 1, file: 'req-001-t1.json' }
+      ]
+    })]
+  ]);
+  const resFiles = new Map();
+
+  function makeMockFlatDir(filesMap){
+    return {
+      kind: 'directory',
+      name: 'mockFlat',
+      async getFileHandle(name, opts = {}){
+        if (!filesMap.has(name)) {
+          if (opts.create) filesMap.set(name, '');
+          else throw new Error(`FileNotFound: ${name}`);
+        }
+        return {
+          kind: 'file',
+          name,
+          async createWritable(){
+            return {
+              async write(c){ filesMap.set(name, c); },
+              async close(){}
+            };
+          },
+          async getFile(){
+            return {
+              async text(){ return filesMap.get(name) || ''; }
+            };
+          }
+        };
+      },
+      async getDirectoryHandle(name, opts = {}){
+        throw new Error(`DirNotFound: ${name}`);
+      },
+      async removeEntry(name, opts = {}){
+        filesMap.delete(name);
+      },
+      async *entries(){
+        for (const [k, v] of filesMap.entries()){
+          yield [k, {
+            kind: 'file',
+            name: k,
+            async getFile(){ return { async text(){ return v; } }; }
+          }];
+        }
+      }
+    };
+  }
+
+  const rootDir = {
+    name: 'HALO-Bridge-Companion-Test',
+    async getDirectoryHandle(name, opts){
+      if (name === 'requests') return makeMockFlatDir(reqFiles);
+      if (name === 'responses') return makeMockFlatDir(resFiles);
+      throw new Error(`DirNotFound: ${name}`);
+    },
+    async getFileHandle(name, opts){
+      return {
+        async createWritable(){ return { async write(){}, async close(){} }; }
+      };
+    }
+  };
+
+  const bridge = FileBridge.createBridge(api, { pollInterval: 0 });
+  await bridge.connect(rootDir);
+
+  const st = bridge.getStatus();
+  assert.equal(st.connected, true);
+  assert.ok(st.pending);
+  assert.equal(st.pending.id, 'req-001');
+  assert.equal(st.error, null);
+  // No error result should have been created for companion files
+  assert.equal(resFiles.has('_t0.result.json'), false);
+  assert.equal(resFiles.has('req-001-t1.result.json'), false);
+  assert.equal(resFiles.has('t2.result.json'), false);
+
+  bridge.dispose();
+});
+
+test('All 5 context files contain 0 Cyrillic characters (100% English AI instructions)', () => {
+  const {api} = createTestApp();
+  const files = FileBridge.getContextFiles(api);
+  const cyrillicRegex = /[А-Яа-яЁё]/;
+
+  for (const [filename, content] of Object.entries(files)) {
+    const hasCyrillic = cyrillicRegex.test(content);
+    if (hasCyrillic) {
+      const match = content.match(cyrillicRegex);
+      assert.fail(`File "${filename}" contains Cyrillic character: "${match[0]}"`);
+    }
+    assert.equal(hasCyrillic, false, `File "${filename}" must be 100% English`);
+  }
+});
+
+
 

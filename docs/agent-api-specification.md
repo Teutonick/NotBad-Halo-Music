@@ -91,8 +91,24 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
 ### Phrase vs. Full Composition Policy & Canonical Form
 - **Default (Single Phrase):** Without explicit user request for a song or full composition, agents work exclusively with individual 4- or 8-bar phrases/loops via `track.patch` or `project.replace`.
 - **Full Composition (`composition.replace`):** Generated only when the user explicitly asks for a full song, composition, or multi-section arrangement ("песня", "полная композиция", "аранжировка").
-- **Canonical Structure:** Intro (sparse, atmosphere/bells, no heavy bass) → Verse (groove and bass enter, harmonic foundation) → Chorus (peak dynamic, all voices active, leading melodic hook, bright character 60..80) → Verse 2 (rhythmic/melodic variation) → Bridge (contrasting harmony or texture) → Outro (dissolving elements, fade: "out").
+- **Canonical Structure:** Intro (sparse, atmosphere/bells, no heavy bass) → Verse (groove and bass enter, harmonic foundation) → Chorus (peak dynamic, all voices active, leading melodic hook, bright character 60..80) → Verse 2 (rhythmic/melodic variation) → Bridge (contrasting harmony or texture) → Outro (dissolving elements, fade: "out"). Allowed section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
 - **Phrases Limit:** Maximum 15 unique phrases per composition. Repeating phrases across sections uses `repeats: 1..8` and shared phrase IDs.
+
+### Zero-Prompt-Engineering Autonomous Directives & Canonical Recipes
+When the user gives a brief creative task without technical parameters (e.g. *"напиши новогодний луп-джингл"* or *"сочини композицию по мотивам OST пираты карбиского моря"*):
+- **Decision Matrix:**
+  - Brief "loop" / "jingle" / "riff" / "beat" → Single phrase via `project.patch` (tempo, bars, key) + `track.patch` on melody/bass/percussion.
+  - Brief "composition" / "OST" / "song" / "soundtrack" → Full multi-phrase structure via `composition.replace`.
+  - Peaceful / meditative / holiday / cosmic theme → `setup: "ambient"`, 70..96 BPM, C Major (`key: 0`).
+  - Epic / cinematic / rock / adventure / pirate theme → `setup: "reactor"`, 104..130 BPM, D Minor (`key: 14`), `timeSignature: "3/4"` (6/8 pirate swing).
+- **The Full-Span Duration Principle:**
+  - 4-bar phrase (4/4) = 64 steps total (0..63).
+  - 8-bar phrase (4/4) = 128 steps total (0..127).
+  - 4-bar phrase (3/4 Waltz) = 48 steps total (0..47).
+  - 8-bar phrase (6/8 Pirate Swing) = 96 steps total (0..95).
+  Writing steps only within 0..15 leaves bars 2–8 completely silent. Agents must distribute notes and rhythmic steps across the entire span.
+- **Recipe A (Holiday / New Year 8-Bar Jingle):** C Major (`key: 0`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
+- **Recipe B (Epic Cinematic / Pirates of the Caribbean):** D Minor (`key: 14`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`).
 
 ### Sound Worlds: AMBIENT vs. REACTOR
 - Switching is controlled via top-level `"setup": "ambient" | "reactor"` in `project.replace` or every phrase of `composition.replace`. All phrases in a composition must share the same sound world.
@@ -142,7 +158,23 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
   - Phrase bars & startStep alignment: When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`), preventing `Invalid phrase position` errors during live playback loops.
 - **5-Second Verification Loop vs Human Approval:** HALO's background folder poller scans `requests/` every 1.5 seconds. If a request is invalid, HALO writes an immediate error response to `responses/<requestId>.result.json` within 1.5–3 seconds. External AI agents must wait 4 to 5 seconds and inspect `responses/<requestId>.result.json`. If an error result exists (`"ok": false`), the agent reads `"error"`, `"help"`, and `"instructionForAgent"`, self-corrects the batch, and rewrites the request (up to 2 retries). If no error result exists, the proposal is valid and queued in the web UI for human review. Agents must not enter an infinite loop waiting for human approval, but they must check for immediate automated validation errors before completing their turn.
 - **Anti-Hallucination Guard against Localhost/CLI Loops:** External models often mistake client-side Web Audio file bridges for fullstack server-backed applications. HALO runs 100% in the user's browser with no local backend daemon, port, or CLI binary. Agents must not invoke `curl`, `netstat`, `node`, `npm`, `python`, `where.exe halo`, or launch browsers.
-- **Token Budget & Compact Batch Directive:** When communicating with LLM tool-calling harnesses (e.g. Bionic, Qwen, Antigravity), generating massive monolithic 8-track `project.replace` objects with extensive note arrays easily exceeds tool-call string buffers, causing JSON truncation crashes (`Unterminated string in JSON at position ~3400`). Agents should compose using concise batches (< 1.5 KB) via `project.patch` (setting tempo/bars/key) and targeted `track.patch` operations for key melodic and harmonic voices. Unpatched voices remain active in their harmonious defaults.
+- **Token Budget & Modular Multi-File Architecture:** When communicating with LLM tool-calling harnesses (e.g. Bionic, Qwen, Antigravity), generating massive monolithic 8-track `project.replace` objects with extensive note arrays across all 128 steps easily exceeds tool-call single-string argument buffers, causing JSON truncation crashes (`Unterminated string in JSON at position ~2158`). HALO overcomes this with first-class support for **Modular Multi-File Requests** and **Folder Bundles**, allowing external agents to orchestrate all 8 voices simultaneously with full creative freedom across separate files.
+
+### Modular Multi-File Requests & Full 8-Track Scoring Architecture
+Agents can split complex multi-voice scores across multiple files, which HALO resolves automatically into a single atomic proposal in the UI:
+1. **Folder Bundles (`requests/<requestId>/`):** The cleanest and recommended approach for scoring all 8 tracks without token truncation. Create a subfolder in `requests/` containing `manifest.json` alongside companion track files:
+   - `requests/req-001/manifest.json`: Root project envelope declaring tempo, bars, key, and references to companion files (`tracks: [{ file: "t0-pulse.json" }, { file: "t1-accent.json" }, ...]`).
+   - `requests/req-001/t0-pulse.json` ... `t7-aura.json`: Individual track scoring files containing detailed 16th-note steps and chords.
+   - HALO discovers directory handles in `requests/`, parses `manifest.json` (or `request.json` / `<bundle>.json`), and resolves all relative companion files within that subfolder.
+2. **Operation-Level Companion Files:** Any atomic operation in `operations` can delegate its values to a companion file:
+   `{ "op": "track.patch", "trackIndex": 5, "file": "veil-melody.json" }`.
+3. **Multi-Part Operation Files:** A root request can assemble multiple modular JSON files using `"parts"`:
+   `{ "requestId": "req-002", "schemaVersion": 1, "baseRevision": 1, "parts": ["drums.json", "harmony.json", "lead.json"] }`.
+4. **Security & Validation Guardrails:**
+   - Path traversal is strictly prohibited: any path containing `..`, absolute paths (starting with `/` or drive letters `C:`), or traversing outside the bundle/requests folder is rejected with `INVALID_FILE_PATH`.
+   - Companion files in flat `requests/` (e.g. `req-001-t*.json` or files without root hallmarks) are safely skipped during polling to avoid premature false-positive validation errors.
+   - Tolerant defaults: Companion track files automatically default to `on: true`, `generator: 3`, `instrument = name`, and `exact = true` when steps or notes are supplied.
+5. **1-Click Atomic UI Approval & Cleanup:** HALO aggregates all companion files into one cohesive transaction in the web UI. Clicking «Apply Changes» commits all tracks atomically and generates `responses/<requestId>.result.json`. Clearing folder requests recursively purges both request files and bundle subdirectories.
 
 Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. 3/4 waltz and 6/8 rocking swing are fully implemented natively on transport and step grids. Arbitrary orbit reordering remains unsupported.
 

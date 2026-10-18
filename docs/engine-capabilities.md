@@ -110,6 +110,19 @@
   - Подсветка долей в PHRASE орбите и сетке редактора: сильные доли каждые 4 шага в 3/4 вальсе, каждые 6 шагов в 6/8 свинге.
   - Кнопка «СОЗДАТЬ» (GENERATE) генерирует сбалансированные аккомпанирующие партии в выбранной метрике.
 
+### Implemented — 2026-10-18: Modular Multi-File Requests, Folder Bundles & Full 8-Track Scoring Architecture
+
+- **Modular Multi-File Requests & Folder Bundles (`src/file-bridge.js`):**
+  - External agents have full creative freedom to rewrite and score **all 8 tracks simultaneously** in exhaustive note-by-note detail (16th-note steps and chords across up to 128 steps per track).
+  - Eliminates LLM tool-calling single-string argument truncation crashes (`Unterminated string in JSON at position ~2158`) by enabling multi-file modular scoring:
+    1. **Folder Bundles (`requests/<requestId>/`):** Subdirectory containing `manifest.json` (or `request.json` / `<bundle>.json`) alongside companion track files (`track-0.json` ... `track-7.json`).
+    2. **Operation-level companion files:** `{ op: 'track.patch', trackIndex: 5, file: 'track-5.json' }`.
+    3. **Track-level modular files in `project.replace`:** `tracks: [ { file: 'track-0.json' }, ... ]`.
+    4. **Multi-part batch files:** `{ parts: ['part-drums.json', 'part-lead.json'] }`.
+  - **Security & Path Traversal Guards:** Paths containing `..`, absolute paths (leading `/` or `C:`), or traversing outside the bundle/requests folder are rejected with `INVALID_FILE_PATH`.
+  - **Tolerant Companion Defaults:** Track companion files default to `on: true`, `generator: 3`, `instrument = name`, and `exact = true` when custom steps/notes are supplied.
+  - **1-Click Atomic Web UI Approval:** All companion files are resolved into a single unified proposal in HALO's web UI. Approving or rejecting executes atomically; clearing folder requests recursively purges both standalone files and bundle folders.
+
 ### Implemented — 2026-10-17: File Bridge Persistence, Composition Safety Cap & Sound Worlds API
 
 - **File Bridge Directory Persistence (`src/file-bridge.js`):** Connected desktop Chrome/Edge `FileSystemDirectoryHandle` is stored in browser IndexedDB (`halo-file-bridge-v1` / `handles` / `last-directory`).
@@ -834,4 +847,24 @@ DELETE sits at the right of the recording/import row. SLICE/PITCH expose CYCLE 4
 - **Подсказка и восстановление при ошибках в UI:** При возникновении ошибки выполнения команды под строкой статуса отображается явное напутствие пользователю: *«Если ошибка не уходит, очистите запросы папки и попросите нейросеть повторить запрос.»* с кнопкой быстрой очистки `[↺ Очистить запросы]`.
 - **100% английские инструкции для AI:** Руководство `AGENT_GUIDE.md` и спецификации `music-rules.json` поддерживаются строго на английском языке для исключения языковых галлюцинаций и ошибок нейросетевых агентов.
 - **Защита от зацикливания:** При 3 последовательных ошибках агенту выдается `CRITICAL STOP DIRECTIVE` в поле ответа `responses/<requestId>.result.json`, предписывающий немедленно прекратить перебор параметров и запросить инструкции у человека.
+
+### 12.3. Принцип автономного сочинения без промпт-инжиниринга (Zero-Prompt-Engineering)
+Пользователь не должен формулировать сложные технические промпты для внешних LLM. При передаче пути к папке и короткого творческого задания (например, *«напиши новогодний луп-джингл»* или *«сочини композицию по мотивам OST пираты карибского моря»*) агент автоматически руководствуется матрицей решений в `AGENT_GUIDE.md`:
+- **Матрица сопоставления:**
+  - Короткие запросы на джинглы, риффы, лупы («напиши луп-джингл») транслируются в редактирование активной фразы через `project.patch` + `track.patch`.
+  - Запросы на масштабные саундтреки, темы, песни («сочини композицию») транслируются в многочастную структуру через `composition.replace`.
+  - Спокойные, медитативные, праздничные темы переводятся в `setup: "ambient"`, 70–96 BPM, C Major (`key: 0`).
+  - Эпические, приключенческие, рок-саундтреки переводятся в `setup: "reactor"`, 104–130 BPM, D Minor (`key: 14`), размер `timeSignature: "3/4"` (6/8 pirate swing).
+- **Принцип полного заполнения длительности (Full-Span Duration Principle):**
+  - 4 такта 4/4 = 64 шага (`0..63`).
+  - 8 тактов 4/4 = 128 шагов (`0..127`).
+  - 4 такта 3/4 (вальс) = 48 шагов (`0..47`).
+  - 8 тактов 6/8 (пиратский свинг) = 96 шагов (`0..95`).
+  Указание шагов только в диапазоне `0..15` оставляет такты 2–8 абсолютно немыми. Агент обязан распределять шаги и ноты по всей длине фразы.
+- **Канонический рецепт A (Новогодний джингл):** C Major, 96 BPM, 8 тактов в `ambient`. Мелодия на VEIL (`bell`) шаги 0..112; бас на RAIN (`round`) шаги 0..120; рождественский шейкер на ROOT (`shaker`) на восьмых; аккордовые пэды на AURA (`wind`) на даунбитах тактов (шаги 0, 32, 64, 96, 112).
+- **Канонический рецепт B (Пираты Карибского моря):** D Minor, 104 BPM, 8 тактов в 3/4 (96 шагов 6/8 pirate swing) в `reactor`. Фразы Intro (`dark-piano`), Verse (`pick-bass`, `palm-guitar`, `octave-lead`), Chorus (`singing-lead`, `power-guitar`, ударные), Outro (fade out). Структура: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, fade out). Разрешённые имена секций строго: `intro`, `verse`, `verse2`, `chorus`, `bridge`, `outro`, `phrase`.
+
+### 12.4. Архитектура UI карточки агента и устранение двойных скроллбаров
+- С карточки `.agent-panel` и `.agent-panel.filebridge-mode` удалены свойства `max-height` и `overflow: auto`, исключая появление вложенных двойных полос прокрутки.
+- Карточка свободно расширяется по вертикали в потоке контента контейнера `.bottom`, наследуя единый глобальный скроллбар приложения в точном соответствии с компоновкой карточки 9-го трека (`.live-loop-panel`).
 

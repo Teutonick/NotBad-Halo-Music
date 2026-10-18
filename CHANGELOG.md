@@ -1,6 +1,35 @@
+## [Unreleased] - 2026-10-18
+
+### Added
+- **Modular Multi-File Requests & Folder Bundles for Full 8-Track Scoring (`src/file-bridge.js`, `docs/`, `tests/`):**
+  - **Eliminated AI Tool-Calling Truncation Crashes:** Resolved fatal JSON parser errors (`Unterminated string in JSON at position ~2158`) that external AI models encountered when attempting to score all 8 voices note-by-note into a single monolithic string argument.
+  - **Folder Bundles (`requests/<requestId>/`):** External agents can create subdirectories in `requests/` containing `manifest.json` (or `request.json` / `<bundle>.json`) alongside companion track files (`track-0.json` ... `track-7.json`). HALO automatically discovers folder bundles via `handle.kind === 'directory'`, resolves all relative companion files within that directory, and presents a single unified proposal in the web UI.
+  - **Operation-Level & Track-Level Modular Companion Files:** Supported `{ op: 'track.patch', trackIndex: 5, file: 'track-5.json' }` and `project.replace` with `tracks: [{ file: 'track-0.json' }, ...]`, as well as multi-part request splitting via `parts: ['drums.json', 'melody.json']`.
+  - **Path Traversal Security Guards:** Path traversal attacks (`..`, absolute paths with `/` or drive letters `C:`) are strictly prohibited and safely rejected with `INVALID_FILE_PATH`.
+  - **Tolerant Companion Defaults:** Track companion files automatically default to `on: true`, `generator: 3`, `instrument = name`, and `exact = true` when steps or notes are supplied.
+  - **Recursive Bundle Cleanup:** `resetLocalChanges` recursively deletes both request files and bundle subdirectories (`recursive: true`).
+  - **Comprehensive Automated Test Suite:** Added 6 new unit tests in `tests/file-bridge.test.cjs` covering operation companion files, modular 8-track orchestration, parts array expansion, security guard rejection, bundle scanning, and companion file filtering (all 26 tests passing).
+
+### Fixed
+- **Double Scrollbar Elimination in Agent Panel (`index.html`):** Removed nested `max-height` and `overflow: auto` from `.agent-panel`, ensuring the panel expands naturally in the vertical layout and inherits the single shared scrollbar of `.bottom`, eliminating the inner double scrollbar.
+
 ## [Unreleased] - 2026-10-17
 
 ### Added
+- **Compact Token Budget Directive (< 1.5 KB) & Resilient Track Defaults (`src/file-bridge.js`, `src/project.js`, `docs/`):**
+  - **Tool-Calling String Buffer Guard:** Resolved fatal `Error: Unterminated string in JSON at position ...` crashes that occurred in external AI harnesses (Cursor, Claude Code, LiteLLM) when agents generated massive requests. Added prominent *Mandatory Token Budget Directive* in `AGENT_GUIDE.md` directing models to keep requests under 1.5 KB by targeting only key solo/bass tracks and leaving remaining tracks to engine-generated defaults.
+  - **Compact Canonical Example 2:** Refactored Recipe/Example 2 (Holiday 8-Bar Jingle) from 3.5 KB to a concise ~1.2 KB payload with single-line note event groupings.
+  - **Tolerant Track Defaults in `src/project.js`:** `project.validate` now defaults omitted `steps` to `[]`, omitted `on` to `true`, and missing numeric controls (`density`, `character`, `duration`, `space`) to `50` (or `30` for `space`), preventing unexpected validation rejections when external agents pass compact track representations.
+- **Zero-Prompt Autonomous Directives & Canonical Recipes (`src/file-bridge.js`, `docs/`):**
+  - **Zero-Prompt-Engineering Autonomous Directives:** Users never need to formulate elaborate technical prompts. Providing just a folder path and a brief creative prompt (e.g. *"напиши новогодний луп-джингл"* or *"сочини композицию по мотивам OST пираты карбиского моря"*) triggers autonomous mapping via the *Prompt-to-Architecture Decision Matrix* in `AGENT_GUIDE.md` (selecting between `project.patch` vs `composition.replace`, `ambient` vs `reactor`, `4/4` vs `3/4`, key, and instrumentation).
+  - **The Full-Span Duration Principle:** Added explicit guidelines in `AGENT_GUIDE.md` and `music-rules.json` (`fullPhraseCoverageWarning`, `fullPhraseCoverageRule`) explaining that 8-bar phrases require steps spanning `0..127` in 4/4 and `0..95` in 3/4. Restricting steps to `0..15` leaves bars 2–8 completely silent.
+  - **Canonical Recipes A & B:** Added ready-to-use recipes in `AGENT_GUIDE.md`:
+    - *Recipe A (Holiday / New Year 8-Bar Jingle):* C Major (`key: 0`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
+    - *Recipe B (Epic Cinematic / Pirates of the Caribbean):* D Minor (`key: 14`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`). Strictly allowlisted section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
+
+### Fixed
+- **Double Scrollbar Elimination in Agent Panel (`index.html`):** Removed `max-height: min(440px, 50vh)`, `min-height: 180px`, `overflow: auto`, `overscroll-behavior: contain`, and `.agent-panel.filebridge-mode` styles from `.agent-panel`. The panel now expands naturally in the vertical flow, inheriting the single shared scrollbar of `.bottom` in exact alignment with `.live-loop-panel`.
+
 - **File Bridge Context Package, exact=true Auto-Promotion, startStep Alignment & 5s Verification Loop (`src/file-bridge.js`, `src/agent.js`, `capabilities.json`, `docs/`):**
   - **Automatic `exact = true` Promotion in `track.patch`:** Resolved `EXACT_REQUIRED: manual steps modification requires exact=true` occurring when external AI agents supply custom rhythmic `steps` or `noteEvents` via `track.patch` without explicitly specifying `"exact": true`. When `steps` or `noteEvents` are supplied in `track.patch.values` on a Generator 3 track and `exact` is omitted, HALO automatically sets `t.exact = true`, immediately playing the custom pattern without throwing validation errors. Explicitly setting `exact: false` while supplying steps continues to enforce the requirement.
   - **Automatic `startStep` Phrase Alignment on `bars` Modification:** Resolved `Invalid phrase position` which previously crashed batches when projects in active playback (`startStep: 64`) were patched with `bars: 8` (`64 % 128 !== 0`). When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`).

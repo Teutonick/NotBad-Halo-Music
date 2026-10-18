@@ -362,8 +362,10 @@ body.song-view .editor{box-shadow:0 8px 24px rgba(0,0,0,.2)}
 .loop-pattern-timing{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding-bottom:7px}
 .loop-pattern-timing .loop-slice-subgroup{display:flex;align-items:center;gap:5px}
 /* External-agent status panel & mode switcher. */
-.agent-panel{grid-column:2;min-width:0;max-height:min(440px,50vh);min-height:180px;overflow:auto;overscroll-behavior:contain;padding:10px 14px;color:#bdd4df;font-size:11px;scrollbar-width:thin;scrollbar-color:#567e87 transparent;border:1px solid #34485c;border-radius:14px;background:linear-gradient(140deg,rgba(13,26,42,.92),rgba(6,12,24,.92));backdrop-filter:blur(18px)}.agent-panel p{line-height:1.5;margin:6px 0;overflow-wrap:anywhere}.agent-panel strong{color:#d6f6ec}
-.agent-panel.filebridge-mode{max-height:min(500px,60vh);min-height:280px}
+.agent-panel{grid-column:2;grid-row:1;margin-left:0;min-width:0;box-sizing:border-box;border:1px solid #34485c;border-radius:14px;background:linear-gradient(140deg,rgba(13,26,42,.92),rgba(6,12,24,.92));padding:10px 14px;backdrop-filter:blur(18px);color:#bdd4df;font-size:11px}
+.agent-panel[hidden]{display:none!important}
+.agent-panel p{line-height:1.5;margin:6px 0;overflow-wrap:anywhere}
+.agent-panel strong{color:#d6f6ec}
 .agent-mode-switcher .glass-btn.active{background:#e8f7f5!important;color:#071822!important;border-color:#ffffff!important;font-weight:700!important;box-shadow:0 0 14px rgba(232,247,245,.45)!important}
 
 </style>

@@ -28,13 +28,20 @@
           readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
         }
       },
+      modularRequests: {
+        supported: true,
+        bundleFolders: 'requests/<requestId>/manifest.json (or request.json) resolves relative files within folder',
+        companionFiles: 'requests/<requestId>-<part>.json referenced via "file" or "include"',
+        partsArray: 'transaction.parts: ["part1.json", "part2.json"] resolves and concatenates into operations',
+        trackFileInclude: 'In track.patch: { "op": "track.patch", "trackIndex": i, "file": "t.json" } or project.replace tracks[i]: { "file": "t.json" }'
+      },
       limits: caps.limits,
       operations: [
         {
           op: 'track.patch',
           description: 'Update specific mutable parameters, steps, and notes of a voice slot (0..7). Do NOT include role or name in values.',
-          required: ['op', 'trackIndex', 'values'],
-          optional: ['phraseId (required in multi-phrase compositions)'],
+          required: ['op', 'trackIndex'],
+          optional: ['values (object)', 'file (relative path to companion track JSON)', 'include', 'phraseId (required in multi-phrase compositions)'],
           allowedValues: caps.trackFields,
           readOnlyProhibited: ['role', 'name', 'slot', 'trackIndex'],
           rule: 'role and name are immutable properties of track slots 0..7. Passing role or name inside values throws UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted.'
@@ -54,19 +61,22 @@
         {
           op: 'project.patch',
           description: 'Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world, timeSignature, mix, liveLoop) without replacing all tracks',
-          required: ['op', 'values'],
+          required: ['op'],
+          optional: ['values (object)', 'file (relative path to companion JSON)', 'include'],
           allowedValues: ['tempo', 'masterVolume', 'bars', 'startStep', 'key', 'seed', 'setup', 'world', 'soundWorld', 'timeSignature', 'mix', 'liveLoop'],
           readOnlyProhibited: ['revision', 'format', 'version', 'tracks', 'phrases', 'sections']
         },
         {
           op: 'project.replace',
-          description: 'Replace the entire single-phrase project snapshot (must contain exactly 8 track objects covering slots 0..7)',
-          required: ['op', 'project']
+          description: 'Replace the entire single-phrase project snapshot (must contain exactly 8 track objects covering slots 0..7). Supports modular track files via tracks[i].file or operation-level file.',
+          required: ['op'],
+          optional: ['project (object)', 'file (relative path to companion project JSON)', 'include']
         },
         {
           op: 'composition.replace',
-          description: 'Replace the entire multi-phrase song structure (up to 15 unique phrases, up to 32 sections)',
-          required: ['op', 'project']
+          description: 'Replace the entire multi-phrase song structure (up to 15 unique phrases, up to 32 sections). Supports modular phrase/track files.',
+          required: ['op'],
+          optional: ['project (object)', 'file (relative path to companion composition JSON)', 'include']
         },
         {
           op: 'visual.patch',
@@ -292,7 +302,8 @@
         quarterNotes: [0, 4, 8, 12],
         eighthNotes: [0, 2, 4, 6, 8, 10, 12, 14],
         sixteenthNotes: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-        rests: 'A rest or pause is created simply by omitting the step index from the "steps" array.'
+        rests: 'A rest or pause is created simply by omitting the step index from the "steps" array.',
+        fullPhraseCoverageWarning: 'CRITICAL: In an 8-bar loop in 4/4 (128 steps) or 3/4 (96 steps), you must write steps and noteEvents across ALL bars (e.g. Bar 1: 0..15, Bar 2: 16..31, ... Bar 8: 112..127). Writing steps only within 0..15 leaves bars 2 through 8 completely silent!'
       },
       phraseLengths: {
         allowedBars: [4, 8],
@@ -309,6 +320,7 @@
       },
       compositionGuidelines: {
         generatorMode: 'Set "generator": 3 and "exact": true for deterministic manual note scheduling.',
+        fullPhraseCoverageRule: 'When composing a melody, chords, or bassline for an 8-bar loop, distribute notes across the entire duration (0..127 in 4/4; 0..95 in 3/4). Do NOT stop at step 15!',
         stepsAndNoteEvents: 'The "steps" array contains the integer step indices where notes trigger (0..bars*16-1). The "noteEvents" array contains objects "{ step: N, notes: [MIDI...] }". Every step with pitched notes must match an entry in "steps".',
         noteTranspose: 'Set "noteTranspose" to the key\'s offset (from harmony.keys[key].offset) so that noteEvents MIDI numbers are played as literal pitches.',
         rolePolyphonyConstraints: {
@@ -387,7 +399,95 @@
   function generateAgentGuide(caps, state){
     return `# HALO Agent Guide / AI Instruction Manual
 
-HALO is a 100% static browser-based relaxation music constructor (8 voices, 16-step grid per bar for 4/4 or 12-step grid for 3/4).
+## MANDATORY TOKEN BUDGET & COMPACT BATCH DIRECTIVE (CRITICAL FOR TOOL HARNESSES)
+
+⚠️ **KEEP YOUR REQUEST JSON UNDER 1.5 KB!**
+When external LLM harnesses (Cursor, Claude Code, LiteLLM, OpenAI functions) invoke tools like \`write_file\`, the entire file payload is encoded as a string parameter inside a single-line JSON tool call.
+If you generate a massive 3 KB+ JSON file or thousands of characters of formatted arrays, the tool call buffer will be cut off mid-stream, throwing the fatal error:
+\`Error: Unterminated string in JSON at position ...\`
+
+**HOW TO COMPOSE SAFELY & COMPACTLY (< 1.5 KB):**
+1. **Never generate monolithic 8-track \`project.replace\` for loops or jingles!**
+2. Use \`project.patch\` for global parameters (\`tempo\`, \`bars\`, \`key\`).
+3. Use targeted \`track.patch\` operations ONLY on 1 or 2 tracks (e.g. Lead Melody on Track 5 and Bassline on Track 4).
+4. Leave other voices unpatched! In HALO, all 8 voices are active and harmonious by default. Unpatched voices automatically play their role-specific patterns.
+5. Format \`noteEvents\` compactly: place step and notes concisely (e.g. \`{ "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }\`).
+
+## ZERO-PROMPT-ENGINEERING CREATIVE DIRECTIVE (Mandatory)
+
+The human user will provide ONLY a high-level creative prompt (such as "napishi novogodniy loop-jingle" / "write an 8-bar holiday jingle", or "sochini kompozitsiyu po motivam OST piraty karibskogo morya" / "compose a composition inspired by Pirates of the Caribbean OST").
+The user will NEVER provide technical JSON schemas, parameter names, step indices, or MIDI note values.
+
+**YOUR ROLE AS THE AGENT:**
+You must autonomously translate the user's creative prompt into the appropriate HALO mode, sound world setup, time signature, key, structure, and explicit notes spanning the entire duration of the piece!
+
+### Quick Prompt-to-Architecture Decision Matrix
+
+| User Prompt Intent | Mode & Target Op | Sound World (\`setup\`) | Meter (\`timeSignature\`) | Bars | Key | Voices & Orchestration |
+| --- | --- | --- | --- | --- | --- | --- |
+| **Holiday / New Year Loop** (e.g. "napishi novogodniy loop-jingle", "holiday bells loop", "celebratory jingle") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"ambient"\` | \`"4/4"\` (16 steps/bar) | \`8\` (128 steps total) | C Major (\`key: 0\`) | Crystal bells melody on VEIL/GLASS across all 8 bars, festive sleigh-bell shaker on RAIN, warm sub-bass on ROOT, rich pad chords on AURA |
+| **Cinematic Soundtrack / Epic Adventure** (e.g. "sochini kompozitsiyu po motivam OST piraty karibskogo morya", "pirate battle theme", "epic orchestral rock") | Multi-section Composition (\`composition.replace\`) | \`"reactor"\` | \`"3/4"\` (8 bars = 96 steps of 6/8 pirate swing) | \`8\` per phrase | D Minor (\`key: 14\`) | 4 phrases (Intro, Verse, Chorus, Outro) arranged into 6 sections; punchy rock drums, galloping bass, distorted electric guitar lead, acoustic piano chords |
+| **Meditative Ambient Soundscape** (e.g. "calm cosmic ambient", "deep sleep meditation", "relaxing space") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"ambient"\` | \`"4/4"\` | \`4\` or \`8\` | A Minor (\`key: 2\`) or F Major (\`key: 1\`) | Generative plucks on EMBER, soft bowed cello on VEIL, wide reverb (\`space: 60..80\`), slow attack |
+| **Driving Rock Groove** (e.g. "driving rock riff", "energetic drum and bass") | Single Phrase (\`project.patch\` + \`track.patch\`) | \`"reactor"\` | \`"4/4"\` | \`4\` or \`8\` | E Minor (\`key: 8\`) | Punchy kick/snare on BEAT, overdriven bass on BASS, power chord riff on RIFF |
+
+---
+
+## THE FULL-SPAN DURATION PRINCIPLE (MANDATORY MUSICAL INTEGRITY)
+
+A common and critical failure mode of AI music composers is writing notes ONLY for the first bar (steps 0..15) and leaving the rest of the phrase completely dead and silent!
+
+**Step Boundaries by Time Signature and Bar Length:**
+- **In 4/4 meter (16 steps per bar):**
+  - **4-Bar phrase = 64 steps total:** Bar 1: \`0..15\`, Bar 2: \`16..31\`, Bar 3: \`32..47\`, Bar 4: \`48..63\`.
+  - **8-Bar phrase = 128 steps total:**
+    - Bar 1: \`0..15\`
+    - Bar 2: \`16..31\`
+    - Bar 3: \`32..47\`
+    - Bar 4: \`48..63\`
+    - Bar 5: \`64..79\`
+    - Bar 6: \`80..95\`
+    - Bar 7: \`96..111\`
+    - Bar 8: \`112..127\`
+- **In 3/4 meter (12 steps per bar):**
+  - **4-Bar phrase (3/4 Waltz) = 48 steps total:** Bar 1: \`0..11\`, Bar 2: \`12..23\`, Bar 3: \`24..35\`, Bar 4: \`36..47\`.
+  - **8-Bar phrase (6/8 Pirate Swing) = 96 steps total:**
+    - Bar 1: \`0..11\`
+    - Bar 2: \`12..23\`
+    - Bar 3: \`24..35\`
+    - Bar 4: \`36..47\`
+    - Bar 5: \`48..59\`
+    - Bar 6: \`60..71\`
+    - Bar 7: \`72..83\`
+    - Bar 8: \`84..95\`
+
+**FATAL ERROR TO AVOID:**
+Writing \`steps: [0, 4, 8, 12]\` for an 8-bar loop only plays notes during Bar 1! During Bars 2 through 8 (steps 16..127), that track will be 100% silent!
+When you compose an 8-bar melody or bassline, you MUST distribute your musical steps and noteEvents across the ENTIRE phrase (from step 0 to step 127 in 4/4, or step 0 to step 95 in 3/4).
+
+---
+
+## CANONICAL CREATIVE RECIPES
+
+### RECIPE A: Holiday / New Year 8-Bar Jingle ("napishi novogodniy loop-jingle")
+- **Creative Goal:** Celebratory, sparkling festive jingle in AMBIENT procedural synthesis.
+- **Key & Tempo:** C Major (\`key: 0\`), 96 BPM (\`tempo: 96\`), 8 Bars (\`bars: 8\`, 128 steps total).
+- **Orchestration:**
+  - Track 5 (VEIL, bell): Lead melody ("Jingle Bells" / festive chimes) playing across all 8 bars (steps 0..112).
+  - Track 4 (RAIN, round): Warm bassline supporting C -> F -> G -> C chord roots across all 8 bars (steps 0..120).
+  - Track 2 (ROOT, shaker): Sleigh bells / festive shaker pulse on eighth notes across the entire phrase.
+  - Track 7 (AURA, wind): Rich 4-note ambient chord pads on bar downbeats (steps 0, 32, 64, 96, 112).
+
+### RECIPE B: Epic Cinematic Soundtrack / Pirates of the Caribbean ("sochini kompozitsiyu po motivam OST piraty karibskogo morya")
+- **Creative Goal:** Multi-part orchestral adventure rock composition in REACTOR CC0 recordings.
+- **Key & Meter:** D Minor (\`key: 14\`), 104 BPM (\`tempo: 104\`), 8 bars per phrase in \`timeSignature: "3/4"\` (produces authentic 96-step 6/8 galloping pirate swing!).
+- **Multi-Phrase Architecture (\`composition.replace\`):**
+  - **Phrase 1 (Intro):** Sparse brooding piano (\`dark-piano\`) playing D minor chords on compound downbeats (steps 0, 24, 48, 72), subtle hats.
+  - **Phrase 2 (Verse / Main Theme):** Driving rock beat kick on 0 and snare on 6 (\`[0, 6, 12, 18...]\`), galloping bass (\`pick-bass\`), rhythm guitar (\`palm-guitar\`), and famous galloping lead motif on guitar (\`octave-lead\`).
+  - **Phrase 3 (Chorus / Battle Climax):** Full rock orchestra! Crashing cymbals, thunderous kick/snare, roaring lead guitar (\`singing-lead\`), power chords (\`power-guitar\`), maximum presence and high brightness (\`character: 85\`).
+  - **Phrase 4 (Outro):** Heroic final cadence resolving to Dm, ringing reverb wash, fading out into silence (\`fade: "out"\`).
+- **Arrangement Flow & Section Names:** \`intro\` (phrase 1, x1) -> \`verse\` (phrase 2, x2) -> \`chorus\` (phrase 3, x2) -> \`verse2\` (phrase 2, x1) -> \`chorus\` (phrase 3, x2) -> \`outro\` (phrase 4, x1, fade out). (Note: allowed section names are strictly \`["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]\`).
+
+---
 
 ## Context Files Map & Documentation Architecture
 
@@ -447,18 +547,6 @@ HALO enforces strict schema validation on all operations. Passing unrecognized o
      - If an error result exists (\`"ok": false\`), read \`error\` and \`help\`, fix the request, and rewrite it.
      - If NO error exists after 4–5 seconds, the request is valid and queued for human approval! Only then finish your turn.
 
-## CRITICAL TOKEN BUDGET & COMPACT BATCH DIRECTIVE
-
-1. **NEVER GENERATE HUGE MONOLITHIC 8-TRACK JSON WITH MASSIVE NOTE ARRAYS:**
-   - Generating a monolithic 8-track \`project.replace\` with dozens of \`steps\` and \`noteEvents\` per track easily balloons beyond 3500 characters on a single line. In LLM tool-calling harnesses (such as Bionic/Qwen tool calling), this crashes with:
-     \`Error: Unterminated string in JSON at position 3471 (line 1 column 3472)\`.
-2. **PREFER COMPACT TARGETED PATCHES (< 1.5 KB):**
-   - For composition prompts like "compose an 8-bar holiday jingle / pirate theme / ambient groove":
-     - Use \`project.patch\` to set \`tempo: 96\` and \`bars: 8\`.
-     - Use 2 to 4 \`track.patch\` operations to write your lead melody, chords, bass, or beat.
-     - Tracks that you do not patch will continue playing their default harmonically coherent roles!
-   - This keeps your request payload under 1.5 KB, safe, instant, and completely immune to tool-call buffer truncation.
-
 ## Strict 4-Step Agent Workflow & Verification Protocol
 
 1. **Step 1: Read Context (Read-Only)**
@@ -484,50 +572,6 @@ HALO enforces strict schema validation on all operations. Passing unrecognized o
        - **ONLY NOW** output your summary to the user and terminate your turn:
          *"Request <requestId>.json has been validated by HALO and is awaiting your approval in the web UI. Please switch to your HALO browser tab and click 'Approve' to apply the changes."*
 
-## Folder Structure
-
-\`\`\`
-HALO-Bridge/
-├── AGENT_GUIDE.md        # This instruction manual
-├── capabilities.json     # Engine capabilities, limits, supported operations
-├── instruments.json      # 8 voices, presets, compatibility, parameter meanings
-├── music-rules.json      # Rhythmic grid, meters, time signatures, harmony
-├── project-state.json    # Current project state, note events, base revision
-├── requests/             # Folder for incoming agent command batches (e.g. request-001.json)
-└── responses/            # Folder for HALO execution results (e.g. request-001.result.json)
-\`\`\`
-
-## Agent Operational Rules
-
-1. **project-state.json is Read-Only:**
-   The agent reads current project state, active notes, and the base revision (\`revision\`). Never modify this file directly.
-2. **All Changes Must Be Placed in requests/:**
-   Create a new JSON file inside the \`requests/\` directory (e.g., \`requests/request-001.json\`).
-3. **Mandatory Batch Envelope Fields:**
-   Every command batch MUST include:
-   - \`requestId\`: Unique string identifier (e.g., "request-001")
-   - \`schemaVersion\`: 1
-   - \`baseRevision\`: Integer matching the current \`revision\` from \`project-state.json\`
-   - \`operations\`: Array of allowlisted operations (up to 256 operations)
-4. **Allowlisted Operations:**
-   Only the following operations are permitted:
-   - \`track.patch\` — Modify parameters and note events for a single track (\`trackIndex\`: 0..7, \`values\`: ONLY mutable fields { instrument, sound, generator, on, steps, exact, sequence, noteEvents, noteTranspose, level, density, character, duration, space, delay, delayTime, chorus }; never include \`role\` or \`name\`)
-   - \`phrase.patch\` — Modify phrase settings (\`bars\`: 4|8, \`startStep\`, \`seed\`, \`key\`, \`liveLoop\`, \`timeSignature\`: "4/4"|"3/4")
-   - \`master.patch\` — Master bus controls (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`mix\`: { low, mid, high, width })
-   - \`project.patch\` — Modify top-level project settings (\`tempo\`: 30..200, \`masterVolume\`: 0..100, \`bars\`: 4|8, \`startStep\`, \`key\`: 0..23, \`seed\`, \`setup\`: "ambient"|"reactor", \`timeSignature\`, \`mix\`, \`liveLoop\`) without modifying tracks
-   - \`project.replace\` — Full replacement of a single-phrase project (including sound world \`"setup": "ambient" | "reactor"\`)
-   - \`composition.replace\` — Full replacement of a multi-phrase song/composition (up to 15 phrases)
-   - \`visual.patch\` — Visual scene, motion, and effect modes (\`scene\`: ORBIT/BLOOM/CURRENT, \`motion\`: DRIFT/IN TIME/PHRASE, \`effects\`: CLASSIC/COSMIC/HYPER)
-   No arbitrary scripts, remote URLs, shell commands, or unverified keys are allowed.
-5. **Human-in-the-Loop Approval & Asynchronous Execution:**
-   Commands in HALO are never applied secretly in the background: HALO reads the request, validates it against schemas, displays a visual diff/preview to the human user, and waits for user confirmation. The response in \`responses/\` is written only after user approval. The agent must NEVER wait or poll for this response during request generation.
-6. **Execution Feedback in responses/:**
-   HALO writes a response to \`responses/<requestId>.result.json\` only after human review in the web UI:
-   - On success: \`{ "ok": true, "id": "request-001", "appliedRevision": 43, "timestamp": "..." }\`
-   - On rejection or failure: \`{ "ok": false, "id": "request-001", "error": "...", "help": "...", "instructionForAgent": "...", "currentRevision": 42 }\`
-7. **Idempotence & Continuous State Sync:**
-   HALO continuously synchronizes \`project-state.json\` to disk whenever in-memory settings, tempo, or playback state change (every 1.5s polling tick). Re-processing previously applied requests is disallowed. If incoming operations are based on an earlier revision but do not conflict with subsequent changes, HALO automatically rebases and presents them for user review in the web UI. Always read \`project-state.json\` to get the latest \`revision\` before generating a request.
-
 ## Anti-Looping Protocol & Error Handling
 
 1. **Never Guess Parameters:**
@@ -538,17 +582,129 @@ HALO-Bridge/
    The \`project.replace\` operation ALWAYS requires an array of exactly 8 track objects: \`[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]\`. Do not provide a truncated 4-track array. To modify 1–4 specific instruments, use individual \`track.patch\` operations!
 4. **Sound Identifiers Have No World Prefix:**
    Sound names must match the catalogs in \`instruments.json\` (e.g., \`"bell"\`, \`"sine"\`, \`"piano"\`, \`"shaker"\`). Do NOT prefix with world names like \`"ambient-bell"\`.
-5. **Phrase vs Song Mode:**
-   For prompts like "compose an 8-bar holiday jingle / pirate theme / ambient groove", operate on a single phrase using \`track.patch\` or \`project.replace\` (\`bars: 8\`). Do NOT create a \`composition.replace\` unless the user explicitly requested a complete multi-section song.
-6. **No Terminal/Server/Browser Execution:**
-   Never invoke curl, netstat, node, npm, python, halo CLI, or browser automation. Doing so indicates hallucination and will immediately cause execution failures.
+5. **Composing Real Music: noteEvents is Mandatory for Melodies, Chords & Themes:**
+   Do NOT simply send \`steps: [0, 4, 8, 12]\` without notes and claim you composed a melody! Without \`noteEvents\`, tracks have no musical pitch data. When asked to compose a melody, jingle, or progression, you MUST supply explicit \`noteEvents\` containing MIDI note pitches for each step across the requested bars (e.g. steps 0..127 for 8 bars). For chords on AURA (slot 7), supply up to 4 notes per event (e.g. \`{ "step": 0, "notes": [48, 52, 55, 60] }\`). For lead melody on VEIL (slot 5) or GLASS (slot 0), supply 1 note per event (e.g. \`{ "step": 0, "notes": [72] }\`).
+
+## Modular Multi-File Requests & Full 8-Track Scoring Architecture
+
+### Complete Orchestral Freedom: Score All 8 Voices Without Restrictions
+HALO is an 8-voice polyphonic constructor. You are NEVER restricted to modifying only 1 or 2 voices. You have complete creative freedom to rewrite and orchestrate **all 8 tracks simultaneously** in full 16th-note detail across all 4 or 8 bars (128 steps per track).
+
+### Why Modular Multi-File Requests?
+External LLM tool runners (Cursor, Claude Code, Aider, LiteLLM) pass file-writing arguments as single-string JSON buffers. When generating an exhaustive 8-track score containing hundreds of note events, monolithic payloads exceed tool buffer limits (~2 KB) and get truncated mid-string (\`Unterminated string in JSON at position 2158\`).
+
+To eliminate this buffer limit entirely and allow unlimited musical depth, HALO natively supports **Modular Multi-File Requests** and **Folder Bundles**:
+
+### Approach 1: Folder Bundle (\`requests/<requestId>/\`) — RECOMMENDED FOR FULL 8-TRACK SCORING
+Organize your composition as a folder bundle inside \`requests/\`:
+1. Create directory \`requests/<requestId>/\` (e.g. \`requests/request-newyear/\`).
+2. Write each track's sound, steps, and notes into lightweight companion files \`track-0.json\` ... \`track-7.json\` (each file is only 200–500 bytes and never truncates).
+3. Write \`manifest.json\` (or \`request.json\` / \`<requestId>.json\`) in that folder linking the tracks.
+
+#### Bundle Manifest Example: \`requests/request-newyear/manifest.json\`
+\`\`\`json
+{
+  "requestId": "request-newyear",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    { "op": "project.patch", "values": { "tempo": 96, "bars": 8, "key": 0 } },
+    { "op": "track.patch", "trackIndex": 0, "file": "track-0.json" },
+    { "op": "track.patch", "trackIndex": 1, "file": "track-1.json" },
+    { "op": "track.patch", "trackIndex": 2, "file": "track-2.json" },
+    { "op": "track.patch", "trackIndex": 3, "file": "track-3.json" },
+    { "op": "track.patch", "trackIndex": 4, "file": "track-4.json" },
+    { "op": "track.patch", "trackIndex": 5, "file": "track-5.json" },
+    { "op": "track.patch", "trackIndex": 6, "file": "track-6.json" },
+    { "op": "track.patch", "trackIndex": 7, "file": "track-7.json" }
+  ]
+}
+\`\`\`
+
+#### Companion Track File Example: \`requests/request-newyear/track-5.json\` (Lead Melody)
+\`\`\`json
+{
+  "sound": "bell",
+  "character": 75,
+  "space": 40,
+  "level": 70,
+  "steps": [0, 4, 8, 16, 20, 24, 32, 36, 40, 44, 48, 64, 68, 72, 76, 80, 84, 88, 96, 100, 104, 108, 112],
+  "noteEvents": [
+    { "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }, { "step": 8, "notes": [64] },
+    { "step": 16, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 24, "notes": [64] },
+    { "step": 32, "notes": [64] }, { "step": 36, "notes": [67] }, { "step": 40, "notes": [60] },
+    { "step": 44, "notes": [62] }, { "step": 48, "notes": [64] },
+    { "step": 64, "notes": [65] }, { "step": 68, "notes": [65] }, { "step": 72, "notes": [65] },
+    { "step": 76, "notes": [65] }, { "step": 80, "notes": [65] }, { "step": 84, "notes": [64] },
+    { "step": 88, "notes": [64] },
+    { "step": 96, "notes": [67] }, { "step": 100, "notes": [67] }, { "step": 104, "notes": [65] },
+    { "step": 108, "notes": [62] }, { "step": 112, "notes": [60] }
+  ]
+}
+\`\`\`
+
+#### Modular \`project.replace\` Example (Folder Bundle):
+\`\`\`json
+{
+  "requestId": "request-newyear",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "project.replace",
+      "project": {
+        "format": "notbad-halo-project",
+        "version": 1,
+        "setup": "ambient",
+        "bars": 8,
+        "tempo": 96,
+        "key": 0,
+        "tracks": [
+          { "file": "track-0.json" },
+          { "file": "track-1.json" },
+          { "file": "track-2.json" },
+          { "file": "track-3.json" },
+          { "file": "track-4.json" },
+          { "file": "track-5.json" },
+          { "file": "track-6.json" },
+          { "file": "track-7.json" }
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Approach 2: Flat Modular Files in \`requests/\`
+You can also place companion files directly in \`requests/\`:
+- \`requests/req-001.json\` (the root manifest)
+- \`requests/req-001-t0.json\` ... \`requests/req-001-t7.json\`
+Referenced via \`"file": "req-001-t0.json"\`.
+
+### Approach 3: Multi-Part Operations with \`parts\`
+Group your score into logical musical sections:
+\`\`\`json
+{
+  "requestId": "request-newyear",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "parts": [
+    "part-rhythm.json",
+    "part-harmony.json",
+    "part-melody.json"
+  ]
+}
+\`\`\`
+
+### Approach 4: Compact Monolithic Single-File
+For smaller batches (1–3 tracks) or compact patterns, single-file \`requests/<requestId>.json\` is fully supported.
 
 ## Composition Policy: Single Phrase vs Full Composition
 
 - **DEFAULT MODE: SINGLE PHRASE:**
-  Unless the user explicitly specifies a full multi-part song or arrangement (e.g. "compose a full song", "write a complete composition with intro and chorus"), the agent works **exclusively with the current phrase/loop** via \`track.patch\` or \`project.replace\`.
+  Unless the user explicitly specifies a full multi-part song or arrangement (e.g. "compose a full song", "write a complete composition with intro and chorus"), the agent works **exclusively with the current phrase/loop** via \`project.patch\` + \`track.patch\` or \`project.replace\`.
 - **FULL COMPOSITION (Multi-section Song):**
-  Created **ONLY** when the user explicitly requests: *"compose a song"*, *"write a complete composition"*, *"create a full arrangement with intro, verses, and chorus"*.
+  Created **ONLY** when the user explicitly requests: *"compose a song"*, *"write a complete composition"*, *"create a full arrangement with intro, verses, and chorus"*, or thematic soundtrack like *"compose Pirates of the Caribbean soundtrack"*.
   In this scenario, use \`composition.replace\`.
 
 ### Song Form Canons:
@@ -598,44 +754,26 @@ HALO features two distinct sonic worlds, selected by \`"setup": "ambient" | "rea
 - **Tempo:** 90..140 BPM (default 100 BPM; for 6/8 pirate swing use 3/4 meter with 8 bars).
 - **Acoustic Space:** Focused, punchy mix (\`space\`: 10..30%), rapid transients, tight stereo imaging.
 - **8 Default Voices:**
-  - 0: BEAT (punchy acoustic kick and snare backbeat)
-  - 1: BASS (overdriven rock bass with tube warmth)
-  - 2: KEYS (acoustic grand piano / vintage Rhodes)
-  - 3: CHORD (palm-muted rhythm guitar)
-  - 4: RIFF (distorted electric guitar lead)
-  - 5: LEAD (analog synthesizer lead / warm brass)
-  - 6: PERC (cymbals, tambourine, hi-hats, acoustic shaker)
-  - 7: TEXTURE (ambient guitar feedback, electric sub wash)
+  - 0: BEAT / GLASS (punchy acoustic kick and snare backbeat)
+  - 1: TIDAL / SNARE (crack and steel snares)
+  - 2: ROOT / METAL (cymbals, hi-hats, acoustic ride)
+  - 3: EMBER / TOMS (floor, mid, high, war toms)
+  - 4: RAIN / BASS (overdriven rock bass with tube warmth)
+  - 5: VEIL / RIFF (palm-muted and power electric guitars)
+  - 6: MOSS / LEAD (singing and octave lead guitars)
+  - 7: AURA / KEYS (acoustic grand piano, dark piano, analog synth)
 
 ### 8 Voice Slots & Role Polyphony Architecture:
 | Slot (\`trackIndex\`) | Slot Name | Fixed Role | Polyphony Limit | Register | Recommended Ambient Sound | Recommended Reactor Sound |
 | --- | --- | --- | --- | --- | --- | --- |
-| 0 | GLASS | Pulse / Anchor | 1 note (or unpitched) | Reference | bell, chime, pulse | kick, beat |
-| 1 | TIDAL | Accent / Backbeat | 1-2 notes (or unpitched) | Reference | air, breath, wood | snare, rim, clap |
-| 2 | ROOT | Bass / Sub Foundation | Strictly 1 note (mono) | Low (MIDI 24..60) | round, sub, pulse | rock-bass, sub-bass |
-| 3 | EMBER | Pluck / Rhythm Chord | 1-2 notes | Mid (MIDI 36..72) | string, harp, kalimba | guitar-mute, chord |
-| 4 | RAIN | Percussion / Shaker | Empty notes \`[]\` | Noise/Transient | shaker, noise, click | hat, shaker, tamb |
-| 5 | VEIL | Lead Melody | 1-2 notes | High (MIDI 48..96) | bow, crystal, vibe | lead-synth, guitar-lead |
-| 6 | MOSS | Arpeggio / Counterpoint | Strictly 1 note (mono) | Mid/High (MIDI 48..84) | marimba, wood, sine | organ, rhodes, arp |
-| 7 | AURA | Harmony / Pad Bed | Up to 4 notes (poly) | Broad (MIDI 36..84) | wind, drone, pad | texture, guitar-pad |
-
-### Sound World & Setup Rules:
-- **Vibe-Dependent Sounds:** Instruments and motifs are strictly setup-dependent. In \`instruments.json\`, examine \`soundsBySetup\` for your active setup (\`"ambient"\` or \`"reactor"\`).
-- **AMBIENT setup (\`"setup": "ambient"\`):** Uses procedural synthesis (bells, vibes, crystal, pads, subs, wood percussion, organic noise). Do NOT use acoustic rock drums (kicks, snares, hats, toms) or electric guitars here.
-- **REACTOR setup (\`"setup": "reactor"\`):** Uses 130 authentic CC0 acoustic/rock audio recordings (punchy kicks, snares, hats, toms, bass guitar, electric guitars, piano, synth). Do NOT use procedural-only ambient sounds here.
-- **Multi-Setup Sounds:** Some sounds declare multiple setups in their \`"setups"\` array (e.g. \`["ambient", "reactor"]\`) and can be used in either world.
-- **Single World per Composition:** All phrases in a composition must share the same \`setup\` world (mixing AMBIENT and REACTOR within the same song is unsupported).
-- **Aliases:** In \`project.replace\` or \`composition.replace\`, \`"setup"\`, \`"world"\`, and \`"soundWorld"\` are supported interchangeably (e.g. \`"setup": "reactor"\` or \`"world": "reactor"\`).
-
-## Error Self-Correction Workflow
-If a command execution returns \`"ok": false\` in \`responses/<requestId>.result.json\`:
-1. **Carefully read \`"error"\` and \`"help"\`:** The error message explicitly states the problem and how to resolve it.
-2. **Revision Mismatch Error:** If an error indicates \`CONFLICT_REVISION_MISMATCH\`, HALO has automatically synchronized the latest \`project-state.json\` to disk. Re-read \`project-state.json\`, update \`baseRevision\`, and write the request again. Alternatively, the user can click "⚡ Rebase & Retry" in the web UI.
-3. **Setup Mismatch Error:** If the error says \`INVALID_SOUND: sound "..." belongs to the "REACTOR" setup... but current project setup is "ambient"\`:
-   - **Option A:** Change \`"setup": "reactor"\` (or \`"world": "reactor"\`) in your \`project.replace\` payload.
-   - **Option B:** Replace the requested sound with a sound available in \`"ambient"\` for that track (consult \`soundsBySetup.ambient\` in \`instruments.json\`).
-4. **Overwrite and Re-Submit:** You can overwrite the same file in \`requests/\` or write a new one with a fresh \`requestId\`. HALO automatically detects file modifications and re-evaluates immediately.
-5. **Action Directive:** Do NOT sit idle or wait for errors to vanish on their own. Once you write the corrected request, terminate your turn and ask the user to click "Approve" in HALO.
+| 0 | GLASS | Pulse / Anchor | 1 note (or unpitched) | Reference | bell, chime, pulse | dry-kick, arena-kick |
+| 1 | TIDAL | Accent / Backbeat | 1-2 notes (or unpitched) | Reference | air, breath, wood | dry-snare, steel-snare |
+| 2 | ROOT | Bass (Ambient) / Metal (Reactor) | 1 note (mono) | Low / High | round, sub, pulse | tight-hat, open-hat, ride |
+| 3 | EMBER | Pluck / Toms | 1-2 notes | Mid | string, harp, kalimba | floor-tom, war-tom |
+| 4 | RAIN | Shaker (Ambient) / Bass (Reactor) | Empty notes \`[]\` or 1 note | Transient / Low | shaker, noise, clicks | pick-bass, tube-bass |
+| 5 | VEIL | Lead Melody / Riff | 1-2 notes | High / Mid | bow, crystal, vibe | power-guitar, palm-guitar |
+| 6 | MOSS | Arpeggio / Lead | Strictly 1 note (mono) | Mid/High | marimba, wood, sine | octave-lead, singing-lead |
+| 7 | AURA | Harmony / Keys Bed | Up to 4 notes (poly) | Broad (MIDI 36..84) | wind, drone, pad | dark-piano, attack-piano |
 
 ## Example Requests
 
@@ -666,10 +804,69 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
 }
 \`\`\`
 
-### Example 2: Full Multi-section Composition (composition.replace)
+### Example 2: Compact Monolithic Holiday / New Year 8-Bar Jingle (project.patch + track.patch)
+*Composes an 8-bar holiday jingle in C major with explicit notes in a single compact ~1.2 KB payload.*
 \`\`\`json
 {
-  "requestId": "request-002",
+  "requestId": "request-newyear",
+  "schemaVersion": 1,
+  "baseRevision": ${state.revision},
+  "operations": [
+    {
+      "op": "project.patch",
+      "values": {
+        "tempo": 96,
+        "bars": 8,
+        "key": 0
+      }
+    },
+    {
+      "op": "track.patch",
+      "trackIndex": 5,
+      "values": {
+        "sound": "bell",
+        "character": 75,
+        "space": 40,
+        "level": 70,
+        "steps": [0, 4, 8, 16, 20, 24, 32, 36, 40, 44, 48, 64, 68, 72, 76, 80, 84, 88, 96, 100, 104, 108, 112],
+        "noteEvents": [
+          { "step": 0, "notes": [64] }, { "step": 4, "notes": [64] }, { "step": 8, "notes": [64] },
+          { "step": 16, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 24, "notes": [64] },
+          { "step": 32, "notes": [64] }, { "step": 36, "notes": [67] }, { "step": 40, "notes": [60] },
+          { "step": 44, "notes": [62] }, { "step": 48, "notes": [64] },
+          { "step": 64, "notes": [65] }, { "step": 68, "notes": [65] }, { "step": 72, "notes": [65] },
+          { "step": 76, "notes": [65] }, { "step": 80, "notes": [65] }, { "step": 84, "notes": [64] },
+          { "step": 88, "notes": [64] },
+          { "step": 96, "notes": [67] }, { "step": 100, "notes": [67] }, { "step": 104, "notes": [65] },
+          { "step": 108, "notes": [62] }, { "step": 112, "notes": [60] }
+        ]
+      }
+    },
+    {
+      "op": "track.patch",
+      "trackIndex": 4,
+      "values": {
+        "sound": "round",
+        "character": 50,
+        "level": 65,
+        "steps": [0, 8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120],
+        "noteEvents": [
+          { "step": 0, "notes": [36] }, { "step": 8, "notes": [36] }, { "step": 16, "notes": [36] }, { "step": 24, "notes": [36] },
+          { "step": 32, "notes": [36] }, { "step": 40, "notes": [36] }, { "step": 48, "notes": [36] }, { "step": 56, "notes": [36] },
+          { "step": 64, "notes": [41] }, { "step": 72, "notes": [41] }, { "step": 80, "notes": [36] }, { "step": 88, "notes": [36] },
+          { "step": 96, "notes": [43] }, { "step": 104, "notes": [43] }, { "step": 112, "notes": [36] }, { "step": 120, "notes": [36] }
+        ]
+      }
+    }
+  ]
+}
+\`\`\`
+
+### Example 3: Full Multi-section Composition — Pirates of the Caribbean OST (composition.replace)
+*Composes a 6-section pirate soundtrack in D minor with 6/8 pirate swing (3/4 time signature, 8 bars per phrase).*
+\`\`\`json
+{
+  "requestId": "request-pirates-ost",
   "schemaVersion": 1,
   "baseRevision": ${state.revision},
   "operations": [
@@ -678,38 +875,124 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       "project": {
         "format": "halo-composition",
         "version": 1,
-        "tempo": 72,
-        "masterVolume": 50,
-        "mix": { "low": 0, "mid": 0, "high": 0, "width": 35 },
+        "tempo": 104,
+        "masterVolume": 55,
+        "mix": { "low": 1, "mid": 0, "high": 0, "width": 45 },
         "repeat": true,
+        "timeSignature": "3/4",
         "phrases": [
-          { "id": 1, "label": "Intro", "project": { /* full single-phrase project object */ } },
-          { "id": 2, "label": "Verse", "project": { /* full single-phrase project object */ } },
-          { "id": 3, "label": "Chorus", "project": { /* full single-phrase project object */ } },
-          { "id": 4, "label": "Bridge", "project": { /* full single-phrase project object */ } },
-          { "id": 5, "label": "Outro", "project": { /* full single-phrase project object */ } }
+          {
+            "id": 1,
+            "label": "Intro",
+            "project": {
+              "format": "notbad-halo-project",
+              "version": 1,
+              "setup": "reactor",
+              "bars": 8,
+              "tempo": 104,
+              "key": 14,
+              "timeSignature": "3/4",
+              "tracks": [
+                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": false, "level": 60, "space": 15 },
+                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": false, "level": 60, "space": 20 },
+                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "tight-hat", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 45, "space": 25 },
+                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": false, "level": 60, "space": 25 },
+                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "tube-bass", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 55, "space": 20 },
+                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": false, "level": 60, "space": 20 },
+                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "picked-lead", "on": false, "level": 60, "space": 20 },
+                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 24, "notes": [46, 50, 53, 58] }, { "step": 48, "notes": [48, 52, 55, 60] }, { "step": 72, "notes": [50, 53, 57, 62] }], "level": 65, "space": 35 }
+              ]
+            }
+          },
+          {
+            "id": 2,
+            "label": "Theme",
+            "project": {
+              "format": "notbad-halo-project",
+              "version": 1,
+              "setup": "reactor",
+              "bars": 8,
+              "tempo": 104,
+              "key": 14,
+              "timeSignature": "3/4",
+              "tracks": [
+                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 70, "space": 10 },
+                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": true, "exact": true, "steps": [6, 18, 30, 42, 54, 66, 78, 90], "level": 70, "space": 20 },
+                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "tight-hat", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "level": 55, "space": 10 },
+                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": true, "exact": true, "steps": [44, 46, 92, 94], "level": 60, "space": 25 },
+                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "pick-bass", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 70, "space": 10 },
+                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": true, "exact": true, "steps": [0, 3, 4, 6, 9, 10, 12, 15, 16, 18, 21, 22, 24, 27, 28, 30, 33, 34, 36, 39, 40, 42, 45, 46, 48, 51, 52, 54, 57, 58, 60, 63, 64, 66, 69, 70, 72, 75, 76, 78, 81, 82, 84, 87, 88, 90, 93, 94], "level": 65, "space": 15 },
+                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "octave-lead", "on": true, "exact": true, "steps": [0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24, 26, 27, 28, 30, 32, 33, 34, 36, 38, 39, 40, 42, 44, 45, 46, 48, 50, 51, 52, 54, 56, 57, 58, 60, 62, 63, 64, 66, 68, 69, 70, 72, 74, 75, 76, 78, 80, 81, 82, 84, 86, 87, 88, 90, 92, 93, 94], "noteEvents": [{ "step": 0, "notes": [62] }, { "step": 2, "notes": [62] }, { "step": 3, "notes": [62] }, { "step": 4, "notes": [65] }, { "step": 6, "notes": [67] }, { "step": 8, "notes": [67] }, { "step": 9, "notes": [67] }, { "step": 10, "notes": [69] }, { "step": 12, "notes": [65] }, { "step": 14, "notes": [65] }, { "step": 15, "notes": [65] }, { "step": 16, "notes": [67] }, { "step": 18, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 21, "notes": [65] }, { "step": 22, "notes": [62] }], "level": 75, "space": 25 },
+                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 24, 48, 72], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 24, "notes": [46, 50, 53, 58] }, { "step": 48, "notes": [48, 52, 55, 60] }, { "step": 72, "notes": [50, 53, 57, 62] }], "level": 60, "space": 25 }
+              ]
+            }
+          },
+          {
+            "id": 3,
+            "label": "Climax",
+            "project": {
+              "format": "notbad-halo-project",
+              "version": 1,
+              "setup": "reactor",
+              "bars": 8,
+              "tempo": 104,
+              "key": 14,
+              "timeSignature": "3/4",
+              "tracks": [
+                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "arena-kick", "on": true, "exact": true, "steps": [0, 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36, 39, 42, 45, 48, 51, 54, 57, 60, 63, 66, 69, 72, 75, 78, 81, 84, 87, 90, 93], "level": 75, "space": 10 },
+                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "steel-snare", "on": true, "exact": true, "steps": [6, 18, 30, 42, 54, 66, 78, 90], "level": 75, "space": 20 },
+                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "crash", "on": true, "exact": true, "steps": [0, 24, 48, 72], "level": 60, "space": 30 },
+                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": true, "exact": true, "steps": [20, 22, 44, 46, 68, 70, 92, 94], "level": 65, "space": 20 },
+                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "fuzz-bass", "on": true, "exact": true, "steps": [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32, 34, 36, 38, 40, 42, 44, 46, 48, 50, 52, 54, 56, 58, 60, 62, 64, 66, 68, 70, 72, 74, 76, 78, 80, 82, 84, 86, 88, 90, 92, 94], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 24, "notes": [34] }, { "step": 48, "notes": [36] }, { "step": 72, "notes": [38] }], "level": 75, "space": 10 },
+                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "power-guitar", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 75, "space": 15 },
+                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "singing-lead", "on": true, "exact": true, "steps": [0, 2, 3, 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20, 21, 22, 24, 26, 27, 28, 30, 32, 33, 34, 36, 38, 39, 40, 42, 44, 45, 46, 48, 50, 51, 52, 54, 56, 57, 58, 60, 62, 63, 64, 66, 68, 69, 70, 72, 74, 75, 76, 78, 80, 81, 82, 84, 86, 87, 88, 90, 92, 93, 94], "noteEvents": [{ "step": 0, "notes": [62] }, { "step": 2, "notes": [62] }, { "step": 3, "notes": [62] }, { "step": 4, "notes": [65] }, { "step": 6, "notes": [67] }, { "step": 8, "notes": [67] }, { "step": 9, "notes": [67] }, { "step": 10, "notes": [69] }, { "step": 12, "notes": [65] }, { "step": 14, "notes": [65] }, { "step": 15, "notes": [65] }, { "step": 16, "notes": [67] }, { "step": 18, "notes": [64] }, { "step": 20, "notes": [64] }, { "step": 21, "notes": [65] }, { "step": 22, "notes": [62] }], "level": 80, "character": 85, "space": 25 },
+                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "attack-piano", "on": true, "exact": true, "steps": [0, 6, 12, 18, 24, 30, 36, 42, 48, 54, 60, 66, 72, 78, 84, 90], "level": 70, "space": 25 }
+              ]
+            }
+          },
+          {
+            "id": 4,
+            "label": "Outro",
+            "project": {
+              "format": "notbad-halo-project",
+              "version": 1,
+              "setup": "reactor",
+              "bars": 8,
+              "tempo": 104,
+              "key": 14,
+              "timeSignature": "3/4",
+              "tracks": [
+                { "name": "GLASS", "instrument": "GLASS", "generator": 3, "sound": "dry-kick", "on": false, "level": 60, "space": 15 },
+                { "name": "TIDAL", "instrument": "TIDAL", "generator": 3, "sound": "dry-snare", "on": false, "level": 60, "space": 20 },
+                { "name": "ROOT", "instrument": "ROOT", "generator": 3, "sound": "ride", "on": true, "exact": true, "steps": [0, 12, 24, 36], "level": 40, "space": 40 },
+                { "name": "EMBER", "instrument": "EMBER", "generator": 3, "sound": "war-tom", "on": false, "level": 60, "space": 25 },
+                { "name": "RAIN", "instrument": "RAIN", "generator": 3, "sound": "tube-bass", "on": true, "exact": true, "steps": [0, 48], "noteEvents": [{ "step": 0, "notes": [38] }, { "step": 48, "notes": [38] }], "level": 55, "space": 30 },
+                { "name": "VEIL", "instrument": "VEIL", "generator": 3, "sound": "palm-guitar", "on": false, "level": 60, "space": 20 },
+                { "name": "MOSS", "instrument": "MOSS", "generator": 3, "sound": "feedback-lead", "on": true, "exact": true, "steps": [0], "noteEvents": [{ "step": 0, "notes": [62] }], "level": 60, "space": 50 },
+                { "name": "AURA", "instrument": "AURA", "generator": 3, "sound": "dark-piano", "on": true, "exact": true, "steps": [0, 48], "noteEvents": [{ "step": 0, "notes": [50, 53, 57, 62] }, { "step": 48, "notes": [50, 53, 57, 62] }], "level": 60, "space": 50 }
+              ]
+            }
+          }
         ],
         "sections": [
           { "phrase": 1, "name": "intro", "repeats": 1, "fade": "none" },
           { "phrase": 2, "name": "verse", "repeats": 2, "fade": "none" },
           { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
-          { "phrase": 2, "name": "verse2", "repeats": 2, "fade": "none" },
-          { "phrase": 4, "name": "bridge", "repeats": 1, "fade": "none" },
+          { "phrase": 2, "name": "verse2", "repeats": 1, "fade": "none" },
           { "phrase": 3, "name": "chorus", "repeats": 2, "fade": "none" },
-          { "phrase": 5, "name": "outro", "repeats": 1, "fade": "out" }
+          { "phrase": 4, "name": "outro", "repeats": 1, "fade": "out" }
         ]
       }
     }
   ]
 }
 \`\`\`
-*(Note: \`composition.replace\` accepts payload under either \`"project"\` or \`"composition"\` key).*
 
-### Example 3: Single-Phrase 8-Bar Project Replacement (project.replace)
+### Example 4: Single-Phrase 8-Bar Project Replacement (project.replace)
 *Important: for \`project.replace\`, the \`tracks\` array MUST contain exactly 8 track objects covering all voice slots [GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]. Use valid sound names from instruments.json for the chosen setup.*
 \`\`\`json
 {
-  "requestId": "request-003",
+  "requestId": "request-004",
   "schemaVersion": 1,
   "baseRevision": ${state.revision},
   "operations": [
@@ -740,71 +1023,6 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
   ]
 }
 \`\`\`
-
-### Example 4: Compact Holiday Jingle / Theme (project.patch + track.patch) — RECOMMENDED
-*This compact pattern fits in < 1 KB, executes instantly, and avoids LLM tool buffer truncation.*
-\`\`\`json
-{
-  "requestId": "request-newyear",
-  "schemaVersion": 1,
-  "baseRevision": ${state.revision},
-  "operations": [
-    {
-      "op": "project.patch",
-      "values": {
-        "tempo": 96,
-        "bars": 8,
-        "key": 0
-      }
-    },
-    {
-      "op": "track.patch",
-      "trackIndex": 0,
-      "values": {
-        "exact": true,
-        "sound": "bell",
-        "character": 75,
-        "space": 40,
-        "level": 70,
-        "steps": [0, 2, 4, 8, 10, 12, 16, 20, 24, 28],
-        "noteEvents": [
-          { "step": 0, "notes": [72] },
-          { "step": 2, "notes": [72] },
-          { "step": 4, "notes": [72] },
-          { "step": 8, "notes": [72] },
-          { "step": 10, "notes": [76] },
-          { "step": 12, "notes": [79] },
-          { "step": 16, "notes": [77] },
-          { "step": 20, "notes": [76] },
-          { "step": 24, "notes": [74] },
-          { "step": 28, "notes": [72] }
-        ]
-      }
-    },
-    {
-      "op": "track.patch",
-      "trackIndex": 2,
-      "values": {
-        "exact": true,
-        "sound": "round",
-        "character": 50,
-        "level": 65,
-        "steps": [0, 4, 8, 12, 16, 20, 24, 28],
-        "noteEvents": [
-          { "step": 0, "notes": [36] },
-          { "step": 4, "notes": [43] },
-          { "step": 8, "notes": [36] },
-          { "step": 12, "notes": [43] },
-          { "step": 16, "notes": [38] },
-          { "step": 20, "notes": [43] },
-          { "step": 24, "notes": [36] },
-          { "step": 28, "notes": [43] }
-        ]
-      }
-    }
-  ]
-}
-\`\`\`
 `;
   }
 
@@ -821,6 +1039,374 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     };
   }
 
+  function checkSafePath(relPath){
+    if (!relPath || typeof relPath !== 'string') return;
+    if (relPath.includes('..') || relPath.startsWith('/') || relPath.startsWith('\\') || /^[a-zA-Z]:/.test(relPath)) {
+      throw new Error(`SECURITY_PATH_TRAVERSAL: Invalid path "${relPath}". Paths must be relative and cannot contain ".." or absolute roots.`);
+    }
+  }
+
+  function resolveRequestPayloadSync(parsed, syncFileReader){
+    if (!parsed || typeof parsed !== 'object') return parsed;
+    const req = clone(parsed);
+    const transaction = req.transaction || req;
+
+    function readSync(relPath) {
+      checkSafePath(relPath);
+      if (!syncFileReader) {
+        throw new Error(`MISSING_FILE_READER: Cannot resolve file "${relPath}" because no file reader was provided.`);
+      }
+      const raw = syncFileReader(relPath);
+      if (raw === undefined || raw === null) {
+        throw new Error(`FILE_NOT_FOUND: Companion file "${relPath}" could not be read.`);
+      }
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch(err) {
+          throw new Error(`INVALID_JSON in companion file "${relPath}": ${err.message}`);
+        }
+      }
+      return clone(raw);
+    }
+
+    function resolveOp(op) {
+      if (!op || typeof op !== 'object') return op;
+      let resOp = clone(op);
+
+      if (resOp.file || resOp.include) {
+        const opFile = resOp.file || resOp.include;
+        const fileData = readSync(opFile);
+        delete resOp.file;
+        delete resOp.include;
+        if (fileData && typeof fileData === 'object') {
+          if (fileData.op) {
+            resOp = { ...fileData, ...resOp };
+          } else if (resOp.op === 'track.patch') {
+            if (fileData.values && typeof fileData.values === 'object') {
+              if (resOp.trackIndex === undefined && fileData.trackIndex !== undefined) resOp.trackIndex = fileData.trackIndex;
+              resOp.values = { ...fileData.values, ...(resOp.values || {}) };
+            } else {
+              const { op: _o, trackIndex: _t, ...vals } = fileData;
+              if (resOp.trackIndex === undefined && fileData.trackIndex !== undefined) resOp.trackIndex = fileData.trackIndex;
+              resOp.values = { ...vals, ...(resOp.values || {}) };
+            }
+          } else if (resOp.op === 'project.replace' || resOp.op === 'composition.replace') {
+            resOp.project = fileData.project || fileData;
+          } else if (resOp.op === 'project.patch' || resOp.op === 'master.patch' || resOp.op === 'phrase.patch' || resOp.op === 'visual.patch') {
+            resOp.values = { ...(fileData.values || fileData), ...(resOp.values || {}) };
+          }
+        }
+      }
+
+      if (resOp.op === 'track.patch' && resOp.values && (resOp.values.file || resOp.values.include)) {
+        const vFile = resOp.values.file || resOp.values.include;
+        const vData = readSync(vFile);
+        delete resOp.values.file;
+        delete resOp.values.include;
+        if (vData && typeof vData === 'object') {
+          const { op: _o, trackIndex: _t, ...vals } = (vData.values || vData);
+          resOp.values = { ...vals, ...resOp.values };
+        }
+      }
+
+      if (resOp.op === 'project.replace' && resOp.project && Array.isArray(resOp.project.tracks)) {
+        const defaultNames = ['GLASS', 'TIDAL', 'ROOT', 'EMBER', 'RAIN', 'VEIL', 'MOSS', 'AURA'];
+        const resolvedTracks = [];
+        for (let i = 0; i < resOp.project.tracks.length; i++) {
+          const tr = resOp.project.tracks[i];
+          let trackData = {};
+          if (typeof tr === 'string') {
+            trackData = readSync(tr);
+          } else if (tr && (tr.file || tr.include)) {
+            const trFile = tr.file || tr.include;
+            const trRaw = readSync(trFile);
+            const { file: _f, include: _inc, ...restTr } = tr;
+            trackData = { ...(trRaw.values || trRaw), ...restTr };
+          } else if (tr && typeof tr === 'object') {
+            trackData = { ...tr };
+          }
+          if (!trackData.name && defaultNames[i]) trackData.name = defaultNames[i];
+          if (!trackData.instrument && trackData.name) trackData.instrument = trackData.name;
+          if (trackData.on === undefined) trackData.on = true;
+          if (trackData.generator === undefined) trackData.generator = 3;
+          if (trackData.exact === undefined && (trackData.steps || trackData.noteEvents)) trackData.exact = true;
+          resolvedTracks.push(trackData);
+        }
+        resOp.project.tracks = resolvedTracks;
+      }
+
+      if (resOp.op === 'composition.replace' && resOp.project && Array.isArray(resOp.project.phrases)) {
+        const resolvedPhrases = [];
+        for (const ph of resOp.project.phrases) {
+          let phraseObj = ph;
+          if (typeof ph === 'string') {
+            phraseObj = readSync(ph);
+          } else if (ph && (ph.file || ph.include)) {
+            const phData = readSync(ph.file || ph.include);
+            const { file: _f, include: _inc, ...restPh } = ph;
+            phraseObj = { ...phData, ...restPh };
+          }
+          if (phraseObj && phraseObj.project && Array.isArray(phraseObj.project.tracks)) {
+            const resolvedTracks = [];
+            for (const tr of phraseObj.project.tracks) {
+              if (typeof tr === 'string') {
+                resolvedTracks.push(readSync(tr));
+              } else if (tr && (tr.file || tr.include)) {
+                const trData = readSync(tr.file || tr.include);
+                const { file: _f, include: _inc, ...restTr } = tr;
+                resolvedTracks.push({ ...(trData.values || trData), ...restTr });
+              } else {
+                resolvedTracks.push(tr);
+              }
+            }
+            phraseObj.project.tracks = resolvedTracks;
+          }
+          resolvedPhrases.push(phraseObj);
+        }
+        resOp.project.phrases = resolvedPhrases;
+      }
+
+      return resOp;
+    }
+
+    if (Array.isArray(transaction.parts)) {
+      transaction.operations = Array.isArray(transaction.operations) ? transaction.operations : [];
+      for (const part of transaction.parts) {
+        const partFile = typeof part === 'string' ? part : (part && (part.file || part.include));
+        if (partFile) {
+          const content = readSync(partFile);
+          if (Array.isArray(content)) {
+            transaction.operations.push(...content);
+          } else if (content && Array.isArray(content.operations)) {
+            transaction.operations.push(...content.operations);
+          } else if (content && content.op) {
+            transaction.operations.push(content);
+          }
+        } else if (part && part.op) {
+          transaction.operations.push(part);
+        }
+      }
+      delete transaction.parts;
+    }
+
+    if (Array.isArray(transaction.operations)) {
+      const resolvedOps = [];
+      for (const opEntry of transaction.operations) {
+        if (typeof opEntry === 'string' || (opEntry && (opEntry.file || opEntry.include) && !opEntry.op)) {
+          const opFile = typeof opEntry === 'string' ? opEntry : (opEntry.file || opEntry.include);
+          const content = readSync(opFile);
+          if (Array.isArray(content)) {
+            for (const sub of content) {
+              resolvedOps.push(resolveOp(sub));
+            }
+          } else if (content && Array.isArray(content.operations)) {
+            for (const sub of content.operations) {
+              resolvedOps.push(resolveOp(sub));
+            }
+          } else if (content && content.op) {
+            resolvedOps.push(resolveOp(content));
+          }
+        } else {
+          resolvedOps.push(resolveOp(opEntry));
+        }
+      }
+      transaction.operations = resolvedOps;
+    }
+
+    return req;
+  }
+
+  async function resolveRequestPayload(parsed, fileReader){
+    if (!parsed || typeof parsed !== 'object') return parsed;
+    const req = clone(parsed);
+    const transaction = req.transaction || req;
+
+    async function readAsync(relPath) {
+      checkSafePath(relPath);
+      if (!fileReader) {
+        throw new Error(`MISSING_FILE_READER: Cannot resolve file "${relPath}" because no file reader was provided.`);
+      }
+      const raw = await fileReader(relPath);
+      if (raw === undefined || raw === null) {
+        throw new Error(`FILE_NOT_FOUND: Companion file "${relPath}" could not be read.`);
+      }
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch(err) {
+          throw new Error(`INVALID_JSON in companion file "${relPath}": ${err.message}`);
+        }
+      }
+      return clone(raw);
+    }
+
+    async function resolveOp(op) {
+      if (!op || typeof op !== 'object') return op;
+      let resOp = clone(op);
+
+      if (resOp.file || resOp.include) {
+        const opFile = resOp.file || resOp.include;
+        const fileData = await readAsync(opFile);
+        delete resOp.file;
+        delete resOp.include;
+        if (fileData && typeof fileData === 'object') {
+          if (fileData.op) {
+            resOp = { ...fileData, ...resOp };
+          } else if (resOp.op === 'track.patch') {
+            if (fileData.values && typeof fileData.values === 'object') {
+              if (resOp.trackIndex === undefined && fileData.trackIndex !== undefined) resOp.trackIndex = fileData.trackIndex;
+              resOp.values = { ...fileData.values, ...(resOp.values || {}) };
+            } else {
+              const { op: _o, trackIndex: _t, ...vals } = fileData;
+              if (resOp.trackIndex === undefined && fileData.trackIndex !== undefined) resOp.trackIndex = fileData.trackIndex;
+              resOp.values = { ...vals, ...(resOp.values || {}) };
+            }
+          } else if (resOp.op === 'project.replace' || resOp.op === 'composition.replace') {
+            resOp.project = fileData.project || fileData;
+          } else if (resOp.op === 'project.patch' || resOp.op === 'master.patch' || resOp.op === 'phrase.patch' || resOp.op === 'visual.patch') {
+            resOp.values = { ...(fileData.values || fileData), ...(resOp.values || {}) };
+          }
+        }
+      }
+
+      if (resOp.op === 'track.patch' && resOp.values && (resOp.values.file || resOp.values.include)) {
+        const vFile = resOp.values.file || resOp.values.include;
+        const vData = await readAsync(vFile);
+        delete resOp.values.file;
+        delete resOp.values.include;
+        if (vData && typeof vData === 'object') {
+          const { op: _o, trackIndex: _t, ...vals } = (vData.values || vData);
+          resOp.values = { ...vals, ...resOp.values };
+        }
+      }
+
+      if (resOp.op === 'project.replace' && resOp.project && Array.isArray(resOp.project.tracks)) {
+        const defaultNames = ['GLASS', 'TIDAL', 'ROOT', 'EMBER', 'RAIN', 'VEIL', 'MOSS', 'AURA'];
+        const resolvedTracks = [];
+        for (let i = 0; i < resOp.project.tracks.length; i++) {
+          const tr = resOp.project.tracks[i];
+          let trackData = {};
+          if (typeof tr === 'string') {
+            trackData = await readAsync(tr);
+          } else if (tr && (tr.file || tr.include)) {
+            const trFile = tr.file || tr.include;
+            const trRaw = await readAsync(trFile);
+            const { file: _f, include: _inc, ...restTr } = tr;
+            trackData = { ...(trRaw.values || trRaw), ...restTr };
+          } else if (tr && typeof tr === 'object') {
+            trackData = { ...tr };
+          }
+          if (!trackData.name && defaultNames[i]) trackData.name = defaultNames[i];
+          if (!trackData.instrument && trackData.name) trackData.instrument = trackData.name;
+          if (trackData.on === undefined) trackData.on = true;
+          if (trackData.generator === undefined) trackData.generator = 3;
+          if (trackData.exact === undefined && (trackData.steps || trackData.noteEvents)) trackData.exact = true;
+          resolvedTracks.push(trackData);
+        }
+        resOp.project.tracks = resolvedTracks;
+      }
+
+      if (resOp.op === 'composition.replace' && resOp.project && Array.isArray(resOp.project.phrases)) {
+        const resolvedPhrases = [];
+        for (const ph of resOp.project.phrases) {
+          let phraseObj = ph;
+          if (typeof ph === 'string') {
+            phraseObj = await readAsync(ph);
+          } else if (ph && (ph.file || ph.include)) {
+            const phData = await readAsync(ph.file || ph.include);
+            const { file: _f, include: _inc, ...restPh } = ph;
+            phraseObj = { ...phData, ...restPh };
+          }
+          if (phraseObj && phraseObj.project && Array.isArray(phraseObj.project.tracks)) {
+            const resolvedTracks = [];
+            for (const tr of phraseObj.project.tracks) {
+              if (typeof tr === 'string') {
+                resolvedTracks.push(await readAsync(tr));
+              } else if (tr && (tr.file || tr.include)) {
+                const trData = await readAsync(tr.file || tr.include);
+                const { file: _f, include: _inc, ...restTr } = tr;
+                resolvedTracks.push({ ...(trData.values || trData), ...restTr });
+              } else {
+                resolvedTracks.push(tr);
+              }
+            }
+            phraseObj.project.tracks = resolvedTracks;
+          }
+          resolvedPhrases.push(phraseObj);
+        }
+        resOp.project.phrases = resolvedPhrases;
+      }
+
+      return resOp;
+    }
+
+    if (Array.isArray(transaction.parts)) {
+      transaction.operations = Array.isArray(transaction.operations) ? transaction.operations : [];
+      for (const part of transaction.parts) {
+        const partFile = typeof part === 'string' ? part : (part && (part.file || part.include));
+        if (partFile) {
+          const content = await readAsync(partFile);
+          if (Array.isArray(content)) {
+            transaction.operations.push(...content);
+          } else if (content && Array.isArray(content.operations)) {
+            transaction.operations.push(...content.operations);
+          } else if (content && content.op) {
+            transaction.operations.push(content);
+          }
+        } else if (part && part.op) {
+          transaction.operations.push(part);
+        }
+      }
+      delete transaction.parts;
+    }
+
+    if (Array.isArray(transaction.operations)) {
+      const resolvedOps = [];
+      for (const opEntry of transaction.operations) {
+        if (typeof opEntry === 'string' || (opEntry && (opEntry.file || opEntry.include) && !opEntry.op)) {
+          const opFile = typeof opEntry === 'string' ? opEntry : (opEntry.file || opEntry.include);
+          const content = await readAsync(opFile);
+          if (Array.isArray(content)) {
+            for (const sub of content) {
+              resolvedOps.push(await resolveOp(sub));
+            }
+          } else if (content && Array.isArray(content.operations)) {
+            for (const sub of content.operations) {
+              resolvedOps.push(await resolveOp(sub));
+            }
+          } else if (content && content.op) {
+            resolvedOps.push(await resolveOp(content));
+          }
+        } else {
+          resolvedOps.push(await resolveOp(opEntry));
+        }
+      }
+      transaction.operations = resolvedOps;
+    }
+
+    return req;
+  }
+
+  async function resolveAndValidateRequest(api, textContent, fileReader, fallbackId, options = {}){
+    let parsed;
+    try {
+      parsed = typeof textContent === 'string' ? JSON.parse(textContent) : textContent;
+    } catch(e) {
+      return { ok: false, error: 'INVALID_JSON: ' + e.message, id: fallbackId };
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return { ok: false, error: 'INVALID_REQUEST_OBJECT', id: fallbackId };
+    }
+    let resolved;
+    try {
+      resolved = await resolveRequestPayload(parsed, fileReader);
+    } catch(err) {
+      return { ok: false, error: err.message, id: String(parsed.requestId || fallbackId) };
+    }
+    return parseAndValidateRequest(api, resolved, fallbackId, options);
+  }
+
   function parseAndValidateRequest(api, textContent, fallbackId, options = {}){
     let parsed;
     try {
@@ -832,8 +1418,27 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       return { ok: false, error: 'INVALID_REQUEST_OBJECT', id: fallbackId };
     }
 
+    if (options && options.files) {
+      try {
+        parsed = resolveRequestPayloadSync(parsed, (p) => options.files[p]);
+      } catch(err) {
+        return { ok: false, error: err.message, id: String(parsed.requestId || fallbackId) };
+      }
+    }
+
     const transaction = parsed.transaction || parsed;
     const requestId = String(parsed.requestId || transaction.requestId || fallbackId);
+
+    if (Array.isArray(transaction.parts) && transaction.parts.length > 0) {
+      return { ok: false, error: 'UNRESOLVED_MODULAR_REFERENCE: Request contains modular "parts" that have not been resolved', id: requestId };
+    }
+    if (Array.isArray(transaction.operations)) {
+      for (const op of transaction.operations) {
+        if (op && (op.file || op.include || (op.values && (op.values.file || op.values.include)))) {
+          return { ok: false, error: 'UNRESOLVED_MODULAR_REFERENCE: Operation contains modular "file" reference that has not been resolved', id: requestId };
+        }
+      }
+    }
 
     if (transaction.schemaVersion !== 1) {
       return { ok: false, error: 'INVALID_SCHEMA_VERSION: schemaVersion must be 1', id: requestId };
@@ -916,6 +1521,14 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       help = 'Provide the payload object ("project" or "composition") inside the operation.';
     } else if (msg.includes('REJECTED_BY_USER')) {
       help = 'The user reviewed the proposal preview in HALO and clicked "Reject". Ask the user for their preferred direction before proposing changes.';
+    } else if (msg.includes('FILE_NOT_FOUND')) {
+      help = 'A companion file referenced by "file" or "parts" was not found. Ensure all modular files exist in requests/ or in your request subfolder.';
+    } else if (msg.includes('SECURITY_PATH_TRAVERSAL')) {
+      help = 'File paths must be relative and cannot contain ".." or absolute paths. Keep all companion files inside the request directory.';
+    } else if (msg.includes('INVALID_JSON in companion file')) {
+      help = 'A syntax error was found in a companion JSON file. Validate that each track JSON file contains well-formed JSON.';
+    } else if (msg.includes('UNRESOLVED_MODULAR_REFERENCE')) {
+      help = 'Request references external companion files but the files could not be located or loaded.';
     }
 
     let instructionForAgent;
@@ -1161,10 +1774,151 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         }
 
         for await (const [name, handle] of reqDir.entries()){
+          // CASE 1: Folder Bundle (Directory in requests/)
+          if (handle.kind === 'directory') {
+            const bundleId = name;
+            let manifestHandle = null;
+            let manifestName = null;
+            for (const candidate of ['manifest.json', 'request.json', `${bundleId}.json`, 'index.json']) {
+              try {
+                manifestHandle = await handle.getFileHandle(candidate, { create: false });
+                manifestName = candidate;
+                break;
+              } catch {}
+            }
+            if (!manifestHandle) continue;
+
+            const text = await readFsFile(manifestHandle);
+            const bundleContentKey = `bundle:${bundleId}:${text}`;
+            if (processedContent.get(bundleId) === bundleContentKey) continue;
+            if (appliedIds.has(bundleId) && !processedContent.has(bundleId)) {
+              processedContent.set(bundleId, bundleContentKey);
+              continue;
+            }
+
+            processedContent.set(bundleId, bundleContentKey);
+
+            const bundleFileReader = async (relPath) => {
+              const fHandle = await handle.getFileHandle(relPath, { create: false });
+              return await readFsFile(fHandle);
+            };
+
+            let parsed = await resolveAndValidateRequest(api, text, bundleFileReader, bundleId);
+
+            if (!parsed.ok && parsed.error && parsed.error.includes('CONFLICT_REVISION_MISMATCH')) {
+              const rebaseAttempt = await resolveAndValidateRequest(api, text, bundleFileReader, bundleId, { allowRebase: true });
+              if (rebaseAttempt.ok) {
+                parsed = rebaseAttempt;
+              }
+            }
+
+            if (!parsed.ok) {
+              consecutiveErrors++;
+              try {
+                await syncStateOnly(dirHandle, api);
+                lastSyncedRevision = api.getProjectState().revision;
+                state.lastSync = new Date().toISOString();
+              } catch {}
+
+              const guidance = generateErrorGuidance(parsed.error, consecutiveErrors);
+              const errRes = {
+                ok: false,
+                id: parsed.id,
+                error: parsed.error,
+                help: guidance.help,
+                instructionForAgent: guidance.instructionForAgent,
+                consecutiveErrors,
+                currentRevision: parsed.currentRevision || api.getProjectState().revision,
+                timestamp: new Date().toISOString()
+              };
+              await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(errRes, null, 2));
+              if (bundleId !== parsed.id) {
+                await writeFsFile(resDir, `${bundleId}.result.json`, JSON.stringify(errRes, null, 2));
+              }
+              processedIds.add(bundleId);
+              state.lastResult = errRes;
+              state.error = parsed.error;
+              notify();
+              continue;
+            }
+
+            consecutiveErrors = 0;
+            state.error = null;
+            await resDir.removeEntry(`${parsed.id}.result.json`).catch(() => {});
+            if (bundleId !== parsed.id) {
+              await resDir.removeEntry(`${bundleId}.result.json`).catch(() => {});
+            }
+
+            // Rule 1: Never apply automatically by default
+            if (!state.autoApply) {
+              state.pending = {
+                id: parsed.id,
+                filename: `${bundleId}/${manifestName}`,
+                transaction: parsed.transaction,
+                preview: parsed.preview,
+                baseId: bundleId,
+                rebased: !!parsed.rebased,
+                originalBaseRevision: parsed.originalBaseRevision
+              };
+              state.lastResult = null;
+              state.error = null;
+              notify();
+              break; // Wait for user decision
+            } else {
+              api.setEnabled(true);
+              const applied = await api.applyOperations(parsed.transaction);
+              appliedIds.add(bundleId);
+              appliedIds.add(parsed.id);
+              const okRes = {
+                ok: true,
+                id: parsed.id,
+                appliedRevision: applied.revision,
+                currentRevision: applied.revision,
+                ...(parsed.rebased ? { rebasedFrom: parsed.originalBaseRevision } : {}),
+                timestamp: new Date().toISOString()
+              };
+              await writeFsFile(resDir, `${parsed.id}.result.json`, JSON.stringify(okRes, null, 2));
+              if (bundleId !== parsed.id) {
+                await writeFsFile(resDir, `${bundleId}.result.json`, JSON.stringify(okRes, null, 2));
+              }
+              await syncStateOnly(dirHandle, api);
+              lastSyncedRevision = applied.revision;
+              state.lastSync = new Date().toISOString();
+              processedIds.add(bundleId);
+              state.lastResult = okRes;
+              notify();
+            }
+            continue;
+          }
+
+          // CASE 2: Files in requests/
           if (handle.kind !== 'file' || !name.endsWith('.json')) continue;
           const baseId = name.replace(/\.json$/i, '');
 
+          // Skip companion files
+          if (name.startsWith('_') || name.startsWith('.') || /^t[0-7]\.json$/i.test(name) || /[\.-](track|part|t)[0-7]?\./i.test(name)) {
+            continue;
+          }
+
           const text = await readFsFile(handle);
+
+          // Fast inspection: skip non-root companion files
+          let parsedRaw;
+          try {
+            parsedRaw = JSON.parse(text);
+          } catch(e) {
+            if (!/^(request|req)[-_]/i.test(name)) {
+              continue;
+            }
+          }
+
+          if (parsedRaw) {
+            const hasRootHallmarks = parsedRaw.schemaVersion === 1 || parsedRaw.operations || parsedRaw.parts || parsedRaw.requestId;
+            if (!hasRootHallmarks && (Array.isArray(parsedRaw) || parsedRaw.values || parsedRaw.steps || parsedRaw.notes || parsedRaw.trackIndex !== undefined)) {
+              continue;
+            }
+          }
+
           if (processedContent.get(baseId) === text) continue;
           if (appliedIds.has(baseId) && !processedContent.has(baseId)) {
             processedContent.set(baseId, text);
@@ -1172,10 +1926,16 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           }
 
           processedContent.set(baseId, text);
-          let parsed = parseAndValidateRequest(api, text, baseId);
+
+          const reqDirFileReader = async (relPath) => {
+            const fHandle = await reqDir.getFileHandle(relPath, { create: false });
+            return await readFsFile(fHandle);
+          };
+
+          let parsed = await resolveAndValidateRequest(api, text, reqDirFileReader, baseId);
 
           if (!parsed.ok && parsed.error && parsed.error.includes('CONFLICT_REVISION_MISMATCH')) {
-            const rebaseAttempt = parseAndValidateRequest(api, text, baseId, { allowRebase: true });
+            const rebaseAttempt = await resolveAndValidateRequest(api, text, reqDirFileReader, baseId, { allowRebase: true });
             if (rebaseAttempt.ok) {
               parsed = rebaseAttempt;
             }
@@ -1376,6 +2136,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
           pollInterval = setInterval(checkFolder, intervalMs);
           if (typeof pollInterval?.unref === 'function') pollInterval.unref();
         }
+        state.busy = false;
         await checkFolder();
       } catch(e) {
         console.error('[HALO File Bridge] connect() failed with exception:', e);
@@ -1469,7 +2230,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         try {
           const reqDir = await dirHandle.getDirectoryHandle('requests', { create: false });
           for await (const [name] of reqDir.entries()){
-            try { await reqDir.removeEntry(name); } catch {}
+            try { await reqDir.removeEntry(name, { recursive: true }); } catch {}
           }
           console.log('[HALO File Bridge] cleared requests/ folder');
         } catch(e) {
@@ -1478,7 +2239,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
         try {
           const resDir = await dirHandle.getDirectoryHandle('responses', { create: false });
           for await (const [name] of resDir.entries()){
-            try { await resDir.removeEntry(name); } catch {}
+            try { await resDir.removeEntry(name, { recursive: true }); } catch {}
           }
           console.log('[HALO File Bridge] cleared responses/ folder');
         } catch(e) {
@@ -1931,7 +2692,7 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
       <li><code>instruments.json</code> — ${tr('8 голосов, пресеты, совместимость и звуковой смысл каждого параметра','8 voices, presets, compatibility, and sonic meaning of each parameter')}</li>
       <li><code>music-rules.json</code> — ${tr('Сетка 16 шагов 4/4, 24 тональности квинтового круга, гаммы, полифония','16-step 4/4 grid, 24 Circle of Fifths keys, scales, polyphony')}</li>
       <li><code>project-state.json</code> — ${tr('Снимок текущей композиции (ревизия, ноты, фразы) — только для чтения','Snapshot of active composition (revision, notes, phrases) — read-only')}</li>
-      <li><code>requests/</code> — ${tr('Папка входящих команд агента (например, request-001.json)','Incoming agent command folder (e.g. request-001.json)')}</li>
+      <li><code>requests/</code> — ${tr('Папка входящих команд агента: отдельные JSON или бандлы-папки (например, request-001.json или request-001/manifest.json)','Incoming agent command folder: standalone JSON or subfolder bundles (e.g. request-001.json or request-001/manifest.json)')}</li>
       <li><code>responses/</code> — ${tr('Папка ответов HALO (например, request-001.result.json)','HALO response folder (e.g. request-001.result.json)')}</li>
     `;
 
@@ -1949,6 +2710,9 @@ If a command execution returns \`"ok": false\` in \`responses/<requestId>.result
     generateProjectState,
     generateAgentGuide,
     getContextFiles,
+    resolveRequestPayloadSync,
+    resolveRequestPayload,
+    resolveAndValidateRequest,
     parseAndValidateRequest,
     processRequest,
     createBridge,

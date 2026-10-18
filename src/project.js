@@ -114,10 +114,11 @@
      throw Error('INVALID_SOUND: sound "'+t.sound+'" is not available for slot "'+instrument+'" in world "'+setup+'". Available sounds: ['+banks[instrument]?.sounds.map(s=>s.id.replace(setup+'-','')).join(', ')+']');
    }
    soundId=soundObj.id;
-   if(!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(t.steps).size!==t.steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
-   const clean={name:trackName,instrument,generator,sound:soundId,on:t.on,steps:[...t.steps].sort((a,b)=>a-b)};
+   const steps=Array.isArray(t.steps)?t.steps:[];
+   if(steps.length>128||steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(steps).size!==steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
+   const clean={name:trackName,instrument,generator,sound:soundId,on:t.on!==false,steps:[...steps].sort((a,b)=>a-b)};
    if(generator===3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role||t.exact!==undefined&&typeof t.exact!=='boolean'||!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
-   for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field],0,100);
+   for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field]??(field==='space'?30:50),0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';
    clean.chorus=number(t.chorus??0,0,100);

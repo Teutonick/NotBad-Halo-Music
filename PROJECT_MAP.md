@@ -1,4 +1,50 @@
 
+### Modular Multi-File Requests, Folder Bundles & Full 8-Track Scoring — 2026-10-18
+
+- **Root Cause & User Need:**
+  - Artificial token constraints that previously forced external AI models to compose only 1–2 tracks at a time have been eliminated.
+  - The AI now has complete creative freedom to rewrite and orchestrate **all 8 tracks simultaneously**, providing detailed 16th-note steps and chords across all 4 or 8 bars (up to 128 steps per track).
+  - To prevent external LLM tool-calling single-string argument truncation crashes (`Unterminated string in JSON at position ~2158`), HALO now supports **Modular Multi-File Requests** and **Folder Bundles**.
+- **Folder Bundles (`requests/<requestId>/`):**
+  - Agents can place a bundle subfolder inside `requests/` containing `manifest.json` (or `request.json` / `<bundle>.json`) and companion track files (`track-0.json` ... `track-7.json`).
+  - HALO automatically discovers directory handles via `handle.kind === 'directory'`, resolves all relative companion files within that directory, and presents a single unified proposal in the web UI.
+- **Operation-Level Companion Files & Modular Tracks:**
+  - Supported: `{ op: 'track.patch', trackIndex: 5, file: 'track-5.json' }` and `project.replace` with `tracks: [{ file: 'track-0.json' }, ...]`.
+  - Multi-part requests: `{ requestId: 'req-002', schemaVersion: 1, baseRevision: 1, parts: ['part-drums.json', 'part-lead.json'] }`.
+- **Security & Path Traversal Guards:**
+  - Strict guard rejects any path containing `..`, absolute paths with `/` or drive letters `C:`, or traversing outside the bundle/requests folder with `INVALID_FILE_PATH`.
+  - Companion files in flat `requests/` (e.g. `req-001-t*.json` or files without root hallmarks) are safely skipped during polling to avoid premature false-positive validation errors.
+- **Tolerant Companion Defaults & Recursive Cleanup:**
+  - Companion track files automatically default to `on: true`, `generator: 3`, `instrument = name`, and `exact = true` when custom steps/notes are supplied.
+  - `resetLocalChanges` recursively deletes both request files and bundle subdirectories (`recursive: true`).
+- **Context Synchronization & Verification:**
+  - Exported updated context files to `C:\Users\Никита\Documents\HALO projects` with 0 Cyrillic characters (100% English).
+  - All 26 unit tests in `tests/file-bridge.test.cjs` and all 256 tests in the test suite pass.
+
+### Zero-Prompt Autonomous Directives, Full-Span Coverage & Double Scrollbar Elimination — 2026-10-17
+
+- **Zero-Prompt-Engineering Autonomous Directives (`src/file-bridge.js`):**
+  - Users are not expected to engineer complex prompt templates for external LLMs. A user can simply supply the folder path and a brief creative intention (e.g. *"напиши новогодний луп-джингл"* or *"сочини композицию по мотивам OST пираты карбиского моря"*).
+  - Added *Prompt-to-Architecture Decision Matrix* in `AGENT_GUIDE.md` mapping prompts to Mode (`project.patch` vs `composition.replace`), Setup (`ambient` vs `reactor`), Meter (`4/4` vs `3/4`), Key, and Voices.
+  - Added *The Full-Span Duration Principle* in `AGENT_GUIDE.md` and `music-rules.json` (`fullPhraseCoverageWarning`, `fullPhraseCoverageRule`), emphasizing that 8-bar phrases require steps spanning `0..127` in 4/4 and `0..95` in 3/4. Restricting steps to `0..15` leaves bars 2–8 completely silent.
+  - Added canonical recipes:
+    - **Recipe A (Holiday / New Year 8-Bar Jingle):** C Major (`key: 0`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
+    - **Recipe B (Epic Cinematic / Pirates of the Caribbean):** D Minor (`key: 14`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`). Strictly allowlisted section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
+- **Double Scrollbar Elimination (`index.html`):**
+  - Removed `max-height: min(440px, 50vh)`, `min-height: 180px`, `overflow: auto`, `overscroll-behavior: contain`, and custom scrollbar definitions from `.agent-panel`.
+  - Completely removed `.agent-panel.filebridge-mode{max-height:min(500px,60vh);min-height:280px}`.
+  - Aligned `.agent-panel` layout with Track 09 (`.live-loop-panel`), relying solely on the single shared vertical scrollbar of the `.bottom` container.
+- **Token Budget Directive & Compact Batch Sizing (`src/file-bridge.js`):**
+  - Resolved fatal `Unterminated string in JSON at position ...` errors occurring when external AI harnesses (Cursor, Claude Code, LiteLLM) pass file contents inside JSON tool call parameters. Tool arguments frequently truncate when single-line string payloads exceed ~2 KB.
+  - Added prominent *Token Budget Directive* in `AGENT_GUIDE.md` directing external agents to keep request JSON files under 1.5 KB.
+  - Refactored Example 2 from 3.5 KB down to ~1.2 KB with concise single-line note event groupings.
+- **Tolerant Track Defaults in `src/project.js`:**
+  - `project.validate` now defaults omitted `steps` to `[]`, omitted `on` to `true`, and missing numeric controls (`density`, `character`, `duration`, `space`) to `50` (or `30` for `space`), ensuring partial track definitions in `project.replace` or `composition.replace` do not fail with unexpected validation errors.
+- **Verification & Test Suite:**
+  - Added unit test in `tests/file-bridge.test.cjs` validating that both canonical recipes parse and pass schema validation cleanly and confirming presence of zero-prompt directives and fullPhraseCoverage rules in context files.
+  - Verified 100% English purity (0 Cyrillic characters) across all 5 exported bridge context files.
+  - All 248 unit tests pass (`node --test tests/*.test.cjs`).
+
 ### File Bridge Context Package, exact=true Auto-Promotion, startStep Auto-Alignment & 5s Verification Loop — 2026-10-17
 
 - **Root Cause & Rationale:**
