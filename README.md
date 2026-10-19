@@ -1,24 +1,6 @@
-### 2026-10-19 — A musical brief is enough for File Bridge
+### 2026-10-19 — File Bridge v3
 
-The RU/EN example prompt now asks for music and checked delivery without score-format names, request paths or filenames. The exported AGENT_GUIDE.md owns unused request naming, delivery to the connected folder, bar-by-bar self-checks, deliberate tempo selection, receipt correlation and bounded checks (4–5 seconds apart, at most three checks per submission). Pending approval requires reviewing every scoreReport item: repair accidental musical omissions within two total correction rounds, or explain intentional rests/repetition. Final replies must reflect the saved score and fresh receipt; validation is not artistic completion or listening evidence. No automatic music rewriting or new runtime dependencies. Reload HALO and Update Files to refresh the connected guide; agent compliance remains dependent on the external model.
-
-### 2026-10-19 — Tolerant score acceptance
-
-The browser-only File Bridge score adapter handles `bpm` → `tempo`, `timeSignature` → `meter`, role ID case/whitespace, sound ID case/whitespace/prefixes, unordered events, exact duplicates and same-step chord notes. Conflicting aliases and structural/API fields remain errors. Unknown non-structural fields on score, phrase, section and voice objects are ignored and reported; root `duration` is metadata, while voice `duration` remains a validated 0–100 timbre control. Role/slot routing and compatible sound resolution remain automatic. Unknown or incompatible sounds, invalid MIDI/polyphony/steps, unsafe file references and revision conflicts remain strict. Legacy operations and WebMCP retain their existing validation.
-
-`scoreReport` in the pending receipt and review panel separates repairs from advisory warnings: no sounding parts, enabled empty parts, disabled/zero-level parts with events, no new events in the second half, identical melody halves and identical rhythms across at least three sounding parts. Diagnostics inspect event structure, including each song phrase; sound tails and artistic intention are not inferred. Intentional repetition/silence is allowed. HALO never fills missing bars or changes authored tempo/pitches to improve a score. Audition before approval; these heuristics do not certify musical or audio quality. Retained generated parts in edit mode are excluded from authored-event coverage checks. Compatible default sounds, when omitted for new music, are explicitly reported. Refresh connected context files after reloading HALO.
-
-### 2026-10-19 — Simple File Bridge scores
-
-File Bridge now accepts `halo-score`: named musical roles and note tuples, with explicit instrument choices, automatic bank/slot routing and transaction construction (compatible defaults remain a fallback). New music uses replace; edit preserves unmentioned parts. The self-contained agent guide includes all instrument timbres and their musical roles. The composer chooses sounds and writes original note-by-note parts; legacy operations are optional. Human approval, revision/content checks and existing API compatibility remain. Reload HALO and use Update Files in the connected folder. See [score protocol](docs/agent-api-specification.md).
-
-## 2026-10-19 — File Bridge instructions and guide layout
-
-Agent instructions now default to JSON files directly in HALO-created requests/, with request-prefixed companions published before the root request. No directory creation is needed; denied file writes stop with a path report. Existing bundle support is unchanged. Bilingual safety/background notes sit inside the scrollable manual body, after its header. Refresh a connected folder with Update Files to receive the revised AGENT_GUIDE.md.
-
-Production packaging: `sh scripts/package-pages.sh` copies the static site into a new `_site/` folder. Pages runs the Node regression suite before uploading this package; development files and temporary evidence are excluded. See [release validation](docs/release-validation.md).
-
-<div align="center">
+One strict halo-score contract, one verified ROOT, live STATE revision, fixed ID/REQUEST/RECEIPT and seven sequential states. Only flat requests/ID.json and ID--role.json voice companions. Operation envelopes, bundle folders, aliases, automatic sound defaults and automatic rebasing are removed from File Bridge. Physical slots, roles, banks and timbres are distinct. [Complete contract and package map](docs/file-bridge-protocol.md). Reload HALO and Update Files. WebMCP and portable project import retain their separate formats.
 
 # NotBad HALO
 
@@ -137,27 +119,11 @@ HALO can be composed and arranged by external AI agents (such as Codex, Antigrav
 
 Agents default to composing single phrase loops, but can construct full multi-section song arrangements (*Intro → Verse → Chorus → Verse 2 → Bridge → Outro*) with section repeats, capped safely at 15 unique phrases. Supported meters include standard `4/4` (4/8 bars) and `3/4` (4 bars = 3/4 waltz, 8 bars = 6/8 pirate swing). All processing and audio remain 100% client-side and static on GitHub Pages.
 
-### File Bridge reliability — 2026-10-18
-
-Companion files first, manifest last, explicit pending_approval acknowledgement, then human approval. Companion-only corrections are detected; reviewed file changes require a fresh review, applied/rejected request IDs never replay. File-writing call budgets depend on the external harness; full eight-track scores remain supported. The compact context v2 sound registry uses IDs rather than duplicate catalogs. WebMCP is separate. See [current protocol](docs/agent-api-specification.md#file-bridge-submission-protocol--2026-10-18) and [fix verification](docs/release-validation.md).
-
-First use requires explicit acceptance of bilingual safety, content-rights, local-storage and external-agent terms. Device and folder permissions are requested separately.
-
-
-### File Bridge input and receipt audit — 2026-10-18
-
-File Bridge accepts track fields directly on an operation or inside values, digit-string indices 0..7 and ID case/whitespace variants. Conflicting values and musical constraints remain errors. The response submissionVersion covers the manifest and companion contents; after a correction wait for a fresh receipt before diagnosing an old error again.
-
-Normalization is File Bridge only; WebMCP and core musical validation retain their strict contract. Use canonical `{op:"track.patch",trackIndex:5,values:{...}}`; a companion contains the values object. Keep one request ID and manifest for corrections. Write companions first and manifest last. Flat references resolve beside the manifest, bundle references inside the bundle; renaming files requires updating references. Slot/role diagnostics identify the track and distinguish role, exact flag and sound compatibility errors. No new dependency or deployment step.
-
-A softly faded Filexa portrait accompanies the orbital scene, using a local static asset.
-
-
 ### Integration performance — 2026-10-18
 
 Automatic File Bridge scans run every 1.5 seconds only while the File Bridge panel is selected and the browser page is visible. Closing the panel pauses automatic folder I/O; reopening resumes on the next tick. A scan already in progress may finish. Manual refresh/check remains available. Keep this panel open while an external agent submits files; otherwise its acknowledgement will wait.
 
-Project snapshots are written only when the project revision changes; full reference files are exported on connection or explicit refresh. Idle file reads use bounded caches keyed by filename, lastModified and size; unchanged submissions skip repeated engine validation and unchanged receipts skip repeated JSON parsing. Companion-only corrections remain supported. Approval always rereads the manifest and companions, compares the reviewed content and checks the project revision. Metadata is an optimization, not approval authority. Project revision discovery still validates/serializes the in-memory project to detect edits outside the API; it is not yet an event-driven revision counter. WebMCP remains on demand and independent of the folder panel.
+Project snapshots are written only when the project revision changes; full reference files are exported on connection or explicit refresh. Idle file reads use bounded caches keyed by filename, lastModified and size; unchanged submissions skip repeated engine validation and unchanged receipts skip repeated JSON parsing. Companion-only corrections remain supported. Approval always rereads the request and companions, compares the reviewed content and checks the project revision. Metadata is an optimization, not approval authority. Project revision discovery still validates/serializes the in-memory project to detect edits outside the API; it is not yet an event-driven revision counter. WebMCP remains on demand and independent of the folder panel.
 
 The translator handles changed DOM subtrees instead of rescanning the body for each transport label change. Large dock panels avoid nested backdrop blur over animated canvases. Audio scheduling and orbit geometry are unchanged. No new runtime dependencies or server requirements; static GitHub Pages paths remain relative.
 
@@ -165,10 +131,3 @@ Folder selection now displays waiting status and inline cancellation/errors in R
 
 
 2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.
-
-
-### File Bridge context consolidation — 2026-10-18
-
-The five context files now have separate responsibilities: workflow, technical schemas, sound/role registry, musical guidance, and current state. Instruments schema 3 removes derived compatibility indexes; project-state schema 2 removes the duplicate resolved score and field-access lists. Musical recommendations remain in music-rules.json. Refresh connected folders with Update Files. Request/project formats, validation, playback, approval and WebMCP remain unchanged. No runtime dependency or Pages path change.
-
-Context schema versions after consolidation: capabilities 2, instruments 3, music-rules 2, project-state 2; request schemaVersion remains 1.

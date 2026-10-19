@@ -1,27 +1,25 @@
-## Instrument-aware composer context — 2026-10-19
+# Release validation — File Bridge v3, 2026-10-19
 
-291 Node tests pass with repository-local TEMP/TMP. The generated guide is checked against every instrument registry entry, including timbre name, pitched/unpitched status and natural/other supported roles. Every advertised sound is accepted by the authoritative engine validator in a suitable authored part. A separate apply/context readback test proves that authored chromatic melody notes and rests are preserved in both sound worlds, independently of generated motifs. These checks establish notation/routing, not audible quality or a fresh external model's artistic performance. No new browser, listening or device acceptance is claimed for this instruction/catalog revision. Parser, synthesis and GENERATE behavior are unchanged.
+Local candidate; no commit, push or deployment.
 
-## Composer score validation — 2026-10-19
+## Current evidence
 
-- 288 Node tests pass with TEMP/TMP redirected to the checkout. New checks cover the exact guide example, all eight roles in both worlds, aggregated errors, 3/4 and song references/limits, edit preservation, companion-path security, approval races, terminal non-replay and applied project readback. The short guide revision is refreshed with project state.
-- Native Chrome, desktop: isolated fixture with actual HALO Agent/File Bridge modules and the real File Bridge panel passed score submission → pending_approval → Apply Changes → applied. The canonical eight-bar score selected bell/round/shaker/air automatically; the in-memory folder readback matched the applied project. RU and EN score preview/prompt rendering were checked. This used a test project and File System Access-compatible in-memory handles; it does not establish a fresh native OS-folder or external-model run.
-- Full app's first-use terms were not accepted for this test; the isolated fixture did not touch user storage, HALO projects, microphone or playback. No listening-quality, Safari/iOS/mobile, public deployment or external-model acceptance is claimed.
-- Reload the updated HALO and Update Files before testing an external agent in a fresh conversation. A previously failed operation file is not migrated/applied automatically. No commit or deployment was performed.
+- Complete Node suite: 262 tests pass, zero failures, with TEMP/TMP redirected to artifacts/test-tmp in the checkout. Retired operation/bundle/normalization acceptance tests were replaced with strict v3 acceptance/rejection tests; connection persistence, corrupt-handle recovery, folder-only reset, polling gates and approval/content protections remain covered.
+- File Bridge tests cover all 62 catalog sounds, all eight roles in both worlds, explicit sounds, literal chromatic notes/rests, edit preservation, multi-phrase songs and 3/4, unknown fields/aliases/default rejection, ID correlation, path safety before reads, missing/truncated companions, fresh submissionVersion, approval races, stale revision refusal, applied/rejected non-replay and forced approval reads despite unchanged metadata.
+- Real on-disk directory roundtrip in an isolated checkout artifact folder: five context files exported, companion-first/root-last publication, pending receipt, companion-only correction, changed receipt, explicit application and exact note/state readback. This exercises native Node filesystem I/O through File System Access-compatible handles, not a new OS folder permission grant in a browser.
+- Generated context ownership/cross references and guide contents anchors are checked. Every complete JSON example in the guide validates through the actual compiler. Shipped capabilities.json matches the generator. Both manual locales contain one current bridge section, with old instructions removed from Projects/Export.
+- Codex in-app browser at http://127.0.0.1:8766/: refreshed app, Russian and English guide sections and connected-folder descriptions inspected; contents navigation reached the updated section. The existing language preference was restored. User music, playback, folder connection and audio inputs were not changed.
 
-# Release validation — 2026-10-18
+## Remaining acceptance
 
-Local candidate; not committed, pushed or deployed.
+No fresh external-model composition run, native OS-folder permission/selection regression, mobile viewport, Safari/iOS, audible listening, audio export or public-site deployment verification was performed for this change. Prompt structure and technical validation cannot guarantee an external model's musical quality or compliance.
 
-- Node suite: 270 tests passed, zero failures. Covers transport, serialization, WebMCP schemas, File Bridge validation, revision handling, companion-only corrections, approval snapshots and terminal receipts.
-- Native Chrome: folder reconnect, truncated companion recovery, explicit pending acknowledgement, keyboard approval and applied readback passed. Both original scored examples were applied: eight-bar holiday loop and 72-bar adventure arrangement. Adventure note readback matched the submitted score; non-repeating song reached its final section and stopped.
-- Desktop and 390×844 emulated viewport: PHRASE placement checked. Observed bridge diagnostics contained no console errors. Legacy rejection receipt handling has unit coverage.
-- Listening quality, physical mobile/Safari, offline audio export and post-deployment public-site acceptance remain open. Starting transport is not evidence of listening quality.
+## Update an existing connection
+
+Reload the updated HALO page and choose Update Files. The five exported files now share version 3. Old operation/bundle/alias requests are unsupported and never automatically migrated. Submit a fresh strict halo-score under an unused ID. Folder refresh does not alter the browser composition.
 
 ## Production packaging
 
-Run `node --test tests/*.test.cjs`, then `sh scripts/package-pages.sh` from a clean checkout. The destination must not already exist. The script copies runtime sources, local reactor assets including rights evidence, documentation, portable examples, license and public capabilities into `_site/`. It excludes tests, agent instructions, Git metadata, screenshots, development scripts and diagnostic artifacts. No build tool or runtime dependency is required; direct static use remains supported.
+Run node --test tests/*.test.cjs, then sh scripts/package-pages.sh with a new output directory. The package includes index.html, runtime sources, local CC0 assets/rights, docs, portable examples, license and public capabilities.json. Development tests, instructions and artifacts stay excluded. Relative script, documentation and asset paths support repository-subpath GitHub Pages. No new runtime dependency, backend, CDN or mandatory build step was introduced.
 
-GitHub Pages performs the same tests and packaging before upload. Relative paths support the repository subpath. Changed bridge scripts carry updated cache query versions. Publish only after reviewing the candidate; then repeat tool discovery, folder approval and playback on the published HTTPS site.
-
-Temporary screenshots, WAV exports, logs, connected regression folders and historical diagnostic reports are excluded from the repository. Durable score fixtures remain in `examples/ai/`; these are original compositions using existing HALO sounds.
+Publication needs separate authorization; after publishing repeat browser tool discovery, folder approval and playback against the public HTTPS site.

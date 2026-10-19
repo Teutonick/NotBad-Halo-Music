@@ -1,70 +1,26 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
+  "protocol": "halo-score",
   "engine": "NotBad Halo Music Constructor",
-  "version": 2,
-  "transport": "Desktop Chrome/Edge File System Access API (HALO File Bridge) and WebMCP Site Tools",
   "references": {
-    "agentGuide": "AGENT_GUIDE.md (Workflow, rules, compact request directives, batch examples)",
-    "instruments": "instruments.json (8 voices, sound catalogs by setup, note registers, role policies)",
-    "musicRules": "music-rules.json (Rhythmic grids 4/4 and 3/4, Circle of Fifths keys, scales, polyphony)",
-    "projectState": "project-state.json (Read-only live state snapshot, base revision, active voices)"
+    "agentGuide": "AGENT_GUIDE.md#contents",
+    "capabilities": "capabilities.json",
+    "instruments": "instruments.json",
+    "musicRules": "music-rules.json",
+    "projectState": "project-state.json"
   },
-  "fieldAccess": {
-    "trackPatch": {
-      "mutableValues": [
-        "instrument",
-        "sound",
-        "generator",
-        "on",
-        "steps",
-        "exact",
-        "sequence",
-        "noteEvents",
-        "noteTranspose",
-        "level",
-        "density",
-        "character",
-        "duration",
-        "space",
-        "delay",
-        "delayTime",
-        "chorus"
-      ],
-      "readOnlyProhibited": [
-        "role",
-        "name",
-        "slot",
-        "trackIndex"
-      ],
-      "rule": "Track roles and names are permanent slot identifiers fixed by trackIndex 0..7. Never include role or name inside track.patch.values. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
-    },
-    "projectPatch": {
-      "mutableValues": [
-        "tempo",
-        "masterVolume",
-        "bars",
-        "startStep",
-        "key",
-        "seed",
-        "setup",
-        "world",
-        "soundWorld",
-        "timeSignature",
-        "mix",
-        "liveLoop"
-      ],
-      "readOnlyProhibited": [
-        "revision",
-        "format",
-        "version",
-        "tracks",
-        "phrases",
-        "sections"
-      ]
-    }
+  "authority": "File Bridge score contract only. WebMCP is a separate API.",
+  "delivery": {
+    "request": "requests/<ID>.json",
+    "receipt": "responses/<ID>.result.json",
+    "companion": "requests/<ID>--<role>.json",
+    "reference": "<ID>--<role>.json",
+    "directories": "HALO creates requests/ and responses/. Agents never create directories.",
+    "publication": "Complete and read back companions first, publish and read back request last.",
+    "root": "Verify one connected root containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Fix ROOT, STATE, ID, REQUEST and RECEIPT once."
   },
   "limits": {
-    "bpm": [
+    "tempo": [
       30,
       200
     ],
@@ -73,403 +29,161 @@
       8
     ],
     "tracks": 8,
-    "stepsPerBar": 16,
-    "timeSignatures": [
-      "4/4",
-      "3/4"
-    ],
+    "stepsPerBar": {
+      "4/4": 16,
+      "3/4": 12
+    },
     "phrases": 15,
     "sections": 32,
     "totalBars": 128,
-    "bytes": 524288,
-    "operations": 256
+    "bytes": 524288
   },
-  "operations": [
-    {
-      "op": "track.patch",
-      "description": "Update specific mutable parameters, steps, and notes of a voice slot (0..7). Do NOT include role or name in values.",
-      "required": [
-        "op",
-        "trackIndex",
-        "values"
-      ],
-      "optional": [
-        "phraseId (required in multi-phrase compositions)"
-      ],
-      "allowedValues": [
-        "instrument",
-        "sound",
-        "generator",
-        "on",
-        "steps",
-        "exact",
-        "sequence",
-        "noteEvents",
-        "noteTranspose",
-        "level",
-        "density",
-        "character",
-        "duration",
-        "space",
-        "delay",
-        "delayTime",
-        "chorus"
-      ],
-      "readOnlyProhibited": [
-        "role",
-        "name",
-        "slot",
-        "trackIndex"
-      ],
-      "rule": "role and name are immutable properties of track slots 0..7. Passing role or name inside values throws UNKNOWN_FIELD. When supplying custom steps or noteEvents, HALO automatically sets exact=true if omitted."
-    },
-    {
-      "op": "phrase.patch",
-      "description": "Update phrase properties: bars, startStep, seed, key, liveLoop, timeSignature",
-      "required": [
-        "op",
-        "values"
-      ],
-      "allowedValues": [
-        "bars",
-        "startStep",
-        "seed",
-        "key",
-        "liveLoop",
-        "timeSignature"
-      ]
-    },
-    {
-      "op": "master.patch",
-      "description": "Update master tempo (30..200 BPM), volume (0..100%), 3-band EQ (-9..9 dB) and stereo width (0..100%)",
-      "required": [
-        "op",
-        "values"
-      ],
-      "allowedValues": [
-        "tempo",
-        "masterVolume",
-        "mix"
-      ]
-    },
-    {
-      "op": "project.patch",
-      "description": "Update project-level settings (tempo, masterVolume, bars, key, seed, setup/world, timeSignature, mix, liveLoop) without replacing all tracks",
-      "required": [
-        "op",
-        "values"
-      ],
-      "allowedValues": [
-        "tempo",
-        "masterVolume",
-        "bars",
-        "startStep",
-        "key",
-        "seed",
-        "setup",
-        "world",
-        "soundWorld",
-        "timeSignature",
-        "mix",
-        "liveLoop"
-      ],
-      "readOnlyProhibited": [
-        "revision",
-        "format",
-        "version",
-        "tracks",
-        "phrases",
-        "sections"
-      ]
-    },
-    {
-      "op": "project.replace",
-      "description": "Replace the entire single-phrase project snapshot (must contain exactly 8 track objects covering slots 0..7)",
-      "required": [
-        "op",
-        "project"
-      ]
-    },
-    {
-      "op": "composition.replace",
-      "description": "Replace the entire multi-phrase song structure (up to 15 unique phrases, up to 32 sections)",
-      "required": [
-        "op",
-        "project"
-      ]
-    },
-    {
-      "op": "visual.patch",
-      "description": "Update visual scene (ORBIT/BLOOM/CURRENT), motion (DRIFT/IN TIME/PHRASE), effects (CLASSIC/COSMIC/HYPER)",
-      "required": [
-        "op",
-        "values"
-      ]
-    }
-  ],
-  "trackFields": [
-    "instrument",
-    "sound",
-    "generator",
-    "on",
-    "steps",
-    "exact",
-    "sequence",
-    "noteEvents",
-    "noteTranspose",
-    "level",
-    "density",
-    "character",
-    "duration",
-    "space",
-    "delay",
-    "delayTime",
-    "chorus"
-  ],
-  "phraseFields": [
-    "bars",
-    "startStep",
-    "seed",
-    "key",
-    "liveLoop",
-    "timeSignature"
-  ],
-  "masterFields": [
-    "tempo",
-    "masterVolume",
-    "mix"
-  ],
-  "parameters": {
-    "voice": {
-      "range": [
-        0,
-        100
-      ],
+  "score": {
+    "fields": [
+      "format",
+      "requestId",
+      "baseRevision",
+      "mode",
+      "world",
+      "tempo",
+      "bars",
+      "meter",
+      "key",
+      "voices",
+      "phraseId",
+      "phrases",
+      "sections",
+      "repeat"
+    ],
+    "required": [
+      "format",
+      "baseRevision",
+      "mode",
+      "world",
+      "tempo",
+      "bars",
+      "meter",
+      "key"
+    ],
+    "format": "halo-score",
+    "mode": [
+      "replace",
+      "edit"
+    ],
+    "world": [
+      "ambient",
+      "reactor"
+    ],
+    "tempo": [
+      30,
+      200
+    ],
+    "bars": [
+      4,
+      8
+    ],
+    "meter": [
+      "4/4",
+      "3/4"
+    ],
+    "shape": "Exactly one of voices (phrase) or phrases + sections (song). Song creation requires replace. Song edit requires phraseId.",
+    "phrases": {
       "fields": [
-        "level",
-        "density",
-        "character",
-        "duration",
-        "space",
-        "delay",
-        "chorus"
+        "id",
+        "bars",
+        "meter",
+        "key",
+        "voices"
       ],
-      "density": "Generated probability only; exact steps bypass density",
-      "duration": "Per-track envelope, bounded by role; no per-note duration",
-      "sequence": {
-        "length": [
-          4,
-          32
-        ],
-        "stepLength": [
-          1,
-          2,
-          4
-        ],
-        "offset": "integer 0..length-1; exact steps bypass cycle"
+      "required": [
+        "id",
+        "voices"
+      ],
+      "max": 15
+    },
+    "sections": {
+      "fields": [
+        "phrase",
+        "repeats",
+        "name",
+        "fade"
+      ],
+      "required": [
+        "phrase"
+      ],
+      "max": 32,
+      "names": [
+        "intro",
+        "verse",
+        "verse2",
+        "chorus",
+        "bridge",
+        "outro",
+        "phrase"
+      ],
+      "fade": [
+        "none",
+        "in",
+        "out"
+      ],
+      "defaults": {
+        "repeats": 1,
+        "name": "phrase",
+        "fade": "none"
       }
     },
-    "master": {
-      "masterVolume": [
-        0,
-        100
+    "repeat": "Boolean; song only, default false.",
+    "voices": {
+      "roles": [
+        "pulse",
+        "accent",
+        "percussion",
+        "texture",
+        "bass",
+        "melody",
+        "arpeggio",
+        "harmony"
       ],
-      "defaultVolume": 50,
-      "mix": {
-        "low": [
-          -9,
-          9
-        ],
-        "mid": [
-          -9,
-          9
-        ],
-        "high": [
-          -9,
-          9
-        ],
-        "width": [
-          0,
-          100
-        ]
-      },
-      "eqHz": [
-        120,
-        1000,
-        6000
+      "fields": [
+        "sound",
+        "notes",
+        "steps",
+        "on",
+        "level",
+        "character",
+        "duration",
+        "space",
+        "delay",
+        "chorus"
       ],
-      "pan": "Core pan fixed per slot scaled by width; bass/pulse near center",
-      "dynamics": "Fixed peak-protection compressor, not editable"
+      "creation": "Every authored voice requires sound and exactly one of notes or steps. Omitted roles are silent.",
+      "editing": "Unmentioned voices and fields are preserved; changing sound is explicit.",
+      "notes": "[step, MIDI, ...] with unique steps, integer MIDI 0..127 and role polyphony from instruments.json.tracks.",
+      "steps": "Unique integer hits for unpitched timbres only; [] means intentional silence.",
+      "controls": "on is boolean; level, character, duration, space, delay, chorus are 0..100.",
+      "defaults": {
+        "on": true,
+        "level": 50,
+        "character": 50,
+        "duration": 50,
+        "space": 30,
+        "delay": 0,
+        "chorus": 0
+      }
     },
-    "fx": {
-      "space": "Shared 2.8 s convolution reverb send",
-      "delay": "Shared BPM-synced feedback",
-      "delayTime": [
-        "1/16",
-        "1/8",
-        "1/8d",
-        "1/4"
-      ],
-      "chorus": "Shared stereo chorus send"
-    }
+    "strict": "Unknown fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. No automatic revision rebasing."
   },
-  "visuals": {
-    "scene": [
-      "ORBIT",
-      "BLOOM",
-      "CURRENT"
+  "receipts": {
+    "statuses": [
+      "pending_approval",
+      "applied",
+      "rejected",
+      "error"
     ],
-    "motion": [
-      "DRIFT",
-      "IN TIME",
-      "PHRASE"
-    ],
-    "effects": [
-      "CLASSIC",
-      "COSMIC",
-      "HYPER"
-    ],
-    "writable": [],
-    "geometry": "Fixed slot index i, radius=(135+24*i)*responsiveScale; melody/arpeggio/harmony are outer slots. Track 09 outermost. No orbit reorder/radius/speed/phase/direction setters. Scenes only in DRIFT; shared clock owns notes. PHRASE markers show actual scheduled steps. Visual-only operations must never change music."
-  },
-  "track09": {
-    "audioSentToModel": false,
-    "settings": "Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.",
-    "ranges": {
-      "bars": [
-        1,
-        2,
-        4,
-        8
-      ],
-      "level": [
-        0,
-        100
-      ],
-      "pan": [
-        -100,
-        100
-      ],
-      "space": [
-        0,
-        100
-      ],
-      "delay": [
-        0,
-        100
-      ],
-      "chorus": [
-        0,
-        100
-      ],
-      "character": [
-        0,
-        100
-      ],
-      "duration": [
-        0,
-        100
-      ],
-      "density": [
-        0,
-        100
-      ],
-      "pitch": [
-        -12,
-        12
-      ],
-      "rootNote": [
-        36,
-        84
-      ],
-      "pitchOctave": [
-        -1,
-        0,
-        1
-      ],
-      "trimStart": [
-        0,
-        0.95
-      ],
-      "trimEnd": [
-        0.01,
-        1
-      ],
-      "offsetSec": [
-        0,
-        120
-      ],
-      "cycle": [
-        4,
-        32
-      ],
-      "stepLength": [
-        1,
-        2,
-        4
-      ],
-      "offset": [
-        0,
-        15
-      ]
-    },
-    "modes": [
-      "loop",
-      "slice",
-      "pitch"
-    ],
-    "patterns": "16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest",
-    "flags": [
-      "mute",
-      "solo",
-      "reverse",
-      "instantRestart"
-    ],
-    "unsupported": [
-      "upload",
-      "record",
-      "enable monitoring",
-      "read PCM"
-    ]
-  },
-  "composition": {
-    "schema": {
-      "format": "halo-composition",
-      "version": 1,
-      "tempo": "30..200",
-      "masterVolume": "0..100",
-      "mix": "same as master",
-      "repeat": "boolean",
-      "phrases": [
-        {
-          "id": "unique integer 1..1000000",
-          "label": "optional 1..10 letters/digits",
-          "project": "complete version-1 project"
-        }
-      ],
-      "sections": [
-        {
-          "phrase": "existing phrase ID",
-          "name": [
-            "intro",
-            "verse",
-            "verse2",
-            "chorus",
-            "bridge",
-            "outro",
-            "phrase"
-          ],
-          "repeats": "1..8",
-          "fade": [
-            "none",
-            "in",
-            "out"
-          ]
-        }
-      ]
-    },
-    "durationSeconds": "totalBars * 240 / tempo (4/4)",
-    "repeatedReferences": "Same phrase ID shares edits; new ID+deep copy creates independent variation",
-    "transitions": "Section boundary, optional one-phrase fade in/out; no crossfade"
+    "identity": "id equals ID; requestId, if supplied, equals the request basename.",
+    "freshness": "After correction require a changed submissionVersion for pending/error. Matching applied/rejected are terminal.",
+    "checks": "Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.",
+    "corrections": 2,
+    "approval": "Stop on pending_approval and invite human approval; never poll for it."
   }
 }

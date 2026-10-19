@@ -1,3 +1,13 @@
+## 2026-10-19 — File Bridge v3
+
+- Replaced competing bridge formats with strict halo-score, verified fixed root/paths and seven sequential states. Flat requests and ID--role companions only; removed operation envelopes, bundle folders, aliases, ignored metadata, creation sound defaults and automatic revision rebasing.
+- Separated physical slots, roles, banks and timbres. Added linked contents, file ownership and complete protocol reference; synchronized RU/EN manual and repository agent rules.
+- Reload HALO and Update Files. Old requests require new v3 scores. WebMCP and portable project formats remain separate.
+
+### 2026-10-19 — Stop on the actual File Bridge receipt
+
+The exported guide anchors request and response paths to the absolute connected folder, reads the receipt immediately and waits only for absent/stale responses. It forbids shell delay commands and delegated waiting/reviewer loops. With a built-in wait tool there are at most three reads, 4–5 seconds apart; without one, only one immediate reread before reporting unconfirmed delivery. Matching applied/rejected receipts terminate the workflow before generic errors or freshness checks; appliedRevision does not require submissionVersion. Empty scoreReport is a complete diagnostic result, not a missing report. No runtime protocol change; host reviewer behavior and external-agent compliance are outside HALO's control. Reload HALO and Update Files to refresh the connected guide.
+
 ### 2026-10-19 — Connected promotion card and coffee tab
 
 - Fixed overlapping vertical titles and detached coffee badges: card and rail now use one content-aware height and aligned donation footers. The outer coffee toggles the panel; only the inner Donate link opens YooMoney.

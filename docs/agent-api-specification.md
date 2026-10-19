@@ -1,67 +1,10 @@
-### 2026-10-19 — A musical brief is enough for File Bridge
-
-The RU/EN example prompt now asks for music and checked delivery without score-format names, request paths or filenames. The exported AGENT_GUIDE.md owns unused request naming, delivery to the connected folder, bar-by-bar self-checks, deliberate tempo selection, receipt correlation and bounded checks (4–5 seconds apart, at most three checks per submission). Pending approval requires reviewing every scoreReport item: repair accidental musical omissions within two total correction rounds, or explain intentional rests/repetition. Final replies must reflect the saved score and fresh receipt; validation is not artistic completion or listening evidence. No automatic music rewriting or new runtime dependencies. Reload HALO and Update Files to refresh the connected guide; agent compliance remains dependent on the external model.
-
-### 2026-10-19 — Tolerant score acceptance
-
-The browser-only File Bridge score adapter handles `bpm` → `tempo`, `timeSignature` → `meter`, role ID case/whitespace, sound ID case/whitespace/prefixes, unordered events, exact duplicates and same-step chord notes. Conflicting aliases and structural/API fields remain errors. Unknown non-structural fields on score, phrase, section and voice objects are ignored and reported; root `duration` is metadata, while voice `duration` remains a validated 0–100 timbre control. Role/slot routing and compatible sound resolution remain automatic. Unknown or incompatible sounds, invalid MIDI/polyphony/steps, unsafe file references and revision conflicts remain strict. Legacy operations and WebMCP retain their existing validation.
-
-`scoreReport` in the pending receipt and review panel separates repairs from advisory warnings: no sounding parts, enabled empty parts, disabled/zero-level parts with events, no new events in the second half, identical melody halves and identical rhythms across at least three sounding parts. Diagnostics inspect event structure, including each song phrase; sound tails and artistic intention are not inferred. Intentional repetition/silence is allowed. HALO never fills missing bars or changes authored tempo/pitches to improve a score. Audition before approval; these heuristics do not certify musical or audio quality. Retained generated parts in edit mode are excluded from authored-event coverage checks. Compatible default sounds, when omitted for new music, are explicitly reported. Refresh connected context files after reloading HALO.
-
-## File Bridge composer score — 2026-10-19
-
-The default agent interface is now **`halo-score`**, translated by File Bridge into the existing validated transactions. It is File Bridge-only; WebMCP schemas are unchanged. For new music an agent reads only the short `AGENT_GUIDE.md`, including its current revision; the guide includes the entire instrument palette with timbre names, natural musical parts and other supported roles. Read it and choose a sound explicitly for each authored part; detailed metadata and legacy operation schemas remain optional references.
-
-```json
-{"format":"halo-score","baseRevision":1,"mode":"replace","world":"ambient","tempo":96,"bars":8,"key":"C major","voices":{"melody":{"sound":"harp","notes":[[0,72],[4,76],[124,72]]},"bass":{"sound":"deep","notes":[[0,36],[112,36]]},"percussion":{"sound":"brush","steps":[0,16,32,48,64,80,96,112]}}}
-```
-
-The external composer owns original note sequences, accompaniment, rests, development and orchestration. Catalog rows mark pitched/unpitched timbres (also exposed as sounds[].pitched in instruments.json); supply explicit notes for all pitched timbres, including textures/accents, and reserve steps for unpitched hits. The catalog describes timbres, not selectable phrase fragments. Score compilation does not invoke the built-in motif generator, invent missing events or repeat the first bar. The example is syntax only, not a composition to reuse.
-
-The guide refreshes its embedded revision whenever project-state is synchronized (the large catalogs are not rewritten). Copy the actual revision; the snippet demonstrates notation rather than a complete arrangement. Write `requests/req-score.json`; its filename supplies the request ID (optional explicit `requestId` uses the existing 1–128 ASCII letter/digit/hyphen/underscore rule). No schemaVersion, operations, project/values wrappers, slot index, bank, generator, exact or noteTranspose fields are needed. HALO fills those internally. The format string identifies this score protocol; it does not inherit version numbers from exported context files.
-
-- **Creation and editing:** `mode:replace` is the default: a root `voices` score replaces the music with one phrase, and omitted roles are silent. `mode:edit` retains unmentioned voices/fields, current world, phrase length, meter and key. Editing a song requires an existing numeric `phraseId`; other phrases and the arrangement remain unchanged. World switching in edit mode is rejected. Preview and explicit human approval remain mandatory. Score proposals show localized replace/edit intent, tempo, phrase/section counts, and each role’s sound/activity before confirmation. New scores preserve master volume/mix, visual state and local Track 09 references. Tempo is global, including when editing a song phrase.
-- **Settings:** `world` ambient (new-score default) or reactor; `tempo` 30–200 (default current tempo); `bars` 4/8 (new-score default 8); `meter` 4/4 or 3/4 (new-score default 4/4); `key` a named engine key, case-insensitive, such as C major, D minor or F# minor (new-score default C major). Edit inherits unspecified settings. New music uses seed 1 and startStep 0; exact authored events remain deterministic.
-- **Voices:** role-keyed `pulse`, `accent`, `percussion`, `texture`, `bass`, `melody`, `arpeggio`, `harmony`. `sound` remains optional in the parser for compatibility, but composer instructions require deliberate sound selection from the complete guide catalog. When omitted, creation chooses the first compatible catalog sound with affinity to the role, then first compatible fallback; edits retain existing sound unless a change is requested (manual conversion of an incompatible legacy timbre selects a compatible default). Explicit sounds use a prefix-free canonical ID; HALO resolves the bank and validates compatibility. No sound replacement occurs silently for an invalid explicit ID.
-- **Music:** `notes` contains tuples `[step, midi, ...]`, with 1/2/2/2/1/3/1/4 simultaneous notes respectively for the eight roles. MIDI is integer 0–127; existing acoustic register/octave folding still applies. `steps` is an alternative hit list for non-melodic roles; bass/melody/arpeggio/harmony require notes. Exactly one of notes/steps may be supplied; [] silences a part. One event per step, at most 128 events per voice. Steps address the whole phrase: 16/bar for 4/4, 12/bar for 3/4. No implicit one-bar repetition, per-note duration or velocity. Compiler supplies exact timing and source key offset for literal MIDI.
-- **Voice parameters:** optional boolean `on`; `level`, `character`, `duration`, `space`, `delay`, `chorus` 0–100. New voices default to level 50, character/duration 50, space 30, delay/chorus 0, density 100. Edits preserve omitted values and generator for parameter-only changes. Unknown/ambiguous fields and invalid ranges are rejected with paths; the compiler reports up to 16 detected score-field errors together.
-- **Songs:** replace root voices with `phrases:[{id:1,bars:8,voices:{...}},{id:2,voices:{...}}]` and `sections:[{phrase:1},{phrase:2,repeats:2}]`. Unique integer phrase IDs 1–1000000; per-phrase bars/meter/key override root values. Sections default to repeats 1, name phrase, fade none; names intro/verse/verse2/chorus/bridge/outro/phrase, fade none/in/out; repeats 1–8. Root repeat is boolean, default false. Limits remain 15 phrases, 32 sections, 128 total bars and 512 KiB.
-- **Large scores:** a voice may instead be `{file:"req-score-track-5.json"}`; the companion contains the voice object itself, e.g. `{notes:[[0,72]]}`. No mixed file+inline properties, nested includes or wrappers. Complete and read back companions first; publish the root request last. Use existing requests/ only, no directory creation. Relative safe-path and combined UTF-8 size limits remain enforced. File-tool write limits are not engine score limits.
-- **Receipts:** the same pending_approval / applied / rejected / error states, content fingerprints, approval-time file and revision checks, non-replay and two-correction instruction apply. A stale base revision may be rebased only to present a marked proposal, never to bypass approval-time conflicts. SCORE_ERROR guidance keeps the agent in score notation instead of sending it through alternative API shapes. No automatic migration or application of failed legacy requests.
-
-Reload the updated HALO and click **Update Files** in the connected folder before retrying with an external agent. Existing operation requests, folder bundles, musical validation, synthesis and the zero-build GitHub Pages path are preserved. Automated score compilation/round-trip checks do not establish external-model or audible acceptance.
-
-### Static Filexa backdrop — 2026-10-18
-
-The local left-edge Filexa portrait is presentation only. There are no new API operations, serialized settings or musical parameters; existing visual operations retain their contracts.
-
-### File Bridge submission protocol — 2026-10-18
-
-This section supersedes earlier instructions about silence or immediate termination.
-The default long-score layout uses files directly in the existing `requests/`: write `requests/req-001-track-0.json` companions first, read them back, then publish `requests/req-001.json` last. HALO creates requests/ and responses/; agents must not create directories. JSON file references are companion basenames (for example `req-001-track-0.json`); absolute file-tool paths join the connected folder exactly once. On denied writes, report the failed file path and stop instead of retrying folder creation. Bound **each file-tool call** to the external agent harness limit. Large individual files can be completed with bounded append/edit calls; complete compositions can reference multiple track/phrase files. File Bridge does not impose a universal 1.5 KB file limit or restrict the agent to two tracks. WebMCP payloads are a separate transport and say nothing about file-tool truncation. Engine transactions remain bounded to 512 KiB and 256 operations; file submission additionally bounds the total root plus unique companion UTF-8 content to 512 KiB.
-
-HALO reads each referenced companion once per scan and tracks its content together with the root. Companion-only corrections, including missing/truncated-file recovery, trigger validation without touching the manifest. One proposal awaits review at a time. Changes while pending invalidate that snapshot and require review again; approval also checks the files and the project revision before applying. Applied and rejected request IDs do not replay across reconnects; use a new ID for new work. An ID is 1..128 ASCII letters, digits, hyphens or underscores. Legacy flat requests, aliases and parts remain supported.
-
-`responses/<requestId>.result.json` has these explicit lifecycle states:
-
-| status | ok | Meaning |
-| --- | --- | --- |
-| `pending_approval` | true | Validated snapshot; `applied:false`, baseRevision/currentRevision; not yet applied |
-| `applied` | true | Applied; `applied:true`, appliedRevision/currentRevision |
-| `error` | false | Validation/application error; error, help, instructionForAgent and currentRevision |
-| `rejected` | false | Human rejected this request; respect the decision |
-
-After submitting, wait 4–5 seconds and read the response. End the composition turn on **explicit** pending_approval acknowledgement and invite approval; applied is a completed mutation. Fix an error at most twice, then report it. No response is **unconfirmed**, not successful: check page/folder connection or a previous pending proposal; do not wait indefinitely for human approval. Poll timing is best effort and can slow when a browser is suspended. A stale base revision is rebased only to prepare a review; errors in the rebased content are returned directly. A revision change after review is not silently rebased at application.
-
-File Bridge context separates responsibilities: `AGENT_GUIDE.md` owns submission/receipt handling; `capabilities.json` owns operation schemas and technical constraints; `instruments.json` schemaVersion **3** owns eight roles and one 62-sound registry; `music-rules.json` owns meter, keys and musical guidance; `project-state.json` schemaVersion **2** owns revision, project and visual state without derived `music`, `history` or field-access copies. Select sounds by filtering `sounds[].setups` and `compatibleRoles` against the active setup and `tracks[].role`; per-track `soundsBySetup` / `compatibleSounds` and world `soundIds` indexes are removed. Roles expose `maxNotes`, policy and note range. Use `instrument` and prefix-free `canonicalId` in requests; intersect role and sound ranges when composing. Mutable field lists are defined once in capabilities, with operation `allowedValues` referencing the top-level list where applicable. Optional composition, Track 09 and visual schemas remain available in capabilities for relevant tasks. Musical phrasing, orchestration, full-span development, form and creative examples remain in music rules. Portable projects and request envelopes remain version 1; validators and WebMCP output are unchanged. Connect or Update Files refreshes all five files; older exported folders need that refresh.
-
-Recipe keys come from the engine table: C major is index **2**, source offset **-2**; D minor is index **0**, offset **0**. Set noteTranspose to that **offset** for literal MIDI. Write notes across all requested bars (8-bar 4/4: 0..127; 8-bar 3/4: 0..95). Exactly eight slots remain available; mutes are explicit, not assumed. `project.patch` is present in WebMCP inputSchema as well as capabilities; the tool schema derives its operation enum from the actual API.
-
-No backend, new runtime dependency, external audio service or new permission is introduced. Default application remains human-confirmed. The folder protocol is application-specific JSON, not MCP-over-files.
-
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
 Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/file-bridge.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
+
+## File Bridge v3
+
+The only File Bridge input is the strict role-keyed halo-score contract: [complete protocol and package map](file-bridge-protocol.md). Verify ROOT once, read STATE.revision, bind ID/REQUEST/RECEIPT, compose, publish/read back, check the matching receipt and stop. The operation protocol below is exclusively WebMCP/internal API and cannot be submitted to File Bridge.
 
 ## Integration Modes
 
@@ -73,17 +16,9 @@ The AI / Agents tab provides an integration mode switcher saved in `localStorage
 
 The user asks an external agent (Codex, Antigravity, Bionic, Claude) to compose or edit music.
 - In **WebMCP mode**: The agent discovers Site Tools, calls `halo_get_context`, reads catalog/roles/state/notes, composes original parts, validates a batch, inspects its preview, applies it and reads back the result.
-- In **File Bridge mode**: HALO exports `AGENT_GUIDE.md`, `capabilities.json`, `instruments.json`, `music-rules.json`, and `project-state.json` into the connected `HALO-Bridge/` folder. The agent reads `project-state.json` and rule files, writes a request JSON into `requests/request-*.json`. HALO discovers the request, validates it, and displays an explicit confirmation banner. Upon user approval, HALO applies the transaction, writes `responses/request-*.result.json`, and updates `project-state.json`.
+- In **File Bridge mode**: follow the [seven-state score workflow](file-bridge-protocol.md#paths-and-states). Human approval is required by default; pending_approval is written before approval.
 
 There is no mood-preset planner or automatic inference/repair client in HALO. Manual editing remains available.
-
-## Strict File Bridge Rules
-
-1. **No Silent Auto-Apply by Default:** Incoming commands from `requests/` are never applied automatically without user confirmation. HALO shows the proposed changes and provides «Apply Changes» and «Reject» actions.
-2. **Batch Protocol & Continuous Auto-Sync:** Every request requires `requestId`, `schemaVersion: 1`, `baseRevision`, and an allowlisted operations array. Reprocessing processed batches is prohibited. HALO continuously synchronizes `project-state.json` to disk every 1.5s whenever project revisions advance. Stale revisions are automatically rebased by HALO if incoming operations apply cleanly without conflicts (`rebased: true`), badging the card in the web UI. If an unresolvable conflict occurs, the UI error card provides a 1-click `[⚡ Rebase & Retry]` action that refreshes disk state and re-checks the folder.
-3. **Allowlist & Privacy:** Only valid HALO operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, `composition.replace`, `visual.patch`) are accepted in `requests/`. No scripts, external URLs, or OS commands. `project-state.json` is strictly read-only.
-4. **Desktop Chrome/Edge Native API:** File Bridge relies on `window.showDirectoryPicker({ mode: 'readwrite' })` without server dependencies or external libraries. Works statically on GitHub Pages.
-5. **Zero Localhost, Zero CLI, and Zero Background Execution:** HALO is a 100% static client-side web application. There is **NO backend server, NO local HTTP daemon, NO CLI tool (`halo`), and NO localhost ports** (`localhost:3000`, `3001`, `8080`, `5173`, etc.). External agents are strictly prohibited from executing `curl`, `netstat`, `where.exe halo`, `node`, `npm`, `python`, or port scans to ping or run HALO.
 
 ## Automatic discovery and WebMCP lifecycle
 
@@ -149,35 +84,10 @@ For generator 3 set `exact:true` for manual notes. Each `{step,notes:[MIDI]}` mu
 - **Polymetric Cycles in GENERATE:** Adaptive corridors `cycleProfiles3_4` and `cycleProfiles6_8` (12, 6, 24, 9 steps with 3-beat hemiola for waltz; 12, 6, 24, 8 steps with 2-against-3 cross-rhythm for 6/8 swing). Dotted delay `1/8d` prioritized in 6/8.
 
 ### Phrase vs. Full Composition Policy & Canonical Form
-- **Default (Single Phrase):** Without explicit user request for a song or full composition, agents work exclusively with individual 4- or 8-bar phrases/loops via `track.patch` or `project.replace`.
-- **Full Composition (`composition.replace`):** Generated only when the user explicitly asks for a full song, composition, or multi-section arrangement ("песня", "полная композиция", "аранжировка").
+- **Default (Single Phrase):** Without explicit user request for a song or full composition, agents work exclusively with individual 4- or 8-bar phrases/loops using voices in File Bridge, or track.patch/project.replace in WebMCP.
+- **Full Composition (File Bridge phrases/sections; WebMCP composition.replace):** Generated only when the user explicitly asks for a full song, composition, or multi-section arrangement ("песня", "полная композиция", "аранжировка").
 - **Canonical Structure:** Intro (sparse, atmosphere/bells, no heavy bass) → Verse (groove and bass enter, harmonic foundation) → Chorus (peak dynamic, all voices active, leading melodic hook, bright character 60..80) → Verse 2 (rhythmic/melodic variation) → Bridge (contrasting harmony or texture) → Outro (dissolving elements, fade: "out"). Allowed section names: `["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]`.
 - **Phrases Limit:** Maximum 15 unique phrases per composition. Repeating phrases across sections uses `repeats: 1..8` and shared phrase IDs.
-
-### Zero-Prompt-Engineering Autonomous Directives & Canonical Recipes
-When the user gives a brief creative task without technical parameters (e.g. *"напиши новогодний луп-джингл"* or *"сочини композицию по мотивам OST пираты карбиского моря"*):
-- **Decision Matrix:**
-  - Brief "loop" / "jingle" / "riff" / "beat" → Single phrase via `project.patch` (tempo, bars, key) + `track.patch` on melody/bass/percussion.
-  - Brief "composition" / "OST" / "song" / "soundtrack" → Full multi-phrase structure via `composition.replace`.
-  - Peaceful / meditative / holiday / cosmic theme → `setup: "ambient"`, 70..96 BPM, C Major (`key: 0`).
-  - Epic / cinematic / rock / adventure / pirate theme → `setup: "reactor"`, 104..130 BPM, D Minor (`key: 14`), `timeSignature: "3/4"` (6/8 pirate swing).
-- **The Full-Span Duration Principle:**
-  - 4-bar phrase (4/4) = 64 steps total (0..63).
-  - 8-bar phrase (4/4) = 128 steps total (0..127).
-  - 4-bar phrase (3/4 Waltz) = 48 steps total (0..47).
-  - 8-bar phrase (6/8 Pirate Swing) = 96 steps total (0..95).
-  Writing steps only within 0..15 leaves bars 2–8 completely silent. Agents must distribute notes and rhythmic steps across the entire span.
-- **Recipe A (Holiday / New Year 8-Bar Jingle):** C Major (`key: 0`), 96 BPM, 8 bars in `ambient`. VEIL (track 5, `bell`) plays the festive melody across steps 0..112; RAIN (track 4, `round`) plays bass roots across steps 0..120; ROOT (track 2, `shaker`) provides eighth-note sleigh bell groove; AURA (track 7, `wind`) plays 4-note chord pads on downbeats (0, 32, 64, 96, 112).
-- **Recipe B (Epic Cinematic / Pirates of the Caribbean):** D Minor (`key: 14`), 104 BPM, 8 bars per phrase in 3/4 (96-step 6/8 pirate swing) in `reactor`. Phrases: Intro (`dark-piano` Dm chords), Verse (`pick-bass`, `palm-guitar`, `octave-lead` galloping theme), Chorus (`singing-lead`, `power-guitar`, full rock drums), Outro (fade out). Arrangement: `intro` (x1) -> `verse` (x2) -> `chorus` (x2) -> `verse2` (x1) -> `chorus` (x2) -> `outro` (x1, `fade: "out"`).
-
-### Sound Worlds: AMBIENT vs. REACTOR
-- Switching is controlled via top-level `"setup": "ambient" | "reactor"` in `project.replace` or every phrase of `composition.replace`. All phrases in a composition must share the same sound world.
-- **Aliases & Auto-Inference:** `setup`, `world`, and `soundWorld` are interchangeable aliases. If `setup` is omitted but reactor presets are present in `project.replace`, the engine automatically resolves `setup = 'reactor'`. World prefixes (e.g. `reactor-dry-kick` vs `dry-kick`) are automatically normalized.
-- **Setup & Vibe Sound Availability:** Sounds and motifs are strictly vibe-dependent. `instruments.json` provides `vibeAndSetupPolicy`, `canonicalId`, `setups: [...]`, and sound-level `compatibleRoles`. Every sound declares an explicit `setups` array (`['ambient']`, `['reactor']`, or multi-setup `['ambient', 'reactor']`) supporting multi-setup availability on the engine level.
-- **`ambient`:** 100% procedural real-time Web Audio synthesis (pure sines, FM, filtered noise). Meditative, ethereal, cosmic vibe. Recommended tempo 60..85 BPM, spacious reverb (`space`: 35..80%).
-- **`reactor`:** 32 organic presets backed by 130 authentic CC0 acoustic and electric instrument recordings (drums, overdriven bass, guitars, acoustic piano, brass). Driving, punchy rock vibe. Recommended tempo 90..140 BPM, focused mix (`space`: 10..30%).
-- Instruments from any bank may be assigned to any voice, but global acoustic environment and default styling follow `setup`.
-- **Error Self-Correction & File Modification Retry:** On validation failures (such as `INVALID_SOUND`), `responses/<requestId>.result.json` provides an informative `help` explanation and an actionable `instructionForAgent`. If an agent rewrites or modifies the failed request file in `requests/`, File Bridge automatically detects the change, purges stale error files, clears error state, and queues the new valid proposal into `state.pending` for human approval.
 
 ### File Bridge Directory Persistence & Control Actions
 - `FileSystemDirectoryHandle` is persisted in IndexedDB (`halo-file-bridge-v1`).
@@ -190,52 +100,6 @@ When the user gives a brief creative task without technical parameters (e.g. *"�
   - `✕ Disconnect` (`disconnect`): Stops polling, clears in-memory handle, and removes saved handle from IndexedDB. Requires human confirmation via the internal modal dialog (`window.HaloConfirm`).
 - **In-UI Error Recovery Suggestion:** When a command fails or displays an error in the bridge UI, an explicit suggestion prompt is shown: *"Если ошибка не уходит, очистите запросы папки и попросите нейросеть повторить запрос."* with a 1-click button `[↺ Очистить запросы]` that triggers the confirmed folder cleanup.
 - **100% English AI Documentation:** All AI directives in `AGENT_GUIDE.md` and rule schemas in `music-rules.json` are maintained strictly in English to optimize comprehension and tool use by LLMs without linguistic ambiguity.
-
-### Anti-Looping Circuit Breaker & Error Guidance Protocol
-- **Error Response Schema (`responses/<requestId>.result.json`):**
-  When a request fails validation, the result file contains:
-  ```json
-  {
-    "ok": false,
-    "requestId": "req-...",
-    "error": "Error description...",
-    "help": "Contextual parameter explanation...",
-    "instructionForAgent": "Actionable step-by-step guidance...",
-    "consecutiveErrors": 1
-  }
-  ```
-- **Circuit Breaker (3 Consecutive Errors):**
-  If an agent fails 3 times in a row (`consecutiveErrors >= 3`), HALO issues a `CRITICAL STOP DIRECTIVE` in both `error` and `instructionForAgent`:
-  `CRITICAL STOP DIRECTIVE: 3 consecutive request failures detected. STOP YOUR RETRY LOOP IMMEDIATELY. Do not guess parameters or invent new schemas. Formulate a brief, helpful question to the human user explaining what you are trying to compose and asking them to confirm or clarify the tracks/instrument settings.`
-- **Schema & Preset Tolerances:**
-  - `format`: accepts `'halo-project'` as well as `'notbad-halo-project'`.
-  - Operations payload: accepts either `o.project` or `o.composition` for both `project.replace` and `composition.replace`.
-  - Preset names: world prefixes (e.g. `'ambient-bell'`) are automatically stripped to canonical sound IDs (`'bell'`).
-  - Top-level composition metadata: `setup`, `timeSignature`, `bars`, `name`, `title`, `label` are tolerated and inherited to phrases if omitted.
-  - Track count: `project.replace` requires all 8 tracks `[GLASS, TIDAL, ROOT, EMBER, RAIN, VEIL, MOSS, AURA]`. If modifying fewer tracks, use `track.patch`.
-  - Track roles & names: `role` and `name` are permanent slot identifiers fixed by `trackIndex: 0..7`; passing them inside `track.patch.values` throws `UNKNOWN_FIELD`.
-  - Step editing & Generator 3: When `track.patch` supplies custom `steps` or `noteEvents`, HALO automatically sets `exact = true` if `exact` is omitted, ensuring custom patterns play without throwing `EXACT_REQUIRED`. Explicitly passing `exact: false` while supplying custom steps continues to enforce the requirement.
-  - Phrase bars & startStep alignment: When `bars` is modified via `project.patch` or `phrase.patch` and `startStep` is omitted, HALO automatically aligns `startStep` to the new phrase boundary (`Math.floor(startStep / maxSteps) * maxSteps`), preventing `Invalid phrase position` errors during live playback loops.
-- **Anti-Hallucination Guard against Localhost/CLI Loops:** External models often mistake client-side Web Audio file bridges for fullstack server-backed applications. HALO runs 100% in the user's browser with no local backend daemon, port, or CLI binary. Agents must not invoke `curl`, `netstat`, `node`, `npm`, `python`, `where.exe halo`, or launch browsers.
-- **File tool write budgets:** Modular files bound individual agent write calls; limits depend on the harness. Publish the manifest last and require the explicit response described above.
-
-### Modular Multi-File Requests & Full 8-Track Scoring Architecture
-Agents can split complex multi-voice scores across multiple files, which HALO resolves automatically into a single atomic proposal in the UI:
-1. **Folder Bundles (`requests/<requestId>/`):** Optional compatibility layout for an already available bundle folder; new submissions should use flat files without creating directories. A bundle contains `manifest.json` alongside companion track files:
-   - `requests/req-001/manifest.json`: Root project envelope declaring tempo, bars, key, and references to companion files (`tracks: [{ file: "t0-pulse.json" }, { file: "t1-accent.json" }, ...]`).
-   - `requests/req-001/t0-pulse.json` ... `t7-aura.json`: Individual track scoring files containing detailed 16th-note steps and chords.
-   - HALO discovers directory handles in `requests/`, parses `manifest.json` (or `request.json` / `<bundle>.json`), and resolves all relative companion files within that subfolder.
-2. **Operation-Level Companion Files:** Any atomic operation in `operations` can delegate its values to a companion file:
-   `{ "op": "track.patch", "trackIndex": 5, "file": "veil-melody.json" }`.
-3. **Multi-Part Operation Files:** A root request can assemble multiple modular JSON files using `"parts"`:
-   `{ "requestId": "req-002", "schemaVersion": 1, "baseRevision": 1, "parts": ["drums.json", "harmony.json", "lead.json"] }`.
-4. **Security & Validation Guardrails:**
-   - Path traversal is strictly prohibited: any path containing `..`, absolute paths (starting with `/` or drive letters `C:`), or traversing outside the bundle/requests folder is rejected with `INVALID_FILE_PATH`.
-   - Companion files in flat `requests/` (e.g. `req-001-t*.json` or files without root hallmarks) are safely skipped during polling to avoid premature false-positive validation errors.
-   - Tolerant defaults: Companion track files automatically default to `on: true`, `generator: 3`, `instrument = name`, and `exact = true` when steps or notes are supplied.
-5. **1-Click Atomic UI Approval & Cleanup:** HALO aggregates all companion files into one cohesive transaction in the web UI. Clicking «Apply Changes» commits all tracks atomically and generates `responses/<requestId>.result.json`. Clearing folder requests recursively purges both request files and bundle subdirectories.
-
-Visual modes ORBIT/BLOOM/CURRENT, DRIFT/IN TIME/PHRASE and CLASSIC/COSMIC/HYPER are editable. Core slot radius is fixed `(135+24*i)*responsiveScale`; orbit reorder/radius/speed/phase/direction controls are not implemented. PHRASE markers follow actual musical events. 3/4 waltz and 6/8 rocking swing are fully implemented natively on transport and step grids. Arbitrary orbit reordering remains unsupported.
 
 ## Privacy, authorization and limits
 
@@ -253,20 +117,11 @@ History loading may normalize the selected phrase master/Track 09 metadata. Undo
 A required RU/EN native modal covers hearing/feedback, visual discomfort, equipment, data loss, content rights, folder/device permissions, external AI and liability within applicable law. Checkbox and explicit acceptance are required; Escape/backdrop cannot dismiss it. Acceptance version 2026-10-18.1 and timestamp are localStorage-only, scoped to this browser origin/profile; unavailable storage means acceptance for this page session. Reset/clearing storage or changing terms version prompts again. WebMCP returns TERMS_NOT_ACCEPTED before acceptance. Permissions remain separately browser-controlled. HALO does not upload user content; external agents, intentional sharing and hosting technical logs are distinct. No legal enforceability or exhaustive risk guarantee is claimed.
 
 
-### File Bridge input and receipt audit — 2026-10-18
-
-File Bridge accepts track fields directly on an operation or inside values, digit-string indices 0..7 and ID case/whitespace variants. Conflicting values and musical constraints remain errors. The response submissionVersion covers the manifest and companion contents; after a correction wait for a fresh receipt before diagnosing an old error again.
-
-Normalization is File Bridge only; WebMCP and core musical validation retain their strict contract. Use canonical `{op:"track.patch",trackIndex:5,values:{...}}`; a companion contains the values object. Keep one request ID and manifest for corrections. Write companions first and manifest last. Flat references resolve beside the manifest, bundle references inside the bundle; renaming files requires updating references. Slot/role diagnostics identify the track and distinguish role, exact flag and sound compatibility errors. No new dependency or deployment step.
-
-Audit evidence, acceptance and limitations: [File Bridge audit](file-bridge-audit.md).
-
-
 ### Integration performance — 2026-10-18
 
 Automatic File Bridge scans run every 1.5 seconds only while the File Bridge panel is selected and the browser page is visible. Closing the panel pauses automatic folder I/O; reopening resumes on the next tick. A scan already in progress may finish. Manual refresh/check remains available. Keep this panel open while an external agent submits files; otherwise its acknowledgement will wait.
 
-Project snapshots are written only when the project revision changes; full reference files are exported on connection or explicit refresh. Idle file reads use bounded caches keyed by filename, lastModified and size; unchanged submissions skip repeated engine validation and unchanged receipts skip repeated JSON parsing. Companion-only corrections remain supported. Approval always rereads the manifest and companions, compares the reviewed content and checks the project revision. Metadata is an optimization, not approval authority. Project revision discovery still validates/serializes the in-memory project to detect edits outside the API; it is not yet an event-driven revision counter. WebMCP remains on demand and independent of the folder panel.
+Project snapshots are written only when the project revision changes; full reference files are exported on connection or explicit refresh. Idle file reads use bounded caches keyed by filename, lastModified and size; unchanged submissions skip repeated engine validation and unchanged receipts skip repeated JSON parsing. Companion-only corrections remain supported. Approval always rereads the request and companions, compares the reviewed content and checks the project revision. Metadata is an optimization, not approval authority. Project revision discovery still validates/serializes the in-memory project to detect edits outside the API; it is not yet an event-driven revision counter. WebMCP remains on demand and independent of the folder panel.
 
 The translator handles changed DOM subtrees instead of rescanning the body for each transport label change. Large dock panels avoid nested backdrop blur over animated canvases. Audio scheduling and orbit geometry are unchanged. No new runtime dependencies or server requirements; static GitHub Pages paths remain relative.
 
