@@ -1,3 +1,7 @@
+## Instrument-aware composer context — 2026-10-19
+
+291 Node tests pass with repository-local TEMP/TMP. The generated guide is checked against every instrument registry entry, including timbre name, pitched/unpitched status and natural/other supported roles. Every advertised sound is accepted by the authoritative engine validator in a suitable authored part. A separate apply/context readback test proves that authored chromatic melody notes and rests are preserved in both sound worlds, independently of generated motifs. These checks establish notation/routing, not audible quality or a fresh external model's artistic performance. No new browser, listening or device acceptance is claimed for this instruction/catalog revision. Parser, synthesis and GENERATE behavior are unchanged.
+
 ## Composer score validation — 2026-10-19
 
 - 288 Node tests pass with TEMP/TMP redirected to the checkout. New checks cover the exact guide example, all eight roles in both worlds, aggregated errors, 3/4 and song references/limits, edit preservation, companion-path security, approval races, terminal non-replay and applied project readback. The short guide revision is refreshed with project state.

@@ -9,11 +9,11 @@ Whenever the user references a HALO Bridge folder (e.g. `temp/`, `HALO-Bridge/`,
 
 1. **Read the short composer guide**:
    - Read only AGENT_GUIDE.md with its current revision; inspect the target phrase in project-state.json for edits.
-   - Do not ask the user for technical details or preload full API/instrument catalogs. The guide is sufficient for halo-score.
+   - Do not ask the user for technical details. Read the complete instrument palette with natural/compatible parts embedded in the guide; full API schemas remain unnecessary.
 
 2. **Compose one score format**:
    - Use format: "halo-score", current baseRevision, role-keyed voices (melody, bass, harmony, percussion, etc.). Notes are [step, MIDI, ...] tuples; percussion can use steps.
-   - Sound is optional; HALO chooses a compatible timbre and resolves slots/banks internally.
+   - Choose sound explicitly for each authored part from the guide catalog. Compose original notes, accompaniment, rests and development; do not select generated phrase fragments or reuse the syntax example as a composition. HALO resolves slots/banks internally; omitted sound remains a compatibility fallback only.
    - mode: replace creates new music with omitted roles silent; mode: edit preserves unmentioned parts and requires phraseId for existing songs. Songs use phrases/sections in the same notation.
    - No operations, schemaVersion, trackIndex, instrument, project/values wrappers. Legacy operation API is only for deliberate advanced editing.
 

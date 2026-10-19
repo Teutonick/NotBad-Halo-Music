@@ -1,3 +1,13 @@
+### 2026-10-19 — Tolerant score acceptance
+
+The browser-only File Bridge score adapter handles `bpm` → `tempo`, `timeSignature` → `meter`, role ID case/whitespace, sound ID case/whitespace/prefixes, unordered events, exact duplicates and same-step chord notes. Conflicting aliases and structural/API fields remain errors. Unknown non-structural fields on score, phrase, section and voice objects are ignored and reported; root `duration` is metadata, while voice `duration` remains a validated 0–100 timbre control. Role/slot routing and compatible sound resolution remain automatic. Unknown or incompatible sounds, invalid MIDI/polyphony/steps, unsafe file references and revision conflicts remain strict. Legacy operations and WebMCP retain their existing validation.
+
+`scoreReport` in the pending receipt and review panel separates repairs from advisory warnings: no sounding parts, enabled empty parts, disabled/zero-level parts with events, no new events in the second half, identical melody halves and identical rhythms across at least three sounding parts. Diagnostics inspect event structure, including each song phrase; sound tails and artistic intention are not inferred. Intentional repetition/silence is allowed. HALO never fills missing bars or changes authored tempo/pitches to improve a score. Audition before approval; these heuristics do not certify musical or audio quality. Retained generated parts in edit mode are excluded from authored-event coverage checks. Compatible default sounds, when omitted for new music, are explicitly reported. Refresh connected context files after reloading HALO.
+
+### 2026-10-19 — Composer owns orchestration
+
+The File Bridge guide now includes the complete instrument palette with exact sound IDs, timbre names, natural parts and other supported roles. It asks the agent to choose instruments and author original notes; default timbres are a compatibility fallback. The syntax sample is explicitly not a finished composition. No synthesis, generator or score-parser behavior changed.
+
 ### 2026-10-19 — Simple File Bridge scores
 
 File Bridge now accepts `halo-score`: named musical roles and note tuples, with automatic compatible sounds, bank/slot routing and transaction construction. New music uses replace; edit preserves unmentioned parts. The short agent guide is sufficient; catalogs and legacy operations are optional. Human approval, revision/content checks and existing API compatibility remain. Reload HALO and use Update Files in the connected folder. See [score protocol](docs/agent-api-specification.md).

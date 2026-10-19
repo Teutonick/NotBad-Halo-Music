@@ -1,0 +1,660 @@
+✔ agent edits are opt-in; preview pure; apply and undo exact, manual edits conflict (10.3791ms)
+✔ invalid batch never mutates; bounds, prototype keys and unknown commands rejected (3.7587ms)
+✔ catalog is serializable and composition targeting preserves other phrases (34.3147ms)
+✔ unknown musical features cannot be silently discarded during validation (3.0248ms)
+✔ visual transaction bypasses audio loading even when input object keys are reordered (2.8739ms)
+✔ Redo accepts normalization performed by Undo but still rejects subsequent manual edits (3.8567ms)
+✔ composition.replace tolerates top-level metadata, composition payload alias, and reports specific unknown fields (8.8326ms)
+✔ resetProject resets to clean ambient state with startStep: 0, generator: 3, and passes project validation (8.2802ms)
+✔ resetProject resets revision counter so next request starts at revision 1 (4.106ms)
+✔ project.patch and partial project.replace update top-level project settings gracefully (3.1934ms)
+✔ track.patch auto-promotes exact=true when steps or noteEvents are supplied, while explicit exact=false still requires exact=true check (1.9451ms)
+✔ musical worlds preserve sounds, generated/manual identity and drafts across switches and reload (127.9458ms)
+✔ reactor GENERATE clears all manual tracks and replaces every displayed phrase rhythm (19.3375ms)
+✔ EQ and stereo width persist and survive switching musical worlds (16.0475ms)
+✔ compatible instruments can move between orbits and mappings survive autosave and world switching (42.991ms)
+✔ new phrases drive the live scheduler on eight bars and retain old projects until explicit regeneration (31.3169ms)
+✔ GENERATE randomizes timbres, activity and bounded FX while preserving master settings and restoring results (54.7922ms)
+✔ playing setup switches wait for an audio-clock bar and pause/resume remain functional (11.6001ms)
+✔ reactor project import selects its bank and preserves the previous ambient workspace (15.1396ms)
+✔ loading a live sample switch can be cancelled; a failure preserves ambient playback (5.0829ms)
+✔ sample start failure stays paused and retry does not introduce a synthesis substitute (8.6611ms)
+✔ static entry references local scripts, all eight tiles and role-specific editors work (62.1443ms)
+✔ play, scenes, tuning, tile/keyboard mutes, pause/resume and delayed scheduler integrate (6.0533ms)
+✔ default playback repeats the same events and pitches across complete loops (14.0844ms)
+✔ saving an edited draft disables only auto pattern and retains all eight exact tracks (11.0845ms)
+✔ failed browser storage keeps the draft and automation state instead of claiming save success (7.9456ms)
+✔ workspace reset requires confirmation, clears storage and reloads, and retains state on failure (8.3839ms)
+✔ compact promo disclosure collapses after eight seconds and supports manual closing (5.128ms)
+✔ visual-only mode suppresses music shortcuts and Escape restores controls without closing editors (5.2905ms)
+✔ fixed role cycles randomize on generation, survive world switching and reload with compatible affinity sounds (31.0848ms)
+✔ all numeric UI handlers reject malformed, overflow and off-grid values without changing saved music (18.6263ms)
+✔ SHARE button generates compact hash link, and opening or hashchange restores full loop paused (134.3658ms)
+✔ editor mode switch toggles between SOUND and FX panes, and FX controls update audio and sync reverb (6.9451ms)
+✔ HaloAudio builds shared Delay (4 sync taps) and Chorus buses when createDelay is provided (34.8247ms)
+✔ Space key strictly toggles play and prevents focused button click, while preserving text input typing (4.5199ms)
+✔ custom confirm dialog displays styled modal and resolves user choice (4.1599ms)
+✔ transport repeat button is present in markup next to BPM with loop icon and active default (1.9812ms)
+✔ user guide button opens comprehensive modal, supports bilingual labels, TOC and Escape close (6.6582ms)
+✔ background playback button toggles state and maintains playback when document is hidden (5.4804ms)
+✔ HaloRetriggerPhrase quantized restarts the entire phrase, all instruments, and musical bars on the nearest beat (4.9391ms)
+✔ AI provider/model scope selects retain normal keyboard navigation without musical shortcuts (4.2721ms)
+✔ default PHRASE panel reserves space above transport on narrow and wide layouts; manual placement stays intact (4.1651ms)
+✔ natural song end updates transport text at the scheduled audio boundary (3.2904ms)
+[HALO audio input] {"stage":"capture","name":"InputSelectionRequired","constraint":"","context":"secure-context","inputKind":"instrument","explicitDevice":false}
+[HALO audio input] {"stage":"getUserMedia","name":"Error","constraint":"","context":"secure-context","inputKind":"microphone","explicitDevice":false}
+[HALO audio input] {"stage":"capture","name":"Error","constraint":"","context":"secure-context","inputKind":"microphone","explicitDevice":false}
+✔ inputs require a gesture; exact instrument selection disables voice processing and never chooses a camera (3.703ms)
+✔ monitor is explicit and idempotent; switching devices releases it and saved preferences never reopen hardware (0.7682ms)
+✔ permission denial returns to a silent idle state and device disconnect releases monitoring (1.2296ms)
+✔ recording locks input selection; stopping monitor does not stop an active recording stream (0.2387ms)
+✔ permission probe releases hardware and unavailable APIs fail without requiring a backend (1.4335ms)
+✔ permission devices are enumerated before probe stops and repeated access does not reacquire (0.4568ms)
+✔ input diagnostics expose stage and browser error without device identity (0.4746ms)
+✔ named system default before permission must not bypass the first access probe (0.4103ms)
+✔ default loops stay identical; auto pattern and auto harmony are independent and change once per boundary (3.5731ms)
+✔ keys follow the Circle of Fifths and switching navigates strictly adjacent neighbors (0.539ms)
+✔ lookahead retains prior loop decisions; automatic keys do not depend on melody evolution (0.2324ms)
+✔ 4/8-bar phrase clocks wrap independently of tempo; transposition preserves chord intervals (2.0583ms)
+✔ exact edited hits bypass random density and alternate-bar silences and repeat over 8 bars (0.281ms)
+✔ versioned local pattern roundtrip validates every track and rejects unsafe data (1.7803ms)
+✔ huge clock jumps keep harmony constant-time and seeds inside serialized bounds (0.2587ms)
+✔ numeric parsing rejects overflow, injection, whitespace and disallowed steps (2.1054ms)
+✔ horizontal and vertical drags change stepwise values and clamp huge pointer distances (1.4836ms)
+✔ range click keeps absolute selection; drags are relative, disabled/touch remain native (0.3863ms)
+✔ fractional BPM precision, discrete grids, dynamic offset and pointer identities remain bounded (0.4031ms)
+✔ reactor signatures remain bounded with Canvas fallback and reduced motion (10.6613ms)
+✔ eight distinct signatures render finite, bounded paths with balanced Canvas state (5.0762ms)
+✔ mobile and reduced-motion tiers lower draw workload; reduced decoration ignores wall time (5.3518ms)
+✔ eight hyper signatures render bounded, distinct paths with balanced state and reduced-motion invariance (9.9099ms)
+[HALO File Bridge] connect() called with: HALO-Bridge-Test
+✔ File Bridge exports all 5 context files with synchronized engine capabilities (23.7997ms)
+✔ parseAndValidateRequest enforces requestId, schemaVersion, baseRevision and allowlisted operations (12.468ms)
+✔ processRequest applies valid operations and increments project revision (8.2485ms)
+✔ File Bridge capabilities and music rules declare 15 phrases limit, sound worlds, and canonical form (3.5633ms)
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'HALO-Bridge-Test' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to HALO-Bridge-Test
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: HALO-Bridge-Test
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'HALO-Bridge-Test' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to HALO-Bridge-Test
+[HALO File Bridge] connected successfully, revision: 1
+✔ File Bridge persists directory handle in IndexedDB across reloads (61.7655ms)
+[HALO File Bridge] connect(): invalid directory handle { notAHandle: true }
+[HALO File Bridge] connect() called with: undefined
+[HALO File Bridge] connect() called with: test-folder
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'test-folder' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to test-folder
+[HALO File Bridge] connected successfully, revision: 2
+[HALO File Bridge] resetLocalChanges initiated on folder: test-folder
+[HALO File Bridge] cleared requests/ folder
+[HALO File Bridge] cleared responses/ folder
+[HALO File Bridge] syncAllContext start { dir: 'test-folder' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to test-folder
+[HALO File Bridge] resynced context files with current project, revision: 2
+[HALO File Bridge] connect() called with: test-folder
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'test-folder' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to test-folder
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: HALO-Bridge
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'HALO-Bridge' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to HALO-Bridge
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: HALO-Bridge-Bundle-Test
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'HALO-Bridge-Bundle-Test' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to HALO-Bridge-Bundle-Test
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: HALO-Bridge-Companion-Test
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'HALO-Bridge-Companion-Test' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to HALO-Bridge-Companion-Test
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 2
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 2
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+✔ File Bridge gracefully handles and purges corrupt directory handles from IndexedDB (31.8152ms)
+✔ processRequest applies full multi-phrase composition and switches world to reactor (17.3453ms)
+✔ project.replace supports halo-project alias, strips setup prefix on sounds, and defaults seed/key (5.7413ms)
+✔ processRequest enriches errors with help and instructionForAgent, preventing blind retry loops (4.3294ms)
+✔ AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% English AI instructions) (4.8979ms)
+✔ Context files contain mutual cross-references and explicit read-only vs mutable field specifications (6.6121ms)
+✔ resetLocalChanges clears requests/responses without wiping project or localStorage (12.1758ms)
+✔ instruments.json exposes vibeAndSetupPolicy, soundsBySetup, and multi-setup sound metadata (4.1493ms)
+✔ request modification after error triggers re-validation, clears error, and sets pending (17.5112ms)
+✔ File Bridge continuously auto-syncs project-state.json and auto-rebases requests based on stale revision (21.2993ms)
+✔ File Bridge validates and accepts track.patch with custom steps omitting exact=true (2.6291ms)
+✔ File Bridge auto-aligns startStep to phrase boundaries when bars changes (4.1335ms)
+✔ AGENT_GUIDE.md provides zero-prompt directives and canonical recipes validate cleanly (7.7773ms)
+✔ resolveRequestPayload and resolveRequestPayloadSync resolve modular track.patch operations from companion files (5.6116ms)
+✔ Modular project.replace resolves all 8 companion track files and scores entire orchestra note-by-note (3.8067ms)
+✔ Modular request supports "parts" array expanding into atomic operations (3.004ms)
+✔ Path traversal security guard rejects unsafe relative and absolute paths (0.9341ms)
+✔ Invalid JSON syntax or missing companion file reports clean error guidance (4.2548ms)
+✔ checkFolder scans Folder Bundles in requests/ and resolves relative companion track files (12.2835ms)
+✔ checkFolder skips companion files in flat requests/ without triggering bogus errors (23.6168ms)
+✔ All 5 context files contain 0 Cyrillic characters (100% English AI instructions) (4.0649ms)
+✔ companion-only corrections, explicit acknowledgement and immutable application (bundle) (18.7837ms)
+✔ companion-only corrections, explicit acknowledgement and immutable application (flat) (15.6503ms)
+✔ truncated or missing companions recover without rewriting manifest; pending is rediscovered on reconnect (10.3426ms)
+✔ pending companion change on poll replaces the proposal instead of applying old notes (8.1947ms)
+✔ request identity cannot create response paths outside the chosen folder (3.9793ms)
+✔ compact context has one canonical sound registry and recipes use authoritative keys (4.6855ms)
+✔ both delivered full scores resolve and apply via the file transport with literal pitches (55.3388ms)
+✔ failed acknowledgement/context I/O after application cannot roll back the reported application or replay the request (11.3625ms)
+✔ idle polling preserves the pending Apply button and keyboard focus (29.1435ms)
+[HALO File Bridge] connect() called with: halo-bridge-regression-wmhqkB
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'halo-bridge-regression-wmhqkB' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to halo-bridge-regression-wmhqkB
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 2
+[HALO File Bridge] connect() called with: root
+[HALO File Bridge] stored folder handle in IndexedDB
+[HALO File Bridge] ensured requests/ and responses/ directories
+[HALO File Bridge] syncAllContext start { dir: 'root' }
+[HALO File Bridge] getContextFiles successfully prepared [
+  'AGENT_GUIDE.md',
+  'capabilities.json',
+  'instruments.json',
+  'music-rules.json',
+  'project-state.json'
+]
+[HALO File Bridge] all 5 context files written successfully to root
+[HALO File Bridge] connected successfully, revision: 1
+✔ real directory roundtrip: bounded writes, manifest-last, both full scores, no duplicate application (1538.7303ms)
+✔ legacy rejection receipts without status remain terminal on reconnect (5.7214ms)
+✔ File-only normalization accepts presentation variants without changing musical values (6.9395ms)
+✔ File normalization retains strict unknown fields, indices and musical bounds (7.9586ms)
+✔ automatic scans stop outside integration and on hidden pages; manual scan remains available (6.2614ms)
+✔ unchanged metadata avoids file text reads but approval forces a companion read (9.311ms)
+✔ idle scans do not clone and notify the same pending score repeatedly (8.9631ms)
+✔ compact export preserves complete song state without computing a second score (7.7675ms)
+✔ agent guide defaults to files in the prepared requests folder (2.581ms)
+✔ guide header precedes all guide sections and safety content stays in the body (2.6183ms)
+✔ composer guide includes every catalog timbre and its exact natural/other musical parts (3.244ms)
+✔ every advertised instrument can score an original part through the real engine validator (121.4142ms)
+✔ authored chromatic pitches and rests survive score application independently of generated motifs (11.7779ms)
+✔ the score syntax example preserves explicit timbre choices and authored notes without bank or operation fields (7.2877ms)
+✔ all eight roles score successfully in both worlds with automatic compatible sounds (7.8449ms)
+✔ edit preserves unrelated voices, defaults, master mix, local audio references and song phrases (18.2273ms)
+✔ score errors report several actionable fields together and reject ambiguous or unsafe music (14.8888ms)
+✔ simple score song supports 3/4 and validates bounded arrangement references (11.3153ms)
+✔ flat score companion submission reaches pending, applies exact notes, rejects races and never replays (20.2984ms)
+✔ score adapter accepts metadata and explicit aliases, merges authored chords without inventing music (4.3799ms)
+✔ score adaptation retains conflicts, structural safety, musical bounds and unknown sound errors (15.9368ms)
+✔ score quality warnings allow intentional repetition and shared rhythms (4.2981ms)
+✔ score receipts retain adaptation reports through human approval without filling missing bars (8.2409ms)
+✔ score role spelling normalization is explicit and duplicate roles remain ambiguous (5.4076ms)
+✔ all original ensemble/family names and orbit assignment labels localize in RU and EN (9.7354ms)
+✔ master EQ and stereo controls localize in both directions (0.2841ms)
+✔ compact project labels support RU/EN without changing audio format names (1.0593ms)
+✔ all reactor patches and roles localize in both directions (13.7416ms)
+✔ browser locale falls back to English and recognizes Russian variants (0.3984ms)
+✔ static and dynamic interface labels localize without swallowing layout spaces (1.5364ms)
+✔ fixed roles and cycle controls localize in both directions (1.9762ms)
+✔ all instrument setting hints are localized titles on labels without extra icons (4.087ms)
+✔ dynamic translation scans only changed connected subtrees and full language switch still works (1.7917ms)
+✔ Track 09 defaults and settings validation (14.7427ms)
+✔ Track 09 layer management and non-destructive Undo (283.9913ms)
+✔ Track 09 composite buffer summing and peak limiting (45.3545ms)
+✔ Track 09 offline render schedules looping correctly (30.8414ms)
+✔ Track 09 preserves full duration for long audio and calculates window span (202.6799ms)
+✔ Track 09 Instant Restart, Pitch, and Reverse settings (8.1605ms)
+✔ Track 09 Reverse buffer mirroring and sample-offset calculation (7.8454ms)
+✔ Track 09 timing edits request the shared phrase restart and never retrigger alone (119.7302ms)
+✔ Track 09 disabled instant restart applies loop edits only at the next phrase boundary (105.0958ms)
+✔ Track 09 phrase copies isolate settings, undo, clearing and offline source selection (155.0635ms)
+✔ Track 09 Offline render respects Pitch and Reverse (53.9659ms)
+✔ Track 09 SLICE transient detection and slice rebuilding (59.2711ms)
+✔ Track 09 SLICE patterns and phrase steps calculation (56.9535ms)
+✔ Track 09 SLICE tick playback scheduling, mono choke, and pulse callback (64.1968ms)
+✔ Track 09 SLICE randomization and offline export (62.5076ms)
+✔ Track 09 SLICE pattern randomizer, presets, and count adjustments (9.2474ms)
+✔ Track 09 createUI and HTML structure integrity in LOOP and SLICE modes (12.8669ms)
+✔ Track 09 long loop is clipped at the shared phrase end and explicit transport stop is available (416.487ms)
+✔ PITCH uses one sample with diatonic notes, explicit root, bounded shifts and isolated saved pattern (23.1573ms)
+✔ PITCH live and offline scheduling agree on notes, trim, reverse, key, gate and shared phrase bounds (440.3784ms)
+✔ PITCH pending note edits wait for the phrase when Instant Restart is off (28.3288ms)
+✔ all Track 09 modes record the selected input; PITCH bounds takes to eight seconds (621.4484ms)
+✔ recording PCM sample rates are resampled for context/export without changing pitch or duration (12.5662ms)
+✔ loaded waveforms draw finite geometry in LOOP, SLICE and PITCH including longer sample windows (229.2138ms)
+✔ pending IndexedDB hydration cannot erase a restored phrase audio reference (5.4401ms)
+✔ workspace-only Track 09 folding preserves phrase processing and audio (26.5933ms)
+✔ slice trim rebuilds all slices inside new boundaries and solo reaches live/offline engines (45.155ms)
+✔ PITCH duration survives rests beyond a sixteenth and responds to duration independently of step division (47.1944ms)
+✔ SLICE and PITCH sequencer pads reset step to rest on right-click, keyboard delete, or long-press (489.5735ms)
+✔ SLICE duration scales relative to slice length with sustain hold and chokes overlapping voices (40.9884ms)
+✔ Track 09 isSupportedAudioFile validates MIME types and file extensions (8.6136ms)
+✔ Track 09 getSlicePoints and setSlicePoints manage custom slice boundaries and rebuild (39.6684ms)
+✔ Track 09 Drag and Drop onto waveform card accepts valid audio and toasts invalid format (6.5661ms)
+✔ authored 3/4 waltz and 6/8 pirate swing catalogs provide 10 unique musical patterns per role in 0..11 (2.3355ms)
+✔ 3/4 waltz orchestration exhibits classic downbeat and afterbeat accompaniment (0.8578ms)
+✔ 6/8 pirate swing orchestration exhibits compound dotted-quarter beats and rolling eighths (0.2371ms)
+✔ GENERATE (randomizeTrack) selects 12-step adapted cycles and patterns in 3/4 waltz and 6/8 swing (3.4818ms)
+✔ Roles and Phrases plan strictly confines 3/4 waltz steps to 0..47 and 6/8 swing steps to 0..95 (5.5871ms)
+✔ Accents in 3/4 waltz and 6/8 swing emphasize authentic metric beats (0.3025ms)
+✔ Notes and chord resolution strictly respect 12-step bar boundaries without drift (1.0449ms)
+✔ one revolution is four bars / 64 steps, with correct phrase wrap and count (3.0072ms)
+✔ phrase markers agree with actual seeded notes, skips and alternate silent bars; mute previews stay intact (16.8393ms)
+✔ each musical hit crosses the shared right axis, across bar boundaries (2.6691ms)
+✔ phase is bounded and deterministic between irregular events (1.8676ms)
+✔ drum patches supply a quarter-note kick and backbeat snare without altering saved track pattern (0.3858ms)
+✔ classic scripts initialize without CommonJS and resolve under a GitHub Pages repository subpath (22.7608ms)
+✔ original versioned catalog covers every patch with ten families and ten ensembles per world (7.7174ms)
+✔ all instrument/orbit assignments and role pairings are allowed and keep musical identity (55.2439ms)
+✔ every patch generates repeatable full 4/8-bar phrases, independent of mute and preview position (169.5976ms)
+✔ melodic generation changes pitches with unchanged patches, and eight bars develop the first four (115.8545ms)
+✔ all generated keys and recorded articulations stay in scale and near available sample roots (1773.4997ms)
+✔ duplicate voices share rhythmic space and gain without mute changing other parts (46.4925ms)
+✔ positive density preserves at least one playable event per phrase; zero density and mute stay silent (97.8124ms)
+✔ new project mappings and generator versions restore exact steps and pitches; old versions stay legacy (24.7189ms)
+✔ offline export uses the same arrangement, note phrases, articulation and velocities as live scheduling (39.2379ms)
+✔ inactive worlds are validated, allowlisted and flattened without nested world graphs (19.8667ms)
+✔ autosave roundtrip preserves independent modes, complete settings and edit drafts (1.7252ms)
+✔ autosave rejects malformed modes, overlong files and unsafe draft steps (1.7601ms)
+✔ locale, product card and master volume persist while old preferences remain compatible (3.9338ms)
+✔ phrase panel position and stacking survive a validated preference roundtrip (2.5043ms)
+✔ visual-only preference persists and older autosaves default to visible controls (3.412ms)
+✔ effectMode persists across classic, cosmic and hyper and preserves legacy boolean (3.6669ms)
+✔ background-audio preference persists and older autosaves default to disabled (4.5682ms)
+✔ workspace folds and the fifth floating input window survive reload independently (7.4283ms)
+✔ project mix settings roundtrip, old neutral defaults and strict bounds (7.7369ms)
+✔ offline export passes the same master EQ and scene width to the audio engine (14.8687ms)
+✔ reactor project roundtrip preserves setup and rejects mixed or unknown banks; older files stay ambient (4.9162ms)
+✔ bounded BPM rejects overflows, scientific notation, nonnumbers and out-of-range input (0.5926ms)
+✔ project roundtrip contains only validated settings and steps, and rejects oversized or malformed input (4.7379ms)
+✔ WAV produces actual PCM headers and safely clamps nonfinite samples (0.5004ms)
+✔ master volume is bounded and old projects retain the 50 percent default (1.5819ms)
+✔ shareable token encodes and decodes project roundtrip within compact URL bounds (61.9802ms)
+✔ track FX settings (delay, delayTime, chorus) roundtrip, default safely, and validate bounds (2.9874ms)
+✔ muting exact pitched material preserves notes and repeats in portable snapshots (26.7874ms)
+✔ URL tokens reject ambiguous parameters, invalid alphabet, huge input and bad escapes (1.0323ms)
+✔ compressed expansion is stopped before unbounded JSON allocation (37.802ms)
+✔ injected project keys are discarded and unsafe numeric/schema data never reaches state (2.5824ms)
+✔ Track 09 project state validates bounded local references and treatment without PCM (4.2126ms)
+✔ phrase WAV warm-up restarts Track 09 at the same phrase boundary as the eight voices (9.7327ms)
+✔ PITCH state roundtrips through the bounded phrase schema and excludes hardware IDs (9.0866ms)
+✔ 3/4 waltz and 6/8 pirate swing meter validation, clamping, and roundtrip (2.3118ms)
+✔ bank and role aliases resolve to canonical slots and cross-bank sounds auto-resolve within setup (1.238ms)
+✔ both worlds have the same eight fixed roles and compatible, preferred native presets (3.4122ms)
+✔ presets declare engine, compatibility and affinity separately; generation stays in the affinity pool (106.7246ms)
+✔ track cycle and step participate in generation within role bounds without breaking groove (4.3091ms)
+✔ fixed operators constrain notes, harmony and recorded roots for every compatible preset and key (933.704ms)
+✔ independent 7/9-step cycles keep phase through global phrase boundaries and previews (33.4175ms)
+✔ cycle speed and phase remain bounded; manual steps override independent cycles including warm-up (1.5424ms)
+✔ audio enforces total musical polyphony, mono retrigger and four-note chords independently of preset claims (60.1832ms)
+✔ sampled piano on Pulse is a bounded strike while the same preset makes four-note Harmony (11.1832ms)
+✔ generator-3 projects preserve generated mode and cycle phase while old versions stay exact legacy (14.1385ms)
+✔ exported selected phrase matches live polymetric notes and velocities at its absolute position (49.6202ms)
+✔ every role provides a distinct schematic SVG glyph with minimal geometry (0.381ms)
+✔ every imported WAV has pinned CC0 provenance, matching hashes and bounded non-silent PCM (894.2421ms)
+✔ sample decoding is cached per context, retries failures and selects deterministic nearby notes (1121.0653ms)
+✔ recorded roots cover all generated pitched notes without extreme resampling (63.5137ms)
+✔ local pack loading keeps repository subpaths, coalesces requests and retries only failed packs (2.9794ms)
+✔ automatic native registration publishes schemas and shared commands; tools run through the existing API (24.9217ms)
+✔ native WebMCP supports batch edits, preview and history (12.9228ms)
+✔ invalid batches and stale revisions fail without changing the score or unhandled rejections (7.812ms)
+✔ registration failure exposes no command bridge (7.361ms)
+✔ only current document WebMCP is supported; unsupported browsers expose no commands (4.1905ms)
+✔ aborted tool calls, unknown arguments and disposed bridges cannot mutate (5.1232ms)
+✔ tab lifecycle keeps tools for BFCache and disposes on ordinary teardown (4.8648ms)
+✔ sample metadata catalog remains exactly matched to the local rights manifest, without PCM (20.8187ms)
+✔ actual WebMCP control score is a portable exact eight-bar project with original parts and safe bounded master (23.8786ms)
+✔ published WebMCP operation enum matches engine capabilities including project.patch (9.6835ms)
+✔ UI assembly keeps intro sparse; repeat and variation preserve reference semantics (64.3112ms)
+✔ reordering and deleting sections do not overwrite another phrase with the selected snapshot (27.9652ms)
+✔ workspace reset pagehide cannot resurrect the discarded composition (21.2704ms)
+✔ live scheduler applies section snapshots once and schedules on the supplied audio timestamp (12.0405ms)
+✔ in-card repeat controls validate bounds and retain linked phrase identity (15.5316ms)
+✔ pointer drag commits order once, while cancellation preserves the saved composition (11.2696ms)
+✔ phrase title queues the latest choice until current phrase boundary without loading/stopping or changing panels (21.3841ms)
+✔ cue follows the phrase end inside repeated sections and skips missed boundaries deterministically (11.5013ms)
+✔ last unscheduled boundary remains eligible and paused selection keeps Composition open (16.1617ms)
+✔ GENERATE replaces the sounding phrase without reverting to its old seed at the next tick (9.9774ms)
+✔ panel switches preserve playback and phrase phase without loading or finishing (15.7786ms)
+✔ whole composition repeat wraps on audio clock and persists in portable JSON (25.1631ms)
+✔ repeat button toggles phrase repeat in instruments mode and composition repeat in composition mode with independent states (12.3999ms)
+✔ name clicks rename linked phrase, invalid names preserve state and new phrases have sequential numbers (26.1378ms)
+✔ phrase title click selects phrase, while pencil icon activates renaming (14.0636ms)
+✔ deleting a section prompts for confirmation and respects cancel or confirm (15.8693ms)
+✔ song UI switches phrase-owned Track 09 before its audio tick and restart retains current processing (8.2429ms)
+✔ external playback reports required activation without entering a hanging audio resume; later calls remain available (9.266ms)
+✔ arrangement preserves the entire authored first verse and develops independent sections (39.2487ms)
+✔ repeat shares edits; variation deep-copies tracks and sequences (5.5862ms)
+✔ audio-clock section boundaries, exact repeats, fades and ending are deterministic (3.4842ms)
+✔ JSON roundtrip allowlists sections and rejects dangling refs, excess bars, size and invalid worlds (11.8078ms)
+✔ offline composition schedules exactly the same phrase events and transition weights (34.3706ms)
+✔ compact composition link roundtrip preserves shared references and global settings (83.1503ms)
+✔ modern arrangements retain exact lead pitches through new rhythm, original keys and both sound worlds (148.4537ms)
+✔ frozen note events serialize, transpose with key and reject invalid events; silence is not invented into a song (6.7498ms)
+✔ phrase names and identifiers are bounded and survive serialization without markup (8.2222ms)
+✔ Track 09 treatment survives arrangement, repeats, independent duplicates and JSON (9.3877ms)
+✔ song export selects Track 09 by phrase and schedules every phrase repeat at its audio time (17.0754ms)
+✔ composition enforces safety limit of maximum 15 phrases (25.6029ms)
+✔ 3/4 meter arrangements build and validate correctly across ambient and reactor worlds (31.5003ms)
+✔ full randomization selects another affinity sound for the fixed role and bounds tuning to 20–100 (233.7675ms)
+✔ eight distinct roles, 30 local patches, safe unknown patch fallback (0.5886ms)
+✔ all pitched patches stay in the current chord; noises and percussion have no chord pitches (33.0725ms)
+✔ events obey mute, pattern, density and alternate-bar ambient phrasing (2.3327ms)
+✔ every patch schedules finite, bounded audio and releases all event nodes (16.5929ms)
+✔ dense retriggers steal old events with bounded release times (15.2722ms)
+✔ master gain defaults to half volume and includes complete silence (21.2913ms)
+✔ new 50 percent master matches previous 100 percent instrument feed and mute remains silent (5.7219ms)
+✔ master EQ ramps without suppressing other bands and independent bounded stereo positions (10.0287ms)
+✔ relocated bass/kick stay near stereo center and layered roles receive ramped headroom (5.9906ms)
+✔ reactor drum transients use a fast attack and stronger event gain than guitar (23.1501ms)
+✔ all 32 reactor patches schedule only samples, finite rates and complete cleanup (16.3739ms)
+✔ missing samples fail before allocating nodes and never use procedural fallback (5.2978ms)
+✔ reactor keeps backbeat, bass/guitar harmony, independent rhythms, silence and deterministic transposition (3.9021ms)
+✔ BASS and RIFF generate independent attacks across seeds and all preset combinations (1393.8584ms)
+✔ GENERATE changes every reactor preset rhythm and percussion covers all phrase bars (585.7874ms)
+✔ RIFF and LEAD ring for the recording duration and release only on a new event (15.8247ms)
+✔ boosting only bass keeps other master bands and broadband gain unchanged at every EQ step (2.4962ms)
+✔ ensemble generation varies active parts, preserves musical anchors and keeps optional FX between zero and fifty (3.3116ms)
+✔ Track 09 solo gate silences all core gains and preserves mute/level on updates and release (2.0231ms)
+✔ terms block dismissal and require explicit checked acceptance, stored with version (19.0987ms)
+✔ current acceptance skips modal; old or malformed acceptance prompts again (11.4239ms)
+✔ unavailable storage allows only in-memory acceptance and language switch resets checkbox (2.8942ms)
+✔ floating panel drag and keyboard movement clamp to the viewport and preserve hidden positions (19.0378ms)
+ℹ tests 296
+ℹ suites 0
+ℹ pass 296
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4429.1625
