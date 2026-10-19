@@ -1,3 +1,16 @@
+### 2026-10-19 — Connected promotion card and coffee tab
+
+- Fixed overlapping vertical titles and detached coffee badges: card and rail now use one content-aware height and aligned donation footers. The outer coffee toggles the panel; only the inner Donate link opens YooMoney.
+- Tall workstations leave the promotion intact in the free left column; narrow layouts reserve room above the scrollable workstation. Product/locale changes recalculate size.
+
+### 2026-10-19 — A musical brief is enough for File Bridge
+
+The RU/EN example prompt now asks for music and checked delivery without score-format names, request paths or filenames. The exported AGENT_GUIDE.md owns unused request naming, delivery to the connected folder, bar-by-bar self-checks, deliberate tempo selection, receipt correlation and bounded checks (4–5 seconds apart, at most three checks per submission). Pending approval requires reviewing every scoreReport item: repair accidental musical omissions within two total correction rounds, or explain intentional rests/repetition. Final replies must reflect the saved score and fresh receipt; validation is not artistic completion or listening evidence. No automatic music rewriting or new runtime dependencies. Reload HALO and Update Files to refresh the connected guide; agent compliance remains dependent on the external model.
+
+### 2026-10-19 — Donation link in project promotion
+
+- Added a subdued warm-orange bilingual “Donate ☕” link below the project card and a decorative coffee disclosure at the bottom of the folded rail, both opening the supplied YooMoney page in a new tab.
+
 ### 2026-10-19 — Tolerant score acceptance
 
 The browser-only File Bridge score adapter handles `bpm` → `tempo`, `timeSignature` → `meter`, role ID case/whitespace, sound ID case/whitespace/prefixes, unordered events, exact duplicates and same-step chord notes. Conflicting aliases and structural/API fields remain errors. Unknown non-structural fields on score, phrase, section and voice objects are ignored and reported; root `duration` is metadata, while voice `duration` remains a validated 0–100 timbre control. Role/slot routing and compatible sound resolution remain automatic. Unknown or incompatible sounds, invalid MIDI/polyphony/steps, unsafe file references and revision conflicts remain strict. Legacy operations and WebMCP retain their existing validation.

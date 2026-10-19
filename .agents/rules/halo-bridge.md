@@ -22,6 +22,9 @@ Whenever the user references a HALO Bridge folder (e.g. `temp/`, `HALO-Bridge/`,
    - A voice companion contains the score voice object itself, e.g. {"notes":[[0,72]]}; reference it with voices:{"melody":{"file":"req-jingle-track-5.json"}}. No wrappers or API operations.
    - Wait 4–5 seconds and read `responses/<requestId>.result.json`. Only `status: "pending_approval"` confirms validation awaiting approval; `applied` confirms application and `rejected` means stop.
    - On `error`, inspect error/help/instructionForAgent and correct only the indicated cause, at most twice. Keep the same request ID and manifest for corrections. `submissionVersion` covers manifest and companion contents: an unchanged receipt after editing may be stale; wait for a fresh scan before diagnosing again.
+   - Choose an unused request ID yourself; deliver directly to the connected folder, never a separate workspace. The user only needs the folder, AGENT_GUIDE.md and a musical brief.
+   - Before publication inspect actual bar coverage, development, rests and ending; choose new-music tempo deliberately. After pending_approval read every scoreReport repair/warning. Correct accidental omissions within the same two-correction budget; preserve intentional repetition/silence and explain it. Validation alone does not prove the brief is fulfilled.
+   - For missing/stale receipts use at most three checks, 4–5 seconds apart, per submission; a correction needs a changed submissionVersion. Final claims must reflect saved notes, actual tempo/coverage, warning decisions and fresh status. Do not claim listening without evidence or completion with unresolved accidental omissions.
    - No response means unconfirmed; ask the user to check the page/folder connection. Never infer success from silence. End after pending acknowledgement and invite human approval; never wait indefinitely for approval.
 
 4. **Hard Prohibitions**:
