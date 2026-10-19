@@ -1,3 +1,11 @@
+### 2026-10-19 — Simple File Bridge scores
+
+File Bridge now accepts `halo-score`: named musical roles and note tuples, with automatic compatible sounds, bank/slot routing and transaction construction. New music uses replace; edit preserves unmentioned parts. The short agent guide is sufficient; catalogs and legacy operations are optional. Human approval, revision/content checks and existing API compatibility remain. Reload HALO and use Update Files in the connected folder. See [score protocol](docs/agent-api-specification.md).
+
+## 2026-10-19 — File Bridge instructions and guide layout
+
+Agent instructions now default to JSON files directly in HALO-created requests/, with request-prefixed companions published before the root request. No directory creation is needed; denied file writes stop with a path report. Existing bundle support is unchanged. Bilingual safety/background notes sit inside the scrollable manual body, after its header. Refresh a connected folder with Update Files to receive the revised AGENT_GUIDE.md.
+
 Header branding now reads NotBad HALO by FLX, with the credit sharing the subdued NotBad styling. The terms portrait is shifted right by its transparent right margin (23.5% of source width), aligning the visible character with the dialog edge without editing the asset.
 
 The portrait now fades earlier toward the orbits; windows up to 1000px use a stronger directional mask and 50% opacity (42% up to 700px) to prioritize orbit readability. This is a cosmetic adjustment only.

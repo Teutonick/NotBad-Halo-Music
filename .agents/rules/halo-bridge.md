@@ -7,22 +7,19 @@ description: Autonomous handling of HALO Music Constructor File Bridge requests
 
 Whenever the user references a HALO Bridge folder (e.g. `temp/`, `HALO-Bridge/`, or any folder with `AGENT_GUIDE.md` / `project-state.json`) and asks to compose, modify, or rearrange music:
 
-1. **Autonomous Context Ingestion**:
-   - Do NOT ask the user for technical details or instruct them to explain instruments.
-   - Automatically inspect `project-state.json` (to get current `revision`, tempo, setup, active tracks).
-   - Automatically inspect `instruments.json` (to find compatible voices, role policies, and MIDI ranges).
-   - Automatically inspect `music-rules.json` (to follow 4/4 grid, 16 steps/bar, key, and scale).
-   - Automatically inspect `capabilities.json` (to know allowed operation types and ranges).
+1. **Read the short composer guide**:
+   - Read only AGENT_GUIDE.md with its current revision; inspect the target phrase in project-state.json for edits.
+   - Do not ask the user for technical details or preload full API/instrument catalogs. The guide is sufficient for halo-score.
 
-2. **Compose and Validate**:
-   - Construct valid musical operations (`track.patch`, `phrase.patch`, `master.patch`, `project.replace`, or `composition.replace`).
-   - Use current `revision` as `baseRevision`.
-   - Set unique `requestId` (e.g. `req-<timestamp>` or `req-jingle-01`).
-   - Set `schemaVersion: 1`.
+2. **Compose one score format**:
+   - Use format: "halo-score", current baseRevision, role-keyed voices (melody, bass, harmony, percussion, etc.). Notes are [step, MIDI, ...] tuples; percussion can use steps.
+   - Sound is optional; HALO chooses a compatible timbre and resolves slots/banks internally.
+   - mode: replace creates new music with omitted roles silent; mode: edit preserves unmentioned parts and requires phraseId for existing songs. Songs use phrases/sections in the same notation.
+   - No operations, schemaVersion, trackIndex, instrument, project/values wrappers. Legacy operation API is only for deliberate advanced editing.
 
 3. **Publish and verify before ending the turn**:
-   - Complete and read back companions first; publish the manifest LAST in `requests/<requestId>/manifest.json`, or use a standalone JSON request.
-   - Use canonical operations such as `{op:"track.patch",trackIndex:5,values:{...}}`; a referenced track companion contains the values object itself.
+   - Complete and read back companions first; publish the root request LAST as `requests/<requestId>.json`. HALO already creates requests/ and responses/: create files only, never directories or requestId subfolders. Use prefixed companions such as `requests/<requestId>-track-0.json`; JSON file references contain only the basename. Join the connected folder once for absolute file-tool paths. If a write is denied, report the failed file path and stop; do not retry creating folders.
+   - A voice companion contains the score voice object itself, e.g. {"notes":[[0,72]]}; reference it with voices:{"melody":{"file":"req-jingle-track-5.json"}}. No wrappers or API operations.
    - Wait 4–5 seconds and read `responses/<requestId>.result.json`. Only `status: "pending_approval"` confirms validation awaiting approval; `applied` confirms application and `rejected` means stop.
    - On `error`, inspect error/help/instructionForAgent and correct only the indicated cause, at most twice. Keep the same request ID and manifest for corrections. `submissionVersion` covers manifest and companion contents: an unchanged receipt after editing may be stale; wait for a fresh scan before diagnosing again.
    - No response means unconfirmed; ask the user to check the page/folder connection. Never infer success from silence. End after pending acknowledgement and invite human approval; never wait indefinitely for approval.

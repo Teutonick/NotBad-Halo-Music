@@ -1,3 +1,10 @@
+## Composer score validation — 2026-10-19
+
+- 288 Node tests pass with TEMP/TMP redirected to the checkout. New checks cover the exact guide example, all eight roles in both worlds, aggregated errors, 3/4 and song references/limits, edit preservation, companion-path security, approval races, terminal non-replay and applied project readback. The short guide revision is refreshed with project state.
+- Native Chrome, desktop: isolated fixture with actual HALO Agent/File Bridge modules and the real File Bridge panel passed score submission → pending_approval → Apply Changes → applied. The canonical eight-bar score selected bell/round/shaker/air automatically; the in-memory folder readback matched the applied project. RU and EN score preview/prompt rendering were checked. This used a test project and File System Access-compatible in-memory handles; it does not establish a fresh native OS-folder or external-model run.
+- Full app's first-use terms were not accepted for this test; the isolated fixture did not touch user storage, HALO projects, microphone or playback. No listening-quality, Safari/iOS/mobile, public deployment or external-model acceptance is claimed.
+- Reload the updated HALO and Update Files before testing an external agent in a fresh conversation. A previously failed operation file is not migrated/applied automatically. No commit or deployment was performed.
+
 # Release validation — 2026-10-18
 
 Local candidate; not committed, pushed or deployed.

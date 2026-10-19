@@ -72,7 +72,7 @@ test('File Bridge exports all 5 context files with synchronized engine capabilit
   assert.equal(state.music, undefined); assert.deepEqual(state.project, api.getProjectState().project);
 
   // AGENT_GUIDE.md
-  assert.match(files['AGENT_GUIDE.md'], /HALO Agent Guide/);
+  assert.match(files['AGENT_GUIDE.md'], /HALO.*compose music/);
   assert.match(files['AGENT_GUIDE.md'], /project-state\.json/);
   assert.match(files['AGENT_GUIDE.md'], /requests\//);
   assert.match(files['AGENT_GUIDE.md'], /responses\//);
@@ -503,7 +503,7 @@ test('AGENT_GUIDE.md and music-rules.json contain no Cyrillic characters (100% E
   assert.ok(files['AGENT_GUIDE.md'].includes('pending_approval'));
   assert.ok(files['AGENT_GUIDE.md'].includes('No response means UNCONFIRMED'));
   assert.ok(files['AGENT_GUIDE.md'].includes('Strict 4-Step Agent Workflow & Verification Protocol'));
-  assert.ok(files['AGENT_GUIDE.md'].includes('manifest.json LAST'));
+  assert.ok(files['AGENT_GUIDE.md'].includes('requests/req-jingle.json LAST'));
 
   // All 5 files must be 100% English
   for (const filename of ['AGENT_GUIDE.md', 'capabilities.json', 'instruments.json', 'music-rules.json', 'project-state.json']) {
@@ -535,7 +535,7 @@ test('Context files contain mutual cross-references and explicit read-only vs mu
   assert.equal(inst.trackPatchRules, undefined);
   assert.equal(state.fieldAccess, undefined);
   assert.ok(state.notice.includes('READ-ONLY'));
-  assert.ok(guide.includes('Context map'));
+  assert.ok(guide.includes('This guide is sufficient for NEW MUSIC'));
 
   // 6. Error guidance for UNKNOWN_FIELD with role/name
   const badReq = {
@@ -1681,7 +1681,7 @@ test('compact context has one canonical sound registry and recipes use authorita
     assert.equal(role.soundsBySetup, undefined);
     assert.ok(inst.sounds.some(s=>s.compatibleRoles.includes(role.role)));
   }
-  assert.ok(Buffer.byteLength(guide)<4000);
+  assert.ok(Buffer.byteLength(guide)<9000);
   assert.ok(Buffer.byteLength(files['instruments.json'])<45000);
   assert.equal(JSON.parse(files['project-state.json']).music,undefined);
 
@@ -1855,4 +1855,118 @@ test('compact export preserves complete song state without computing a second sc
     assert.deepEqual(sound.compatibleRoles,source.playback.compatibleRoles);
     assert.deepEqual(sound.noteRange,source.playback.range);
   }
+});
+
+ test('agent guide defaults to files in the prepared requests folder',()=>{
+ const guide=FileBridge.getContextFiles(createTestApp().api)['AGENT_GUIDE.md'];
+ assert.match(guide,/Do NOT create any directories/);
+ assert.match(guide,/"file":"req-jingle-track-5.json"/);
+ assert.doesNotMatch(guide,/requests\/<requestId>\//);
+ assert.match(guide,/If a file write is denied/);
+ });
+ test('guide header precedes all guide sections and safety content stays in the body',()=>{
+ const fs=require('node:fs'),html=fs.readFileSync(require('node:path').join(__dirname,'../index.html'),'utf8');
+ const modal=html.slice(html.indexOf('<div id="guideModal"'),html.indexOf('<div id="guideModal"')+html.slice(html.indexOf('<div id="guideModal"')).indexOf('<div class="guide-body"'));
+ assert.doesNotMatch(modal,/<section/);
+ assert.match(html,/<section class="guide-section"><h3>Terms and safety/);
+ });
+
+function scoreRequest(api, values={}){
+ return {format:'halo-score',baseRevision:api.getProjectState().revision,voices:{melody:{notes:[[0,72],[124,76]]}},...values};
+}
+
+test('the complete guide jingle compiles first time without catalogs, operations or instrument choices',()=>{
+ const {api}=createTestApp(),guide=FileBridge.getContextFiles(api)['AGENT_GUIDE.md'];
+ const score=JSON.parse(guide.match(/```json\n([^]*?)\n```/)[1]);
+ const before=api.getProjectState();
+ const result=FileBridge.parseAndValidateRequest(api,score,'req-jingle');
+ assert.equal(result.ok,true,result.error);
+ const after=result.preview.after;
+ assert.equal(after.tracks.length,8);assert.equal(after.bars,8);assert.equal(after.tempo,96);assert.equal(after.key,2);
+ assert.equal(after.setup,'ambient');assert.equal(after.tracks[5].sound,'bell');assert.equal(after.tracks[4].sound,'round');
+ assert.deepEqual(after.tracks[5].noteEvents,score.voices.melody.notes.map(([step,...notes])=>({step,notes})));
+ assert.equal(after.tracks[5].noteTranspose,-2);assert.equal(after.tracks[0].on,false);
+ assert.deepEqual(api.getProjectState(),before,'Preview never mutates the project');
+});
+
+test('all eight roles score successfully in both worlds with automatic compatible sounds',()=>{
+ for(const world of ['ambient','reactor']){
+  const {api}=createTestApp();
+  const voices=Object.fromEntries(S.roles.roles.map(r=>[r.id,['bass','melody','arpeggio','harmony'].includes(r.id)?{notes:[[0,r.id==='bass'?36:72],[127,r.id==='bass'?43:76]]}:{steps:[0,127]}]));
+  const result=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{world,voices}),'all-eight');
+  assert.equal(result.ok,true,result.error);
+  assert.ok(result.preview.after.tracks.every(t=>t.on&&t.exact&&t.steps.at(-1)===127));
+  for(const t of result.preview.after.tracks) assert.ok(S.roles.compatible(t,S.banksFor(world)[t.instrument].sounds.find(s=>s.id===t.sound)));
+ }
+});
+
+test('edit preserves unrelated voices, defaults, master mix, local audio references and song phrases',async()=>{
+ const {api}=createTestApp();api.setEnabled(true);
+ const source=api.getProjectState().project;
+ source.liveLoop={version:1,layerIds:[42],settings:{mute:true}};
+ source.masterVolume=37;source.mix.width=23;
+ await api.applyOperations({schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'project.replace',project:source}]});
+ const before=api.getProjectState().project;
+ const score=scoreRequest(api,{mode:'edit',voices:{melody:{notes:[[0,72],[63,76]]}}});
+ const result=FileBridge.parseAndValidateRequest(api,score,'edit');assert.equal(result.ok,true,result.error);
+ const after=result.preview.after;
+ for(let i=0;i<8;i++)if(i!==5)assert.deepEqual(after.tracks[i],before.tracks[i]);
+ assert.equal(after.bars,before.bars);assert.equal(after.key,before.key);assert.deepEqual(after.liveLoop,before.liveLoop);assert.equal(after.masterVolume,37);assert.deepEqual(after.mix,before.mix);
+ const songScore=scoreRequest(api,{phrases:[{id:1,voices:{melody:{notes:[[0,72],[127,76]]}}},{id:2,voices:{bass:{notes:[[0,36],[127,43]]}}}],sections:[{phrase:1},{phrase:2,repeats:2}]});
+ delete songScore.voices;
+ const song=FileBridge.parseAndValidateRequest(api,songScore,'song');assert.equal(song.ok,true,song.error);await api.applyOperations(song.transaction);
+ const original=api.getProjectState().project;
+ const edit=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{mode:'edit',phraseId:2,voices:{bass:{level:35}}}),'edit-song');
+ assert.equal(edit.ok,true,edit.error);assert.deepEqual(edit.preview.after.phrases[0],original.phrases[0]);assert.deepEqual(edit.preview.after.sections,original.sections);
+ assert.equal(edit.preview.after.phrases[1].project.tracks[4].level,35);
+ assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,{mode:'edit'}),'bad-edit').ok,false);
+});
+
+test('score errors report several actionable fields together and reject ambiguous or unsafe music',async()=>{
+ const {api}=createTestApp();
+ const bad=scoreRequest(api,{bars:7,key:'wrong',voices:{melody:{sound:'dry-kick',notes:[[0,300]],velocity:92},bass:{steps:[0]}}});
+ const result=await FileBridge.processRequest(api,bad,'bad');
+ assert.equal(result.ok,false);assert.match(result.error,/score.bars/);assert.match(result.error,/score.key/);assert.match(result.error,/melody.sound/);assert.match(result.error,/velocity/);assert.match(result.error,/bass.steps/);
+ assert.match(result.help,/Keep format halo-score/);
+ for(const change of [
+  {voices:{melody:{notes:[[0,72],[0,74]]}}},
+  {voices:{melody:{notes:[[128,72]]}}},
+  {voices:{harmony:{notes:[[0,60,64,67,71,74]]}}},
+  {voices:{melody:{notes:[[0,72]],steps:[0]}}},
+  {schemaVersion:2},{operations:[]},{world:'invalid'},{mode:'guess'}
+ ])assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,change),'bad').ok,false,JSON.stringify(change));
+ const conflict=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{baseRevision:0}),'stale');assert.match(conflict.error,/CONFLICT_REVISION/);
+});
+
+test('simple score song supports 3/4 and validates bounded arrangement references',()=>{
+ const {api}=createTestApp();
+ const score={format:'halo-score',baseRevision:api.getProjectState().revision,world:'reactor',meter:'3/4',key:'D minor',phrases:[{id:1,voices:{melody:{notes:[[0,74],[95,77]]}}}],sections:[{phrase:1,repeats:2}]};
+ const result=FileBridge.parseAndValidateRequest(api,score,'waltz');assert.equal(result.ok,true,result.error);assert.equal(result.preview.after.timeSignature,'3/4');assert.equal(result.preview.after.phrases[0].project.tracks[5].steps.at(-1),95);
+ for(const altered of [{...score,sections:[{phrase:2}]},{...score,sections:[{phrase:1,repeats:8},{phrase:1,repeats:8},{phrase:1}]},{...score,phrases:[...score.phrases,...score.phrases]}])assert.equal(FileBridge.parseAndValidateRequest(api,altered,'bad-song').ok,false);
+});
+
+test('flat score companion submission reaches pending, applies exact notes, rejects races and never replays',async()=>{
+ const {api}=createTestApp(),root=bridgeFolder(),req=await root.getDirectoryHandle('requests',{create:true}),res=await root.getDirectoryHandle('responses',{create:true});
+ const score=scoreRequest(api,{voices:{melody:{file:'req-simple-track-5.json'}}});
+ const read=()=>JSON.parse(res.files.get('req-simple.result.json'));
+ req.files.set('req-simple.json',JSON.stringify(score));req.files.set('req-simple-track-5.json',JSON.stringify({notes:[[0,72],[127,76]]}));
+ const b=FileBridge.createBridge(api,{pollInterval:0});await b.connect(root);
+ try{
+  assert.equal(read().status,'pending_approval');assert.equal(api.getProjectState().project.bars,4);
+  req.files.set('req-simple-track-5.json',JSON.stringify({notes:[[0,72],[127,79]]}));await b.applyPending();assert.match(read().error,/REQUEST_CHANGED/);
+  await b.checkFolder();assert.equal(read().status,'pending_approval');await b.applyPending();assert.equal(read().status,'applied');
+  const applied=api.getProjectState();assert.deepEqual(applied.project.tracks[5].noteEvents,[{step:0,notes:[72]},{step:127,notes:[79]}]);
+  const exported=JSON.parse(root.files.get('project-state.json'));assert.deepEqual(exported.project,applied.project);
+  assert.ok(root.files.get('AGENT_GUIDE.md').includes('Current revision: '+applied.revision+';'),'The short guide stays sufficient after a project update');
+  const melody=api.getContext().music[0].tracks[5];
+  assert.deepEqual(melody.events.map(e=>({step:e.step,notes:e.notes})),applied.project.tracks[5].noteEvents,'Authored melody reaches the engine without transposition');
+  await b.checkFolder();assert.equal(b.getStatus().pending,null);assert.deepEqual(api.getProjectState(),applied);
+ }finally{b.dispose()}
+ const c=FileBridge.createBridge(api,{pollInterval:0});await c.connect(root);assert.equal(c.getStatus().pending,null);c.dispose();
+ for(const file of ['../escape.json','C:/secret.json','/secret.json']){
+  const payload=scoreRequest(api,{voices:{melody:{file}}});
+  const sync=FileBridge.parseAndValidateRequest(api,payload,'unsafe',{files:{}});
+  const asyncResult=await FileBridge.resolveAndValidateRequest(api,payload,async()=>({notes:[[0,72]]}),'unsafe');
+  assert.equal(sync.ok,false);assert.equal(asyncResult.ok,false);assert.match(sync.error,/PATH/);
+ }
 });
