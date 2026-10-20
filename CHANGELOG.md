@@ -1,3 +1,15 @@
+## 2026-10-20 — English agent instructions and undecorated JSON keys
+
+Translated all five agent-context documents to English; retained Russian only as parenthesized glossary translations inside values. Removed translated/decorated timing and terminology property names. Added recursive key checks and a language/translation allowlist check across the complete generated package. Six workflows, musical duration review and score semantics are unchanged. Full regression remains paused.
+
+## 2026-10-20 — Six composer workflows and one vocabulary
+
+Added scoped edit/phraseId routing for note/timbre changes while retaining other phrases, with shared-repeat clarification. Added mandatory duration-intent review without density rejection or filler notes. All five context files share canonical uppercase terms with Russian translations; guide prose is now Russian and literal JSON identifiers remain unchanged. BRIDGE_ROOT distinguishes the connected folder from the ROOT slot. No engine or score semantics changed; full regression remains paused.
+
+## 2026-10-20 — Tolerant File Bridge data syntax
+
+Root and companion readers accept comments, trailing commas, single quotes, simple unquoted keys/values, code fences and unambiguous missing commas. No eval, invented data or source rewriting; duplicate keys and incomplete syntax fail. Musical/revision/path/approval checks stay strict. Canonical exports/schema stay JSON. Raw file bytes still identify the approval proposal.
+
 ## 2026-10-20 — File Bridge contract audit
 
 Separated workflow-only guide, canonical JSON Schema in capabilities, unique instrument registry and normalized whole-composition state. Removed internal project fields from agent snapshots and ambiguous “Fix STATE/RECEIPT” wording. Qualified ambient hat IDs as rain-hat/moss-hat without changing engine sounds. Distinguished accepted MIDI 0..127 from acoustic playback registers. Full live-model regression is paused; use the manual candidate after reloading and Update Files.

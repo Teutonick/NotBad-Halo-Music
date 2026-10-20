@@ -29,7 +29,7 @@ Five linked files retain schemaVersion 3. Existing replace/edit inputs remain ac
 
 | File | Authority |
 | --- | --- |
-| AGENT_GUIDE.md | Preflight, five user workflows, delivery/stop rules; links to the authoritative references |
+| AGENT_GUIDE.md | Preflight, six user workflows, delivery/stop rules; links to the authoritative references |
 | project-state.json | Current browser revision, normalized whole-composition score, export limitations; no internal engine state |
 | capabilities.json | Sole format authority: requestSchema (JSON Schema 2020-12), mode-specific fields/limits, statuses and handshake contract |
 | instruments.json | Physical slots, roles, canonical timbres, compatible roles, pitched flags and registers |
@@ -47,6 +47,14 @@ Authored effective MIDI is exported with key offset/noteTranspose accounted for;
 
 scoreExport.complete=false and score=null explicitly report an unrepresentable state (e.g. incompatible legacy timbre/role, polyphony or missing MIDI). The original project remains unchanged inside HALO. Do not invent missing events or claim a lossless transformation in that case. No PCM is exported.
 
+## Stable terminology and scoped editing
+
+All five context files share one generated terminology dictionary. Prose uses PHRASE (фраза), LOOP (цикл), VOICE (голос), STATE (снимок состояния), SCORE (партитура), COMPOSITION (композиция), SECTION (секция), BAR (такт), BEAT (доля), STEP (шаг сетки) and the other defined uppercase terms. JSON keys, mode/status values, role IDs and filenames keep their literal spelling. BRIDGE_ROOT (корневая папка) is the connected-folder variable; the literal ROOT slot ID is a different identity and is never expanded as a folder term. All generated instructions are English. Russian appears only as parenthesized glossary translations in string values. Every JSON property name, including timing and terminology entries, is an undecorated English identifier. The shared terminology keys are PHRASE, LOOP, VOICE and the other plain identifiers; the timing keys are BAR, BEAT, TEMPO, STEP, POSITION, PHRASE, SECTION and REST.
+
+The sixth workflow routes note or timbre changes in one PHRASE (фраза) to edit with an existing phraseId, voices containing only requested edits, and unchanged world/tempo/bars/meter/key copied from that target. Other phrases/voices remain unchanged. tempo is song-wide, so a scoped note edit retains it. Repeated sections reference shared phrases: do not promise to change just one occurrence of shared data without clarifying whether an independent variation is wanted.
+
+Before publication the agent must ensure that the musical idea spans the requested duration. Long rests must be deliberate parts of the composition. This is an authoring requirement, not a new rejection threshold or automatic filler: no note is required in every bar and intentional silence is preserved.
+
 ## Required JSON structure
 
 capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for live revision, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
@@ -63,6 +71,12 @@ Common fields: format is exactly halo-score; baseRevision is the live integer; m
 world: ambient/reactor. tempo: 30..200 BPM. bars: 4/8. meter: 4/4 or 3/4. key: supported named key. Creation Voice: one object, one compatible canonical sound, notes for pitched or steps for unpitched timbres. notes uses symbolic tuples [absoluteStep, MIDI, ...], with integer MIDI 0..127 and role polyphony. steps is a flat integer array. Unique integer positions within the phrase; empty arrays mean silence. No per-note duration/velocity, arbitrary wrappers or prose.
 
 Voice parameters: on boolean; level/character/duration/space/delay/chorus numeric 0..100. Creation defaults: on true; level/character/duration 50; space 30; delay/chorus 0. duration controls the voice envelope. Pitched MIDI is literal; changing key alone never transposes it. Integer MIDI 0..127 is the hard input pitch bound. instruments.json.midiInputRange makes this explicit; sounds[].acousticRange describes playback octave folding, not an input rejection bound. Role acousticRange gives register guidance; bass uses the existing engine bass policy. For example, bell MIDI 92 is valid although its timbre register is 26..88; playback may fold it by octaves, preserving pitch class. No new transposition is introduced.
+
+### Presentation-tolerant parsing
+
+HALO itself parses root requests AND voice companions as data before strict score validation. The canonical notation remains JSON/requestSchema, but the receiver also accepts BOM, a single json/jsonc/json5 Markdown fence, line/block comments, trailing commas, single-quoted strings, unquoted identifier keys and single-token string values, and missing commas between whitespace-separated complete values. This is a bounded subset, not a JavaScript/JSON5 interpreter. Comment text is ignored, including musical claims; numeric positions remain authoritative.
+
+The reader never executes expressions, resolves duplicate keys or invents missing values, colons, closing quotes/containers or digits. Those cases remain errors. Strings containing // or /* are preserved literally. Nesting is bounded to 64 and existing 512 KiB combined-byte/path limits remain. Original source bytes are never rewritten, remain part of proposal identity and are reread before approval. Canonical state/receipts are still emitted as strict JSON. Revision, event type, bounds, MIDI, polyphony and approval validation are unchanged. The regression file-tool audit uses the same parser only to record mode/revision; it does not repair or rewrite publication.
 
 ### Atomic parameter patch
 

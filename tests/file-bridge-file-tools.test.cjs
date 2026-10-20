@@ -70,3 +70,14 @@ test('real disk probe, full song export and atomic two-phrase mute form one safe
  assert.deepEqual(receiver.state().project,expected);assert.equal(receiver.state().revision,before.revision+1);
  assert.ok(tools.events.filter(e=>e.tool==='write').every(e=>e.path.startsWith('requests/')));
 });
+
+
+test('file-tool audit recognizes tolerant probe syntax without normalizing the published bytes',async t=>{
+ const {tools,root,receiver}=await fixture(t),revision=receiver.state().revision;
+ const content="{format:'halo-score', mode:probe, baseRevision:"+revision+", // access check\n}";
+ await tools.call('write',{path:'requests/syntax-probe.json',content});
+ const event=tools.events.find(e=>e.name==='write'||e.tool==='write')||tools.events.find(e=>e.mode==='probe');
+ assert.equal(event.mode,'probe');assert.equal(event.baseRevision,revision);
+ assert.equal(await fs.readFile(path.join(root,'requests/syntax-probe.json'),'utf8'),content);
+ const receipt=JSON.parse(await tools.call('read',{path:'responses/syntax-probe.result.json'}));assert.equal(receipt.status,'ready');
+});

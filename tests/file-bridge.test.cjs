@@ -449,7 +449,7 @@ test('v3 package has one contract, complete cross references, no slot timbre con
  assert.equal(rules.soundWorlds,undefined);
  for(const sound of inst.sounds){assert.ok(sound.bankId);assert.equal(sound.id,undefined);assert.equal(sound.sound,undefined);assert.equal(sound.instrument,undefined);}
  assert.doesNotMatch(guide,/Current revision:|Current tempo:/);
- assert.match(guide,/ROOT is the exact absolute folder supplied by the user/);
+ assert.match(guide,/BRIDGE_ROOT \(корневая папка\) is the exact absolute path supplied by the user/);
  assert.match(guide,/pending_approval/);
  assert.match(guide,/at most 3 reads/);
  const anchors=[...guide.matchAll(/\]\(#([^)]+)\)/g)].map(m=>m[1]);
@@ -601,7 +601,7 @@ test('composer workflow guide is bounded and has no copied format or score examp
  assert.doesNotMatch(guide,/\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
  assert.doesNotMatch(guide,/```json|REPLACE_WITH|Mandatory bar audit|ROOT_VERIFIED|climax|cadence|solfege|D natural minor/);
  assert.match(guide,/format exactly halo-score/);assert.match(guide,/Before writing, check/);
- assert.match(guide,/canonicalId/);assert.ok(guide.length<=8000,'workflow only, no catalog or schema duplication');
+ assert.match(guide,/canonicalId/);assert.ok(guide.length<=11000,'workflow only, no catalog or schema duplication');
  const rules=JSON.parse(files['music-rules.json']);assert.equal(rules.barAudit,undefined);assert.equal(rules.orchestration,undefined);assert.equal(rules.keyChanges,undefined);
  assert.ok(rules.keys.includes('D MINOR'));assert.equal(rules.timeSignatures['3/4'].stepsPerBar,12);
 });
@@ -684,10 +684,10 @@ test('timing glossary is shared by context files and uses musical bars, quarter 
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const caps=JSON.parse(files['capabilities.json']),rules=JSON.parse(files['music-rules.json']);
  assert.deepEqual(caps.timing,rules.timing);
- assert.match(caps.timing['bar / measure (такт)'],/Ordinary musical bar/);
- assert.match(caps.timing.absoluteStep,/within ONE phrase/);assert.match(caps.timing.absoluteStep,/Each different phrase starts again at 0/);
- assert.match(guide,/Read the exact glossary in music-rules.json/);assert.match(guide,/Bar\/measure = такт/);
- assert.match(guide,/one 4\/4 bar = 2 s; 8 such bars = 16 s/);assert.match(guide,/steps 0\.\.15 belong ONLY to bar 1; bar 8 uses 112\.\.127/);
+ assert.match(caps.timing.BAR,/Ordinary musical BAR/);
+ assert.match(caps.timing.POSITION,/within ONE PHRASE/);assert.match(caps.timing.POSITION,/Each different PHRASE.*starts again at 0/);
+ assert.match(guide,/Read the full timing vocabulary in music-rules.json/);assert.match(guide,/BAR \(такт\)/);
+ assert.match(guide,/4\/4 BAR.*lasts 2 s; eight last 16 s/);assert.match(guide,/positions 0\.\.15.*112\.\.127/);
 });
 
 test('musical timing and bar boundaries at 120 BPM agree with published glossary for both meters',()=>{
@@ -900,4 +900,105 @@ test('one machine-readable canonical schema separates mutually exclusive modes a
  assert.doesNotMatch(files['project-state.json'],/"(?:project|visual|setup|noteEvents|startStep|noteTranspose|instrument)"\s*:/);
  assert.equal(state.score.baseRevision,state.revision);assert.equal(typeof state.score.key,'string');assert.ok(state.score.meter);
  assert.equal(FileBridge.parseAndValidateRequest(api,state.score,'schema-export').ok,true);
+});
+
+
+test('presentation-tolerant score parsing preserves events and all semantic checks',()=>{
+ const {api}=createTestApp(),score=scoreRequest(api),canonical=FileBridge.parseAndValidateRequest(api,score,'syntax');assert.equal(canonical.ok,true);
+ const original=JSON.stringify(score,null,2);
+ const variants=[
+  '\uFEFF'+original,
+  '```jsonc\n'+original+'\n```',
+  original.replace('"tempo": 96,','"tempo": 96, // tempo, not bars\n /* keep literal events */'),
+  original.replace(/\n}/,' ,\n}'),
+  original.replace(/"/g,"'"),
+  original.replace(/"(\w+)":/g,'$1:'),
+  original.replace('"ambient"','ambient').replace('"replace"','replace'),
+  original.replace('"tempo": 96,','"tempo": 96 '),
+  original.replace('72\n','72,\n'),
+  original.replace('72\n      ],','72\n      ] ')
+ ];
+ for(const text of variants){const r=FileBridge.parseAndValidateRequest(api,text,'syntax');assert.equal(r.ok,true,r.error+'\n'+text);assert.deepEqual(r.preview.after,canonical.preview.after);}
+ const wrong=original.replace('"baseRevision": 1','"baseRevision": 0').replace('"tempo": 96,','"tempo": 96, // comment\n');assert.equal(FileBridge.parseAndValidateRequest(api,wrong,'syntax').ok,false);
+ const fractional=original.replace('72\n','72.5\n');assert.equal(FileBridge.parseAndValidateRequest(api,fractional,'syntax').ok,false);
+});
+
+test('tolerant reader rejects ambiguous or executable data instead of inventing a score',()=>{
+ const {api}=createTestApp(),original=JSON.stringify(scoreRequest(api));
+ for(const text of [
+  original.slice(0,-1), original.replace('"tempo":96','"tempo":'),
+  original.replace('"tempo":96','"tempo":96,"tempo":120'),
+  original.replace('"tempo":96','"tempo":Math.max(96,120)'),
+  original.replace('"tempo":96','"tempo":NaN'),
+  original.replace('"tempo":96','"tempo":1e999'),
+  original.replace('"tempo":96','"tempo":096'),
+  original.replace('"sound":"harp"','"sound":"harp'),
+  original+' garbage', original+' /* unclosed',
+  original.replace('"voices":','"__proto__":{"polluted":true},"voices":')
+ ]){assert.equal(FileBridge.parseAndValidateRequest(api,text,'syntax-bad').ok,false,text);}
+ assert.equal({}.polluted,undefined);
+});
+
+test('real folder loader accepts comments and companions through preview and approval without rewriting source',async()=>{
+ const f=await scoreFixture();try{
+  const score=scoreRequest(f.api,{voices:{melody:{file:'req-proof--melody.json'}}});
+  const text=JSON.stringify(score,null,2).replace('"tempo": 96,','tempo: 96 // musical comment\n');
+  f.req.files.set('req-proof.json',text);
+  f.req.files.set('req-proof--melody.json',"{sound:'bell', notes:[[0 72] [32,76], [127,79],], /* keep notes */}");
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval',f.receipt().error);
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');
+  assert.deepEqual(f.api.getProjectState().project.tracks[5].noteEvents,[{step:0,notes:[72]},{step:32,notes:[76]},{step:127,notes:[79]}]);
+  assert.equal(f.req.files.get('req-proof.json'),text);
+ }finally{f.bridge.dispose()}
+});
+
+
+test('data lexer preserves comment delimiters and escapes inside strings and bounds nesting',()=>{
+ const input="{label:'https://host/a/*literal*/', text:\"\\\"//literal\\\"\", unicode:'\\u0043', apostrophe:'it\\'s'}";
+ assert.deepEqual(FileBridge.parseScoreText(input),{label:'https://host/a/*literal*/',text:'"//literal"',unicode:'C',apostrophe:"it's"});
+ assert.throws(()=>FileBridge.parseScoreText('['.repeat(66)+'0'+']'.repeat(66)),/Nesting limit/);
+ assert.throws(()=>FileBridge.parseScoreText('{value:[1,,2]}'),/Expected a complete data value/);
+});
+
+
+test('sixth edit workflow and mandatory duration review share a stable bilingual vocabulary across all five files',()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
+ const rows=guide.split('\n').filter(line=>/^\| [A-F]\./.test(line));assert.equal(rows.length,6);
+ const edit=rows[5];assert.match(edit,/mode=edit/);assert.match(edit,/phraseId/);assert.match(edit,/Preserve ALL other PHRASE/);assert.match(edit,/repeats/);
+ assert.match(guide,/musical idea spans the requested duration/);assert.match(guide,/Long REST.*must be deliberate parts/);assert.match(guide,/Do not require a note in every BAR/);
+ const canonical=JSON.parse(files['capabilities.json']).terminology;
+ assert.ok(canonical.BRIDGE_ROOT);assert.match(JSON.parse(files['instruments.json']).concepts.musicalRole,/`ROOT`=percussion/);
+ assert.doesNotMatch(JSON.parse(files['instruments.json']).concepts.musicalRole,/BRIDGE_ROOT/);
+ for(const [name,text]of Object.entries(files)){
+  if(name.endsWith('.json'))assert.deepEqual(JSON.parse(text).terminology,canonical,name);
+  for(const term of Object.keys(canonical))assert.ok(text.includes(term),name+' lacks '+term);
+ }
+ assert.doesNotMatch(guide,/phrase\/loop|bar\s*\/\s*measure|song\s*\/\s*composition/i);
+ const state=JSON.parse(files['project-state.json']);assert.equal(state.score.format,'halo-score');assert.equal(state.score.mode,'replace');
+ assert.equal(FileBridge.parseAndValidateRequest(api,state.score,'terminology-score').ok,true);
+});
+
+
+test('all context instructions are English and translations appear only in glossary parentheses, never property names',()=>{
+ const files=FileBridge.getContextFiles(createTestApp().api);
+ const cyrillic=/[\u0400-\u04ff]/;
+ const translations=new Set(Object.values(JSON.parse(files['capabilities.json']).terminology).map(value=>value.match(/^[A-Z_]+ \(([^)]+)\):/)[1]));
+ for(const [name,text]of Object.entries(files)){
+  for(const match of text.matchAll(/\(([^()]*[\u0400-\u04ff][^()]*)\)/g))assert.ok(translations.has(match[1]),name+' has non-glossary Russian text');
+  const withoutTranslations=text.replace(/\([^()]*[\u0400-\u04ff][^()]*\)/g,'');
+  assert.equal(cyrillic.test(withoutTranslations),false,name+' has Russian outside glossary parentheses');
+  if(!name.endsWith('.json'))continue;
+  const doc=JSON.parse(text);
+  function walk(value){
+   if(Array.isArray(value)){for(const item of value)walk(item);return;}
+   if(value&&typeof value==='object')for(const [key,item]of Object.entries(value)){
+    assert.equal(cyrillic.test(key),false,name+' translated property '+key);
+    assert.doesNotMatch(key,/\s*\([^)]*\)/,name+' decorated property '+key);
+    walk(item);
+   }
+  }
+  walk(doc);
+  assert.ok(doc.terminology.PHRASE);assert.match(doc.terminology.PHRASE,/PHRASE \(фраза\)/);
+ }
+ const caps=JSON.parse(files['capabilities.json']);assert.deepEqual(Object.keys(caps.timing),['BAR','BEAT','TEMPO','STEP','POSITION','PHRASE','SECTION','REST']);
 });

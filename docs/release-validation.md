@@ -1,5 +1,22 @@
 # Release validation — File Bridge, 2026-10-20
 
+## English context and JSON-key audit — 2026-10-20
+
+68 targeted File Bridge/file-tool tests pass; 12 canonical-schema cases and one bilingual user-manual smoke test pass. A recursive audit rejects Cyrillic or parenthesized decoration in every JSON property name across all four generated JSON documents. A separate allowlist check across all five files permits Russian only inside parentheses matching a defined glossary translation; all remaining instructions are English. timing and terminology use plain English identifiers. Generated state still passes the unchanged halo-score validator. Logs: artifacts/bridge-english-context-targeted.log, artifacts/bridge-english-context-schema.log, artifacts/bridge-english-context-ui-smoke.log. git diff --check passes. Full regression remains paused; no connected-folder writes, model rerun or listening acceptance.
+
+
+## Six workflows and terminology follow-up — 2026-10-20
+
+67 targeted File Bridge/file-tool tests pass, 12 canonical-schema smoke cases pass, and the bilingual manual smoke test passes. New assertions verify the sixth scoped edit workflow, deliberate duration coverage without mandatory bar density, equal terminology dictionaries in all five files, protected JSON identifiers and the distinction between BRIDGE_ROOT and the literal ROOT slot. Current generated guide: 10,530 characters including the shared vocabulary. git diff --check passes. Full Node/model regression remains paused; no shared-folder writes or listening acceptance were performed.
+
+
+## Tolerant syntax follow-up — 2026-10-20
+
+66 targeted File Bridge/file-tool tests pass with checkout-local TEMP/TMP. Cases cover comments/strings, BOM/fences, trailing or unambiguously missing commas, quoted/unquoted data, rejection of incomplete/duplicate/executable/non-finite values, bounded nesting, unchanged raw publication, companion parsing, actual preview/apply and probe audit metadata. The canonical schema smoke checks and bilingual-guide smoke test pass; git diff --check is clean. No full model regression or full Node suite was run.
+
+The supplied newyear-jingle-2026.json was read only and validates with the new parser against an isolated synthetic receiver at revision 1; this is not application to the user's browser. Its event starts span bars 1–3 only; bars 4–8 have no new events. Comments labeling steps as later bars do not move notes. Raw user files were not changed, no approval/playback/listening is claimed. Reload local HALO and Update Files before rechecking the unchanged request.
+
+
 ## Current contract-audit candidate — manual testing only
 
 61 targeted File Bridge/file-tool tests pass, 12 canonical JSON Schema cases pass with PowerShell Test-Json, and one bilingual guide smoke test passes. Checks cover unique source-bank sound identity, literal MIDI versus acoustic register, normalized whole-song state with no internal fields, schema branch separation, real probe/ready, atomic patches, exact receipt/error handling and preservation of per-phrase Track 09 references. The workflow-only guide is 6,982 characters. The generated five-file candidate and root capabilities.json are synchronized; git diff --check passes.

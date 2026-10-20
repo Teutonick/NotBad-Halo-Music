@@ -6,6 +6,71 @@
   function clone(x){ return JSON.parse(JSON.stringify(x)); }
 
 
+  // Data-only reader: presentation repairs never execute JavaScript or invent values.
+  function parseScoreText(input){
+    let text=input.replace(/^\uFEFF/,'').trim();
+    const fenced=text.match(/^```(?:json|jsonc|json5)?\s*\n([\s\S]*?)\n```$/i);
+    if(fenced)text=fenced[1];
+    if(new TextEncoder().encode(text).length>524288)throw Error('PAYLOAD_TOO_LARGE');
+    let at=0;
+    const fail=message=>{throw Error('INVALID_JSON: '+message+' at character '+at)};
+    function space(){
+      const start=at;
+      while(at<text.length){
+        if(/\s/.test(text[at])){at++;continue;}
+        if(text.slice(at,at+2)==='//'){at+=2;while(at<text.length&&!/[\r\n]/.test(text[at]))at++;continue;}
+        if(text.slice(at,at+2)==='/*'){const end=text.indexOf('*/',at+2);if(end<0)fail('Unclosed comment');at=end+2;continue;}
+        break;
+      }
+      return at>start;
+    }
+    function string(){
+      const quote=text[at++];let result='';
+      while(at<text.length){
+        const ch=text[at++];if(ch===quote)return result;
+        if(ch.charCodeAt(0)<32)fail('Control character or unclosed string');
+        if(ch!=='\\'){result+=ch;continue;}
+        const escape=text[at++],escapes={'"':'"',"'":"'",'\\':'\\','/':'/','b':'\b','f':'\f','n':'\n','r':'\r','t':'\t'};
+        if(escape==='u'){
+          const hex=text.slice(at,at+4);if(!/^[a-fA-F0-9]{4}$/.test(hex))fail('Invalid Unicode escape');result+=String.fromCharCode(parseInt(hex,16));at+=4;
+        }else if(Object.hasOwn(escapes,escape))result+=escapes[escape];else fail('Invalid escape');
+      }
+      fail('Unclosed string');
+    }
+    function value(depth){
+      if(depth>64)fail('Nesting limit exceeded');space();
+      const ch=text[at];
+      if(ch==='"'||ch==="'")return string();
+      if(ch==='{'||ch==='['){
+        const object=ch==='{',end=object?'}':']',out=object?{}:[];at++;space();
+        if(text[at]===end){at++;return out;}
+        while(at<text.length){
+          if(object){
+            space();let key;
+            if(text[at]==='"'||text[at]==="'")key=string();
+            else {const match=text.slice(at).match(/^[A-Za-z_$][A-Za-z0-9_$]*/);if(!match)fail('Expected property name');key=match[0];at+=key.length;}
+            space();if(text[at++]!==':')fail('Expected colon after property name');
+            if(Object.hasOwn(out,key))fail('Duplicate property '+key);
+            const item=value(depth+1);Object.defineProperty(out,key,{value:item,enumerable:true,writable:true,configurable:true});
+          }else out.push(value(depth+1));
+          const separated=space();
+          if(text[at]===end){at++;return out;}
+          if(text[at]===','){at++;space();if(text[at]===end){at++;return out;}continue;}
+          // A boundary after a complete value is required; never split fused tokens.
+          if(!separated)fail('Expected comma or '+end);
+        }
+        fail('Unclosed container');
+      }
+      const number=text.slice(at).match(/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/);
+      if(number){at+=number[0].length;const result=Number(number[0]);if(!Number.isFinite(result))fail('Non-finite number');return result;}
+      const word=text.slice(at).match(/^[A-Za-z_][A-Za-z0-9_-]*/);
+      if(word){at+=word[0].length;if(word[0]==='true')return true;if(word[0]==='false')return false;if(word[0]==='null')return null;
+        if(['undefined','NaN','Infinity'].includes(word[0]))fail('Unsupported value');return word[0];}
+      fail('Expected a complete data value');
+    }
+    const result=value(0);space();if(at!==text.length)fail('Unexpected trailing content');return result;
+  }
+
   // Evidence about authored attacks, not an estimate of audible sustain or musical quality.
   function emptyBarRuns(counts){
     const ranges=[]; let start=null;
@@ -260,16 +325,61 @@
   };
   const scoreFields = ['format','requestId','baseRevision','mode','world','tempo','bars','meter','key','voices','phraseId','phrases','sections','repeat','patches'];
   const voiceFields = ['sound','notes','steps','on','level','character','duration','space','delay','chorus'];
+  const termTranslations={PHRASE:'фраза',LOOP:'цикл',VOICE:'голос',STATE:'снимок состояния',SCORE:'партитура',COMPOSITION:'композиция',SECTION:'секция',BAR:'такт',BEAT:'доля',STEP:'шаг сетки',REST:'пауза',TEMPO:'темп',METER:'размер',KEY:'тональность',BRIDGE_ROOT:'корневая папка',REQUEST:'запрос',RECEIPT:'ответ HALO',REVISION:'ревизия',ROLE:'роль',SLOT:'физический слот',BANK:'банк тембров',TIMBRE:'тембр'};
+  function terminology(){
+    const definitions={
+      PHRASE:'A container of 4 or 8 BAR with its own events; the `phrases` field contains these containers.',
+      LOOP:'Repeated playback of one PHRASE; not a separate request type or a synonym for COMPOSITION.',
+      VOICE:'One part in a fixed ROLE; `voices` contains up to eight parts.',
+      STATE:'The read-only project-state.json file; contains `revision` and SCORE in `score`.',
+      SCORE:'Musical events, timbres and structure in halo-score format; not a prose description.',
+      COMPOSITION:'The whole piece: one PHRASE or several PHRASE arranged through SECTION.',
+      SECTION:'An arrangement entry referencing a PHRASE and specifying `repeats`.',
+      BAR:'An ordinary musical measure. Use BAR consistently for this unit.',
+      BEAT:'One quarter note in either supported meter.',
+      STEP:'One sixteenth note; four STEP per BEAT.',
+      REST:'A deliberate absence of new attacks; previous sounds may sustain.',
+      TEMPO:'Quarter-note BEAT per minute; the `tempo` field.',
+      METER:'The supported time signature, 4/4 or 3/4; the `meter` field.',
+      KEY:'A supported named key; the `key` label does not transpose actual MIDI.',
+      BRIDGE_ROOT:'The one verified connected folder; never changes during a task.',
+      REQUEST:'The requests/ID.json file written by the agent.',
+      RECEIPT:'The responses/ID.result.json file written only by HALO.',
+      REVISION:'Version of the applied COMPOSITION; copy `revision` into `baseRevision`.',
+      ROLE:'A fixed musical function and a key in `voices`.',
+      SLOT:'A stable UI position independent of the chosen TIMBRE.',
+      BANK:'A source of TIMBRE; `bankId` does not assign a ROLE.',
+      TIMBRE:'The selected sound; supply its `canonicalId` in `sound`.'
+    };
+    return Object.fromEntries(Object.entries(definitions).map(([term,meaning])=>[term,term+' ('+termTranslations[term]+'): '+explainTerms(meaning)]));
+  }
+  function explainTerms(text){
+    // Prose only. Preserve backticked literals, JSON paths, filenames and existing labels.
+    return text.split(/(`[^`]*`)/g).map((part,index)=>index%2?part:part.replace(/(?<![A-Za-z0-9_.\/#-])(phrases?|loops?|voices?|state|score|compositions?|songs?|sections?|bars?|measure|beats?|steps?|rests?|root|requests?|receipts?|revision|roles?|slots?|banks?|timbres?)(?![A-Za-z0-9_\/#-]|\.[A-Za-z]|\s*\()/gi,word=>{
+      const lower=word.toLowerCase(),term=lower==='root'?'BRIDGE_ROOT':/^songs?$/.test(lower)?'COMPOSITION':lower==='measure'?'BAR':lower.replace(/s$/,'').toUpperCase();
+      return term+' ('+termTranslations[term]+')';
+    })).join('');
+  }
+  function explainedDocument(doc){
+    const prose=new Set(['authority','title','patches','description','notice','meaning','root','directories','publication','shape','creation','editing','notes','steps','controls','strict','score','identity','freshness','checks','approval','idLifecycle','evidence','enforcement','physicalSlot','musicalRole','soundBank','timbre','affinity','pitch','identifier','sounds','tracks','selection','events','musicalMeaning','neverRepair']);
+    function walk(value,key){
+      if(typeof value==='string')return prose.has(key)||/^(?:BAR|BEAT|STEP|TEMPO|POSITION|PHRASE|SECTION|REST)$/.test(key)?explainTerms(value):value;
+      if(Array.isArray(value))return value.map(v=>walk(v,key));
+      if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k,walk(v,k)]));
+      return value;
+    }
+    return walk({...doc,terminology:terminology()});
+  }
   function timingVocabulary(){
     return {
-      'bar / measure (такт)':'Ordinary musical bar, not a special HALO unit: 4 quarter-note beats in 4/4; 3 in 3/4.',
-      'beat (доля)':'One quarter note in both supported meters. A beat is not a bar or a step.',
-      'tempo / BPM':'Quarter-note beats per minute, not bars per minute.',
-      'step (шаг сетки)':'One sixteenth note (semiquaver): 4 steps per beat; 16 per 4/4 bar, 12 per 3/4 bar.',
-      'absoluteStep':'Zero-based event onset within ONE phrase; never resets at a bar boundary. Each different phrase starts again at 0.',
-      'phrase (фраза)':'HALO score container of 4 or 8 musical bars; not a fixed duration in seconds.',
-      'section (секция)':'Song arrangement entry referencing a phrase and its repeats; not a second event-position grid.',
-      'rest (пауза)':'Intentional absence of new attacks; earlier sounds may sustain. Empty bars are allowed; events are never filled or repeated automatically.'
+      'BAR':'Ordinary musical bar, not a special HALO unit: 4 quarter-note beats in 4/4; 3 in 3/4.',
+      'BEAT':'One quarter note in both supported meters. A beat is not a bar or a step.',
+      'TEMPO':'Quarter-note beats per minute, not bars per minute.',
+      'STEP':'One sixteenth note (semiquaver): 4 steps per beat; 16 per 4/4 bar, 12 per 3/4 bar.',
+      'POSITION':'Zero-based event onset within ONE phrase; never resets at a bar boundary. Each different phrase starts again at 0.',
+      'PHRASE':'HALO score container of 4 or 8 musical bars; not a fixed duration in seconds.',
+      'SECTION':'Song arrangement entry referencing a phrase and its repeats; not a second event-position grid.',
+      'REST':'Intentional absence of new attacks; earlier sounds may sustain. Empty bars are allowed; events are never filled or repeated automatically.'
     };
   }
   function requestSchema(caps){
@@ -306,7 +416,7 @@
         object({...common,mode:{const:'patch'},patches:{type:'array',minItems:1,maxItems:15,items:object({phraseId:integer(1),voices:{...object(roleProperties('parameters')),minProperties:1}},['voices'])}},[...required,'patches'])
       ]};
   }
-  function generateCapabilities(caps){
+  function generateCapabilitiesData(caps){
     return {
       schemaVersion: protocolVersion, protocol: 'halo-score', engine: 'NotBad Halo Music Constructor',
       references, authority: 'File Bridge score contract only. WebMCP is a separate API.',
@@ -317,17 +427,20 @@
         root:'Verify one connected root containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables ROOT, STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Binding a path never authorizes writing that file; STATE_PATH and RECEIPT_PATH are read-only to the agent.'},
       timing:timingVocabulary(),
       limits: {tempo:caps.limits.bpm,bars:caps.limits.bars,tracks:caps.limits.tracks,stepsPerBar:{'4/4':16,'3/4':12},phrases:caps.limits.phrases,sections:caps.limits.sections,totalBars:caps.limits.totalBars,bytes:caps.limits.bytes},
+      syntax:{canonical:'JSON matching requestSchema',acceptedPresentation:['UTF-8 BOM','one json/jsonc/json5 code fence','line and block comments','trailing commas','single-quoted strings','unquoted identifier keys and single-token string values','missing commas between whitespace-separated complete values'],neverRepair:'Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All semantic/revision/path checks still apply after parsing.'},
       requestSchema:requestSchema(caps),
       score: {fields:scoreFields, required:['format','baseRevision','mode'],
-        requiredByMode:{probe:[],patch:['patches'],replace:['world','tempo','bars','meter','key','voices OR phrases+sections'],edit:['world','tempo','bars','meter','key','voices','phraseId if song']},
+        requiredByMode:{probe:[],patch:['patches'],replace:['world','tempo','bars','meter','key'],edit:['world','tempo','bars','meter','key','voices']},
+        alternativesByMode:{replace:[['voices'],['phrases','sections']]},
+        editTarget:'Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).',
         format:'halo-score', mode:['replace','edit','patch','probe'], world:['ambient','reactor'], tempo:[30,200], bars:[4,8], meter:['4/4','3/4'],
-        shape:'replace/edit: voices for one phrase, phrases+sections for a new song; edit on a song needs phraseId. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.',
+        shape:'replace or edit: `voices` for one phrase; `phrases` and `sections` for a new composition; edit on a composition needs `phraseId`. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.',
         phrases:{fields:['id','bars','meter','key','voices'],required:['id','voices'],max:15},
         sections:{fields:['phrase','repeats','name','fade'],required:['phrase'],max:32,
           names:['intro','verse','verse2','chorus','bridge','outro','phrase'],fade:['none','in','out'],defaults:{repeats:1,name:'phrase',fade:'none'}},
         repeat:'Boolean; song only, default false.',
         voices:{roles:caps.roles.map(r=>r.id),fields:voiceFields,
-          creation:'voices is an object keyed by role. Each role contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted roles are silent.',
+          creation:'`voices` is an object keyed by role. Each role contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted roles are silent.',
           editing:'Unmentioned voices and fields are preserved; changing sound is explicit. edit targets one phrase; tempo is shared by the whole song. Use patch for parameter-only changes.',
           notes:'[step, MIDI, ...] with unique steps, integer MIDI 0..127 and role polyphony from instruments.json.tracks.',
           steps:'Unique integer hits for unpitched timbres only; [] means intentional silence.',
@@ -359,7 +472,7 @@
     const catalog=caps.catalog[sound.world];
     return catalog[sound.bankId].sounds.find(s=>canonicalSoundId(s,sound.bankId,sound.world,catalog)===sound.canonicalId).id;
   }
-  function generateInstruments(caps){
+  function generateInstrumentsData(caps){
     function findCompatible(catalog, worldName) {
       if (!catalog) return [];
       const res = [];
@@ -428,15 +541,10 @@
     return {
       schemaVersion: protocolVersion,
       description: 'HALO Voice and Instrument Registry. 8 simultaneous voices with assigned musical roles, compatible banks, note registers, and sonic parameter meanings.',
-      references: {
-        agentGuide: 'AGENT_GUIDE.md (submission workflow)',
-        capabilities: 'capabilities.json (strict score vocabulary, delivery and limits)',
-        musicRules: 'music-rules.json (HALO grid and supported key names)',
-        projectState: 'project-state.json (Read-only normalized full composition, revision and export limitations)'
-      },
+      references,
       concepts: {
         physicalSlot:'tracks[].trackIndex and slot are fixed UI identities, not instrument banks or timbre descriptions.',
-        musicalRole:'tracks[].role is the voices key. GLASS=pulse, TIDAL=accent, ROOT=percussion; read all eight mappings in tracks.',
+        musicalRole:'tracks[].role is the `voices` key. `GLASS`=pulse, `TIDAL`=accent, `ROOT`=percussion; read all eight mappings in tracks.',
         soundBank:'sounds[].bankId identifies the internal source bank, not the destination slot. Never send instrument in a score.',
         timbre:'Choose sounds[].canonicalId literally as voice.sound, filtered by world in setups and role in compatibleRoles.',
         affinity:'affinityRoles are recommended orchestration, compatibleRoles are hard constraints. Neither reassigns a physical slot.',
@@ -461,7 +569,7 @@
     };
   }
 
-  function generateMusicRules(caps){
+  function generateMusicRulesData(caps){
     return {schemaVersion:protocolVersion,references,
       description:'Optional HALO grid and key reference; musical composition is the agent’s task.',
       timing:timingVocabulary(),
@@ -519,7 +627,7 @@
       return {score,scoreExport:{complete:true,materialized,meaning:materialized.length?'Generated voices are explicit events for the phrase cycle starting at its saved startStep. Future generated cycles/velocities may differ; parameter patch preserves original generator data in HALO.':'All saved MIDI events, timbres, voice parameters and sections are represented. HALO retains internal settings not expressible in halo-score; parameter patch preserves them.'}};
     }catch(error){return {score:null,scoreExport:{complete:false,error:error.message,meaning:'Original project remains unchanged in HALO. Do not invent missing events or claim this score can be safely replaced.'}};}
   }
-  function generateProjectState(state,caps){
+  function generateProjectStateData(state,caps){
     return {
       schemaVersion:protocolVersion,
       notice:'READ-ONLY LIVE SNAPSHOT. Only HALO writes this file. Submit requests inside requests/.',
@@ -528,56 +636,66 @@
     };
   }
 
+  function generateCapabilities(...args){return explainedDocument(generateCapabilitiesData(...args));}
+  function generateInstruments(...args){return explainedDocument(generateInstrumentsData(...args));}
+  function generateMusicRules(...args){return explainedDocument(generateMusicRulesData(...args));}
+  function generateProjectState(...args){return explainedDocument(generateProjectStateData(...args));}
   function generateAgentGuide(caps){
     return `# HALO — Compose and edit music
 
-Translate the user's brief into original musical events. Preserve existing music when asked to develop or edit it. Never invent file writes, receipts, approval or playback.
+Translate the user's creative brief into original musical events. Preserve the requested music when developing or editing it. Never invent file writes, HALO responses, approval or playback.
 
 ## Contents
-[Files](#files) · [Folder preflight](#folder-preflight) · [Five workflows](#five-workflows) · [Timing](#timing) · [Delivery](#delivery)
+[Vocabulary](#vocabulary) · [Files](#files) · [Folder preflight](#folder-preflight) · [Six workflows](#six-workflows) · [Timing](#timing) · [Delivery](#delivery)
+
+## Vocabulary
+Uppercase terms name concepts. JSON keys, filenames, role IDs, mode values and status values retain their EXACT spelling. Never substitute a glossary label for an identifier. All JSON property names, including timing and terminology entries, use English identifiers without translations.
+
+${Object.values(terminology()).map(value=>value.replace(/^([^:]+):/,'**$1** —')).join('\n\n')}
 
 ## Files
 | Read-only file | Responsibility |
 | --- | --- |
-| [capabilities.json](capabilities.json) | Sole request/response contract: requestSchema, mode fields, limits, statuses. Read before writing. |
-| [instruments.json](instruments.json) | Complete sound palette: canonicalId, compatibleRoles, pitched, acousticRange and fixed track roles. Choose from this catalog, not remembered defaults. |
-| [music-rules.json](music-rules.json) | Musical terms, supported key names and timing grid. |
-| [project-state.json](project-state.json) | Live revision and current whole composition in score, with scoreExport limitations. |
+| [capabilities.json](capabilities.json) | Sole format authority: requestSchema, mode fields, limits and responses. Read before writing. |
+| [instruments.json](instruments.json) | Complete TIMBRE (тембр) catalog: canonicalId, compatibleRoles, pitched, acousticRange and fixed ROLE (роль). Choose from this catalog, not memory. |
+| [music-rules.json](music-rules.json) | Exact timing vocabulary, grid and supported key names. |
+| [project-state.json](project-state.json) | STATE (снимок состояния): live revision, the whole COMPOSITION (композиция) in score and scoreExport limitations. |
 
-A request is ONE JSON object with format exactly halo-score. Consult capabilities.json.requestSchema for its structure; never send descriptive prose, portable projects or status objects as music. Slots, banks and timbres are different concepts defined in instruments.json. MIDI input bounds and acoustic playback registers are different constraints there.
+A REQUEST (запрос) is one object with format exactly halo-score. Its structure is capabilities.json.requestSchema. Prose, portable projects and status objects are not a SCORE (партитура). SLOT (физический слот), BANK (банк тембров) and TIMBRE (тембр) are distinct concepts. MIDI input bounds and acousticRange are different constraints in instruments.json.
 
 ## Folder preflight
-ROOT is the exact absolute folder supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/ there. Bind this ROOT once; never create directories, use scratchpads/workspaces as substitutes, or search for another folder.
-Before composing EACH new task, read live STATE=ROOT/project-state.json. Choose an unused probe ID. Write/read ROOT/requests/ID.json with only format=halo-score, mode=probe, baseRevision=STATE.revision (integer). Read its real ROOT/responses/ID.result.json; require matching id, status ready and currentRevision equal to the probe baseRevision. ready is technical readiness, not approval. Retire that probe ID and use a different unused music ID.
-The agent writes ONLY requests/. ONLY HALO writes responses/ and project-state.json. Binding a path is not permission to edit it. On denied access, ambiguous ROOT or missing ready within the Delivery limit: STOP before composing; report exact path/error and ask for access/connection. HALO cannot grant filesystem permission in Bionic/LM Studio. Never manufacture a receipt to continue.
+BRIDGE_ROOT (корневая папка) is the exact absolute path supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind one BRIDGE_ROOT (корневая папка). Never create directories or use a scratchpad or Bionic workspace as a substitute.
+Before composing EACH new task, read live STATE (снимок состояния). Choose an unused probe ID. Write and read back requests/ID.json with only format=halo-score, mode=probe, baseRevision=STATE.revision (integer). Read the real responses/ID.result.json: matching id, status=ready, currentRevision equal to probe baseRevision. ready proves exchange, not music approval. Retire the probe ID; use another fresh ID for music.
+The agent writes ONLY requests/. ONLY HALO writes responses/ and context files. Binding a path does not authorize writing it. On denied access, ambiguous BRIDGE_ROOT (корневая папка) or no ready within the delivery limit, STOP before composing and report the exact path and error. Never manufacture a RECEIPT (ответ HALO). Bionic or LM Studio permissions must be granted in that host separately from browser permissions.
 
-## Five workflows
-Choose from the user's current request:
+## Six workflows
+Choose from the user's current brief:
 
 | Intent | Operation |
 | --- | --- |
-| A. New phrase/loop | replace with voices. Compose original events for the requested duration and choose timbres from the catalog. Old STATE is not a template. |
-| B. Develop the current phrase | Read STATE.score; replace with phrases AND sections. Preserve the seed motif and create related, musically different phrases. Intro/verse/chorus/outro are optional forms. IDs alone do not make different music. |
-| C. Transform the current composition | Read ALL STATE.score phrases/sections. replace the transformed whole. Move actual events for a new meter and transpose/recompose actual MIDI for a new key; a key label does not transpose notes. Half tempo means BPM/2 within supported bounds. Preserve the requested theme/scope. |
-| D. Entirely new composition | replace with new phrases/sections, original themes and suitable timbres. Do not recycle the previous song. |
-| E. Parameters only / mute | patch with only requested parameters in every affected phrase. Preserve notes, timbres and arrangement. Identify drums by actual sound.pitched, not slot names. “No drums” retains pitched parts; “only melody” also mutes the other requested parts. |
+| A. New LOOP (цикл) | mode=replace with root voices. Author original events for the requested duration and select TIMBRE (тембр) from the catalog. Old STATE (снимок состояния) is not a template. |
+| B. Develop the current PHRASE (фраза) | Read STATE.score. mode=replace with phrases and sections. Preserve the seed motif and create related, musically different PHRASE (фраза). Form is free; different IDs alone do not make different music. |
+| C. Transform the whole COMPOSITION (композиция) | Read all phrases and sections in STATE.score. mode=replace with the whole transformed structure. Reposition events for a new METER (размер); change actual MIDI for a new KEY (тональность). The key label alone does not transpose notes. Half speed means tempo/2 within supported bounds. |
+| D. Entirely new COMPOSITION (композиция) | mode=replace with new phrases and sections, an original theme and suitable TIMBRE (тембр). Do not recycle the previous theme. |
+| E. Parameters only, including mute | mode=patch with only requested parameters for each affected PHRASE (фраза). Preserve notes, TIMBRE (тембр) and structure. Identify drums by actual sound.pitched. “No drums” keeps pitched parts; “only melody” also mutes the other requested parts. |
+| F. Change notes or TIMBRE (тембр) in one PHRASE (фраза) | mode=edit with an existing phraseId from STATE.score and only requested voices changes. Copy world, tempo, bars, meter and key from that target. Do not submit phrases or sections. Preserve ALL other PHRASE (фраза). tempo is shared by the whole COMPOSITION (композиция). Reused SECTION (секция) references share one PHRASE (фраза), so editing it affects all repeats; clarify before making just one occurrence independent. |
 
-STATE.score represents current applied browser music, never an unapproved request. It uses the same halo-score fields as requests; change baseRevision to the current revision and select the required operation. Check scoreExport.complete before reusing it. If false, report the export error rather than inventing notes. scoreExport.materialized lists generated voices frozen to one explicit phrase cycle: future variations/velocities are not losslessly represented. Use patch to preserve all underlying musical data for parameter-only changes. New music need not reuse the old score.
+STATE.score represents current applied browser music, never an unapproved REQUEST (запрос). Its halo-score fields match the input contract. Check scoreExport.complete before reuse. If false, report the export error instead of inventing notes. scoreExport.materialized lists generated VOICE (голос) frozen into one explicit cycle; future variations and dynamics are not losslessly represented. Use patch for parameter-only edits. New music need not reuse the old SCORE (партитура).
 
 ## Timing
-Read the exact glossary in music-rules.json. Bar/measure = такт; beat = доля (quarter note); step = шестнадцатая, four per beat. In 4/4 a bar has 16 steps; in 3/4 it has 12. Event positions start at zero within EACH phrase and never reset at bar boundaries. Bar n starts at (n−1) × stepsPerBar.
-At 120 BPM one 4/4 bar = 2 s; 8 such bars = 16 s. In 8-bar 4/4, steps 0..15 belong ONLY to bar 1; bar 8 uses 112..127. More notes in bar 1 never fill later bars. Intentional rests are allowed; event starts do not describe sustained sound.
+Read the full timing vocabulary in music-rules.json. A BAR (такт) has 16 STEP (шаг сетки) in 4/4 and 12 in 3/4. One BEAT (доля) is a quarter note, four STEP (шаг сетки). Positions start at zero in EACH PHRASE (фраза) and never reset at BAR (такт) boundaries. BAR (такт) n starts at (n−1) × stepsPerBar.
+At 120 BPM one 4/4 BAR (такт) lasts 2 s; eight last 16 s. In eight-bar 4/4, positions 0..15 belong only to the first BAR (такт); 112..127 belong to the eighth. More notes in the first BAR (такт) do not populate later ones. Event starts are not sounding duration.
 
 ## Delivery
-1. After real ready, choose a new unused ASCII music ID. Read live STATE again. Bind REQUEST_PATH=ROOT/requests/ID.json and RECEIPT_PATH=ROOT/responses/ID.result.json; keep these exact paths for this task. These are path variables, not commands to edit STATE or RECEIPT.
-2. Before writing, check the selected mode against capabilities.json.requestSchema, live revision, catalog compatibility, pitched notes versus unpitched steps, unique integer positions, phrase bounds and polyphony. Check ALL phrase/section references. Compare actual per-bar events with the brief; explain deliberate long gaps. For patch verify that ONLY requested parameters change.
-3. Write REQUEST_PATH and read it back. Optional voice companions follow capabilities.json.delivery: publish/read companions first, root request last. No subfolders or alternative locations.
-4. Read only RECEIPT_PATH with matching id. applied/rejected: report and STOP regardless of ok:false. pending_approval: report actual status and relevant scoreReport diagnostics, invite approval in HALO and STOP. Do not poll for approval or claim playback. ready belongs only to the probe.
-5. For error / ok:false, read error, help and instructionForAgent. Correct the same unfinished request at most twice; require changed submissionVersion for the new pending/error response. Reconcile revision conflicts with live STATE, never blindly rebase. Never modify a receipt or create another ID to evade an error.
-6. Absent/stale receipt: at most 3 reads with built-in waits of 4–5 seconds. Without a wait tool, one immediate reread only. Then report delivery unconfirmed and STOP. No shell waits, browser/server discovery or delegated polling. The same limit applies to probes.
-7. Each later user musical request uses a fresh probe ID, fresh music ID and live revision. Reported pending_approval, applied and rejected retire the music ID. A pending proposal must be resolved by the human before treating it as applied.
+1. After real ready, choose a fresh unused ASCII music ID and read live STATE (снимок состояния) again. Bind REQUEST_PATH=BRIDGE_ROOT/requests/ID.json and RECEIPT_PATH=BRIDGE_ROOT/responses/ID.result.json. Keep these exact paths for the task. Never modify STATE (снимок состояния) or RECEIPT (ответ HALO).
+2. Before writing, check capabilities.json.requestSchema, live revision, compatible TIMBRE (тембр), notes for pitched or steps for unpitched sounds, unique integer positions, each PHRASE (фраза) boundary, polyphony and all sections references. Ensure the musical idea spans the requested duration. Long REST (пауза) must be deliberate parts of the COMPOSITION (композиция). Compare actual events across all BAR (такт) with the brief. Do not require a note in every BAR (такт) or fill intentional silence automatically. For patch verify ONLY requested parameters change; for edit verify unrelated VOICE (голос) and PHRASE (фраза) remain unchanged.
+3. Write REQUEST_PATH and read it back. Optional VOICE (голос) companion files follow capabilities.json.delivery: write and read companions first, publish the main REQUEST (запрос) last. No subdirectories or alternative locations.
+4. Read only RECEIPT_PATH with matching id. applied or rejected: report and STOP regardless of ok:false. pending_approval: report actual status and relevant scoreReport diagnostics, invite approval in HALO and STOP. Never poll for approval or claim playback. ready belongs only to the probe.
+5. On error or ok:false read error, help and instructionForAgent. Correct the same unfinished REQUEST (запрос) at most twice; require changed submissionVersion for the new pending_approval or error response. Reconcile revision conflicts with live STATE (снимок состояния); never blindly rebase. Never change RECEIPT (ответ HALO) or evade errors with another ID.
+6. Missing or stale RECEIPT (ответ HALO): at most 3 reads with built-in waits of 4–5 seconds. Without a wait tool, only one immediate reread. Then report unconfirmed delivery and STOP. No shell loops, browser discovery, servers or delegated polling. The same limit applies to probes.
+7. Each later user brief needs new probe and music IDs plus live revision. Reported pending_approval, applied and rejected retire the music ID. Resolve pending_approval with the user before treating a REQUEST (запрос) as applied.
 
-Final report: exact request path/ID, real receipt status or unconfirmed, relevant feedback and required human action. A file write is not evidence of loading, approval or playback.
+Final report: exact request path and ID, real status or unconfirmed delivery, relevant feedback and required user action. A file write does not prove loading, approval or playback.
 `;
   }
 
@@ -594,7 +712,7 @@ Final report: exact request path/ID, real receipt status or unconfirmed, relevan
   }
 
   function scoreIdentity(req, fallbackId){
-    if (!req || typeof req !== 'object' || Array.isArray(req) || req.format !== 'halo-score') throw Error('SCORE_ERROR: only format halo-score is accepted; root.format must be the exact string \"halo-score\". Write an event score using AGENT_GUIDE.md#required-json-structure, not lyrics or an arrangement description. receipt/status/approved objects are not requests. Human approval happens only in HALO.');
+    if (!req || typeof req !== 'object' || Array.isArray(req) || req.format !== 'halo-score') throw Error('SCORE_ERROR: only format halo-score is accepted; root.format must be the exact string \"halo-score\". Write an event score using capabilities.json.requestSchema, not lyrics or an arrangement description. receipt/status/approved objects are not requests. Human approval happens only in HALO.');
     const id = fallbackId || req.requestId;
     if (typeof id !== 'string' || id.length > 128 || !/^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$/.test(id)) throw Error('SCORE_ERROR: invalid ID; use ASCII letters/digits separated by single - or _');
     if (req.requestId !== undefined && req.requestId !== id) throw Error('SCORE_ERROR: requestId must match the request filename ID');
@@ -612,7 +730,7 @@ Final report: exact request path/ID, real receipt status or unconfirmed, relevan
   }
   function companionValue(raw,path){
     if (raw===undefined || raw===null) throw Error('FILE_NOT_FOUND: '+path);
-    try { return typeof raw==='string'?JSON.parse(raw):clone(raw); }
+    try { return typeof raw==='string'?parseScoreText(raw):clone(raw); }
     catch(err){ throw Error('SCORE_ERROR: invalid JSON in '+path+': '+err.message); }
   }
   function resolveRequestPayloadSync(parsed, reader, fallbackId){
@@ -635,7 +753,7 @@ Final report: exact request path/ID, real receipt status or unconfirmed, relevan
   async function resolveAndValidateRequest(api, textContent, fileReader, fallbackId, options = {}){
     let parsed;
     try {
-      parsed = typeof textContent === 'string' ? JSON.parse(textContent) : textContent;
+      parsed = typeof textContent === 'string' ? parseScoreText(textContent) : textContent;
     } catch(e) {
       return { ok: false, error: 'INVALID_JSON: ' + e.message, id: fallbackId };
     }
@@ -654,7 +772,7 @@ Final report: exact request path/ID, real receipt status or unconfirmed, relevan
   function parseAndValidateRequest(api, textContent, fallbackId, options = {}){
     let parsed;
     try {
-      parsed = typeof textContent === 'string' ? JSON.parse(textContent) : textContent;
+      parsed = typeof textContent === 'string' ? parseScoreText(textContent) : textContent;
     } catch(e) {
       return { ok: false, error: 'INVALID_JSON: ' + e.message, id: fallbackId };
     }
@@ -980,7 +1098,7 @@ Final report: exact request path/ID, real receipt status or unconfirmed, relevan
       let parsed, resolved;
       try {
         if (bytes > maxBytes) throw Error('PAYLOAD_TOO_LARGE');
-        const raw = JSON.parse(text);
+        const raw = parseScoreText(text);
         resolved = await resolveRequestPayload(raw, async path => {
           if (files.has(path)) {
             const cached = files.get(path);
@@ -1884,6 +2002,7 @@ timestamp:new Date().toISOString()};
   }
 
   const api = {
+    parseScoreText,
     auditScore,
     generateCapabilities,
     generateInstruments,

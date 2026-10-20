@@ -9,7 +9,7 @@
     "musicRules": "music-rules.json",
     "projectState": "project-state.json"
   },
-  "authority": "File Bridge score contract only. WebMCP is a separate API.",
+  "authority": "File Bridge SCORE (партитура) contract only. WebMCP is a separate API.",
   "delivery": {
     "agentWrite": [
       "requests/"
@@ -27,18 +27,18 @@
     "companion": "requests/<ID>--<role>.json",
     "reference": "<ID>--<role>.json",
     "directories": "HALO creates requests/ and responses/. Agents never create directories.",
-    "publication": "Complete and read back companions first, publish and read back request last.",
-    "root": "Verify one connected root containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables ROOT, STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Binding a path never authorizes writing that file; STATE_PATH and RECEIPT_PATH are read-only to the agent."
+    "publication": "Complete and read back companions first, publish and read back REQUEST (запрос) last.",
+    "root": "Verify one connected BRIDGE_ROOT (корневая папка) containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables BRIDGE_ROOT (корневая папка), STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Binding a path never authorizes writing that file; STATE_PATH and RECEIPT_PATH are read-only to the agent."
   },
   "timing": {
-    "bar / measure (такт)": "Ordinary musical bar, not a special HALO unit: 4 quarter-note beats in 4/4; 3 in 3/4.",
-    "beat (доля)": "One quarter note in both supported meters. A beat is not a bar or a step.",
-    "tempo / BPM": "Quarter-note beats per minute, not bars per minute.",
-    "step (шаг сетки)": "One sixteenth note (semiquaver): 4 steps per beat; 16 per 4/4 bar, 12 per 3/4 bar.",
-    "absoluteStep": "Zero-based event onset within ONE phrase; never resets at a bar boundary. Each different phrase starts again at 0.",
-    "phrase (фраза)": "HALO score container of 4 or 8 musical bars; not a fixed duration in seconds.",
-    "section (секция)": "Song arrangement entry referencing a phrase and its repeats; not a second event-position grid.",
-    "rest (пауза)": "Intentional absence of new attacks; earlier sounds may sustain. Empty bars are allowed; events are never filled or repeated automatically."
+    "BAR": "Ordinary musical BAR (такт), not a special HALO unit: 4 quarter-note BEAT (доля) in 4/4; 3 in 3/4.",
+    "BEAT": "One quarter note in both supported meters. A BEAT (доля) is not a BAR (такт) or a STEP (шаг сетки).",
+    "TEMPO": "Quarter-note BEAT (доля) per minute, not BAR (такт) per minute.",
+    "STEP": "One sixteenth note (semiquaver): 4 STEP (шаг сетки) per BEAT (доля); 16 per 4/4 BAR (такт), 12 per 3/4 BAR (такт).",
+    "POSITION": "Zero-based event onset within ONE PHRASE (фраза); never resets at a BAR (такт) boundary. Each different PHRASE (фраза) starts again at 0.",
+    "PHRASE": "HALO SCORE (партитура) container of 4 or 8 musical BAR (такт); not a fixed duration in seconds.",
+    "SECTION": "COMPOSITION (композиция) arrangement entry referencing a PHRASE (фраза) and its repeats; not a second event-position grid.",
+    "REST": "Intentional absence of new attacks; earlier sounds may sustain. Empty BAR (такт) are allowed; events are never filled or repeated automatically."
   },
   "limits": {
     "tempo": [
@@ -59,10 +59,23 @@
     "totalBars": 128,
     "bytes": 524288
   },
+  "syntax": {
+    "canonical": "JSON matching requestSchema",
+    "acceptedPresentation": [
+      "UTF-8 BOM",
+      "one json/jsonc/json5 code fence",
+      "line and block comments",
+      "trailing commas",
+      "single-quoted strings",
+      "unquoted identifier keys and single-token string values",
+      "missing commas between whitespace-separated complete values"
+    ],
+    "neverRepair": "Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All semantic/revision/path checks still apply after parsing."
+  },
   "requestSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "HALO File Bridge canonical request",
-    "description": "Canonical syntax only. The receiver additionally validates live revision, filename identity, world/role compatibility, canonical timbre ID, pitched/unpitched event kind, role polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.",
+    "title": "HALO File Bridge canonical REQUEST (запрос)",
+    "description": "Canonical syntax only. The receiver additionally validates live REVISION (ревизия), filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.",
     "$defs": {
       "createVoice": {
         "oneOf": [
@@ -902,8 +915,7 @@
         "tempo",
         "bars",
         "meter",
-        "key",
-        "voices OR phrases+sections"
+        "key"
       ],
       "edit": [
         "world",
@@ -911,10 +923,21 @@
         "bars",
         "meter",
         "key",
-        "voices",
-        "phraseId if song"
+        "voices"
       ]
     },
+    "alternativesByMode": {
+      "replace": [
+        [
+          "voices"
+        ],
+        [
+          "phrases",
+          "sections"
+        ]
+      ]
+    },
+    "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).",
     "format": "halo-score",
     "mode": [
       "replace",
@@ -938,7 +961,7 @@
       "4/4",
       "3/4"
     ],
-    "shape": "replace/edit: voices for one phrase, phrases+sections for a new song; edit on a song needs phraseId. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.",
+    "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.",
     "phrases": {
       "fields": [
         "id",
@@ -1008,10 +1031,10 @@
         "delay",
         "chorus"
       ],
-      "creation": "voices is an object keyed by role. Each role contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted roles are silent.",
-      "editing": "Unmentioned voices and fields are preserved; changing sound is explicit. edit targets one phrase; tempo is shared by the whole song. Use patch for parameter-only changes.",
-      "notes": "[step, MIDI, ...] with unique steps, integer MIDI 0..127 and role polyphony from instruments.json.tracks.",
-      "steps": "Unique integer hits for unpitched timbres only; [] means intentional silence.",
+      "creation": "`voices` is an object keyed by ROLE (роль). Each ROLE (роль) contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted ROLE (роль) are silent.",
+      "editing": "Unmentioned VOICE (голос) and fields are preserved; changing sound is explicit. edit targets one PHRASE (фраза); tempo is shared by the whole COMPOSITION (композиция). Use patch for parameter-only changes.",
+      "notes": "[STEP (шаг сетки), MIDI, ...] with unique STEP (шаг сетки), integer MIDI 0..127 and ROLE (роль) polyphony from instruments.json.tracks.",
+      "steps": "Unique integer hits for unpitched TIMBRE (тембр) only; [] means intentional silence.",
       "controls": "on is boolean; level, character, duration, space, delay, chorus are 0..100.",
       "defaults": {
         "on": true,
@@ -1023,7 +1046,7 @@
         "chorus": 0
       }
     },
-    "strict": "Unknown fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. No automatic revision rebasing."
+    "strict": "Unknown fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. No automatic REVISION (ревизия) rebasing."
   },
   "preflight": {
     "format": "halo-score",
@@ -1034,7 +1057,7 @@
       "baseRevision"
     ],
     "receipt": "ready",
-    "meaning": "Before composing, write a probe into existing requests/ and read its real ready receipt from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder."
+    "meaning": "Before composing, write a probe into existing requests/ and read its real ready RECEIPT (ответ HALO) from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder."
   },
   "parameterPatch": {
     "mode": "patch",
@@ -1044,10 +1067,10 @@
       "baseRevision",
       "patches"
     ],
-    "patches": "1..15 objects: {phraseId, voices}. Existing phraseId required for a song; omitted for single phrase. Unique targets. voices maps roles to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes."
+    "patches": "1..15 objects: {phraseId, VOICE (голос)}. Existing phraseId required for a COMPOSITION (композиция); omitted for single PHRASE (фраза). Unique targets. VOICE (голос) maps ROLE (роль) to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes."
   },
   "stateExport": {
-    "score": "Canonical halo-score projection of all phrases and sections; baseRevision is live. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it."
+    "score": "Canonical halo-score projection of all PHRASE (фраза) and SECTION (секция); baseRevision is live. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it."
   },
   "receipts": {
     "statuses": [
@@ -1057,13 +1080,37 @@
       "rejected",
       "error"
     ],
-    "identity": "id equals ID; requestId, if supplied, equals the request basename.",
+    "identity": "id equals ID; requestId, if supplied, equals the REQUEST (запрос) basename.",
     "freshness": "After correction require a changed submissionVersion for pending/error. Matching applied/rejected are terminal.",
     "checks": "Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.",
     "corrections": 2,
-    "approval": "Receipt statuses are output only, never request commands. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.",
-    "idLifecycle": "Each later user musical change needs a new ID and live revision. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.",
-    "evidence": "scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive bars without new notes in an active authored pitched part.",
-    "enforcement": "HALO cannot police external receipt reads or file writes; those limits require the external tool adapter."
+    "approval": "RECEIPT (ответ HALO) statuses are output only, never REQUEST (запрос) commands. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.",
+    "idLifecycle": "Each later user musical change needs a new ID and live REVISION (ревизия). Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.",
+    "evidence": "scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive BAR (такт) without new notes in an active authored pitched part.",
+    "enforcement": "HALO cannot police external RECEIPT (ответ HALO) reads or file writes; those limits require the external tool adapter."
+  },
+  "terminology": {
+    "PHRASE": "PHRASE (фраза): A container of 4 or 8 BAR (такт) with its own events; the `phrases` field contains these containers.",
+    "LOOP": "LOOP (цикл): Repeated playback of one PHRASE (фраза); not a separate REQUEST (запрос) type or a synonym for COMPOSITION (композиция).",
+    "VOICE": "VOICE (голос): One part in a fixed ROLE (роль); `voices` contains up to eight parts.",
+    "STATE": "STATE (снимок состояния): The read-only project-state.json file; contains `revision` and SCORE (партитура) in `score`.",
+    "SCORE": "SCORE (партитура): Musical events, TIMBRE (тембр) and structure in halo-score format; not a prose description.",
+    "COMPOSITION": "COMPOSITION (композиция): The whole piece: one PHRASE (фраза) or several PHRASE (фраза) arranged through SECTION (секция).",
+    "SECTION": "SECTION (секция): An arrangement entry referencing a PHRASE (фраза) and specifying `repeats`.",
+    "BAR": "BAR (такт): An ordinary musical BAR (такт). Use BAR (такт) consistently for this unit.",
+    "BEAT": "BEAT (доля): One quarter note in either supported meter.",
+    "STEP": "STEP (шаг сетки): One sixteenth note; four STEP (шаг сетки) per BEAT (доля).",
+    "REST": "REST (пауза): A deliberate absence of new attacks; previous sounds may sustain.",
+    "TEMPO": "TEMPO (темп): Quarter-note BEAT (доля) per minute; the `tempo` field.",
+    "METER": "METER (размер): The supported time signature, 4/4 or 3/4; the `meter` field.",
+    "KEY": "KEY (тональность): A supported named key; the `key` label does not transpose actual MIDI.",
+    "BRIDGE_ROOT": "BRIDGE_ROOT (корневая папка): The one verified connected folder; never changes during a task.",
+    "REQUEST": "REQUEST (запрос): The requests/ID.json file written by the agent.",
+    "RECEIPT": "RECEIPT (ответ HALO): The responses/ID.result.json file written only by HALO.",
+    "REVISION": "REVISION (ревизия): Version of the applied COMPOSITION (композиция); copy `revision` into `baseRevision`.",
+    "ROLE": "ROLE (роль): A fixed musical function and a key in `voices`.",
+    "SLOT": "SLOT (физический слот): A stable UI position independent of the chosen TIMBRE (тембр).",
+    "BANK": "BANK (банк тембров): A source of TIMBRE (тембр); `bankId` does not assign a ROLE (роль).",
+    "TIMBRE": "TIMBRE (тембр): The selected sound; supply its `canonicalId` in `sound`."
   }
 }

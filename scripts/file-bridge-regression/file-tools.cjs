@@ -27,7 +27,7 @@ class FileTools{
     const p=await this.resolve(args.path,true);if(typeof args.content!=='string'||Buffer.byteLength(args.content)>524288)throw Error('CONTENT_SIZE_DENIED');
     const n=(this.writes.get(args.path)||0)+1;this.writes.set(args.path,n);if(n>3)throw Error('WRITE_BUDGET_EXCEEDED');
     // Do not normalize, fill, repair or validate content here: HALO must detect mistakes.
-    try{const value=JSON.parse(args.content);event.mode=value.mode;event.baseRevision=value.baseRevision}catch{}
+    try{const value=require('../../src/file-bridge.js').parseScoreText(args.content);event.mode=value.mode;event.baseRevision=value.baseRevision}catch{}
     await fs.writeFile(p,args.content);await this.receiver.bridge.checkFolder();
     result={written:args.path,bytes:Buffer.byteLength(args.content)};event.sha256=crypto.createHash('sha256').update(args.content).digest('hex');
    }else if(name==='wait'){

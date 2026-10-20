@@ -1,8 +1,12 @@
 # HALO Engine Capabilities & Technical Specification
 
-## File Bridge — five-workflow contract, 2026-10-20
+## File Bridge — six-workflow contract, 2026-10-20
 
-One strict halo-score format with modes probe/replace/edit/patch. A mandatory real ready exchange checks requests write and HALO responses read before composition; only HALO creates receipts. STATE now exposes only a directly accepted normalized score of ALL phrases/sections, without internal engine fields, with explicit materialization/unrepresentable-state disclosures. Atomic parameter patches target existing phrases and preserve every unmentioned field, note, timbre and arrangement reference under one approval/revision check. The workflow-only guide routes five ordinary user intents; capabilities.json owns requestSchema/format, instruments.json owns the unique canonical palette and explicit MIDI-versus-acoustic range semantics. No scored examples. [Complete contract](file-bridge-protocol.md) · [Validation](release-validation.md).
+Agent context is English across all five files; Russian appears only in parenthesized glossary translations inside values. JSON keys are plain English identifiers, including timing.BAR and terminology.PHRASE. Six workflows and duration-intent review are preserved.
+
+HALO now tolerates harmless request/companion presentation syntax (comments, trailing commas, single quotes, unquoted identifiers and unambiguous whitespace-separated missing commas). It parses data without eval or source rewriting; duplicate keys, incomplete data and all musical/revision violations still fail. Canonical JSON Schema and output JSON stay unchanged.
+
+One strict halo-score format with modes probe/replace/edit/patch. A mandatory real ready exchange checks requests write and HALO responses read before composition; only HALO creates receipts. STATE now exposes only a directly accepted normalized score of ALL phrases/sections, without internal engine fields, with explicit materialization/unrepresentable-state disclosures. Atomic parameter patches target existing phrases and preserve every unmentioned field, note, timbre and arrangement reference under one approval/revision check. The workflow-only guide routes six ordinary user intents; capabilities.json owns requestSchema/format, instruments.json owns the unique canonical palette and explicit MIDI-versus-acoustic range semantics. No scored examples. [Complete contract](file-bridge-protocol.md) · [Validation](release-validation.md).
 
 This adds no backend, dependencies or new WebMCP tool. Internal/API operations keep their separate schemas. Reload HALO and Update Files before using probe/patch; older receiver code cannot process them. Bionic/LM Studio filesystem access must be granted by that host, not inferred from a readable guide.
 
