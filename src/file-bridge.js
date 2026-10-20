@@ -5,7 +5,43 @@
 
   function clone(x){ return JSON.parse(JSON.stringify(x)); }
 
-  function diagnoseScore(project){
+
+  // Evidence about authored attacks, not an estimate of audible sustain or musical quality.
+  function emptyBarRuns(counts){
+    const ranges=[]; let start=null;
+    for(let i=0;i<=counts.length;i++){
+      if(i<counts.length && counts[i]===0){if(start===null)start=i;}
+      else if(start!==null){if(i-start>=2)ranges.push([start+1,i]);start=null;}
+    }
+    return ranges;
+  }
+  function auditScore(project,caps){
+    const pitchNames=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    const phrases=(project.phrases || [{id:null,project}]).map(phrase=>{
+      const p=phrase.project,meter=p.timeSignature||'4/4',stepsPerBar=meter==='3/4'?12:16;
+      const barSeconds=(meter==='3/4'?3:4)*60/project.tempo,key=caps.harmony.keys[p.key];
+      const root=pitchNames.indexOf(key.root.replace(/♯/g,'#'));
+      return {phraseId:phrase.id,bars:p.bars,meter,key:key.name,barSeconds,seconds:p.bars*barSeconds,
+        scalePitchClasses:caps.harmony.scales[key.mode].map(n=>(root+n)%12),
+        voices:p.tracks.map(t=>{
+          const counts=t.exact?Array(p.bars).fill(0):null;
+          if(counts)for(const step of t.steps)counts[Math.floor(step/stepsPerBar)]++;
+          const pitches=[...new Set((t.noteEvents||[]).flatMap(e=>e.notes.map(n=>n%12)))].sort((a,b)=>a-b);
+          return {role:t.role,sound:t.sound,enabled:t.on&&t.level>0,source:t.exact?'authored':'generated',
+            attacksPerBar:counts,firstStep:t.exact&&t.steps.length?t.steps[0]:null,lastStep:t.exact&&t.steps.length?t.steps[t.steps.length-1]:null,
+            pitchClasses:pitches};
+        })};
+    });
+    let elapsed=0;
+    const sections=(project.sections||[{phrase:null,repeats:1}]).map(section=>{
+      const phrase=phrases.find(p=>p.phraseId===section.phrase),seconds=phrase.seconds*section.repeats;
+      const item={phraseId:section.phrase,repeats:section.repeats,startSeconds:elapsed,seconds};elapsed+=seconds;return item;
+    });
+    return {tempo:project.tempo,seconds:elapsed,phrases,sections,pitchClassReference:['C','C#/Db','D','D#/Eb','E','F','F#/Gb','G','G#/Ab','A','A#/Bb','B'],
+      meaning:'attacksPerBar counts authored event starts in one-based bars, not sounding duration. Zero does not prove silence; generated parts are unknown (null). Key/scale labels do not transpose or quantize literal MIDI. This is not listening or artistic approval.'};
+  }
+
+  function diagnoseScore(project,audit){
     const report=[];
     const warn=(code,path,ru,en)=>report.push({severity:'warning',code,path,ru,en});
     for(const phrase of project.phrases || [{id:null,project}]) {
@@ -20,6 +56,15 @@
       }
       if(!active.length&&!generated) warn('SILENT_PHRASE',path,'Нет звучащих партий','No sounding parts');
       else if(active.length&&!generated&&active.every(t=>t.steps.every(step=>step<size/2))) warn('EMPTY_SECOND_HALF',path,'Во второй половине нет новых событий; хвосты звуков могут продолжаться','No new events in the second half; sound tails may continue');
+
+      const evidence=audit.phrases.find(p=>p.phraseId===phrase.id);
+      for(const t of active.filter(t=>t.noteEvents?.length)){
+        const counts=evidence.voices.find(v=>v.role===t.role).attacksPerBar,ranges=emptyBarRuns(counts);
+        if(ranges.length){
+          const bars=ranges.map(([a,b])=>a+'–'+b).join(', ');
+          warn('PART_BAR_GAP',path+'.'+t.role,'Нет новых нот в тактах '+bars+'; проверьте замысел, хвосты не анализируются','No new notes in bars '+bars+'; check the intended rest/development, sustain is not analyzed');
+        }
+      }
       const melody=active.find(t=>t.role==='melody');
       if(melody?.noteEvents?.length) {
         const half=size/2, first=melody.noteEvents.filter(e=>e.step<half), second=melody.noteEvents.filter(e=>e.step>=half).map(e=>({...e,step:e.step-half}));
@@ -205,7 +250,10 @@
         identity:'id equals ID; requestId, if supplied, equals the request basename.',
         freshness:'After correction require a changed submissionVersion for pending/error. Matching applied/rejected are terminal.',
         checks:'Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.',
-        corrections:2, approval:'Stop on pending_approval and invite human approval; never poll for it.'}
+        corrections:2, approval:'Receipt statuses are output only, never request commands. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.',
+        idLifecycle:'Each later user musical change needs a new ID and live revision. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.',
+        evidence:'scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive bars without new notes in an active authored pitched part.',
+        enforcement:'HALO cannot police external receipt reads or file writes; those limits require the external tool adapter.'}
     };
   }
 
@@ -318,6 +366,9 @@
         '3/4':{stepsPerBar:12,phraseSteps:{4:48,8:96},quarterNotes:[0,4,8],eighthNotes:[0,2,4,6,8,10],
           feel:'Three quarter beats; compound accents at 0 and 6 are optional. HALO labels its eight-bar generated feel as 6/8 swing; authored events remain on the 12-step grid.'}
       },
+      timing:'secondsPerBar = beatsPerBar * 60 / tempo; beatsPerBar is 4 in 4/4, 3 in 3/4. Verify actual phrase/song seconds before planning development.',
+      barAudit:'Before writing, group FINAL events by each bar for every authored voice; compare entrances, melody/accompaniment, development, intentional rests and ending with the plan. A continuous percussion part does not establish melodic coverage. After submission compare scoreAudit and every PART_BAR_GAP warning. Never invent a climax unsupported by events.',
+      keyChanges:'A new user key change requires a new request ID and live revision. Check root/mode and actual MIDI pitch classes; changing key alone does not transpose literal notes.',
       grid:{stepDuration:'one sixteenth',indexing:'absolute step = zero-based bar * timeSignatures[meter].stepsPerBar + step within bar',
         rests:'Omit an event to rest; sustained sound tails may continue.',coverage:'Write the entire phrase; steps do not repeat automatically. Check development, contrasts, rests and ending bar by bar.'},
       keysAndScales:{keys:caps.harmony.keys,scales:caps.harmony.scales,
@@ -379,12 +430,13 @@
 5. [Musical parts](#musical-parts)
 6. [Complete instrument catalog](#complete-instrument-catalog-read-before-orchestrating)
 7. [Songs and large files](#songs-and-large-files-use-the-same-notation)
-8. [Syntax example](#syntax-example)
+8. [Mandatory bar audit](#mandatory-bar-audit)
+9. [New task or correction](#new-task-or-correction)
 
 ## Package map and authority
 Read this guide completely, then read live [project-state.json](project-state.json) before composing. This guide owns the workflow; [capabilities.json](capabilities.json) owns exact fields, limits and receipt statuses; [instruments.json](instruments.json) owns fixed slot/role mappings, timbres, compatibility and registers; [music-rules.json](music-rules.json) owns meter, harmony and composition advice. All five files belong to protocolVersion/schemaVersion 3. If they disagree or required files are missing, STOP and ask the user to Update Files in HALO; never invent a contract.
 
-Compose original music note by note; choose sound explicitly for each authored part, with original melody, accompaniment, rests and development. HALO does not compose missing notes or repeat your bars. The syntax example is not a composition. A physical slot is a fixed UI identity; its role is the voices key. A bank is the internal source of a selected timbre. GLASS is pulse, TIDAL is accent, ROOT is percussion, regardless of which compatible sound is chosen. Bank names and timbre descriptions never assign slot roles. Full mapping: instruments.json.tracks. Author only role and sound; HALO routes the bank internally.
+Compose original music note by note; choose sound explicitly for each authored part, with original melody, accompaniment, rests and development. HALO does not compose missing notes or repeat your bars. No ready-made score is supplied: invent the music from the brief. A physical slot is a fixed UI identity; its role is the voices key. A bank is the internal source of a selected timbre. GLASS is pulse, TIDAL is accent, ROOT is percussion, regardless of which compatible sound is chosen. Bank names and timbre descriptions never assign slot roles. Full mapping: instruments.json.tracks. Author only role and sound; HALO routes the bank internally.
 
 ## Immutable filesystem contract
 Verify the user-connected ROOT by reading its AGENT_GUIDE.md and project-state.json and checking that existing requests/ and responses/ are siblings in that same directory. A detached guide, current workspace, Downloads path or example is not proof of ROOT. No broad disk scan. If the connected root cannot be verified, STOP without writing; request connected-folder access. If multiple verified roots exist and the active one is ambiguous, ask the user which to use.
@@ -402,20 +454,20 @@ Replace ID with the actual fixed ID. Same ROOT and ID everywhere, including corr
 Proceed sequentially; a failed prerequisite stops the workflow.
 1. **ROOT_VERIFIED** — all four required siblings exist under one connected ROOT; bind ROOT and STATE.
 2. **REVISION_READ** — read STATE now; revision is the ONLY source of baseRevision. Never use a revision/tempo from this guide, an example or conversation. For edits inspect the target phrase, roles, sounds and events too.
-3. **ID_FIXED** — select one unused ID and fix REQUEST and RECEIPT. Corrections keep them. Applied/rejected ends this task; new work uses a new ID.
-4. **SCORE_READY** — choose world, tempo, bars, meter, named key and explicit sounds. Compose all requested bars with original notes, accompaniment, development, rests and ending. Check bar = floor(step / stepsPerBar)+1, range, register, polyphony and sound compatibility. Do not duplicate bars as filler. Edit preserves unmentioned parts; new music uses replace.
+3. **ID_FIXED** — EVERY new user message requesting a musical change uses a NEW unused ID, including key/tempo edits. Read live STATE; never reuse an applied receipt as proof of the new edit. Same-ID corrections are only for this still unfinished submission within this turn. A reported pending_approval, applied or rejected ends the submission. Fix REQUEST and RECEIPT once.
+4. **SCORE_READY** — choose world, tempo, bars, meter, named key and explicit sounds. Compose original events. Before writing, build the mandatory bar audit below from the ACTUAL final notes, compare it with the musical plan and fix unexplained gaps. Check registers, polyphony and sounds. Do not fill every bar mechanically or duplicate bars as filler. Edit preserves unmentioned parts; new music uses replace.
 5. **REQUEST_WRITTEN** — complete/read back companions first, publish REQUEST last with one complete write, then read back that SAME path. Confirm valid JSON and intended fields/events. No partial root publication.
 6. **RECEIPT_CHECKED** — read exact RECEIPT immediately. Require id === ID. Matching applied/rejected are TERMINAL: report and STOP before generic error/freshness logic; appliedRevision needs no submissionVersion. After a correction pending/error must carry a changed submissionVersion. Only for absent/stale receipt use a built-in wait tool for 4–5 seconds: at most THREE reads per submission. Without a wait tool: one immediate reread only. No response means UNCONFIRMED: report fixed path and ask the user to check the connection/panel. Never infer success or keep polling.
 7. **RESULT** — error/ok:false (except rejected): read error/help/instructionForAgent, correct the relevant cause in the SAME files, at most TWO rounds total. Revision conflict requires rereading STATE and reconciling music; never just replace baseRevision. pending_approval: inspect EVERY scoreReport item; empty scoreReport is complete. Correct accidental omissions within the same budget, explain intentional rests/repetition. Then invite Approve in HALO and END. Never wait for human approval. applied: report application and STOP. rejected: respect decision and STOP.
 
-Final answer: actual ID, exact REQUEST destination, fresh receipt status, tempo/meter/bars, actual coverage/rests and warning decisions. Validation is not artistic completion; never claim listening without evidence. Unresolved accidental omissions must be reported honestly.
+Final answer: actual ID, exact REQUEST destination, fresh receipt status, tempo/meter/bars AND seconds, factual coverage/rests and warning decisions. pending_approval is NOT approved or applied. Describe only development supported by saved events and scoreAudit; no invented climax, emotional listening report or unverified new key. Validation is not artistic completion. Unresolved accidental omissions must be reported honestly.
 
 ## The complete score vocabulary
 All root fields format, baseRevision, mode, world, tempo, bars, meter and key are REQUIRED. No aliases, unknown metadata, case normalization or automatic sound defaults. See capabilities.json for the exhaustive field lists.
 - mode: replace creates new music; omitted voices are SILENT. edit preserves unmentioned voices and voice fields. In an existing song, edit requires phraseId from project-state.json. Replacing a song with root voices creates a single phrase; use phrases/sections to create a song.
 - world: ambient or reactor. Edit must retain the existing world. tempo: 30..200; bars: 4 or 8; meter: 4/4 or 3/4; key: named key such as C major or D minor. Choose these explicitly for new music; copy existing values for edits unless intentionally changing them.
 - voices: any subset of the musical parts below. These are not prewritten loops or selections to turn on. Never supply GLASS/ROOT/etc., trackIndex or instrument. Choose sound from the catalog for each authored part. New voices require sound. Edit preserves an omitted sound; an explicit sound change must be compatible.
-- notes: [step, MIDI, ...] tuples; chords put several MIDI numbers after the step, e.g. [0,60,64,67]. MIDI integers 0..127. The existing role/sample register may fold octaves. No per-note duration or velocity; duration is a voice envelope parameter.
+- notes: an array of tuples [absoluteStep, midi] for one note, or [absoluteStep, midi1, midi2, ...] for a chord. MIDI integers 0..127. The existing role/sample register may fold octaves. No per-note duration or velocity; duration is a voice envelope parameter.
 - steps: integer hits for percussion/unpitched parts instead of notes. Do not use steps for bass/melody/arpeggio/harmony. Use notes OR steps, never both; [] means silence. No automatic repetition of one bar: write the WHOLE phrase. 4/4 = 16 steps/bar, 8 bars = 0..127; 3/4 = 12 steps/bar, 8 bars = 0..95. Rests are absent steps. Each step appears once per voice.
 - Voice sound is required for creation; optional in edit. Other optional voice fields: on (boolean), level, character, duration, space, delay, chorus (0..100). No other voice fields. New voices start at level 50, character/duration 50, space 30, delay/chorus 0. Master volume/mix, visuals and local Track 09 references are preserved; approval never starts playback.
 
@@ -428,24 +480,25 @@ ${palette}
 For deeper acoustic ranges and parameter metadata, instruments.json remains available. You do not need it to discover any additional built-in sounds: all are listed here.
 
 ## Songs and large files use the SAME notation
-For a song use phrases and sections INSTEAD OF root voices. Phrase fields: id (unique positive integer), voices, optional bars/meter/key inherited from root. Section fields: phrase (existing ID), repeats (1..8, default 1), name (intro/verse/verse2/chorus/bridge/outro/phrase, default phrase), fade (none/in/out, default none). Root repeat is boolean, default false. Limits: 15 phrases, 32 sections, 128 total bars. This sparse example shows two independent phrases and one shared repeat; compose the actual requested arrangement yourself. Replace baseRevision from STATE:
-\`\`\`json
-{"format":"halo-score","baseRevision":0,"mode":"replace","world":"ambient","tempo":96,"bars":8,"meter":"4/4","key":"C major","phrases":[{"id":1,"voices":{"melody":{"sound":"harp","notes":[[0,72],[124,76]]}}},{"id":2,"voices":{"melody":{"sound":"crystal","notes":[[0,79],[124,72]]},"bass":{"sound":"deep","notes":[[0,36],[112,43]]}}}],"sections":[{"phrase":1,"name":"intro"},{"phrase":2,"name":"chorus","repeats":2},{"phrase":1,"name":"outro","fade":"out"}],"repeat":false}
-\`\`\`
+For a song use phrases and sections INSTEAD OF root voices. Phrase fields: id (unique positive integer), voices, optional bars/meter/key inherited from root. Section fields: phrase (existing ID), repeats (1..8, default 1), name (intro/verse/verse2/chorus/bridge/outro/phrase, default phrase), fade (none/in/out, default none). Root repeat is boolean, default false. Limits: 15 phrases, 32 sections, 128 total bars. These are ENGINE phrases; an eight-bar phrase can be only a few seconds long. Section names do not create musical development.
 
-If a file-tool call is too large, split by VOICE. The ONLY companion name is ID--role.json. With fixed example ID req-jingle-k7p4, write ROOT/requests/req-jingle-k7p4--melody.json containing {"sound":"harp","notes":[[0,72],[124,72]]}, and read it back. Then publish ROOT/requests/req-jingle-k7p4.json LAST using the root below. Replace example ID everywhere with YOUR already fixed unused ID and baseRevision from STATE:
-\`\`\`json
-{"format":"halo-score","baseRevision":0,"mode":"replace","world":"ambient","tempo":96,"bars":8,"meter":"4/4","key":"C major","voices":{"melody":{"file":"req-jingle-k7p4--melody.json"}}}
-\`\`\`
-Each reference contains only file; each companion contains the voice object. No nested references. In songs, the same role filename denotes the SAME voice data wherever referenced; use inline voices for different phrases. Complete/read back companions in ROOT/requests/ first; publish REQUEST LAST. No folders, absolute file references, parent traversal, parts, include or operation wrappers. All eight voices may be fully scored; total root plus unique companion UTF-8 content is bounded to 512 KiB.
+If file-tool limits require companions: ROOT/requests/ID--role.json contains one complete voice object. The matching role in REQUEST contains only the file field whose value is that exact basename. Replace ID/role with your fixed ID and role. No ready-made voice/events are provided. Complete/read back companions FIRST, publish/read back REQUEST LAST. No nested references, folders, absolute references, traversal, parts, include or operation wrappers. In songs the same companion shares identical voice data wherever referenced; use inline voices for independent parts. Combined root and unique companions: at most 512 KiB.
 
-## Syntax example
-Example only, not a composition; 0 is illustrative, never a live revision. Replace baseRevision from STATE. Declare every required root field. The filename supplies ID; optional requestId must equal ID.
-\`\`\`json
-{"format":"halo-score","baseRevision":0,"mode":"replace","world":"ambient","tempo":96,"bars":8,"meter":"4/4","key":"C major","voices":{"melody":{"sound":"harp","notes":[[0,72],[4,76],[120,79],[124,72]]},"bass":{"sound":"deep","notes":[[0,36],[112,43]]},"harmony":{"sound":"organ","notes":[[0,60,64,67],[112,59,62,67]]},"percussion":{"sound":"brush","steps":[0,16,112,120],"level":30}}}
-\`\`\`
+## Mandatory bar audit
+This is required before REQUEST_WRITTEN; it is not optional musical rhetoric.
+1. Compute real time: secondsPerBar = beatsPerBar * 60 / tempo (4 beats for 4/4, 3 for 3/4). Phrase seconds = bars * secondsPerBar. Song seconds sum section repeats. At 96 BPM, 4/4 is 2.5 seconds/bar, eight bars are 20 seconds. Design a motif of that actual length, not an imagined half-minute scene per bar.
+2. From each voice's FINAL event list, group absolute steps by floor(step / stepsPerBar)+1. Internally make one row for EVERY bar: melody attacks, bass attacks, harmony/arpeggio attacks, other parts, planned function and intentional rests. Event starts are not sustain duration. A zero count is not proof of audible silence, but cannot justify invented new notes or a new layer.
+3. Compare the rows with the plan. If the melody/accompaniment vanishes for several bars without a real intended rest, correct the score. A shaker running throughout does not establish melodic coverage. Do not demand notes every bar, auto-fill gaps, or rationalize accidental omissions after the fact.
+4. For a claimed entrance/development/climax/cadence identify the exact voices, bars and changed events supporting it. If that evidence is absent, write the missing music or remove the claim. Check melody contour, accompaniment, ending and contrast against the short actual duration.
+5. Check the user's requested KEY by name, root and mode. Ре минор = D minor; ля минор = A minor. They are different keys. D natural minor uses pitch classes D E F G A Bb C. MIDI 35 is B1, 34 is Bb1 (C4=60). Verify pitch classes and intentional chromatic notes using music-rules.json; don't guess note names. Changing score.key alone DOES NOT transpose authored MIDI. For a key change, deliberately remap the actual notes in every pitched voice and retain timing/rests unless asked otherwise. Natural minor is a reference, not a ban on deliberate chromaticism.
+6. After publication compare HALO's scoreAudit (seconds, named key, per-role attacksPerBar, pitch classes) with your internal rows and saved JSON. Read EVERY scoreReport warning, especially PART_BAR_GAP. Fix accidental omissions within the same two-correction budget before reporting pending_approval; explain genuine intended rests. Neither an empty scoreReport nor valid JSON certifies music quality.
 
-scoreReport contains advisory warnings for silent/empty parts, missing second-half attacks, repeated melody halves or shared rhythms. These are heuristics, not musical verdicts; sound tails and artistic intent are not inferred. HALO never fills missing music. Master volume/mix, visuals and Track 09 references are preserved; approval does not start playback.
+## New task or correction
+Each later user instruction changing music starts a NEW submission with a NEW ID and live STATE revision, even if it is called a correction or transposition. Only technical/musical repair of the CURRENT unfinished submission in the CURRENT turn may retain its ID. Never rewrite an applied/rejected ID; after reporting pending_approval, retire that ID for agent writes too. If a prior proposal is still pending in HALO, the user must apply/reject it there before another queued proposal can be reviewed; do not poll or overwrite it to simulate approval.
+
+Status is output ONLY: pending_approval, applied, rejected, error and any word such as approved are NEVER commands to write in requests/. Agents cannot approve themselves. NEVER replace a score with an id/status object, write a receipt, or copy a receipt into REQUEST. Human approval is an action in HALO's interface; it produces the receipt. Matching terminal receipts describe only THAT ID, not later changes. If terminal receipt and STATE appear inconsistent, report the inconsistency and stop; never fabricate a revision.
+
+The browser cannot limit another application's file reads or prevent its shell from writing invalid files. If the external agent ignores bounded checks, only its own file-tool adapter can enforce read budgets and refuse non-score publication. Do not claim such protection exists in HALO. HALO validates what it receives and never applies status objects.
 
 `;
   }
@@ -463,7 +516,7 @@ scoreReport contains advisory warnings for silent/empty parts, missing second-ha
   }
 
   function scoreIdentity(req, fallbackId){
-    if (!req || typeof req !== 'object' || Array.isArray(req) || req.format !== 'halo-score') throw Error('SCORE_ERROR: only format halo-score is accepted');
+    if (!req || typeof req !== 'object' || Array.isArray(req) || req.format !== 'halo-score') throw Error('SCORE_ERROR: only format halo-score is accepted; receipt/status/approved objects are not requests. Human approval happens only in HALO.');
     const id = fallbackId || req.requestId;
     if (typeof id !== 'string' || id.length > 128 || !/^[a-zA-Z0-9]+(?:[-_][a-zA-Z0-9]+)*$/.test(id)) throw Error('SCORE_ERROR: invalid ID; use ASCII letters/digits separated by single - or _');
     if (req.requestId !== undefined && req.requestId !== id) throw Error('SCORE_ERROR: requestId must match the request filename ID');
@@ -572,18 +625,20 @@ scoreReport contains advisory warnings for silent/empty parts, missing second-ha
       return { ok: false, error: 'SCORE_ERROR: ' + err.message, id: requestId, currentRevision };
     }
 
+    const scoreAudit=auditScore(preview.after,api.getCapabilities());
     return {
       ok: true,
       id: requestId,
       transaction: effectiveTransaction,
       preview,
-      scoreMode, scoreReport:[...scoreReport,...diagnoseScore(preview.after)],
+      scoreMode, scoreAudit, scoreReport:[...scoreReport,...diagnoseScore(preview.after,scoreAudit)],
       currentRevision
     };
   }
 
   function generateErrorGuidance(errorMessage, consecutiveCount = 1){
     const msg=String(errorMessage||'');
+    if(msg==='REJECTED_BY_USER')return {help:'The user rejected this proposal. This ID is terminal.',instructionForAgent:'STOP. Never rewrite or resubmit this ID or write an approval command. A later user music request requires a new ID and live STATE revision.'};
     const help=msg.includes('CONFLICT_REVISION')
       ? 'Read STATE again and reconcile the score with user changes. Never change baseRevision alone to bypass a conflict.'
       : msg.includes('FILE_NOT_FOUND')
@@ -614,7 +669,7 @@ scoreReport contains advisory warnings for silent/empty parts, missing second-ha
         appliedRevision: result.revision,
         currentRevision: result.revision,
         project: result.project,
-        status:'applied', scoreReport:validated.scoreReport,
+        status:'applied', scoreReport:validated.scoreReport, scoreAudit:validated.scoreAudit,
         timestamp: new Date().toISOString()
       };
     } catch(e) {
@@ -930,13 +985,14 @@ scoreReport contains advisory warnings for silent/empty parts, missing second-ha
           consecutiveErrors = 0;
           state.error = null;
           state.pending = {id:parsed.id, filename, transaction:parsed.transaction, preview:parsed.preview, baseId,
-            ...(parsed.scoreMode ? {scoreMode:parsed.scoreMode,scoreReport:parsed.scoreReport} : {}),
+            ...(parsed.scoreMode ? {scoreMode:parsed.scoreMode,scoreReport:parsed.scoreReport,scoreAudit:parsed.scoreAudit} : {}),
 };
           // Private handles/fingerprint are not serialized into UI or context files.
           pendingSource = {directory, requestFile, fingerprint:submission.fingerprint};
           const response = {ok:true, status:'pending_approval', applied:false, id:parsed.id, submissionVersion:submission.submissionVersion,
             baseRevision:parsed.transaction.baseRevision, currentRevision:parsed.currentRevision,
-            ...(parsed.scoreReport ? {scoreReport:parsed.scoreReport} : {}),
+            instructionForAgent:'Inspect scoreAudit and every scoreReport item. After reporting pending_approval, STOP; only the user approves in HALO. Never write status/approved commands. A later user musical change requires a NEW ID and live STATE.',
+            ...(parsed.scoreReport ? {scoreReport:parsed.scoreReport,scoreAudit:parsed.scoreAudit} : {}),
 timestamp:new Date().toISOString()};
           await writeResponse(response, baseId);
           state.lastResult = null;
@@ -970,7 +1026,8 @@ timestamp:new Date().toISOString()};
         consecutiveErrors = 0;
         const response = {ok:true, status:'applied', applied:true, id:p.id,
           appliedRevision:applied.revision, currentRevision:applied.revision,
-          ...(p.scoreReport ? {scoreReport:p.scoreReport} : {}),
+          instructionForAgent:'STOP. This ID is applied and terminal. Never rewrite it or wait for approval. A later user musical change requires a NEW ID and live STATE.',
+          ...(p.scoreReport ? {scoreReport:p.scoreReport,scoreAudit:p.scoreAudit} : {}),
 timestamp:new Date().toISOString()};
         committedResponse = response;
         state.lastResult = response; state.error = null;
@@ -1619,6 +1676,32 @@ timestamp:new Date().toISOString()};
           }
         }
         pendingBox.append(pOps);
+
+        if(s.pending.scoreAudit){
+          const audit=s.pending.scoreAudit,details=document.createElement('details'),summary=document.createElement('summary');
+          details.style.cssText='margin:8px 0;font-size:11px;line-height:1.5;overflow-x:auto;';
+          summary.textContent=tr('События по тактам','Events per bar')+' · '+Number(audit.seconds.toFixed(2))+' '+tr('с','s');
+          details.append(summary);
+          const note=document.createElement('p');
+          note.textContent=tr('Числа — начала событий, не длительность звучания. 0 не доказывает тишину; ? — сохранённая генеративная партия.','Counts are event starts, not sounding duration. 0 does not prove silence; ? is a retained generated part.');details.append(note);
+          for(const phrase of audit.phrases){
+            const title=document.createElement('p');title.textContent=(phrase.phraseId===null?'':tr('Фраза ','Phrase ')+phrase.phraseId+' · ')+phrase.key+' · '+phrase.meter+' · '+Number(phrase.barSeconds.toFixed(2))+' '+tr('с/такт','s/bar');details.append(title);
+            const table=document.createElement('table'),head=document.createElement('tr');table.style.cssText='border-collapse:collapse;font-size:10px;white-space:nowrap;';
+            for(const text of [tr('Партия','Part'),...Array.from({length:phrase.bars},(_,i)=>String(i+1))]){
+              const cell=document.createElement('th');cell.textContent=text;cell.style.padding='3px 7px';head.append(cell);
+            }
+            table.append(head);
+            for(const voice of phrase.voices){
+              const row=document.createElement('tr');
+              for(const text of [voice.role+(voice.enabled?'':' ('+tr('выкл.','off')+')'),...(voice.attacksPerBar||Array(phrase.bars).fill('?'))]){
+                const cell=document.createElement('td');cell.textContent=String(text);cell.style.cssText='padding:3px 7px;border-top:1px solid rgba(255,255,255,.1);';row.append(cell);
+              }
+              table.append(row);
+            }
+            details.append(table);
+          }
+          pendingBox.append(details);
+        }
         if(s.pending.scoreReport?.length) {
           const report=document.createElement('ul');
           report.style.cssText='font-size:11px;line-height:1.5;color:#ead5a5;';
@@ -1681,6 +1764,7 @@ timestamp:new Date().toISOString()};
   }
 
   const api = {
+    auditScore,
     generateCapabilities,
     generateInstruments,
     generateMusicRules,

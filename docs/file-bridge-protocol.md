@@ -10,7 +10,8 @@ Implemented 2026-10-19. Source: [file-bridge.js](../src/file-bridge.js). This is
 4. [Slots, roles, banks and timbres](#slots-roles-banks-and-timbres)
 5. [Large scores and songs](#large-scores-and-songs)
 6. [Receipts and correction](#receipts-and-correction)
-7. [Refresh and validation](#refresh-and-validation)
+7. [Mandatory bar audit](#mandatory-bar-audit)
+8. [Refresh and validation](#refresh-and-validation)
 
 ## Package and authority
 
@@ -64,11 +65,7 @@ A voice allows exactly **sound, notes, steps, on, level, character, duration, sp
 
 Pitched timbres use `notes: [[step, MIDI, ...]]`; chords share a tuple. Unpitched timbres use integer `steps`. Bass/melody/arpeggio/harmony always require notes and compatible pitched sounds. Steps are unique within each voice, zero-based across the whole phrase. MIDI is integer 0..127, bounded by role polyphony and existing acoustic register folding. No per-note duration or velocity. `duration` is a voice envelope control. No automatic repetition or insertion of missing music.
 
-Syntax only; replace baseRevision from STATE and compose original music:
-
-```json
-{"format":"halo-score","baseRevision":0,"mode":"replace","world":"ambient","tempo":96,"bars":8,"meter":"4/4","key":"C major","voices":{"melody":{"sound":"harp","notes":[[0,72],[124,76]]},"bass":{"sound":"deep","notes":[[0,36],[112,43]]},"percussion":{"sound":"brush","steps":[8,24,40,56,72,88,104,120]}}}
-```
+The package supplies field vocabulary and symbolic tuples only: notes is an array of [absoluteStep, midi] or [absoluteStep, midi1, midi2, ...]; steps is an array of integer event positions. No complete scored phrase, song or ready-made note list is supplied to copy.
 
 ## Slots, roles, banks and timbres
 
@@ -106,6 +103,24 @@ Read RECEIPT immediately and require id === ID. Applied/rejected are terminal an
 | Missing/stale | Built-in wait only, 4–5 seconds, maximum three reads total per submission; without wait tool one immediate reread. Then UNCONFIRMED |
 
 Never use shell timeout/sleep/ping/Start-Sleep, delegated waiting, alternative roots or indefinite approval polling. A revision conflict requires reading STATE and reconciling user changes, not blindly replacing baseRevision. Empty scoreReport is complete. Warnings describe event structure: empty/silenced parts, no new second-half attacks, repeated melody halves, shared rhythms. They neither infer artistic intent nor certify quality. Final report states ID/path/status, actual tempo/meter/bars/coverage, rests and warning decisions. Never claim listening without evidence.
+
+## Mandatory bar audit
+
+Before publication the agent must derive a row for EVERY bar from the FINAL event arrays: melody/bass/harmony/arpeggio/other attack counts, planned function and intentional rests. Compare those rows with entrances, development and ending. Several empty melodic/accompaniment bars need an actual musical reason, even when percussion continues. Neither attacks in every bar nor automatic filler is required. An advertised climax must be supported by changed events in named bars/voices.
+
+Time is part of this check: seconds per bar = beats per bar × 60 / BPM (4 in 4/4, 3 in 3/4). At 96 BPM, eight bars of 4/4 last **20 seconds**, not minutes. A named song section does not create musical development.
+
+HALO returns **scoreAudit** in the pending and applied receipts and retains it in review. It contains tempo/total seconds, each phrase's named key, meter, seconds per bar, total seconds, scale pitch classes, per-voice enabled/source, attacksPerBar, first/last step and literal pitch classes. The sections array includes repeats, startSeconds and seconds. Pitch classes are integers C=0..B=11 with an enharmonic reference; octave folding does not change them. Zero attacks does not establish audible silence or count sound tails. Retained generated voices have null attack counts because this snapshot does not resolve their generated notes.
+
+The expandable Events per bar table in review displays this evidence in RU/EN. **PART_BAR_GAP** is an advisory warning for at least two consecutive bars without new note events in an enabled authored pitched part, independently of other voices. Intentional rests/sustains remain valid; warnings neither reject sparse music nor automatically add notes. Empty scoreReport is not artistic approval. Review every warning and compare actual evidence before describing the arrangement.
+
+A later user request changing music always needs a **new ID and live STATE revision**, even for transposition. Same-ID repair is only for the current unfinished submission within the same turn. Once pending_approval has been reported, or applied/rejected is reached, retire the ID for agent writes. A previous pending proposal must be applied/rejected through HALO before a queued new proposal is reviewed. Never infer that a terminal receipt for the old ID proves a later edit.
+
+Re minor is **D minor**, A minor is la minor. Changing score.key alone does not transpose literal MIDI. A deliberate key edit requires checking/remapping every pitched voice and verifying named key/pitch classes; intentional chromaticism remains allowed. HALO cannot infer the user's intended key from prose and cannot certify theory or taste from a label.
+
+Receipt statuses and **approved** are output/state words, never request commands. A status-only object is rejected as a non-score; replacing a terminal request cannot reapply it. Human approval is a HALO UI action. Rejection receipts now explicitly say STOP, rather than providing generic retry instructions.
+
+HALO cannot count another application's receipt reads or intercept its arbitrary shell writes. Actual enforcement needs an external file-tool adapter, with no unguarded shell bypass: see [adapter requirements](file-bridge-tool-adapter.md). No Bionic adapter is installed or integrated by this patch.
 
 ## Refresh and validation
 

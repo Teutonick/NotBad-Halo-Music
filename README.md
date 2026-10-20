@@ -1,3 +1,7 @@
+### 2026-10-19 — Evidence before musical claims
+
+The composer package no longer contains ready-made scores. Agents must audit final event starts bar by bar and calculate actual seconds before publication; later user music changes use a new ID and live revision. HALO returns scoreAudit and shows an expandable per-bar table; PART_BAR_GAP detects long gaps in authored pitched parts even under continuous percussion. Intentional rests remain valid. Receipt statuses are never approval commands. External read/write loop prevention requires the external tool host; no Bionic adapter is installed. [Current protocol](docs/file-bridge-protocol.md). These checks provide evidence, not a musical-quality guarantee.
+
 ### 2026-10-19 — File Bridge v3
 
 One strict halo-score contract, one verified ROOT, live STATE revision, fixed ID/REQUEST/RECEIPT and seven sequential states. Only flat requests/ID.json and ID--role.json voice companions. Operation envelopes, bundle folders, aliases, automatic sound defaults and automatic rebasing are removed from File Bridge. Physical slots, roles, banks and timbres are distinct. [Complete contract and package map](docs/file-bridge-protocol.md). Reload HALO and Update Files. WebMCP and portable project import retain their separate formats.

@@ -1,3 +1,9 @@
+## 2026-10-19 — Evidence before musical claims
+
+- Removed ready-made scores from the agent package; require actual per-bar event and duration checks before publication. New user musical changes require new IDs; receipt statuses never act as approval commands.
+- Added scoreAudit to review/pending/applied receipts and a localized expandable bar table. PART_BAR_GAP exposes long melodic/accompaniment gaps even while percussion continues; intentional rests remain allowed. Fixed contradictory retry instructions on rejected receipts.
+- Documented the external file-tool enforcement boundary; no Bionic adapter integration or musical-quality/listening certification.
+
 ## 2026-10-19 — File Bridge v3
 
 - Replaced competing bridge formats with strict halo-score, verified fixed root/paths and seven sequential states. Flat requests and ID--role companions only; removed operation envelopes, bundle folders, aliases, ignored metadata, creation sound defaults and automatic revision rebasing.

@@ -1,5 +1,11 @@
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
+## File Bridge musical evidence and request lifecycle — 2026-10-19
+
+The guide supplies field/tuple vocabulary without ready-made scores. Mandatory preflight checks final events for every bar against the plan and computes real seconds. Pending/applied receipts and review retain scoreAudit: tempo/total seconds, phrase key/meter/barSeconds/seconds, scalePitchClasses, voices with enabled/source/attacksPerBar/firstStep/lastStep/pitchClasses, and timed/repeated sections. Pitch classes are integers with an enharmonic reference. Generated voices have null counts; counts describe attacks, not sustained sound or quality. PART_BAR_GAP warns after two consecutive empty attack bars in an active authored pitched part regardless of continuing percussion; intentional rests remain valid.
+
+Each later user musical change needs a fresh ID and live revision. Same-ID repair is confined to the current unfinished turn; reported pending and terminal statuses retire the ID for agent writes. Status-only approved objects never apply; approval belongs to HALO UI. Rejected receipts now instruct STOP, not retry. A key label change does not transpose literal MIDI. Root score schema and WebMCP are unchanged. [Full contract](file-bridge-protocol.md#mandatory-bar-audit), [external adapter requirements](file-bridge-tool-adapter.md). HALO cannot enforce external file-read or shell-write budgets, and no Bionic adapter was installed.
+
 Implemented contract — 2026-10-16. Internal engine source of truth: `src/agent.js`, `src/site-tools.js`, `src/file-bridge.js`, `src/song-ui.js`. This replaces the former embedded AI Composer proposal and client. HALO performs no LLM inference or provider connection.
 
 ## File Bridge v3

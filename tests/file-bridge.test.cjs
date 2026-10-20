@@ -74,21 +74,6 @@ test('authored chromatic pitches and rests survive score application independent
  }
 });
 
-test('the score syntax example preserves explicit timbre choices and authored notes without bank or operation fields',()=>{
- const {api}=createTestApp(),guide=FileBridge.getContextFiles(api)['AGENT_GUIDE.md'];
- const score=JSON.parse(guide.split('## Syntax example')[1].match(/```json\n([^]*?)\n```/)[1]); score.baseRevision=api.getProjectState().revision;
- const before=api.getProjectState();
- const result=FileBridge.parseAndValidateRequest(api,score,'req-jingle');
- assert.equal(result.ok,true,result.error);
- const after=result.preview.after;
- assert.equal(after.tracks.length,8);assert.equal(after.bars,8);assert.equal(after.tempo,96);assert.equal(after.key,2);
- assert.equal(after.setup,'ambient');assert.equal(after.tracks[5].sound,'harp');assert.equal(after.tracks[4].sound,'deep');
- assert.equal(after.tracks[5].name,'VEIL');assert.equal(after.tracks[5].instrument,'EMBER');assert.equal(after.tracks[7].sound,'organ');assert.equal(after.tracks[2].sound,'brush');
- assert.deepEqual(after.tracks[5].noteEvents,score.voices.melody.notes.map(([step,...notes])=>({step,notes})));
- assert.equal(after.tracks[5].noteTranspose,-2);assert.equal(after.tracks[0].on,false);
- assert.deepEqual(api.getProjectState(),before,'Preview never mutates the project');
-});
-
 test('edit preserves unrelated voices, defaults, master mix, local audio references and song phrases',async()=>{
  const {api}=createTestApp();api.setEnabled(true);
  const source=api.getProjectState().project;
@@ -611,11 +596,64 @@ test('real directory roundtrip exports linked context, detects companion-only ch
 });
 
 
-test('every complete guide JSON example validates through the same score compiler',async()=>{
- const {api}=createTestApp(),guide=FileBridge.getContextFiles(api)['AGENT_GUIDE.md'];
- const examples=[...guide.matchAll(/```json\n([^]*?)\n```/g)].map(m=>JSON.parse(m[1]));assert.equal(examples.length,3);
- for(const score of examples){score.baseRevision=api.getProjectState().revision;
-  const r=await FileBridge.resolveAndValidateRequest(api,score,async()=>JSON.stringify({sound:'harp',notes:[[0,72],[124,72]]}),'req-jingle-k7p4');
-  assert.equal(r.ok,true,r.error);
- }
+
+
+test('composer package supplies symbolic field vocabulary without a reusable score or note example',()=>{
+ const files=FileBridge.getContextFiles(createTestApp().api),guide=files['AGENT_GUIDE.md'];
+ assert.doesNotMatch(guide,/\x60\x60\x60json|"format"\s*:\s*"halo-score"|\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
+ assert.match(guide,/Mandatory bar audit/);assert.match(guide,/EVERY new user message/);assert.match(guide,/D minor/);assert.match(guide,/A minor/);
+ assert.match(guide,/Changing score.key alone DOES NOT transpose/);assert.match(guide,/NEVER replace a score with an id\/status object/);
+});
+
+test('copied sparse score has a long melody/accompaniment gap even while percussion covers the whole phrase',()=>{
+ const {api}=createTestApp();
+ const score=scoreRequest(api,{voices:{melody:{sound:'harp',notes:[[0,72],[4,76],[120,79],[124,72]]},bass:{sound:'deep',notes:[[0,36],[112,43]]},harmony:{sound:'organ',notes:[[0,60,64,67],[112,59,62,67]]},percussion:{sound:'shaker',steps:[0,16,32,48,64,80,96,112]}}});
+ const r=FileBridge.parseAndValidateRequest(api,score,'sparse');assert.equal(r.ok,true,r.error);
+ assert.equal(r.scoreAudit.seconds,20);const p=r.scoreAudit.phrases[0];assert.equal(p.barSeconds,2.5);
+ assert.deepEqual(p.voices.find(v=>v.role==='melody').attacksPerBar,[2,0,0,0,0,0,0,2]);
+ assert.deepEqual(p.voices.find(v=>v.role==='percussion').attacksPerBar,Array(8).fill(1));
+ for(const role of ['melody','bass','harmony'])assert.ok(r.scoreReport.some(x=>x.code==='PART_BAR_GAP'&&x.path==='score.'+role),role);
+ assert.ok(!r.scoreReport.some(x=>x.code==='EMPTY_SECOND_HALF'),'the old global warning alone missed the problem');
+});
+
+test('bar audit distinguishes intended rests, generated parts and disabled authored events without rejecting music',()=>{
+ const {api}=createTestApp();
+ const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'harp',notes:[[16,72],[48,74],[80,76],[112,72]]},texture:{sound:'air',on:false,notes:[[0,60]]}}}),'rests');
+ assert.equal(r.ok,true,r.error);assert.ok(!r.scoreReport.some(x=>x.code==='PART_BAR_GAP'));
+ const texture=r.scoreAudit.phrases[0].voices.find(v=>v.role==='texture');assert.equal(texture.enabled,false);assert.equal(texture.attacksPerBar[0],1);
+ const edit=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{mode:'edit',bars:4,voices:{melody:{notes:[[0,72],[48,76]]}}}),'edit-audit');assert.equal(edit.ok,true,edit.error);
+ const generated=edit.scoreAudit.phrases[0].voices.find(v=>v.source==='generated');assert.ok(generated);assert.equal(generated.attacksPerBar,null);
+});
+
+test('audit counts song duration including section repeats and reports literal pitch classes',()=>{
+ const {api}=createTestApp();
+ const score=scoreRequest(api,{key:'D minor',phrases:[{id:1,bars:4,meter:'3/4',voices:{melody:{sound:'harp',notes:[[0,62],[47,70]]}}},{id:2,bars:8,meter:'3/4',voices:{bass:{sound:'deep',notes:[[0,38],[95,45]]}}}],sections:[{phrase:1,repeats:2},{phrase:2}]});delete score.voices;
+ const r=FileBridge.parseAndValidateRequest(api,score,'timed-song');assert.equal(r.ok,true,r.error);assert.equal(r.scoreAudit.seconds,30);
+ assert.deepEqual(r.scoreAudit.sections.map(s=>s.startSeconds),[0,15]);
+ const p=r.scoreAudit.phrases[0];assert.equal(p.key,'D MINOR');assert.deepEqual(p.scalePitchClasses,[2,4,5,7,9,10,0]);assert.equal(p.barSeconds,1.875);
+ assert.deepEqual(p.voices.find(v=>v.role==='melody').pitchClasses,[2,10]);
+ const onlyLabel=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{key:'D minor',voices:{melody:{sound:'harp',notes:[[0,60],[127,64]]}}}),'literal-key');
+ assert.deepEqual(onlyLabel.preview.after.tracks[5].noteEvents,[{step:0,notes:[60]},{step:127,notes:[64]}],'key changes never invent transposed MIDI');
+});
+
+test('status/approved objects never apply and rejection guidance never asks to resubmit the terminal ID',async()=>{
+ const f=await scoreFixture();try{
+  for(const status of ['approved','pending_approval','applied','rejected']){
+   f.req.files.set('req-proof.json',JSON.stringify({id:'req-proof',status}));await f.bridge.checkFolder();
+   assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/status.*not requests/);assert.equal(f.bridge.getStatus().pending,null);
+  }
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();await f.bridge.rejectPending();
+  const terminal=f.receipt();assert.match(terminal.instructionForAgent,/STOP/);assert.doesNotMatch(terminal.instructionForAgent,/Correct only/);
+  f.req.files.set('req-proof.json',JSON.stringify({id:'req-proof',status:'approved'}));await f.bridge.checkFolder();assert.deepEqual(f.receipt(),terminal);
+  f.req.files.set('req-next.json',JSON.stringify(scoreRequest(f.api,{key:'D minor'})));await f.bridge.checkFolder();assert.equal(f.bridge.getStatus().pending.id,'req-next');
+ }finally{f.bridge.dispose()}
+});
+
+test('receipts keep the same bar audit from review through application and give explicit stopping instructions',async()=>{
+ const f=await scoreFixture();try{
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();const pending=f.receipt();
+  assert.equal(pending.status,'pending_approval');assert.match(pending.instructionForAgent,/only the user approves/);assert.ok(pending.scoreAudit);
+  assert.deepEqual(f.bridge.getStatus().pending.scoreAudit,pending.scoreAudit);await f.bridge.applyPending();
+  assert.equal(f.receipt().status,'applied');assert.deepEqual(f.receipt().scoreAudit,pending.scoreAudit);assert.match(f.receipt().instructionForAgent,/terminal/);
+ }finally{f.bridge.dispose()}
 });
