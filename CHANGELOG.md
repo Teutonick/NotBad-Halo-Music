@@ -1,3 +1,19 @@
+## 2026-10-20 — Explicit score JSON structure
+
+
+## 2026-10-20 — File Bridge five-step model regression
+
+Added an opt-in isolated Luna low composer run: Christmas loop, developed song, tempo/meter/key recasting, new pirate-inspired score and non-destructive percussion mute. Real disk files and production receiver; evaluator never authors the submitted music. Protocol and musical-structure assertions, bounded file tools, failure evidence and explicit diagnostic continuation are separate from listening acceptance. No runtime dependencies or engine behavior changes.
+
+
+## 2026-10-20 — Compact File Bridge composer guide
+
+Reduced the exported guide from 20,155 to 7,882 characters. Retained field types, all timbres and bounded delivery; removed JSON templates, musical teaching, mandatory bar audits and the seven-state script. Optional references and RU/EN manual are synchronized. Receiver validation and musical diagnostics remain unchanged. Reload HALO and Update Files.
+
+- Put the exact format field, complete non-submittable structure template and field-type table first in the composer guide; export the same template in capabilities.json. No ready-made notes or valid silent example.
+- Clarified one object/one sound per role, actual numeric event arrays and exclusion of lyrics, composition prose and internal audit plans. Missing-format guidance explains the complete shape; tempo calculations use the selected BPM.
+- Regression checks reproduce the NYE descriptive document, refuse format-only repair and unchanged templates, and validate correctly filled typed events at 30 BPM (64 seconds for eight 4/4 bars). No external model acceptance is claimed.
+
 ## 2026-10-19 — Evidence before musical claims
 
 - Removed ready-made scores from the agent package; require actual per-bar event and duration checks before publication. New user musical changes require new IDs; receipt statuses never act as approval commands.

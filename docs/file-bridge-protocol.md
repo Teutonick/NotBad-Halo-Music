@@ -4,30 +4,37 @@ Implemented 2026-10-19. Source: [file-bridge.js](../src/file-bridge.js). This is
 
 ## Contents
 
-1. [Package and authority](#package-and-authority)
-2. [Paths and states](#paths-and-states)
-3. [Score fields](#score-fields)
-4. [Slots, roles, banks and timbres](#slots-roles-banks-and-timbres)
-5. [Large scores and songs](#large-scores-and-songs)
-6. [Receipts and correction](#receipts-and-correction)
-7. [Mandatory bar audit](#mandatory-bar-audit)
-8. [Refresh and validation](#refresh-and-validation)
+1. [Required JSON structure](#required-json-structure)
+2. [Package and authority](#package-and-authority)
+3. [Paths and delivery](#paths-and-delivery)
+4. [Score fields](#score-fields)
+5. [Slots, roles, banks and timbres](#slots-roles-banks-and-timbres)
+6. [Large scores and songs](#large-scores-and-songs)
+7. [Receipts and correction](#receipts-and-correction)
+8. [Runtime score diagnostics](#runtime-score-diagnostics)
+9. [Refresh and validation](#refresh-and-validation)
+
+## Required JSON structure
+
+AGENT_GUIDE.md describes the strict halo-score fields with a type table and symbolic note tuples. It contains no JSON example, template or ready-made musical sequence. voices is an object keyed by role; each role maps to one voice object with one sound and actual numeric notes/steps. Lyrics and arrangement prose are not score fields. The filename supplies the request ID; optional requestId must match it.
+
+This reference documents the receiver. The composer guide deliberately omits music theory and prescriptive composition procedures.
 
 ## Package and authority
 
-HALO exports exactly five files with schema/protocol version **3**. Each JSON file links to the other four; the guide has linked contents and a package map. The guide is generated from the actual catalog, including all 62 timbres and natural/compatible roles.
+HALO exports exactly five files with schema/protocol version **3**. Each JSON file links to the other four; the guide has linked contents and a package map. The guide is generated from the actual catalog, including all 62 timbres and recommended roles; detailed compatibility is in instruments.json.
 
 | File | Owns | Read when |
 | --- | --- | --- |
-| AGENT_GUIDE.md | Root verification, sequential workflow, score vocabulary, complete palette, delivery, stopping | Always, completely |
+| AGENT_GUIDE.md | Score fields, complete palette with recommended roles, delivery and stopping | Always, completely |
 | project-state.json | Live revision and project/visual state, read-only | Always after root verification; inspect phrase for edits |
 | capabilities.json | Strict score fields, limits, paths, receipt statuses | Exact field/limit lookup |
 | instruments.json | Fixed slot/role map, timbres, compatible roles, acoustic ranges, controls | Orchestration and register lookup |
-| music-rules.json | Meter/grid, keys/scales, development, orchestration, form | Musical planning |
+| music-rules.json | HALO meter/grid and supported key names | Musical planning |
 
 No file offers an alternative submission protocol. A missing/mixed package requires Update Files in HALO, never guessing. The guide deliberately contains **no live revision or tempo**: STATE is the sole revision authority.
 
-## Paths and states
+## Paths and delivery
 
 Verify one user-connected directory containing readable AGENT_GUIDE.md and project-state.json plus existing requests/ and responses/. A detached guide or agent workspace proves nothing. If no root is verified, stop without writing; if multiple active roots are ambiguous, ask which to use. No disk-wide search or directory creation.
 
@@ -43,7 +50,7 @@ RECEIPT  = ROOT/responses/ID.result.json
 
 Use absolute paths or explicitly ROOT-bound handles for every operation. Double hyphens are reserved for companions. Filename supplies ID; optional requestId must match it exactly. Check names for collisions before selecting ID. Never write responses/, edit STATE, switch roots on a failed write, or create request subfolders.
 
-Required states: **ROOT_VERIFIED → REVISION_READ → ID_FIXED → SCORE_READY → REQUEST_WRITTEN → RECEIPT_CHECKED → RESULT**. Each state requires evidence before continuing. Compose and check each bar, publish/read back the exact request, then inspect only its matching receipt. Errors in path/access terminate; they are not a reason to poll or write elsewhere.
+Publish and read back the score, then inspect its matching receipt. Path/access errors terminate delivery.
 
 ## Score fields
 
@@ -65,7 +72,7 @@ A voice allows exactly **sound, notes, steps, on, level, character, duration, sp
 
 Pitched timbres use `notes: [[step, MIDI, ...]]`; chords share a tuple. Unpitched timbres use integer `steps`. Bass/melody/arpeggio/harmony always require notes and compatible pitched sounds. Steps are unique within each voice, zero-based across the whole phrase. MIDI is integer 0..127, bounded by role polyphony and existing acoustic register folding. No per-note duration or velocity. `duration` is a voice envelope control. No automatic repetition or insertion of missing music.
 
-The package supplies field vocabulary and symbolic tuples only: notes is an array of [absoluteStep, midi] or [absoluteStep, midi1, midi2, ...]; steps is an array of integer event positions. No complete scored phrase, song or ready-made note list is supplied to copy.
+The package supplies field types and symbolic tuple notation, without concrete musical examples.
 
 ## Slots, roles, banks and timbres
 
@@ -96,27 +103,25 @@ Read RECEIPT immediately and require id === ID. Applied/rejected are terminal an
 
 | Status | Action |
 | --- | --- |
-| pending_approval | Review every scoreReport item; fix accidental omissions within budget, explain intentional rests/repetition. Invite approval in HALO and end |
+| pending_approval | Report the waiting proposal; invite approval in HALO and end |
 | applied | Report confirmed application and stop |
 | rejected | Respect the user's decision and stop |
 | error / ok:false, except rejected | Read error/help/instructionForAgent; correct the same files/ID, at most two correction rounds total |
 | Missing/stale | Built-in wait only, 4–5 seconds, maximum three reads total per submission; without wait tool one immediate reread. Then UNCONFIRMED |
 
-Never use shell timeout/sleep/ping/Start-Sleep, delegated waiting, alternative roots or indefinite approval polling. A revision conflict requires reading STATE and reconciling user changes, not blindly replacing baseRevision. Empty scoreReport is complete. Warnings describe event structure: empty/silenced parts, no new second-half attacks, repeated melody halves, shared rhythms. They neither infer artistic intent nor certify quality. Final report states ID/path/status, actual tempo/meter/bars/coverage, rests and warning decisions. Never claim listening without evidence.
+Never use shell timeout/sleep/ping/Start-Sleep, delegated waiting, alternative roots or indefinite approval polling. A revision conflict requires reading STATE and reconciling user changes, not blindly replacing baseRevision. Empty scoreReport is complete. Warnings describe event structure: empty/silenced parts, no new second-half attacks, repeated melody halves, shared rhythms. They neither infer artistic intent nor certify quality. Report the actual delivery status. Never claim listening without evidence.
 
-## Mandatory bar audit
+## Runtime score diagnostics
 
-Before publication the agent must derive a row for EVERY bar from the FINAL event arrays: melody/bass/harmony/arpeggio/other attack counts, planned function and intentional rests. Compare those rows with entrances, development and ending. Several empty melodic/accompaniment bars need an actual musical reason, even when percussion continues. Neither attacks in every bar nor automatic filler is required. An advertised climax must be supported by changed events in named bars/voices.
-
-Time is part of this check: seconds per bar = beats per bar × 60 / BPM (4 in 4/4, 3 in 3/4). At 96 BPM, eight bars of 4/4 last **20 seconds**, not minutes. A named song section does not create musical development.
+The receiver computes event evidence automatically; the composer guide imposes no separate bar-audit procedure.
 
 HALO returns **scoreAudit** in the pending and applied receipts and retains it in review. It contains tempo/total seconds, each phrase's named key, meter, seconds per bar, total seconds, scale pitch classes, per-voice enabled/source, attacksPerBar, first/last step and literal pitch classes. The sections array includes repeats, startSeconds and seconds. Pitch classes are integers C=0..B=11 with an enharmonic reference; octave folding does not change them. Zero attacks does not establish audible silence or count sound tails. Retained generated voices have null attack counts because this snapshot does not resolve their generated notes.
 
-The expandable Events per bar table in review displays this evidence in RU/EN. **PART_BAR_GAP** is an advisory warning for at least two consecutive bars without new note events in an enabled authored pitched part, independently of other voices. Intentional rests/sustains remain valid; warnings neither reject sparse music nor automatically add notes. Empty scoreReport is not artistic approval. Review every warning and compare actual evidence before describing the arrangement.
+The expandable Events per bar table in review displays this evidence in RU/EN. **PART_BAR_GAP** is an advisory warning for at least two consecutive bars without new note events in an enabled authored pitched part, independently of other voices. Intentional rests/sustains remain valid; warnings neither reject sparse music nor automatically add notes. Empty scoreReport is not artistic approval. Warnings are diagnostic information, not composition instructions.
 
 A later user request changing music always needs a **new ID and live STATE revision**, even for transposition. Same-ID repair is only for the current unfinished submission within the same turn. Once pending_approval has been reported, or applied/rejected is reached, retire the ID for agent writes. A previous pending proposal must be applied/rejected through HALO before a queued new proposal is reviewed. Never infer that a terminal receipt for the old ID proves a later edit.
 
-Re minor is **D minor**, A minor is la minor. Changing score.key alone does not transpose literal MIDI. A deliberate key edit requires checking/remapping every pitched voice and verifying named key/pitch classes; intentional chromaticism remains allowed. HALO cannot infer the user's intended key from prose and cannot certify theory or taste from a label.
+Changing score.key alone does not transpose literal MIDI. A deliberate key edit requires checking/remapping every pitched voice and verifying named key/pitch classes; intentional chromaticism remains allowed. HALO cannot infer the user's intended key from prose and cannot certify theory or taste from a label.
 
 Receipt statuses and **approved** are output/state words, never request commands. A status-only object is rejected as a non-score; replacing a terminal request cannot reapply it. Human approval is a HALO UI action. Rejection receipts now explicitly say STOP, rather than providing generic retry instructions.
 

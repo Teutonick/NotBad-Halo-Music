@@ -1,15 +1,12 @@
 # HALO Engine Capabilities & Technical Specification
 
-## File Bridge musical evidence and request lifecycle — 2026-10-19
+Validation tooling: [File Bridge five-step model regression](file-bridge-regression.md). This is test infrastructure, not an additional runtime API.
 
-The guide supplies field/tuple vocabulary without ready-made scores. Mandatory preflight checks final events for every bar against the plan and computes real seconds. Pending/applied receipts and review retain scoreAudit: tempo/total seconds, phrase key/meter/barSeconds/seconds, scalePitchClasses, voices with enabled/source/attacksPerBar/firstStep/lastStep/pitchClasses, and timed/repeated sections. Pitch classes are integers with an enharmonic reference. Generated voices have null counts; counts describe attacks, not sustained sound or quality. PART_BAR_GAP warns after two consecutive empty attack bars in an active authored pitched part regardless of continuing percussion; intentional rests remain valid.
+## File Bridge — compact composer contract, 2026-10-20
 
-Each later user musical change needs a fresh ID and live revision. Same-ID repair is confined to the current unfinished turn; reported pending and terminal statuses retire the ID for agent writes. Status-only approved objects never apply; approval belongs to HALO UI. Rejected receipts now instruct STOP, not retry. A key label change does not transpose literal MIDI. Root score schema and WebMCP are unchanged. [Full contract](file-bridge-protocol.md#mandatory-bar-audit), [external adapter requirements](file-bridge-tool-adapter.md). HALO cannot enforce external file-read or shell-write budgets, and no Bionic adapter was installed.
+The generated AGENT_GUIDE.md contains field types and symbolic tuple notation, the complete timbre catalog with recommended roles, and bounded file delivery. It contains no JSON examples/templates, music lessons, mandatory composition audit or seven-state execution script. Musical decisions belong to the composer. Detailed compatibility/ranges remain in optional instruments.json; music-rules.json contains only HALO grids and supported key names.
 
-## File Bridge v3 — 2026-10-19
-
-See the [complete current contract, contents and cross references](file-bridge-protocol.md). File Bridge accepts only strict halo-score, flat requests and ID--role voice companions. ROOT verification and live STATE revision precede every write. Unknown fields/aliases, omitted creation timbres, operation envelopes and stale revisions fail. Fixed slots, roles, banks and timbres are distinct. No bundle folders, automatic sound fallback or automatic rebasing. WebMCP/internal operations and portable project formats remain separate. Refresh connected folders with Update Files after reloading HALO.
-
+Strict halo-score validation, live revision checks, human approval, scoreAudit and advisory PART_BAR_GAP diagnostics remain implemented. These checks do not certify musical quality. WebMCP/internal operations use their separate API. [File Bridge contract and package map](file-bridge-protocol.md). Reload HALO and Update Files to refresh a connected folder.
 
 ### Compact workspace controls — 2026-10-15
 

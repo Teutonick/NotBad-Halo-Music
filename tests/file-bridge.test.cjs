@@ -32,17 +32,17 @@ function bridgeFolder(){
 function scoreRequest(api, values={}){
  return {format:'halo-score',baseRevision:api.getProjectState().revision,mode:'replace',world:'ambient',tempo:96,bars:8,meter:'4/4',key:'C major',voices:{melody:{sound:'harp',notes:[[0,72],[124,76]]}},...values};
 }
-test('composer guide includes every catalog timbre and its exact natural/other musical parts',()=>{
+test('compact guide includes every timbre with its engine-provided recommended roles',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const registry=JSON.parse(files['instruments.json']);
- const rows=guide.split('\n').filter(line=>line.startsWith('| ')&&!line.startsWith('| sound ID')&&!line.startsWith('| ---'));
+ const rows=guide.slice(guide.indexOf('### ambient'),guide.indexOf('## Delivery')).split('\n').filter(line=>line.startsWith('| ')&&!line.startsWith('| sound |')&&!line.startsWith('| ---'));
  assert.equal(rows.length,registry.sounds.length);
  for(const [i,sound]of registry.sounds.entries()){
   const cells=rows[i].split('|').slice(1,-1).map(v=>v.trim());
-  assert.deepEqual(cells,[sound.canonicalId,sound.name+(sound.pitched?' (pitched)':' (unpitched)'),sound.affinityRoles.join(', '),sound.compatibleRoles.filter(r=>!sound.affinityRoles.includes(r)).join(', ')||'none']);
+  assert.deepEqual(cells,[sound.canonicalId,sound.name+(sound.pitched?' (pitched)':' (unpitched)'),sound.affinityRoles.join(', ')]);
  }
- assert.match(guide,/choose sound explicitly for each authored part/);
- assert.match(guide,/HALO does not compose missing notes/);
+ assert.match(guide,/Compose the notes yourself/);
+ assert.match(guide,/compatibleRoles/);
  assert.doesNotMatch(guide,/skip this if defaults are fine|optional sounds|Do not read the full engine\/API catalogs/);
 });
 
@@ -450,10 +450,12 @@ test('v3 package has one contract, complete cross references, no slot timbre con
  const caps=JSON.parse(files['capabilities.json']),inst=JSON.parse(files['instruments.json']),rules=JSON.parse(files['music-rules.json']);
  assert.equal(caps.operations,undefined);assert.equal(caps.protocol,'halo-score');
  assert.deepEqual(inst.tracks.slice(0,3).map(t=>[t.slot,t.role]),[['GLASS','pulse'],['TIDAL','accent'],['ROOT','percussion']]);
- assert.equal(rules.soundWorlds.ambient.defaultVoices,undefined);
+ assert.equal(rules.soundWorlds,undefined);
  for(const sound of inst.sounds){assert.ok(sound.bankId);assert.equal(sound.id,undefined);assert.equal(sound.sound,undefined);assert.equal(sound.instrument,undefined);}
  assert.doesNotMatch(guide,/Current revision:|Current tempo:/);
- for(const state of ['ROOT_VERIFIED','REVISION_READ','ID_FIXED','SCORE_READY','REQUEST_WRITTEN','RECEIPT_CHECKED','RESULT'])assert.ok(guide.includes('**'+state+'**'));
+ assert.match(guide,/Verify the connected ROOT/);
+ assert.match(guide,/pending_approval/);
+ assert.match(guide,/at most 3 reads/);
  const anchors=[...guide.matchAll(/\]\(#([^)]+)\)/g)].map(m=>m[1]);
  const headings=guide.split('\n').filter(l=>l.startsWith('## ')).map(l=>l.slice(3).toLowerCase().replace(/[^a-z0-9 -]/g,'').replace(/ /g,'-'));
  for(const anchor of anchors)assert.ok(headings.includes(anchor),anchor);
@@ -558,7 +560,7 @@ test('manual has one current bilingual bridge section and shipped capabilities m
  const fs=require('node:fs'),path=require('node:path'),html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
  for(const lang of ['ru','en']){
   const section=html.match(new RegExp('<section class="guide-section" id="g-agents-'+lang+'">([^]*?)</section>'))[1];
-  assert.ok(section.includes('ROOT_VERIFIED'));assert.ok(section.includes('ID--role.json'));assert.ok(section.includes('GLASS=pulse'));
+  assert.ok(section.includes('halo-score'));assert.ok(section.includes('ID--role.json'));assert.ok(section.includes('GLASS=pulse'));
   assert.doesNotMatch(html.match(new RegExp('<section class="guide-section" id="g-export-'+lang+'">([^]*?)</section>'))[1],/File Bridge|halo-score|AGENT_GUIDE/);
  }
  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(__dirname,'../capabilities.json'),'utf8')),FileBridge.generateCapabilities(createTestApp().api.getCapabilities()));
@@ -598,11 +600,19 @@ test('real directory roundtrip exports linked context, detects companion-only ch
 
 
 
-test('composer package supplies symbolic field vocabulary without a reusable score or note example',()=>{
+test('composer guide is a bounded format/catalog contract without examples, templates or music lessons',()=>{
  const files=FileBridge.getContextFiles(createTestApp().api),guide=files['AGENT_GUIDE.md'];
- assert.doesNotMatch(guide,/\x60\x60\x60json|"format"\s*:\s*"halo-score"|\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
- assert.match(guide,/Mandatory bar audit/);assert.match(guide,/EVERY new user message/);assert.match(guide,/D minor/);assert.match(guide,/A minor/);
- assert.match(guide,/Changing score.key alone DOES NOT transpose/);assert.match(guide,/NEVER replace a score with an id\/status object/);
+ assert.doesNotMatch(guide,/\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
+ assert.doesNotMatch(guide,/```json|REPLACE_WITH|Mandatory bar audit|ROOT_VERIFIED|climax|cadence|solfege|D natural minor/);
+ assert.match(guide,/format is the exact string "halo-score"/);
+ assert.match(guide,/Each Voice is ONE object with ONE sound string/);
+ assert.match(guide,/array of tuples \[absoluteStep, MIDI/);
+ assert.equal(JSON.parse(files['capabilities.json']).requestTemplate,undefined);
+ const instrumentSection=guide.slice(guide.indexOf('## Instruments'),guide.indexOf('## Delivery'));
+ assert.ok(guide.length<=11000,'complete guide stays compact');
+ assert.ok(guide.length-instrumentSection.length<=4500,'non-catalog contract stays compact');
+ const rules=JSON.parse(files['music-rules.json']);assert.equal(rules.barAudit,undefined);assert.equal(rules.orchestration,undefined);assert.equal(rules.keyChanges,undefined);
+ assert.ok(rules.keys.includes('D MINOR'));assert.equal(rules.timeSignatures['3/4'].stepsPerBar,12);
 });
 
 test('copied sparse score has a long melody/accompaniment gap even while percussion covers the whole phrase',()=>{
@@ -656,4 +666,24 @@ test('receipts keep the same bar audit from review through application and give 
   assert.deepEqual(f.bridge.getStatus().pending.scoreAudit,pending.scoreAudit);await f.bridge.applyPending();
   assert.equal(f.receipt().status,'applied');assert.deepEqual(f.receipt().scoreAudit,pending.scoreAudit);assert.match(f.receipt().instructionForAgent,/terminal/);
  }finally{f.bridge.dispose()}
+});
+
+
+test('NYE descriptive document fails with useful structural guidance and cannot be repaired by format alone',async()=>{
+ const {api}=createTestApp();
+ const descriptive={id:'NYE2026',baseRevision:api.getProjectState().revision,mode:'replace',world:'ambient',tempo:30,bars:8,meter:'4/4',key:'D minor',
+  voices:{melody:[{sound:'bell'},{sound:'vibes'}],harmony:[{sound:'air'},{sound:'organ'}],percussion:[{sound:'shaker'},{sound:'hat'}]},
+  lyrics:{theme:'holiday'},composition_notes:{development:'described, not scored'},bar_audit_plan:{seconds_per_bar:2.5}};
+ const r=await FileBridge.processRequest(api,descriptive,'NYE2026');assert.equal(r.ok,false);assert.match(r.error,/root.format/);assert.match(r.help,/ONE object/);assert.match(r.help,/do not merely add format/);
+ const withFormat=FileBridge.parseAndValidateRequest(api,{...descriptive,format:'halo-score'},'NYE2026');
+ assert.equal(withFormat.ok,false);assert.match(withFormat.error,/score.lyrics/);assert.match(withFormat.error,/score.voices.melody: expected ONE object/);
+ assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'bell'}}}),'no-events').ok,false);
+});
+
+test('compact field contract accepts typed voices and exact events at the chosen tempo',()=>{
+ const {api}=createTestApp();
+ const score={format:'halo-score',mode:'replace',baseRevision:api.getProjectState().revision,world:'ambient',tempo:30,bars:8,meter:'4/4',key:'D minor',
+  voices:{melody:{sound:'bell',notes:[[0,62],[127,65]]},percussion:{sound:'shaker',steps:[8,120]}}};
+ const r=FileBridge.parseAndValidateRequest(api,score,'typed');assert.equal(r.ok,true,r.error);assert.equal(r.scoreAudit.seconds,64);assert.equal(r.scoreAudit.phrases[0].barSeconds,8);
+ assert.deepEqual(r.preview.after.tracks[5].noteEvents,[{step:0,notes:[62]},{step:127,notes:[65]}]);
 });

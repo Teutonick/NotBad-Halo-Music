@@ -156,7 +156,7 @@
         "delay",
         "chorus"
       ],
-      "creation": "Every authored voice requires sound and exactly one of notes or steps. Omitted roles are silent.",
+      "creation": "voices is an object keyed by role. Each role contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted roles are silent.",
       "editing": "Unmentioned voices and fields are preserved; changing sound is explicit.",
       "notes": "[step, MIDI, ...] with unique steps, integer MIDI 0..127 and role polyphony from instruments.json.tracks.",
       "steps": "Unique integer hits for unpitched timbres only; [] means intentional silence.",

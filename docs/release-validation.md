@@ -1,30 +1,24 @@
-# Release validation — File Bridge v3, 2026-10-19
+# Release validation — File Bridge, 2026-10-20
+
+
+## Five-step live-model regression
+
+294/294 Node tests pass (26 added regression checks). A real isolated Luna low run performed all five tasks through one real disk folder and the production receiver. Rechecking immutable snapshots after correcting a natural-minor-only test mistake passes all five structural/protocol checks. The original diagnostic report and earlier real model failures remain preserved; listening and native browser-folder acceptance are not claimed. [Scenario](file-bridge-regression.md) · [Results and limitations](file-bridge-regression-results.md).
+
+## Earlier compact-guide validation
 
 Local candidate; no commit, push or deployment.
 
 ## Current evidence
 
-- Complete Node suite: 266 tests pass, zero failures, (the latest run used the existing Node test environment; the receiver disk fixture is confined to checkout artifacts). Retired operation/bundle/normalization acceptance tests were replaced with strict v3 acceptance/rejection tests; connection persistence, corrupt-handle recovery, folder-only reset, polling gates and approval/content protections remain covered.
-- File Bridge tests cover all 62 catalog sounds, all eight roles in both worlds, explicit sounds, literal chromatic notes/rests, edit preservation, multi-phrase songs and 3/4, unknown fields/aliases/default rejection, ID correlation, path safety before reads, missing/truncated companions, fresh submissionVersion, approval races, stale revision refusal, applied/rejected non-replay and forced approval reads despite unchanged metadata.
-- Real on-disk directory roundtrip in an isolated checkout artifact folder: five context files exported, companion-first/root-last publication, pending receipt, companion-only correction, changed receipt, explicit application and exact note/state readback. This exercises native Node filesystem I/O through File System Access-compatible handles, not a new OS folder permission grant in a browser.
-- Generated context ownership/cross references and guide contents anchors are checked. The guide contains no ready-made score/numeric note example; symbolic field/tuple vocabulary and contents anchors are checked. Shipped capabilities.json matches the generator. Both manual locales contain one current bridge section, with old instructions removed from Projects/Export.
-- Codex in-app browser at http://127.0.0.1:8766/: refreshed app, Russian and English guide sections and connected-folder descriptions inspected; contents navigation reached the updated section. The existing language preference was restored. User music, playback, folder connection and audio inputs were not changed.
+- Complete Node suite: 268/268 tests pass with TEMP/TMP redirected to checkout artifacts/test-tmp. Log: artifacts/compact-guide-full-tests.log. git diff --check passes.
+- Generated guide: 7,882 characters versus 20,155 in the read-only connected-folder guide, a reduction of 60.9%. The instrument section is 3,561 characters; the remaining contract is 4,321. Character counts are not model token counts.
+- Guide tests check absence of JSON examples/templates, state-machine mandates and musical lessons; symbolic note tuple types remain. All 62 catalog entries retain their engine-provided recommended roles. Detailed compatibility/ranges remain in instruments.json. music-rules.json contains only grid/key information.
+- Strict score validation, revision/approval handling, scoreAudit and advisory warnings remain covered. Tests include descriptive-document rejection, exact authored events, all timbres/roles, companions, path safety, new submission versions, stale revisions, terminal IDs and isolated real-filesystem round trips.
+- Both in-app manual locales contain one current bridge section. Shipped capabilities.json matches the generator. Current repository bridge instructions and technical references are synchronized with the shortened guide.
 
+No new external Qwen/Claude composition, native browser-folder permission, device or audible acceptance was performed for this simplification. Passing tests and a smaller prompt do not establish model compliance or artistic quality. The user's connected folder and music were not changed. Reload HALO and choose Update Files to export the revised package.
 
-- Follow-up musical-evidence regression: the copied sparse score with continuous shaker now produces PART_BAR_GAP for melody, bass and harmony in bars 2–7 and scoreAudit shows 20 seconds at 96 BPM. Tests cover intentional rests, generated unknown counts, repeated-section durations, literal/key pitch classes, status-only request rejection, terminal-ID protection and audit persistence from pending to applied.
-- In-app browser at 1280×720: isolated opaque-origin iframe, synthetic project and in-memory File System Access-compatible handles; RU/EN pending preview, expandable Events per bar table and three gap warnings inspected. No user project/storage, native folder access or playback. Screenshot: artifacts/bridge-audit-preview.png (local diagnostic, excluded from Pages). This verifies rendering, not external-model composition.
-- External enforcement is explicitly unimplemented here: see file-bridge-tool-adapter.md. HALO cannot intercept Bionic shell writes or receipt reads; the guard must be integrated in that external tool host.
+## Earlier evidence and scope
 
-## Remaining acceptance
-
-No fresh external-model composition run, native OS-folder permission/selection regression, mobile viewport, Safari/iOS, audible listening, audio export or public-site deployment verification was performed for this change. Prompt structure and technical validation cannot guarantee an external model's musical quality or compliance.
-
-## Update an existing connection
-
-Reload the updated HALO page and choose Update Files. The five exported files now share version 3. Old operation/bundle/alias requests are unsupported and never automatically migrated. Submit a fresh strict halo-score under an unused ID. Folder refresh does not alter the browser composition.
-
-## Production packaging
-
-Run node --test tests/*.test.cjs, then sh scripts/package-pages.sh with a new output directory. The package includes index.html, runtime sources, local CC0 assets/rights, docs, portable examples, license and public capabilities.json. Development tests, instructions and artifacts stay excluded. Relative script, documentation and asset paths support repository-subpath GitHub Pages. No new runtime dependency, backend, CDN or mandatory build step was introduced.
-
-Publication needs separate authorization; after publishing repeat browser tool discovery, folder approval and playback against the public HTTPS site.
+Previous File Bridge checks exercised RU/EN review rendering and the per-bar diagnostic table in an isolated browser fixture. Those checks were not repeated for this text simplification and do not establish current visual or listening acceptance. HALO cannot impose read/write budgets on an external agent's tools; see [adapter requirements](file-bridge-tool-adapter.md).
