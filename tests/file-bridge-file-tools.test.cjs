@@ -48,3 +48,25 @@ test('live CLI configuration fixes Luna low and disables external workspace tool
  for(const flag of ['shell_tool','apps','plugins','multi_agent'])assert.ok(args.includes('features.'+flag+'=false'));
  assert.match(args,/project_doc_max_bytes=0/);assert.match(args,/web_search="disabled"/);assert.ok(args.includes('--ignore-user-config'));assert.ok(args.includes('read-only'));
 });
+
+
+test('new guide preflight requires HALO ready before the musical request, without confusing the two IDs',()=>{
+ const es=[event('read','AGENT_GUIDE.md'),event('read','project-state.json'),event('write','requests/access.json',{mode:'probe'}),event('read','requests/access.json'),event('read','responses/access.result.json',{receipt:{id:'access',status:'ready'}}),...delivered().slice(2)];
+ const r=protocolChecks(es,[],true);assert.ok(r.checks.every(c=>c.pass));assert.deepEqual(r.roots,['requests/new.json']);
+ es[4].receipt.id='invented';assert.equal(protocolChecks(es,[],true).checks.find(c=>c.name==='real ready probe before music write').pass,false);
+});
+
+test('real disk probe, full song export and atomic two-phrase mute form one safe roundtrip',async t=>{
+ const {tools,receiver}=await fixture(t),first=JSON.parse(await tools.call('read',{path:'project-state.json'}));
+ await tools.call('write',{path:'requests/access.json',content:JSON.stringify({format:'halo-score',mode:'probe',baseRevision:first.revision})});
+ const ready=JSON.parse(await tools.call('read',{path:'responses/access.result.json'}));assert.equal(ready.status,'ready');assert.equal(receiver.state().revision,first.revision);
+ assert.equal(first.scoreExport.complete,true);const {voices,...base}=first.score;
+ const song={...base,phrases:[{id:1,voices},{id:2,voices}],sections:[{phrase:1},{phrase:2}]};
+ await tools.call('write',{path:'requests/song.json',content:JSON.stringify(song)});assert.equal(JSON.parse(await tools.call('read',{path:'responses/song.result.json'})).status,'pending_approval');
+ await receiver.bridge.applyPending();const state=JSON.parse(await tools.call('read',{path:'project-state.json'}));assert.equal(state.score.phrases.length,2);assert.deepEqual(state.score.sections,receiver.state().project.sections);
+ const before=receiver.state(),patch={format:'halo-score',mode:'patch',baseRevision:state.revision,patches:[{phraseId:1,voices:{melody:{on:false}}},{phraseId:2,voices:{melody:{on:false}}}]};
+ await tools.call('write',{path:'requests/mute.json',content:JSON.stringify(patch)});assert.equal(JSON.parse(await tools.call('read',{path:'responses/mute.result.json'})).status,'pending_approval');assert.deepEqual(receiver.state(),before);
+ await receiver.bridge.applyPending();const expected=structuredClone(before.project);for(const p of expected.phrases)p.project.tracks[5].on=false;
+ assert.deepEqual(receiver.state().project,expected);assert.equal(receiver.state().revision,before.revision+1);
+ assert.ok(tools.events.filter(e=>e.tool==='write').every(e=>e.path.startsWith('requests/')));
+});

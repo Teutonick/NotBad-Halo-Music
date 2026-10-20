@@ -39,7 +39,7 @@ function evaluateStep(step,before,after,history=[]) {
   const b=flattenMusicalPhrases(before), a=flattenMusicalPhrases(after), checks=[];
   const check=(name,pass,details)=>checks.push({name,pass:!!pass,details});
   const projects=a.map(f=>f.project), active=projects.flatMap(p=>(p.tracks||[]).filter(t=>t.on!==false).map(t=>({t,p,info:soundInfo(t,p)})));
-  check('authored exact events',projects.length>0&&active.length>0&&active.every(({t,info})=>info&&t.exact===true&&Array.isArray(t.steps)&&t.steps.length>0&&(!info.pitched||t.steps.every(s=>(t.noteEvents||[]).some(e=>e.step===s&&e.notes?.length)))), 'All active pitched starts must have explicit notes; no generated-music proxy.');
+  check('authored exact events',projects.length>0&&active.length>0&&active.every(({t,info})=>info&&t.exact===true&&Array.isArray(t.steps)&&(!info.pitched||t.steps.every(s=>(t.noteEvents||[]).some(e=>e.step===s&&e.notes?.length)))), 'All active pitched starts must have explicit notes; empty authored arrays may represent rests. No generated-music proxy.');
   const distinct=new Set(projects.map(phraseSignature)).size;
   if(Number(step)===1) {
     const p=projects[0];

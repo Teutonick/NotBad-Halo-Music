@@ -1,9 +1,8 @@
 # NotBad HALO
 
-File Bridge has a dedicated [five-step live-model regression](docs/file-bridge-regression.md), separate from deterministic unit tests.
+File Bridge now checks real folder exchange before composition, exports the whole song as halo-score, and supports atomic parameter-only edits. [Contract](docs/file-bridge-protocol.md) · [Five-step regression](docs/file-bridge-regression.md) · [Manual candidate](docs/file-bridge-contract-audit.md). Reload HALO and Update Files; grant external-agent access to the connected folder before leaving it unattended.
 
-File Bridge: compact format, full instrument catalog and bounded delivery; no music lessons or score examples. Reload HALO and Update Files. [Contract](docs/file-bridge-protocol.md).
-
+<div align="center">
 
 ### Compose worlds, not timelines.
 

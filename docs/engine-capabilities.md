@@ -1,12 +1,10 @@
 # HALO Engine Capabilities & Technical Specification
 
-Validation tooling: [File Bridge five-step model regression](file-bridge-regression.md). This is test infrastructure, not an additional runtime API.
+## File Bridge — five-workflow contract, 2026-10-20
 
-## File Bridge — compact composer contract, 2026-10-20
+One strict halo-score format with modes probe/replace/edit/patch. A mandatory real ready exchange checks requests write and HALO responses read before composition; only HALO creates receipts. STATE now exposes only a directly accepted normalized score of ALL phrases/sections, without internal engine fields, with explicit materialization/unrepresentable-state disclosures. Atomic parameter patches target existing phrases and preserve every unmentioned field, note, timbre and arrangement reference under one approval/revision check. The workflow-only guide routes five ordinary user intents; capabilities.json owns requestSchema/format, instruments.json owns the unique canonical palette and explicit MIDI-versus-acoustic range semantics. No scored examples. [Complete contract](file-bridge-protocol.md) · [Validation](release-validation.md).
 
-The generated AGENT_GUIDE.md contains field types and symbolic tuple notation, the complete timbre catalog with recommended roles, and bounded file delivery. It contains no JSON examples/templates, music lessons, mandatory composition audit or seven-state execution script. Musical decisions belong to the composer. Detailed compatibility/ranges remain in optional instruments.json; music-rules.json contains only HALO grids and supported key names.
-
-Strict halo-score validation, live revision checks, human approval, scoreAudit and advisory PART_BAR_GAP diagnostics remain implemented. These checks do not certify musical quality. WebMCP/internal operations use their separate API. [File Bridge contract and package map](file-bridge-protocol.md). Reload HALO and Update Files to refresh a connected folder.
+This adds no backend, dependencies or new WebMCP tool. Internal/API operations keep their separate schemas. Reload HALO and Update Files before using probe/patch; older receiver code cannot process them. Bionic/LM Studio filesystem access must be granted by that host, not inferred from a readable guide.
 
 ### Compact workspace controls — 2026-10-15
 

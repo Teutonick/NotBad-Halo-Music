@@ -22,11 +22,12 @@ class FileTools{
     const p=await this.resolve(args.path);
     if(args.path.startsWith('responses/')){let version='missing';try{version=crypto.createHash('sha256').update(await fs.readFile(p)).digest('hex')}catch(e){if(e.code!=='ENOENT')throw e}const key=args.path+':'+version,n=(this.reads.get(key)||0)+1;this.reads.set(key,n);if(n>3)throw Error('RECEIPT_READ_BUDGET_EXCEEDED')}
     result=await fs.readFile(p,'utf8');event.bytes=Buffer.byteLength(result);
-    if(args.path.startsWith('responses/')){try{const r=JSON.parse(result);event.receipt={id:r.id,status:r.status,submissionVersion:r.submissionVersion}}catch{}}
+    if(args.path.startsWith('responses/')){try{const r=JSON.parse(result);event.receipt={id:r.id,status:r.status,submissionVersion:r.submissionVersion,currentRevision:r.currentRevision}}catch{}}
    }else if(name==='write'){
     const p=await this.resolve(args.path,true);if(typeof args.content!=='string'||Buffer.byteLength(args.content)>524288)throw Error('CONTENT_SIZE_DENIED');
     const n=(this.writes.get(args.path)||0)+1;this.writes.set(args.path,n);if(n>3)throw Error('WRITE_BUDGET_EXCEEDED');
     // Do not normalize, fill, repair or validate content here: HALO must detect mistakes.
+    try{const value=JSON.parse(args.content);event.mode=value.mode;event.baseRevision=value.baseRevision}catch{}
     await fs.writeFile(p,args.content);await this.receiver.bridge.checkFolder();
     result={written:args.path,bytes:Buffer.byteLength(args.content)};event.sha256=crypto.createHash('sha256').update(args.content).digest('hex');
    }else if(name==='wait'){

@@ -25,3 +25,10 @@ test('contrasting material still needs at least two timbre changes',()=>{const p
 test('percussion muting preserves every authored event and structure',()=>{const b=song(),a=structuredClone(b);for(const f of a.phrases)f.project.tracks[2].on=false;assert.equal(evaluateStep(5,b,a).pass,true);a.phrases[0].project.tracks[0].noteEvents=[];assert.equal(evaluateStep(5,b,a).pass,false);});
 test('pitched sound in percussion slot must stay enabled',()=>{const b=song();for(const f of b.phrases)f.project.tracks.push({...track('TIDAL','bell'),instrument:'GLASS'});const a=structuredClone(b);for(const f of a.phrases){f.project.tracks[2].on=false;f.project.tracks[3].on=false;}assert.equal(evaluateStep(5,b,a).pass,false);});
 test('evaluation never mutates snapshots and helpers accept state envelopes',()=>{const b=song(),a=structuredClone(b),saved=JSON.stringify([b,a]);evaluateStep(3,b,a);assert.equal(JSON.stringify([b,a]),saved);assert.equal(flattenMusicalPhrases({project:b}).length,3);});
+
+test('an enabled empty authored voice is an intentional rest, not a missing-note error',()=>{
+ const s=song();s.phrases[0].project.tracks.push({name:'GLASS',role:'pulse',sound:'pulse',on:true,generator:3,exact:true,steps:[],noteEvents:[]});
+ assert.equal(evaluateStep(2,phrase(),s).pass,true);
+ s.phrases[0].project.tracks.at(-1).generator=1;s.phrases[0].project.tracks.at(-1).exact=false;
+ assert.equal(evaluateStep(2,phrase(),s).checks.find(c=>c.name==='authored exact events').pass,false);
+});

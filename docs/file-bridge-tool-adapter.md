@@ -7,7 +7,8 @@ An effective adapter must be the only allowed file publication/receipt-reading r
 | Boundary | Enforced rule |
 | --- | --- |
 | Session open | Verify one accessible connected root with guide/state/requests/responses. Bind its canonical path/handle; reject ambiguous or missing root; never create directories |
-| Begin user task | Bind a fresh unused request ID to the current user task/message. Read live revision. Retire any ID already reported pending, applied or rejected; a new musical instruction cannot reuse it |
+| Exchange preflight | Before composing each task allow only a fresh halo-score probe with live baseRevision, request readback and real matching ready receipt/currentRevision. No write to responses/ or state; no alternate root after denial. Retire the probe ID separately |
+| Begin user task | Bind a fresh unused music request ID to the current user task/message. Read live revision. Retire any ID already reported ready, pending, applied or rejected; a new musical instruction cannot reuse it |
 | Publish | Require a JSON object with format halo-score and matching ID/revision and canonical fields before any filesystem mutation. Reject all receipt/status/approved objects. Restrict root and voice files to exact fixed paths; complete companions first and publish the root atomically last |
 | Correction | Same task and unfinished submission only; at most two changed-content correction rounds. Do not reset budgets for identical rewrites, file renames or tool calls |
 | Receipt read | Only the fixed matching receipt, at most three reads per submitted content version; waits through the host's built-in wait facility. No alternate roots, listing-based delays or shell bypass |

@@ -1,4 +1,25 @@
-## 2026-10-20 — Explicit score JSON structure
+## 2026-10-20 — File Bridge contract audit
+
+Separated workflow-only guide, canonical JSON Schema in capabilities, unique instrument registry and normalized whole-composition state. Removed internal project fields from agent snapshots and ambiguous “Fix STATE/RECEIPT” wording. Qualified ambient hat IDs as rain-hat/moss-hat without changing engine sounds. Distinguished accepted MIDI 0..127 from acoustic playback registers. Full live-model regression is paused; use the manual candidate after reloading and Update Files.
+
+## 2026-10-20 — Five-workflow File Bridge and verified folder preflight
+
+Rebuilt the composer guide around five user intents. Added same-format probe/ready exchange before composing, full normalized current score projection while keeping internal data in HALO, and atomic per-phrase parameter patches under one approval. Explicitly discloses generated-cycle projection limits and refuses unrepresentable exports. Agent never writes responses or substitutes folders. Existing replace/edit remain accepted; reload/update the connected context before using new modes. No new runtime dependencies or server.
+
+## 2026-10-20 — Explicit receipt checks in the copyable agent prompt
+
+The RU/EN user prompt now explicitly asks for format/event-position preflight, reading the exact matching receipt and correcting error/help/instructionForAgent under the same unfinished ID, at most twice. Terminal/pending statuses take precedence over ok:false repair; missing delivery remains unconfirmed under guide limits. The guide repeats the error fields to read. Step diagnostics now distinguish fractional values, out-of-phrase positions and duplicates with the precise notes/steps path and received value; integer-grid guidance never rounds authored events. Input format and musical timing are unchanged.
+
+
+## 2026-10-20 — Snapshot recovery and actionable bar gaps
+
+Refresh snapshot exports live state and forces request/companion/receipt bytes to be reread, including same-size/mtime corrections. It never rewrites baseRevision, applies a score or replays a terminal ID. UI confirms the exported revision and explicitly requires agent reconciliation of an unfinished conflicting request. Removed the obsolete “reconcile revision and apply” promise and the generic suggestion to clear files for every format error. PART_BAR_GAP now supplies the missing absoluteStep ranges and distinguishes first-bar density from later-bar coverage; intentional rests remain advisory. No automatic filler, transposition or format inference.
+
+
+
+## 2026-10-20 — File Bridge timing terminology
+
+Added a compact shared bar/measure–beat–step glossary, phrase-local indexing, bar-boundary ranges and exact time formulas. Synchronized exported context, RU/EN hints/manual and prompt wording. At 120 BPM eight 4/4 bars are 16 seconds. Preserved intentional rests and exact notes; no playback/validation behavior change. Reload HALO and Update Files.
 
 
 ## 2026-10-20 — File Bridge five-step model regression

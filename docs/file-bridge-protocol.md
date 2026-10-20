@@ -1,82 +1,84 @@
-# File Bridge v3 — current contract
+# File Bridge — current halo-score contract
 
-Implemented 2026-10-19. Source: [file-bridge.js](../src/file-bridge.js). This is a breaking replacement of the File Bridge input protocol. WebMCP and portable project import retain their separate engine formats.
+Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-20. One strict format, `halo-score`, with four modes: probe, replace, edit, patch. WebMCP/internal operations and portable projects are separate APIs, never alternative File Bridge request shapes.
 
 ## Contents
 
-1. [Required JSON structure](#required-json-structure)
+1. [Folder preflight](#folder-preflight)
 2. [Package and authority](#package-and-authority)
-3. [Paths and delivery](#paths-and-delivery)
-4. [Score fields](#score-fields)
+3. [Required JSON structure](#required-json-structure)
+4. [Timing terminology](#timing-terminology)
 5. [Slots, roles, banks and timbres](#slots-roles-banks-and-timbres)
 6. [Large scores and songs](#large-scores-and-songs)
-7. [Receipts and correction](#receipts-and-correction)
-8. [Runtime score diagnostics](#runtime-score-diagnostics)
-9. [Refresh and validation](#refresh-and-validation)
+7. [Paths and delivery](#paths-and-delivery)
+8. [Receipts and correction](#receipts-and-correction)
+9. [Runtime score diagnostics](#runtime-score-diagnostics)
+10. [Refresh and validation](#refresh-and-validation)
 
-## Required JSON structure
+## Folder preflight
 
-AGENT_GUIDE.md describes the strict halo-score fields with a type table and symbolic note tuples. It contains no JSON example, template or ready-made musical sequence. voices is an object keyed by role; each role maps to one voice object with one sound and actual numeric notes/steps. Lyrics and arrangement prose are not score fields. The filename supplies the request ID; optional requestId must match it.
+ROOT is the absolute connected folder supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/; never create substitutes or directories. Before composing each task, read live revision and write a small probe request into requests/ using format halo-score, mode probe and that integer baseRevision. No world, notes or other musical fields are allowed in a probe. Optional requestId must match its filename.
 
-This reference documents the receiver. The composer guide deliberately omits music theory and prescriptive composition procedures.
+Read back that request and only its responses/ID.result.json. HALO returns ready with matching ID, currentRevision, submissionVersion and applied:false. It creates no approval proposal, changes no project state and never starts playback. A ready ID is finished and cannot later carry music; readiness persists across reconnection. Use a different fresh ID for the score. On failure or no ready within the normal bounded read limit, stop before composing; report exact path/error.
+
+The external agent requires read access to context/receipts and write access only to requests/. ONLY HALO writes responses/ and project-state.json. A probe verifies the real exchange; it does not grant operating-system or Bionic/LM Studio tool permissions. Those must be arranged in that tool host. HALO cannot block an external shell from writing arbitrary paths: [external adapter requirements](file-bridge-tool-adapter.md).
 
 ## Package and authority
 
-HALO exports exactly five files with schema/protocol version **3**. Each JSON file links to the other four; the guide has linked contents and a package map. The guide is generated from the actual catalog, including all 62 timbres and recommended roles; detailed compatibility is in instruments.json.
+Five linked files retain schemaVersion 3. Existing replace/edit inputs remain accepted; new additive probe/patch modes are advertised explicitly. No aliases or legacy bundles are added.
 
-| File | Owns | Read when |
-| --- | --- | --- |
-| AGENT_GUIDE.md | Score fields, complete palette with recommended roles, delivery and stopping | Always, completely |
-| project-state.json | Live revision and project/visual state, read-only | Always after root verification; inspect phrase for edits |
-| capabilities.json | Strict score fields, limits, paths, receipt statuses | Exact field/limit lookup |
-| instruments.json | Fixed slot/role map, timbres, compatible roles, acoustic ranges, controls | Orchestration and register lookup |
-| music-rules.json | HALO meter/grid and supported key names | Musical planning |
-
-No file offers an alternative submission protocol. A missing/mixed package requires Update Files in HALO, never guessing. The guide deliberately contains **no live revision or tempo**: STATE is the sole revision authority.
-
-## Paths and delivery
-
-Verify one user-connected directory containing readable AGENT_GUIDE.md and project-state.json plus existing requests/ and responses/. A detached guide or agent workspace proves nothing. If no root is verified, stop without writing; if multiple active roots are ambiguous, ask which to use. No disk-wide search or directory creation.
-
-Bind once:
-
-```text
-ROOT     = verified connected folder
-STATE    = ROOT/project-state.json
-ID       = unused ID, 1..128 ASCII letters/digits with single - or _ separators
-REQUEST  = ROOT/requests/ID.json
-RECEIPT  = ROOT/responses/ID.result.json
-```
-
-Use absolute paths or explicitly ROOT-bound handles for every operation. Double hyphens are reserved for companions. Filename supplies ID; optional requestId must match it exactly. Check names for collisions before selecting ID. Never write responses/, edit STATE, switch roots on a failed write, or create request subfolders.
-
-Publish and read back the score, then inspect its matching receipt. Path/access errors terminate delivery.
-
-## Score fields
-
-Only `format: "halo-score"` is accepted. Root required fields: **format, baseRevision, mode, world, tempo, bars, meter, key**. Additional allowed root fields: **requestId, voices, phraseId, phrases, sections, repeat**. Every other field is an error. No bpm/timeSignature aliases, ignored metadata, case/prefix repairs, operation envelopes, parts or include.
-
-| Field | Contract |
+| File | Authority |
 | --- | --- |
-| baseRevision | Current integer STATE.revision; stale revisions fail, never auto-rebase |
-| mode | replace for new music; edit preserves unmentioned voices/fields |
-| world | ambient or reactor; edit must retain the existing world |
-| tempo | Explicit BPM 30..200; choose for new music, copy for edits unless deliberately changed |
-| bars | Explicit 4 or 8; per-phrase override allowed |
-| meter | Explicit 4/4 (16 steps/bar) or 3/4 (12 steps/bar); per-phrase override allowed |
-| key | Named key such as C major or D minor; per-phrase override allowed |
-| voices | Role-keyed voice objects; omitted roles are silent in replace |
-| phraseId | Required existing phrase ID for editing a song; forbidden for new music |
+| AGENT_GUIDE.md | Preflight, five user workflows, delivery/stop rules; links to the authoritative references |
+| project-state.json | Current browser revision, normalized whole-composition score, export limitations; no internal engine state |
+| capabilities.json | Sole format authority: requestSchema (JSON Schema 2020-12), mode-specific fields/limits, statuses and handshake contract |
+| instruments.json | Physical slots, roles, canonical timbres, compatible roles, pitched flags and registers |
+| music-rules.json | HALO time grid, exact timing vocabulary and key names |
 
-A voice allows exactly **sound, notes, steps, on, level, character, duration, space, delay, chorus**. New authored voices require a literal canonical sound ID and exactly one of notes/steps. Edit can retain sound and/or events by omitting those fields. Empty arrays mean intentional silence. `on` is boolean; the six controls are 0..100. Creation defaults: on true, level/character/duration 50, space 30, delay/chorus 0.
+The guide contains no live revision and no scored examples. It distinguishes creating a phrase, developing that phrase into a song, transforming the current song, creating unrelated new music and changing existing parameters. Users need only a folder and a musical brief.
 
-Pitched timbres use `notes: [[step, MIDI, ...]]`; chords share a tuple. Unpitched timbres use integer `steps`. Bass/melody/arpeggio/harmony always require notes and compatible pitched sounds. Steps are unique within each voice, zero-based across the whole phrase. MIDI is integer 0..127, bounded by role polyphony and existing acoustic register folding. No per-note duration or velocity. `duration` is a voice envelope control. No automatic repetition or insertion of missing music.
+### Complete current score export
 
-The package supplies field types and symbolic tuple notation, without concrete musical examples.
+STATE.score is a directly accepted halo-score replacement projection with live baseRevision, per-phrase bars/meter/key, all eight voices, their events and exposed parameters, sections and repeats. It represents current applied browser music, never unapproved requests. STATE contains only this normalized score, revision/export metadata and file references. Internal project fields (setup, numeric key index, noteEvents, startStep, visual state) are not exported to the agent. There is no second score-state file or competing musical representation.
+
+The complete internal project stays inside HALO, including master settings, generator configuration and Track 09 references. These are preserved by parameter patching; they are not fields to copy into a music request.
+
+Authored effective MIDI is exported with key offset/noteTranspose accounted for; saved startStep is rotated to a score starting at zero. Generated voices are resolved through the engine into explicit events for the phrase cycle at saved startStep, including latent muted parts; they are listed in scoreExport.materialized. Future generated cycles, probability, per-note dynamics and internal generator state cannot all be represented as a static event score. Replacing with this projection freezes that cycle, not the future generator. Use patch when musical data must remain unchanged.
+
+scoreExport.complete=false and score=null explicitly report an unrepresentable state (e.g. incompatible legacy timbre/role, polyphony or missing MIDI). The original project remains unchanged inside HALO. Do not invent missing events or claim a lossless transformation in that case. No PCM is exported.
+
+## Required JSON structure
+
+capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for live revision, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
+
+Common fields: format is exactly halo-score; baseRevision is the live integer; mode selects the shape below. Optional requestId must equal the basename. Other unknown fields fail.
+
+| Mode | Fields besides common fields | Semantics |
+| --- | --- | --- |
+| probe | none | Technical exchange test; ready receipt, no music/approval |
+| replace | world, tempo, bars, meter, key; voices OR phrases+sections | New phrase/song or full transformation; omitted roles silent |
+| edit | world, tempo, bars, meter, key, voices; phraseId for songs | One phrase edit; omitted voice fields/roles retained; tempo remains song-wide |
+| patch | patches | Atomic parameter-only edit of existing phrases; metadata inherited |
+
+world: ambient/reactor. tempo: 30..200 BPM. bars: 4/8. meter: 4/4 or 3/4. key: supported named key. Creation Voice: one object, one compatible canonical sound, notes for pitched or steps for unpitched timbres. notes uses symbolic tuples [absoluteStep, MIDI, ...], with integer MIDI 0..127 and role polyphony. steps is a flat integer array. Unique integer positions within the phrase; empty arrays mean silence. No per-note duration/velocity, arbitrary wrappers or prose.
+
+Voice parameters: on boolean; level/character/duration/space/delay/chorus numeric 0..100. Creation defaults: on true; level/character/duration 50; space 30; delay/chorus 0. duration controls the voice envelope. Pitched MIDI is literal; changing key alone never transposes it. Integer MIDI 0..127 is the hard input pitch bound. instruments.json.midiInputRange makes this explicit; sounds[].acousticRange describes playback octave folding, not an input rejection bound. Role acousticRange gives register guidance; bass uses the existing engine bass policy. For example, bell MIDI 92 is valid although its timbre register is 26..88; playback may fold it by octaves, preserving pitch class. No new transposition is introduced.
+
+### Atomic parameter patch
+
+patches is a nonempty array of at most 15 objects, each with voices and, for a song, a required existing phraseId. For a single phrase omit phraseId. A target may appear once. Each voices maps role IDs to nonempty objects containing ONLY on/level/character/duration/space/delay/chorus. No notes, steps, sound, key, tempo, world or meter are permitted. Unmentioned data is cloned unchanged. Every entry validates before a single authoritative preview/apply; an invalid target/value rejects the entire request. One approval applies all entries under the same revision check and Undo transaction. Approval rereads all submitted content; stale revisions or modified proposals cannot silently apply.
+
+For drum muting, inspect actual sound.pitched separately in each phrase. A pulse slot may hold pitched bass. Build only the appropriate per-phrase on:false changes. This preserves latent notes/timbres, repeated references, generator settings and Track 09. The preview lists changed parameters, not a replacement score.
+
+## Timing terminology
+
+Bar = measure = такт, an ordinary musical measure. Beat = доля = quarter note in both supported meters. Step = sixteenth note/semiquaver = шаг сетки; four steps per beat. 4/4 has 16 steps/bar; 3/4 has 12. BPM counts quarter-note beats per minute.
+
+beatSeconds = 60 / tempo; stepSeconds = 15 / tempo; barSeconds = beatsPerBar × 60 / tempo. At 120 BPM: a 4/4 bar is 2 seconds and 8 bars are 16 seconds; 8 bars of 3/4 are 12 seconds. Positions begin at zero within EACH phrase and do not reset at bar boundaries. Bar n begins at (n−1)×stepsPerBar. In 8-bar 4/4, 0..15 are only bar 1, 112..127 are bar 8. Sections/repeats reference phrase events rather than introducing global indices. Intentional rests are allowed.
 
 ## Slots, roles, banks and timbres
 
-| Physical slot | Fixed role (voices key) | Maximum simultaneous notes |
+| Physical slot | Role / voices key | Maximum notes |
 | --- | --- | --- |
 | GLASS | pulse | 1 |
 | TIDAL | accent | 2 |
@@ -87,50 +89,30 @@ The package supplies field types and symbolic tuple notation, without concrete m
 | MOSS | arpeggio | 1 |
 | AURA | harmony | 4 |
 
-Physical slots are fixed UI destinations. A sound bank (sounds[].bankId) is an internal catalog grouping, independent of that destination. The registry exposes one selectable ID, canonicalId, without competing prefixed aliases. A timbre is selected with `sound`, using instruments.json.sounds[].canonicalId, filtered by world in setups and role in compatibleRoles. affinityRoles recommend natural uses; they do not override compatibility or slot identities. For example, a harp from bank EMBER can play the melody role in physical slot VEIL. GLASS never means “bells” as a slot assignment. Agents never submit trackIndex, instrument, name or role fields. HALO derives those internally.
+A fixed physical slot is not an instrument bank. Choose canonical sound IDs by world and compatibleRoles. affinityRoles are recommendations. Only instruments.json lists all 62 timbres, recommended/compatible roles and acoustic registers. canonicalId is unique within each world: the formerly ambiguous ambient hat entries are rain-hat (RAIN source bank) and moss-hat (MOSS source bank). The receiver maps them to original engine IDs/banks without changing synthesis or saved projects. Bare hat is not a current canonical ID. Never submit trackIndex, instrument or a role field inside Voice.
 
 ## Large scores and songs
 
-The only companion path is **ROOT/requests/ID--role.json**, referenced as `{"file":"ID--role.json"}` in that role. No extra fields beside file. A companion contains the voice object itself, including sound for new music. No nesting, wrappers, subfolders, absolute paths, traversal or cross-request references. Complete and read back companions first; publish the root JSON last. Companion names containing `--` are never scanned as root requests.
+Songs use replace with phrases and sections instead of root voices. A phrase has unique positive integer id, voices and optional bars/meter/key inherited from root. Sections reference existing phrase IDs; repeats 1..8 default 1, name intro/verse/verse2/chorus/bridge/outro/phrase defaults phrase, fade none/in/out defaults none. Root repeat defaults false. Limits: 15 phrases, 32 sections, 128 arranged bars, one world/tempo. Repeats share notes; new variations need independent IDs and musical events.
 
-A song uses `phrases` and `sections` instead of root voices, in replace mode. Phrase fields: id (unique positive integer), voices, optional bars/meter/key inherited from root. Sections: phrase (existing ID), repeats 1..8 (default 1), name intro/verse/verse2/chorus/bridge/outro/phrase (default phrase), fade none/in/out (default none). Optional root repeat is boolean, default false. Limits: 15 phrases, 32 sections, 128 total bars. All phrases share world and tempo. Reused phrase IDs share music; variations need distinct IDs and authored events.
+Optional companions are requests/ID--role.json containing a Voice; the reference contains only file with that exact basename. No subfolders, traversal, absolute paths, wrappers or cross-request references. Write/read companions first; root last. A shared companion deliberately shares that voice across phrases. Request and unique companions together are bounded to 512 KiB.
 
-A companion is fixed per ID and role: referencing it in multiple phrases deliberately shares the same voice data. Use inline voices for different phrase parts. All eight voices can be authored; combined root and unique companions are bounded to 512 KiB. Individual file-tool call limits belong to the external harness.
+## Paths and delivery
+
+Bind ROOT and the path variables once: STATE_PATH=ROOT/project-state.json; REQUEST_PATH=ROOT/requests/ID.json; RECEIPT_PATH=ROOT/responses/ID.result.json. Binding never authorizes editing: STATE_PATH and RECEIPT_PATH remain read-only to the agent. New unused IDs: 1..128 ASCII letters/digits separated by single hyphen/underscore; double hyphens are reserved for companions. No directory creation or fallback paths on denial. Each new user task uses a fresh probe ID and a separate fresh music ID. Correct an unfinished error under its existing ID; never use a new ID to evade errors.
 
 ## Receipts and correction
 
-Read RECEIPT immediately and require id === ID. Applied/rejected are terminal and take precedence over ok:false or freshness checks. Applied includes appliedRevision and need not include submissionVersion. Pending/error carry submissionVersion covering root plus companions; after correction require it to change.
+Only matching real receipts count. Process applied/rejected first regardless of ok:false; report and stop. pending_approval means technically validated and waiting for the human: report diagnostics and invite approval, then stop. Do not wait for approval, create it or claim playback. A later user task reads newly applied live STATE. ready belongs only to the probe and permits proceeding to compose under a different ID.
 
-| Status | Action |
-| --- | --- |
-| pending_approval | Report the waiting proposal; invite approval in HALO and end |
-| applied | Report confirmed application and stop |
-| rejected | Respect the user's decision and stop |
-| error / ok:false, except rejected | Read error/help/instructionForAgent; correct the same files/ID, at most two correction rounds total |
-| Missing/stale | Built-in wait only, 4–5 seconds, maximum three reads total per submission; without wait tool one immediate reread. Then UNCONFIRMED |
-
-Never use shell timeout/sleep/ping/Start-Sleep, delegated waiting, alternative roots or indefinite approval polling. A revision conflict requires reading STATE and reconciling user changes, not blindly replacing baseRevision. Empty scoreReport is complete. Warnings describe event structure: empty/silenced parts, no new second-half attacks, repeated melody halves, shared rhythms. They neither infer artistic intent nor certify quality. Report the actual delivery status. Never claim listening without evidence.
+On error/ok:false, read error/help/instructionForAgent, correct the same unfinished request at most twice, then require changed submissionVersion. Revision conflicts require reconciling with STATE, not blindly replacing baseRevision. Missing/stale receipt: at most 3 reads with built-in waits of 4–5 seconds; without a wait tool one immediate reread. Then unconfirmed and stop. No shell waits, servers, browsers or delegated polling. Resolve an earlier pending proposal before assuming it applied.
 
 ## Runtime score diagnostics
 
-The receiver computes event evidence automatically; the composer guide imposes no separate bar-audit procedure.
-
-HALO returns **scoreAudit** in the pending and applied receipts and retains it in review. It contains tempo/total seconds, each phrase's named key, meter, seconds per bar, total seconds, scale pitch classes, per-voice enabled/source, attacksPerBar, first/last step and literal pitch classes. The sections array includes repeats, startSeconds and seconds. Pitch classes are integers C=0..B=11 with an enharmonic reference; octave folding does not change them. Zero attacks does not establish audible silence or count sound tails. Retained generated voices have null attack counts because this snapshot does not resolve their generated notes.
-
-The expandable Events per bar table in review displays this evidence in RU/EN. **PART_BAR_GAP** is an advisory warning for at least two consecutive bars without new note events in an enabled authored pitched part, independently of other voices. Intentional rests/sustains remain valid; warnings neither reject sparse music nor automatically add notes. Empty scoreReport is not artistic approval. Warnings are diagnostic information, not composition instructions.
-
-A later user request changing music always needs a **new ID and live STATE revision**, even for transposition. Same-ID repair is only for the current unfinished submission within the same turn. Once pending_approval has been reported, or applied/rejected is reached, retire the ID for agent writes. A previous pending proposal must be applied/rejected through HALO before a queued new proposal is reviewed. Never infer that a terminal receipt for the old ID proves a later edit.
-
-Changing score.key alone does not transpose literal MIDI. A deliberate key edit requires checking/remapping every pitched voice and verifying named key/pitch classes; intentional chromaticism remains allowed. HALO cannot infer the user's intended key from prose and cannot certify theory or taste from a label.
-
-Receipt statuses and **approved** are output/state words, never request commands. A status-only object is rejected as a non-score; replacing a terminal request cannot reapply it. Human approval is a HALO UI action. Rejection receipts now explicitly say STOP, rather than providing generic retry instructions.
-
-HALO cannot count another application's receipt reads or intercept its arbitrary shell writes. Actual enforcement needs an external file-tool adapter, with no unguarded shell bypass: see [adapter requirements](file-bridge-tool-adapter.md). No Bionic adapter is installed or integrated by this patch.
+scoreAudit reports actual time, keys, per-role attacksPerBar and section timing. Counts describe starts, not sustain or quality; retained generated parts have unknown counts. PART_BAR_GAP includes missing absoluteStep ranges. More events in the first bar do not populate later bars. Warnings are advisory, permit intentional rests and never add notes. A structurally valid sparse score is not artistic completion.
 
 ## Refresh and validation
 
-Reload updated HALO and choose **Update Files** in the connected folder. Existing old requests are not migrated or applied; submit newly authored v3 scores under fresh IDs. No user-connected folder is altered by repository development.
+Reload HALO and choose Update Files to refresh all five context documents. Refresh snapshot exports current state/projection and forces fresh request/companion/receipt reads; it never rebases, edits or applies a request. Terminal ready/applied/rejected IDs cannot replay. Auto scans run only while the integration panel/page are visible; manual checks remain. Clear Requests requires confirmation and preserves browser music/localStorage.
 
-Default flow requires human approval; the explicit user Auto-apply setting remains available. Approval rereads root/companions and checks revision; edits invalidate review. Terminal IDs do not replay across reconnect. Auto-scans run only while the integration panel and page are visible; manual checks remain available. Snapshot sync occurs on revision changes; bounded caches avoid idle rereads. Clear Requests requires confirmation and preserves the browser composition/localStorage. No new dependency, server, CDN, sound asset or deployment step.
-
-Related: [engine capabilities](engine-capabilities.md), [WebMCP/internal API](agent-api-specification.md), [release validation](release-validation.md), [tests](../tests/file-bridge.test.cjs). Node validation establishes format and engine behavior; live external-agent compliance, audible quality and native folder permissions require their own evidence.
+No backend, runtime dependency, CDN or build step is introduced. Related: [engine registry](engine-capabilities.md), [agent API](agent-api-specification.md), [regression](file-bridge-regression.md), [validation](release-validation.md).

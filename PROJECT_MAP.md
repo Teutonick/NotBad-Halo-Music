@@ -1,9 +1,10 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
-File Bridge regression: [five-step model scenario](docs/file-bridge-regression.md), isolated Luna low file tools, real disk receiver, protocol/score acceptance and separate listening limits. No new runtime capability or deployment dependency.
+## File Bridge — five-workflow contract, 2026-10-20
 
-File Bridge: compact format, full instrument catalog and bounded delivery; no music lessons or score examples. Reload HALO and Update Files. [Contract](docs/file-bridge-protocol.md).
+One strict halo-score format with modes probe/replace/edit/patch. A mandatory real ready exchange checks requests write and HALO responses read before composition; only HALO creates receipts. STATE now exposes only a directly accepted normalized score of ALL phrases/sections, without internal engine fields, with explicit materialization/unrepresentable-state disclosures. Atomic parameter patches target existing phrases and preserve every unmentioned field, note, timbre and arrangement reference under one approval/revision check. The workflow-only guide routes five ordinary user intents; capabilities.json owns requestSchema/format, instruments.json owns the unique canonical palette and explicit MIDI-versus-acoustic range semantics. No scored examples. [Complete contract](docs/file-bridge-protocol.md) · [Validation](docs/release-validation.md).
 
+This adds no backend, dependencies or new WebMCP tool. Internal/API operations keep their separate schemas. Reload HALO and Update Files before using probe/patch; older receiver code cannot process them. Bionic/LM Studio filesystem access must be granted by that host, not inferred from a readable guide.
 
 ### Implemented — 2026-10-15: compact workspace and input window
 

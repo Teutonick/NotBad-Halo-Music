@@ -65,7 +65,8 @@ async function main(){
    add('model completed',model.code===0&&!model.timedOut,model.code);
    const nonFileTools=model.events.filter(e=>e.type==='item.started'&&['command_execution','file_change','web_search','collab_tool_call'].includes(e.item?.type)||e.item?.type==='mcp_tool_call'&&e.item.server!=='shared');
    add('no tools outside shared folder',nonFileTools.length===0,nonFileTools);
-   const {checks,roots}=protocolChecks(tools.events,history);result.checks.push(...checks);
+   const {checks,roots,probeRoots}=protocolChecks(tools.events,history,true);result.checks.push(...checks);
+   if(step.id===5)add('parameter-only task uses atomic patch',tools.events.some(e=>e.tool==='write'&&e.ok&&e.mode==='patch'),tools.events.filter(e=>e.tool==='write').map(e=>e.mode));
    add('HALO has pending proposal',!!pending,pending?.id);
    if(pending){
     const receipt=JSON.parse(await fs.readFile(path.join(folder,'responses',pending.id+'.result.json'),'utf8'));
@@ -75,7 +76,7 @@ async function main(){
     const proposed=pending.preview?.after;
     if(proposed){result.acceptance=evaluateStep(step.id,before.project,proposed,history);result.checks.push(...result.acceptance.checks)}
     else add('pending preview exposed',false,Object.keys(pending));
-    const unsafe=result.checks.some(c=>!c.pass&&['model completed','no tools outside shared folder','no denied/budget tool attempts','guide learned in session; live state read before write','one fresh root request for this task','matching pending receipt was actually read'].includes(c.name));
+    const unsafe=result.checks.some(c=>!c.pass&&['model completed','no tools outside shared folder','no denied/budget tool attempts','guide learned in session; live state read before write','one fresh root request for this task','matching pending receipt was actually read','real ready probe before music write'].includes(c.name));
     if(result.checks.every(c=>c.pass)||(diagnostic&&!unsafe)){
      // Explicit user-authorized regression acceptance action; never performed by Luna.
      await receiver.bridge.applyPending();await receiver.bridge.checkFolder();
@@ -93,12 +94,12 @@ async function main(){
    if(!result.accepted){
     // Step 4 is explicitly a new task. Resolve a failed proposal before it;
     // never feed a failed transformation into a dependent task or claim it passed.
-    if(diagnostic&&result.applied){history.push({after:after.project,request:roots[0]});continue;}
+    if(diagnostic&&result.applied){history.push({after:after.project,request:roots[0],probeRequests:probeRoots});continue;}
     if(pending){await receiver.bridge.rejectPending();result.resolution='rejected_by_evaluator';}
     if(step.id===3)continue;
     break;
    }
-   history.push({after:after.project,request:roots[0]});
+   history.push({after:after.project,request:roots[0],probeRequests:probeRoots});
   }
   report.pass=report.steps.length===5&&report.steps.every(s=>s.accepted);
  }catch(e){report.harnessError=e.stack||e.message;throw e}

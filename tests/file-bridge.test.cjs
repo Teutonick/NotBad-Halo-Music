@@ -32,18 +32,14 @@ function bridgeFolder(){
 function scoreRequest(api, values={}){
  return {format:'halo-score',baseRevision:api.getProjectState().revision,mode:'replace',world:'ambient',tempo:96,bars:8,meter:'4/4',key:'C major',voices:{melody:{sound:'harp',notes:[[0,72],[124,76]]}},...values};
 }
-test('compact guide includes every timbre with its engine-provided recommended roles',()=>{
+test('workflow guide delegates format and complete palette to their authoritative files',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const registry=JSON.parse(files['instruments.json']);
- const rows=guide.slice(guide.indexOf('### ambient'),guide.indexOf('## Delivery')).split('\n').filter(line=>line.startsWith('| ')&&!line.startsWith('| sound |')&&!line.startsWith('| ---'));
- assert.equal(rows.length,registry.sounds.length);
- for(const [i,sound]of registry.sounds.entries()){
-  const cells=rows[i].split('|').slice(1,-1).map(v=>v.trim());
-  assert.deepEqual(cells,[sound.canonicalId,sound.name+(sound.pitched?' (pitched)':' (unpitched)'),sound.affinityRoles.join(', ')]);
- }
- assert.match(guide,/Compose the notes yourself/);
+ assert.equal(registry.sounds.length,62);
+ assert.match(guide,/capabilities.json.requestSchema/);
  assert.match(guide,/compatibleRoles/);
- assert.doesNotMatch(guide,/skip this if defaults are fine|optional sounds|Do not read the full engine\/API catalogs/);
+ assert.match(guide,/Choose from this catalog/);
+ assert.doesNotMatch(guide,/### ambient|### reactor|Required JSON structure|Voice fields/);
 });
 
 test('every advertised instrument can score an original part through the real engine validator',()=>{
@@ -54,7 +50,7 @@ test('every advertised instrument can score an original part through the real en
   const result=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{world:sound.world,voices:{[role]:voice}}),'instrument');
   assert.equal(result.ok,true,sound.world+'/'+sound.canonicalId+': '+result.error);
   const track=result.preview.after.tracks.find(t=>t.role===role);
-  assert.equal(track.sound.replace(/^(ambient|reactor)-/,''),sound.canonicalId);
+  assert.equal(track.instrument,sound.bankId);assert.ok(api.getCapabilities().catalog[sound.world][sound.bankId].sounds.some(s=>s.id===track.sound));
   assert.deepEqual(track.steps,[0,124]);assert.equal(track.exact,true);
  }
 });
@@ -129,7 +125,7 @@ test('flat score companion submission reaches pending, applies exact notes, reje
   req.files.set('req-simple--melody.json',JSON.stringify({sound:'harp',notes:[[0,72],[127,79]]}));await b.applyPending();assert.match(read().error,/REQUEST_CHANGED/);
   await b.checkFolder();assert.equal(read().status,'pending_approval');await b.applyPending();assert.equal(read().status,'applied');
   const applied=api.getProjectState();assert.deepEqual(applied.project.tracks[5].noteEvents,[{step:0,notes:[72]},{step:127,notes:[79]}]);
-  const exported=JSON.parse(root.files.get('project-state.json'));assert.deepEqual(exported.project,applied.project);
+  const exported=JSON.parse(root.files.get('project-state.json'));assert.equal(exported.project,undefined);assert.deepEqual(exported.score.voices.melody.notes,[[0,72],[127,79]]);
   assert.ok(!root.files.get('AGENT_GUIDE.md').includes('Current revision:'),'Only STATE supplies a live revision');
   const melody=api.getContext().music[0].tracks[5];
   assert.deepEqual(melody.events.map(e=>({step:e.step,notes:e.notes})),applied.project.tracks[5].noteEvents,'Authored melody reaches the engine without transposition');
@@ -389,7 +385,7 @@ test('resetLocalChanges clears requests/responses without wiping project or loca
 
   // Verify context files updated with current 135 bpm project
   assert.ok(rootFiles.has('project-state.json'));
-  assert.equal(JSON.parse(rootFiles.get('project-state.json')).project.tempo, 135);
+  assert.equal(JSON.parse(rootFiles.get('project-state.json')).score.tempo, 135);
   assert.ok(rootFiles.has('AGENT_GUIDE.md'));
 
   await bridge.disconnect();
@@ -410,14 +406,14 @@ test('automatic scans stop outside integration and on hidden pages; manual scan 
 });
 
 
-test('compact export preserves complete song state without computing a second score', () => {
+test('normalized export exposes the full song without leaking engine representation', () => {
   const fs=require('node:fs'),path=require('node:path');
   const {api}=createTestApp();
   const project=JSON.parse(fs.readFileSync(path.join(__dirname,'../examples/ai/adventure-song.halo.json'),'utf8'));
   const state={revision:17,project,visual:{scene:'ORBIT'}};
   const files=FileBridge.getContextFiles({getCapabilities:()=>api.getCapabilities(),getProjectState:()=>state,getContext(){throw Error('Derived score must not be requested')}});
   const exported=JSON.parse(files['project-state.json']);
-  assert.deepEqual(exported.project,project);
+  assert.equal(exported.project,undefined);assert.equal(exported.visual,undefined);assert.equal(exported.score.phrases.length,project.phrases.length);assert.deepEqual(exported.score.sections,project.sections);
   assert.equal(exported.revision,17);
   assert.equal(exported.music,undefined);
   const caps=JSON.parse(files['capabilities.json']);
@@ -427,12 +423,12 @@ test('compact export preserves complete song state without computing a second sc
     const source=engine.roles[role.trackIndex];
     assert.equal(role.maxNotes,source.maxNotes);
     assert.deepEqual(role.policy,source.policy);
-    assert.deepEqual(role.noteRange,{minMidi:source.minMidi??24,maxMidi:source.maxMidi??96});
+    assert.deepEqual(role.acousticRange,{minMidi:source.minMidi??24,maxMidi:source.maxMidi??96});
   }
   for(const sound of inst.sounds){
-    const source=engine.catalog[sound.world][sound.bankId].sounds.find(s=>s.id.replace(/^(ambient|reactor)-/,'')===sound.canonicalId);
+    const source=engine.catalog[sound.world][sound.bankId].sounds.find(s=>s.id.replace(/^(ambient|reactor)-/,'')===sound.canonicalId || sound.bankId.toLowerCase()+'-'+s.id===sound.canonicalId);
     assert.deepEqual(sound.compatibleRoles,source.playback.compatibleRoles);
-    assert.deepEqual(sound.noteRange,source.playback.range);
+    assert.deepEqual(sound.acousticRange,source.playback.range);
   }
 });
 
@@ -453,7 +449,7 @@ test('v3 package has one contract, complete cross references, no slot timbre con
  assert.equal(rules.soundWorlds,undefined);
  for(const sound of inst.sounds){assert.ok(sound.bankId);assert.equal(sound.id,undefined);assert.equal(sound.sound,undefined);assert.equal(sound.instrument,undefined);}
  assert.doesNotMatch(guide,/Current revision:|Current tempo:/);
- assert.match(guide,/Verify the connected ROOT/);
+ assert.match(guide,/ROOT is the exact absolute folder supplied by the user/);
  assert.match(guide,/pending_approval/);
  assert.match(guide,/at most 3 reads/);
  const anchors=[...guide.matchAll(/\]\(#([^)]+)\)/g)].map(m=>m[1]);
@@ -590,7 +586,7 @@ test('real directory roundtrip exports linked context, detects companion-only ch
   await fs.writeFile(companion,JSON.stringify({sound:'harp',notes:[[0,72],[127,79]]}));await bridge.checkFolder();
   assert.notEqual((await receipt()).submissionVersion,first.submissionVersion);await bridge.applyPending();assert.equal((await receipt()).status,'applied');
   assert.deepEqual(api.getProjectState().project.tracks[5].noteEvents,[{step:0,notes:[72]},{step:127,notes:[79]}]);
-  const exported=JSON.parse(await fs.readFile(path.join(folder,'project-state.json'),'utf8'));assert.deepEqual(exported.project,api.getProjectState().project);
+  const exported=JSON.parse(await fs.readFile(path.join(folder,'project-state.json'),'utf8'));assert.equal(exported.project,undefined);assert.equal(exported.score.baseRevision,api.getProjectState().revision);assert.equal(exported.scoreExport.complete,true);
   await bridge.checkFolder();assert.equal(bridge.getStatus().pending,null);
  }finally{
   bridge.dispose();assert.equal(path.dirname(path.resolve(folder)),tempRoot,'cleanup is confined to this test parent');await fs.rm(folder,{recursive:true,force:true});
@@ -600,17 +596,12 @@ test('real directory roundtrip exports linked context, detects companion-only ch
 
 
 
-test('composer guide is a bounded format/catalog contract without examples, templates or music lessons',()=>{
+test('composer workflow guide is bounded and has no copied format or score examples',()=>{
  const files=FileBridge.getContextFiles(createTestApp().api),guide=files['AGENT_GUIDE.md'];
  assert.doesNotMatch(guide,/\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
  assert.doesNotMatch(guide,/```json|REPLACE_WITH|Mandatory bar audit|ROOT_VERIFIED|climax|cadence|solfege|D natural minor/);
- assert.match(guide,/format is the exact string "halo-score"/);
- assert.match(guide,/Each Voice is ONE object with ONE sound string/);
- assert.match(guide,/array of tuples \[absoluteStep, MIDI/);
- assert.equal(JSON.parse(files['capabilities.json']).requestTemplate,undefined);
- const instrumentSection=guide.slice(guide.indexOf('## Instruments'),guide.indexOf('## Delivery'));
- assert.ok(guide.length<=11000,'complete guide stays compact');
- assert.ok(guide.length-instrumentSection.length<=4500,'non-catalog contract stays compact');
+ assert.match(guide,/format exactly halo-score/);assert.match(guide,/Before writing, check/);
+ assert.match(guide,/canonicalId/);assert.ok(guide.length<=8000,'workflow only, no catalog or schema duplication');
  const rules=JSON.parse(files['music-rules.json']);assert.equal(rules.barAudit,undefined);assert.equal(rules.orchestration,undefined);assert.equal(rules.keyChanges,undefined);
  assert.ok(rules.keys.includes('D MINOR'));assert.equal(rules.timeSignatures['3/4'].stepsPerBar,12);
 });
@@ -686,4 +677,227 @@ test('compact field contract accepts typed voices and exact events at the chosen
   voices:{melody:{sound:'bell',notes:[[0,62],[127,65]]},percussion:{sound:'shaker',steps:[8,120]}}};
  const r=FileBridge.parseAndValidateRequest(api,score,'typed');assert.equal(r.ok,true,r.error);assert.equal(r.scoreAudit.seconds,64);assert.equal(r.scoreAudit.phrases[0].barSeconds,8);
  assert.deepEqual(r.preview.after.tracks[5].noteEvents,[{step:0,notes:[62]},{step:127,notes:[65]}]);
+});
+
+
+test('timing glossary is shared by context files and uses musical bars, quarter beats and phrase-local steps',()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
+ const caps=JSON.parse(files['capabilities.json']),rules=JSON.parse(files['music-rules.json']);
+ assert.deepEqual(caps.timing,rules.timing);
+ assert.match(caps.timing['bar / measure (такт)'],/Ordinary musical bar/);
+ assert.match(caps.timing.absoluteStep,/within ONE phrase/);assert.match(caps.timing.absoluteStep,/Each different phrase starts again at 0/);
+ assert.match(guide,/Read the exact glossary in music-rules.json/);assert.match(guide,/Bar\/measure = такт/);
+ assert.match(guide,/one 4\/4 bar = 2 s; 8 such bars = 16 s/);assert.match(guide,/steps 0\.\.15 belong ONLY to bar 1; bar 8 uses 112\.\.127/);
+});
+
+test('musical timing and bar boundaries at 120 BPM agree with published glossary for both meters',()=>{
+ const {api}=createTestApp();
+ for(const [meter,lastStart,lastStep,seconds,barSeconds]of [['4/4',112,127,16,2],['3/4',84,95,12,1.5]]){
+  const spb=meter==='4/4'?16:12;
+  const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{tempo:120,meter,voices:{melody:{sound:'bell',notes:[[0,72],[spb-1,74],[spb,76],[lastStart,79],[lastStep,72]]}}}),'timing');
+  assert.equal(r.ok,true,r.error);assert.equal(r.scoreAudit.seconds,seconds);assert.equal(r.scoreAudit.phrases[0].barSeconds,barSeconds);
+  assert.deepEqual(r.scoreAudit.phrases[0].voices.find(v=>v.role==='melody').attacksPerBar,[2,1,0,0,0,0,0,2]);
+ }
+ const song=scoreRequest(api,{tempo:120,bars:4,voices:undefined,phrases:[{id:1,voices:{melody:{sound:'bell',notes:[[0,72]]}}},{id:2,voices:{melody:{sound:'bell',notes:[[0,76]]}}}],sections:[{phrase:1},{phrase:2}]});
+ const r=FileBridge.parseAndValidateRequest(api,song,'phrase-local');assert.equal(r.ok,true,r.error);
+ for(const p of r.scoreAudit.phrases)assert.deepEqual(p.voices.find(v=>v.role==='melody').attacksPerBar,[1,0,0,0]);
+});
+
+
+test('snapshot refresh exports live revision without rebasing, rereads same-metadata corrections and never replays terminal IDs',async()=>{
+ const f=await scoreFixture();try{
+  const original=f.req.getFileHandle.bind(f.req);
+  f.req.getFileHandle=async(...args)=>{const h=await original(...args),get=h.getFile.bind(h);h.getFile=async()=>{const file=await get(),text=await file.text();return {size:text.length,lastModified:1,text:async()=>text}};return h};
+  const stale=scoreRequest(f.api,{baseRevision:0});f.req.files.set('req-proof.json',JSON.stringify(stale));
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'error');
+  const before=f.api.getProjectState();
+  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/CONFLICT_REVISION/);
+  assert.deepEqual(f.api.getProjectState(),before);assert.equal(JSON.parse(f.req.files.get('req-proof.json')).baseRevision,0);
+  assert.equal(JSON.parse(f.root.files.get('project-state.json')).revision,before.revision);assert.equal(f.bridge.getStatus().snapshotRevision,before.revision);
+  f.req.files.set('req-proof.json',JSON.stringify({...stale,baseRevision:before.revision}));
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'error','idle metadata cache still sees old bytes');
+  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'pending_approval');assert.equal(f.bridge.getStatus().snapshotRevision,null);
+  assert.equal(f.api.getProjectState().revision,before.revision,'refresh never applies');
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');const applied=f.api.getProjectState();
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api,{tempo:140})));
+  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'applied');assert.deepEqual(f.api.getProjectState(),applied);
+ }finally{f.bridge.dispose()}
+});
+
+test('bar gap diagnostics give missing absolute-step ranges instead of suggesting density in bar one',()=>{
+ const {api}=createTestApp();
+ for(const [meter,range,last]of [['4/4','16–127','15'],['3/4','12–95','11']]){
+  const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{meter,voices:{melody:{sound:'bell',notes:[[0,72],[2,76],[4,79]]}}}),'one-bar');
+  assert.equal(r.ok,true,r.error);const warning=r.scoreReport.find(w=>w.code==='PART_BAR_GAP'&&w.path==='score.melody');
+  assert.ok(JSON.stringify(warning).includes('absoluteStep '+range));assert.ok(JSON.stringify(warning).includes('0–'+last));
+  assert.equal(r.scoreAudit.phrases[0].voices.find(v=>v.role==='melody').attacksPerBar.filter(Boolean).length,1);
+ }
+});
+
+
+test('step errors distinguish fractional positions, phrase bounds and duplicates without repairing authored music',()=>{
+ const {api}=createTestApp(),before=api.getProjectState();
+ for(const [notes,message]of [[[[0.5,72]],/must be an integer.*received 0.5/],[[[128,72]],/outside this phrase/],[[[0,72],[0,76]],/duplicate absoluteStep 0/]]){
+  const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'bell',notes}}}),'step-error');
+  assert.equal(r.ok,false);assert.match(r.error,message);assert.match(r.error,/score.voices.melody.notes\[/);assert.deepEqual(api.getProjectState(),before);
+ }
+});
+
+test('fractional-step receipt explains the grid and same-ID correction produces fresh pending approval',async()=>{
+ const f=await scoreFixture();try{
+  const score=scoreRequest(f.api,{voices:{melody:{sound:'bell',notes:[[0.5,72],[127,76]]}}});
+  f.req.files.set('req-proof.json',JSON.stringify(score));await f.bridge.checkFolder();const error=f.receipt();
+  assert.equal(error.status,'error');assert.match(error.help,/sixteenth-note grid/);assert.match(error.instructionForAgent,/same ID and paths/);
+  score.voices.melody.notes[0][0]=0;f.req.files.set('req-proof.json',JSON.stringify(score));await f.bridge.checkFolder();
+  assert.equal(f.receipt().id,error.id);assert.equal(f.receipt().status,'pending_approval');assert.notEqual(f.receipt().submissionVersion,error.submissionVersion);
+ }finally{f.bridge.dispose()}
+});
+
+test('copyable bilingual prompt explicitly requires receipt-driven bounded error repair and stopping',()=>{
+ const fs=require('node:fs'),source=fs.readFileSync(require.resolve('../src/file-bridge.js'),'utf8');
+ const prompt=source.slice(source.indexOf('const promptBox ='),source.indexOf('const api = {',source.indexOf('const promptBox =')));
+ for(const lang of ['Перед записью проверь','Check the format','максимум 2 исправления','at most 2 corrections','доставка не подтверждена','unconfirmed delivery'])assert.ok(prompt.includes(lang),lang);
+ assert.equal(prompt.split('error/help/instructionForAgent').length-1,2);assert.equal(prompt.split('responses/ID.result.json').length-1,2);
+ assert.match(FileBridge.getContextFiles(createTestApp().api)['AGENT_GUIDE.md'],/read error, help and instructionForAgent/);
+});
+
+
+async function seedTwoPhraseSong(api){
+ const score=scoreRequest(api,{tempo:100,bars:4,voices:undefined,phrases:[
+  {id:11,voices:{pulse:{sound:'pulse',steps:[0,16,32,48]},melody:{sound:'bell',notes:[[0,60],[32,64],[63,67]],duration:70}}},
+  {id:22,bars:8,meter:'3/4',key:'D minor',voices:{pulse:{sound:'round',notes:[[0,36],[48,38]]},melody:{sound:'harp',notes:[[0,62],[48,65],[95,69]],space:45}}}
+ ],sections:[{phrase:11,name:'intro'},{phrase:22,name:'chorus',repeats:2,fade:'out'}],repeat:true});
+ const parsed=FileBridge.parseAndValidateRequest(api,score,'seed');assert.equal(parsed.ok,true,parsed.error);api.setEnabled(true);await api.applyOperations(parsed.transaction);return api.getProjectState();
+}
+
+test('snapshot exports all phrase events and parameters in directly accepted halo-score with live revision',async()=>{
+ const {api}=createTestApp();await seedTwoPhraseSong(api);const before=api.getProjectState();
+ const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);
+ assert.equal(state.scoreExport.complete,true);assert.deepEqual(state.scoreExport.materialized,[]);assert.equal(state.project,undefined);
+ assert.equal(state.score.baseRevision,before.revision);assert.equal(state.score.phrases.length,2);assert.deepEqual(state.score.sections,before.project.sections);
+ assert.equal(state.score.phrases[0].voices.melody.duration,70);assert.equal(state.score.phrases[1].voices.melody.space,45);
+ const parsed=FileBridge.parseAndValidateRequest(api,state.score,'roundtrip');assert.equal(parsed.ok,true,parsed.error);
+ assert.deepEqual(parsed.preview.after,before.project,'canonical full song reimports without losing notes, sounds, parameters or arrangement');
+});
+
+test('atomic parameter patch preserves every other field across mixed-meter phrases and timbres',async()=>{
+ const {api}=createTestApp();await seedTwoPhraseSong(api);const before=api.getProjectState(),expected=structuredClone(before.project);
+ expected.phrases[0].project.tracks[0].on=false;expected.phrases[1].project.tracks[5].level=30;
+ const patch={format:'halo-score',mode:'patch',baseRevision:before.revision,patches:[{phraseId:11,voices:{pulse:{on:false}}},{phraseId:22,voices:{melody:{level:30}}}]};
+ const r=FileBridge.parseAndValidateRequest(api,patch,'patch');assert.equal(r.ok,true,r.error);assert.deepEqual(r.preview.after,expected);assert.deepEqual(api.getProjectState(),before);
+ await api.applyOperations(r.transaction);assert.deepEqual(api.getProjectState().project,expected);assert.equal(api.getProjectState().project.phrases[1].project.tracks[0].on,true,'pitched pulse in another phrase stays enabled');
+ for(const bad of [
+  {...patch,world:'reactor'},
+  {...patch,patches:[patch.patches[0],{phraseId:999,voices:{melody:{on:false}}}]},
+  {...patch,patches:[patch.patches[0],patch.patches[0]]},
+  {...patch,patches:[{phraseId:11,voices:{melody:{notes:[[0,72]]}}}]},
+  {...patch,patches:[{phraseId:11,voices:{melody:{sound:'bell'}}}]},
+  {...patch,patches:[{phraseId:11,voices:{melody:{on:'false'}}}]}
+ ]){bad.baseRevision=api.getProjectState().revision;const prior=api.getProjectState();assert.equal(FileBridge.parseAndValidateRequest(api,bad,'bad').ok,false);assert.deepEqual(api.getProjectState(),prior);}
+});
+
+test('single-phrase parameter patch needs no musical metadata and rejects stale revision atomically',()=>{
+ const {api}=createTestApp(),before=api.getProjectState();
+ const patch={format:'halo-score',mode:'patch',baseRevision:before.revision,patches:[{voices:{melody:{on:false}}}]};
+ const r=FileBridge.parseAndValidateRequest(api,patch,'patch-one');assert.equal(r.ok,true,r.error);const expected=structuredClone(before.project);expected.tracks[5].on=false;assert.deepEqual(r.preview.after,expected);
+ assert.equal(FileBridge.parseAndValidateRequest(api,{...patch,baseRevision:0},'stale').ok,false);assert.deepEqual(api.getProjectState(),before);
+});
+
+test('probe verifies real folder roundtrip without approval/mutation and its ID cannot become a music request',async()=>{
+ const f=await scoreFixture();try{
+  const before=f.api.getProjectState();f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'probe',baseRevision:before.revision}));
+  await f.bridge.checkFolder();const ready=f.receipt();assert.equal(ready.status,'ready');assert.equal(ready.applied,false);assert.equal(ready.id,'req-proof');assert.ok(ready.submissionVersion);
+  assert.equal(f.bridge.getStatus().pending,null);assert.deepEqual(f.api.getProjectState(),before);
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.equal(f.receipt().status,'ready');assert.deepEqual(f.api.getProjectState(),before);
+ }finally{f.bridge.dispose()}
+});
+
+test('probe rejects forged readiness, music payloads and stale revision',()=>{
+ const {api}=createTestApp(),probe={format:'halo-score',mode:'probe',baseRevision:api.getProjectState().revision};
+ assert.equal(FileBridge.parseAndValidateRequest(api,probe,'access-check').probe,true);
+ for(const extra of [{status:'ready'},{voices:{}},{baseRevision:0},{baseRevision:'1'}])assert.equal(FileBridge.parseAndValidateRequest(api,{...probe,...extra},'access-check').ok,false);
+});
+
+test('generated snapshot discloses materialization and its emitted score passes the same validator',()=>{
+ const {api}=createTestApp(),snapshot=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);
+ assert.equal(snapshot.scoreExport.complete,true);assert.ok(snapshot.scoreExport.materialized.length);assert.match(snapshot.scoreExport.meaning,/Future generated cycles/);
+ const r=FileBridge.parseAndValidateRequest(api,snapshot.score,'generated-cycle');assert.equal(r.ok,true,r.error);
+});
+
+test('unrepresentable snapshot never truncates notes or fabricates a complete score',()=>{
+ const {api}=createTestApp(),state=api.getProjectState(),before=structuredClone(api.getProjectState());state.project.tracks[5].exact=true;state.project.tracks[5].steps=[0];state.project.tracks[5].noteEvents=[];
+ const out=FileBridge.generateProjectState(state,api.getCapabilities());assert.equal(out.score,null);assert.equal(out.scoreExport.complete,false);assert.match(out.scoreExport.error,/Missing explicit MIDI/);assert.equal(out.project,undefined);assert.deepEqual(api.getProjectState(),before);
+});
+
+test('song-wide patch is reviewed once, reread on approval and applied as one revision',async()=>{
+ const f=await scoreFixture();try{
+  await seedTwoPhraseSong(f.api);await f.bridge.checkFolder();const before=f.api.getProjectState();
+  const patch={format:'halo-score',mode:'patch',baseRevision:before.revision,patches:[{phraseId:11,voices:{melody:{on:false}}},{phraseId:22,voices:{melody:{on:false}}}]};
+  f.req.files.set('req-proof.json',JSON.stringify(patch));await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');assert.deepEqual(f.api.getProjectState(),before);
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');const after=f.api.getProjectState();assert.equal(after.revision,before.revision+1);
+  const expected=structuredClone(before.project);for(const p of expected.phrases)p.project.tracks[5].on=false;assert.deepEqual(after.project,expected);
+  const exported=JSON.parse(f.root.files.get('project-state.json'));assert.equal(exported.score.baseRevision,after.revision);assert.ok(exported.score.phrases.every(p=>p.voices.melody.on===false));
+ }finally{f.bridge.dispose()}
+});
+
+
+test('score projection preserves phrase start phase and effective literal MIDI',()=>{
+ const {api}=createTestApp();const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{bars:4,voices:{melody:{sound:'bell',notes:[[0,60],[32,64],[63,67]]}}}),'phase');assert.equal(r.ok,true,r.error);
+ const state={revision:api.getProjectState().revision,project:structuredClone(r.preview.after)};state.project.startStep=16;
+ const exported=FileBridge.generateProjectState(state,api.getCapabilities());assert.equal(exported.scoreExport.complete,true);
+ assert.deepEqual(exported.score.voices.melody.notes,[[16,64],[47,67],[48,60]]);
+ assert.equal(FileBridge.parseAndValidateRequest(api,exported.score,'rotated').ok,true);
+});
+
+
+test('full canonical song roundtrip retains distinct per-phrase Track 09 references and settings',async()=>{
+ const {api}=createTestApp();await seedTwoPhraseSong(api);const project=api.getProjectState().project;
+ project.phrases[0].project.liveLoop={version:1,layerIds:[101],settings:{pitch:7,bars:2}};
+ project.phrases[1].project.liveLoop={version:1,layerIds:[202],settings:{pitch:-3,bars:4}};
+ await api.applyOperations({schemaVersion:1,baseRevision:api.getProjectState().revision,operations:[{op:'composition.replace',project}]});
+ const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);const r=FileBridge.parseAndValidateRequest(api,state.score,'keep-loop');assert.equal(r.ok,true,r.error);
+ assert.deepEqual(r.preview.after,api.getProjectState().project);
+ const patch={format:'halo-score',mode:'patch',baseRevision:state.revision,patches:[{phraseId:11,voices:{pulse:{on:false}}},{phraseId:22,voices:{melody:{on:false}}}]};
+ const p=FileBridge.parseAndValidateRequest(api,patch,'keep-loop-patch');assert.equal(p.ok,true,p.error);for(let i=0;i<2;i++)assert.deepEqual(p.preview.after.phrases[i].project.liveLoop,api.getProjectState().project.phrases[i].project.liveLoop);
+});
+
+
+test('canonical sound identity is unique and both formerly ambiguous hats retain their real source bank',async()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),registry=JSON.parse(files['instruments.json']);
+ for(const world of ['ambient','reactor']){
+  const rows=registry.sounds.filter(s=>s.world===world);assert.equal(new Set(rows.map(s=>s.canonicalId)).size,rows.length);
+ }
+ const hats=registry.sounds.filter(s=>s.world==='ambient'&&['RAIN','MOSS'].includes(s.bankId)&&s.canonicalId.endsWith('-hat'));
+ assert.deepEqual(hats.map(s=>s.canonicalId),['rain-hat','moss-hat']);
+ for(const sound of hats){
+  const voice={sound:sound.canonicalId,steps:[0,16,64,127]},role=sound.compatibleRoles[0];
+  const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{[role]:voice}}),'hat-test');assert.equal(r.ok,true,r.error);
+  const t=r.preview.after.tracks.find(t=>t.role===role);assert.equal(t.instrument,sound.bankId);assert.equal(t.sound,'hat');assert.equal(r.scoreAudit.phrases[0].voices.find(v=>v.role===role).sound,sound.canonicalId);
+  api.setEnabled(true);await api.applyOperations(r.transaction);
+  const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.deepEqual(state.score.voices[role].steps,voice.steps);assert.equal(state.score.voices[role].sound,sound.canonicalId);
+  const edit=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{mode:'edit',voices:{[role]:{level:40}}}),'hat-edit');assert.equal(edit.ok,true,edit.error);assert.equal(edit.preview.after.tracks.find(t=>t.role===role).instrument,sound.bankId);
+ }
+ assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{percussion:{sound:'hat',steps:[0]}}}),'ambiguous').ok,false);
+});
+
+test('MIDI hard bounds differ from acoustic playback register without rewriting authored pitches',async()=>{
+ const {api}=createTestApp(),registry=FileBridge.generateInstruments(api.getCapabilities());
+ assert.deepEqual(registry.midiInputRange,{min:0,max:127,integer:true});assert.deepEqual(registry.sounds.find(s=>s.world==='ambient'&&s.canonicalId==='bell').acousticRange,[26,88]);
+ const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'bell',notes:[[0,92],[127,127]]}}}),'register');assert.equal(r.ok,true,r.error);
+ api.setEnabled(true);await api.applyOperations(r.transaction);
+ const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.deepEqual(state.score.voices.melody.notes,[[0,92],[127,127]]);
+ for(const midi of [-1,128,60.5])assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'bell',notes:[[0,midi]]}}}),'register-bad').ok,false);
+});
+
+test('one machine-readable canonical schema separates mutually exclusive modes and snapshot has no engine fields',()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=JSON.parse(files['capabilities.json']),state=JSON.parse(files['project-state.json']);
+ assert.equal(caps.requestSchema.$schema,'https://json-schema.org/draft/2020-12/schema');assert.equal(caps.requestSchema.oneOf.length,5);
+ const [probe,phrase,song,edit,patch]=caps.requestSchema.oneOf;
+ for(const shape of caps.requestSchema.oneOf){assert.equal(shape.additionalProperties,false);assert.ok(shape.required.includes('baseRevision'));assert.ok(shape.required.includes('format'));}
+ assert.ok(phrase.required.includes('voices'));assert.ok(!song.properties.voices);assert.ok(song.required.includes('phrases'));assert.ok(song.required.includes('sections'));
+ assert.deepEqual(probe.required,['format','baseRevision','mode']);assert.ok(!probe.properties.voices);assert.ok(!patch.properties.world);assert.ok(patch.required.includes('patches'));assert.ok(edit.properties.phraseId);
+ assert.doesNotMatch(files['capabilities.json'],/Fix ROOT|Fix STATE|Fix.*RECEIPT/);
+ assert.doesNotMatch(files['project-state.json'],/"(?:project|visual|setup|noteEvents|startStep|noteTranspose|instrument)"\s*:/);
+ assert.equal(state.score.baseRevision,state.revision);assert.equal(typeof state.score.key,'string');assert.ok(state.score.meter);
+ assert.equal(FileBridge.parseAndValidateRequest(api,state.score,'schema-export').ok,true);
 });
