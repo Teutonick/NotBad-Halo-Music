@@ -1,182 +1,34 @@
 {
-  "schemaVersion": 3,
-  "protocol": "halo-score",
-  "engine": "NotBad Halo Music Constructor",
-  "references": {
-    "agentGuide": "AGENT_GUIDE.md#contents",
-    "capabilities": "capabilities.json",
-    "instruments": "instruments.json",
-    "musicRules": "music-rules.json",
-    "projectState": "project-state.json"
-  },
-  "authority": "File Bridge SCORE (партитура) contract only. WebMCP is a separate API.",
+  "schemaVersion": 3, "protocol": "halo-score", "engine": "NotBad Halo Music Constructor", "references": {"agentGuide": "AGENT_GUIDE.md#required-json-structure", "capabilities": "capabilities.json", "instruments": "instruments.json", "musicRules": "music-rules.json", "projectState": "project-state.json"}, "authority": "File Bridge SCORE (партитура) contract only. WebMCP is a separate API.",
   "delivery": {
-    "agentWrite": [
-      "requests/"
-    ],
-    "haloOnlyWrite": [
-      "responses/",
-      "AGENT_GUIDE.md",
-      "capabilities.json",
-      "instruments.json",
-      "music-rules.json",
-      "project-state.json"
-    ],
-    "request": "requests/<ID>.json",
-    "receipt": "responses/<ID>.result.json",
-    "companion": "requests/<ID>--<role>.json",
-    "reference": "<ID>--<role>.json",
-    "directories": "HALO creates requests/ and responses/. Agents never create directories.",
-    "publication": "Complete and read back companions first, publish and read back REQUEST (запрос) last.",
-    "root": "Verify one connected BRIDGE_ROOT (корневая папка) containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables BRIDGE_ROOT (корневая папка), STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Binding a path never authorizes writing that file; STATE_PATH and RECEIPT_PATH are read-only to the agent."
+    "agentWrite": ["requests/"], "haloOnlyWrite": ["responses/", "AGENT_GUIDE.md", "capabilities.json", "instruments.json", "music-rules.json", "project-state.json"], "request": "requests/<ID>.json", "receipt": "responses/<ID>.result.json", "companion": "requests/<ID>--<role>.json", "reference": "<ID>--<role>.json", "directories": "HALO creates requests/ and responses/. Agents use those existing directories.",
+    "publication": "Complete and read back companions first, publish and read back REQUEST (запрос) last.", "root": "Verify one connected BRIDGE_ROOT (корневая папка) containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables BRIDGE_ROOT (корневая папка), STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Write permission covers requests/; STATE_PATH and RECEIPT_PATH are read-only to the agent."
   },
   "timing": {
-    "BAR": "Ordinary musical BAR (такт), not a special HALO unit: 4 quarter-note BEAT (доля) in 4/4; 3 in 3/4.",
-    "BEAT": "One quarter note in both supported meters. A BEAT (доля) is not a BAR (такт) or a STEP (шаг сетки).",
-    "TEMPO": "Quarter-note BEAT (доля) per minute, not BAR (такт) per minute.",
-    "STEP": "One sixteenth note (semiquaver): 4 STEP (шаг сетки) per BEAT (доля); 16 per 4/4 BAR (такт), 12 per 3/4 BAR (такт).",
-    "POSITION": "Zero-based event onset within ONE PHRASE (фраза); never resets at a BAR (такт) boundary. Each different PHRASE (фраза) starts again at 0.",
-    "PHRASE": "HALO SCORE (партитура) container of 4 or 8 musical BAR (такт); not a fixed duration in seconds.",
-    "SECTION": "COMPOSITION (композиция) arrangement entry referencing a PHRASE (фраза) and its repeats; not a second event-position grid.",
-    "REST": "Intentional absence of new attacks; earlier sounds may sustain. Empty BAR (такт) are allowed; events are never filled or repeated automatically."
+    "BAR": "Ordinary musical BAR (такт): 4 quarter-note BEAT (доля) in 4/4; 3 in 3/4.", "BEAT": "One quarter note in both supported meters. Four STEP (шаг сетки) form one BEAT (доля).", "TEMPO": "Quarter-note BEAT (доля) per minute, not BAR (такт) per minute.", "STEP": "One sixteenth note (semiquaver): 4 STEP (шаг сетки) per BEAT (доля); 16 per 4/4 BAR (такт), 12 per 3/4 BAR (такт).",
+    "POSITION": "Zero-based event onset within ONE PHRASE (фраза); continues across BAR (такт) boundaries. Each different PHRASE (фраза) starts again at 0.", "PHRASE": "HALO SCORE (партитура) container of 4 or 8 musical BAR (такт); tempo and meter determine duration in seconds.", "SECTION": "COMPOSITION (композиция) arrangement entry referencing a PHRASE (фраза) and its repeats; events use that PHRASE (фраза)’s position grid.",
+    "REST": "Intentional absence of new attacks; earlier sounds may sustain. Empty BAR (такт) are allowed; the agent authors each intended event explicitly."
   },
-  "limits": {
-    "tempo": [
-      30,
-      200
-    ],
-    "bars": [
-      4,
-      8
-    ],
-    "tracks": 8,
-    "stepsPerBar": {
-      "4/4": 16,
-      "3/4": 12
-    },
-    "phrases": 15,
-    "sections": 32,
-    "totalBars": 128,
-    "bytes": 524288
-  },
+  "limits": {"tempo": [30, 200], "bars": [4, 8], "tracks": 8, "stepsPerBar": {"4/4": 16, "3/4": 12}, "phrases": 15, "sections": 32, "totalBars": 128, "bytes": 524288},
   "syntax": {
-    "canonical": "JSON matching requestSchema",
-    "acceptedPresentation": [
-      "UTF-8 BOM",
-      "one json/jsonc/json5 code fence",
-      "line and block comments",
-      "trailing commas",
-      "single-quoted strings",
-      "unquoted identifier keys and single-token string values",
-      "missing commas between whitespace-separated complete values"
-    ],
-    "neverRepair": "Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All musical, freshness and path checks still apply after parsing."
+    "canonical": "JSON matching requestSchema", "acceptedPresentation": ["UTF-8 BOM", "one json/jsonc/json5 code fence", "line and block comments", "trailing commas", "single-quoted strings", "unquoted identifier keys and single-token string values", "missing commas between whitespace-separated complete values"],
+    "repairPolicy": "Presentation normalization preserves complete, uniquely keyed literal data and musical values. Incomplete values, fused numbers, duplicate keys and expressions require an author correction. Musical, freshness and path checks apply after parsing."
   },
   "requestSchema": {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "HALO File Bridge canonical REQUEST (запрос)",
-    "description": "Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.",
+    "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "HALO File Bridge canonical REQUEST (запрос)",
+    "description": "Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. Host permissions and musical quality require separate verification.",
     "$defs": {
       "createVoice": {
         "oneOf": [
           {
             "type": "object",
             "properties": {
-              "sound": {
-                "type": "string",
-                "minLength": 1
-              },
-              "on": {
-                "type": "boolean"
-              },
-              "level": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "character": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "duration": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "space": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "delay": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "chorus": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "notes": {
-                "type": "array",
-                "maxItems": 128,
-                "items": {
-                  "type": "array",
-                  "minItems": 2,
-                  "maxItems": 5,
-                  "prefixItems": [
-                    {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 127
-                    }
-                  ],
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 127
-                  }
-                }
-              },
-              "steps": {
-                "type": "array",
-                "maxItems": 128,
-                "uniqueItems": true,
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 127
-                }
-              }
+              "sound": {"type": "string", "minLength": 1}, "on": {"type": "boolean"}, "level": {"type": "number", "minimum": 0, "maximum": 100}, "character": {"type": "number", "minimum": 0, "maximum": 100}, "duration": {"type": "number", "minimum": 0, "maximum": 100}, "space": {"type": "number", "minimum": 0, "maximum": 100}, "delay": {"type": "number", "minimum": 0, "maximum": 100}, "chorus": {"type": "number", "minimum": 0, "maximum": 100},
+              "notes": {"type": "array", "maxItems": 128, "items": {"type": "array", "minItems": 2, "maxItems": 5, "prefixItems": [{"type": "integer", "minimum": 0, "maximum": 127}], "items": {"type": "integer", "minimum": 0, "maximum": 127}}}, "steps": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 127}}
             },
-            "required": [
-              "sound"
-            ],
-            "additionalProperties": false,
-            "not": {
-              "required": [
-                "notes",
-                "steps"
-              ]
-            },
-            "oneOf": [
-              {
-                "required": [
-                  "notes"
-                ]
-              },
-              {
-                "required": [
-                  "steps"
-                ]
-              }
-            ]
+            "required": ["sound"], "additionalProperties": false, "not": {"required": ["notes", "steps"]}, "oneOf": [{"required": ["notes"]}, {"required": ["steps"]}]
           },
-          {
-            "$ref": "#/$defs/companion"
-          }
+          {"$ref": "#/$defs/companion"}
         ]
       },
       "editVoice": {
@@ -184,909 +36,114 @@
           {
             "type": "object",
             "properties": {
-              "sound": {
-                "type": "string",
-                "minLength": 1
-              },
-              "on": {
-                "type": "boolean"
-              },
-              "level": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "character": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "duration": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "space": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "delay": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "chorus": {
-                "type": "number",
-                "minimum": 0,
-                "maximum": 100
-              },
-              "notes": {
-                "type": "array",
-                "maxItems": 128,
-                "items": {
-                  "type": "array",
-                  "minItems": 2,
-                  "maxItems": 5,
-                  "prefixItems": [
-                    {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 127
-                    }
-                  ],
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 127
-                  }
-                }
-              },
-              "steps": {
-                "type": "array",
-                "maxItems": 128,
-                "uniqueItems": true,
-                "items": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 127
-                }
-              }
+              "sound": {"type": "string", "minLength": 1}, "on": {"type": "boolean"}, "level": {"type": "number", "minimum": 0, "maximum": 100}, "character": {"type": "number", "minimum": 0, "maximum": 100}, "duration": {"type": "number", "minimum": 0, "maximum": 100}, "space": {"type": "number", "minimum": 0, "maximum": 100}, "delay": {"type": "number", "minimum": 0, "maximum": 100}, "chorus": {"type": "number", "minimum": 0, "maximum": 100},
+              "notes": {"type": "array", "maxItems": 128, "items": {"type": "array", "minItems": 2, "maxItems": 5, "prefixItems": [{"type": "integer", "minimum": 0, "maximum": 127}], "items": {"type": "integer", "minimum": 0, "maximum": 127}}}, "steps": {"type": "array", "maxItems": 128, "uniqueItems": true, "items": {"type": "integer", "minimum": 0, "maximum": 127}}
             },
-            "required": [],
-            "additionalProperties": false,
-            "not": {
-              "required": [
-                "notes",
-                "steps"
-              ]
-            }
+            "required": [], "additionalProperties": false, "not": {"required": ["notes", "steps"]}
           },
-          {
-            "$ref": "#/$defs/companion"
-          }
+          {"$ref": "#/$defs/companion"}
         ]
       },
-      "companion": {
-        "type": "object",
-        "properties": {
-          "file": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*--(?:pulse|accent|percussion|texture|bass|melody|arpeggio|harmony)\\.json$"
-          }
-        },
-        "required": [
-          "file"
-        ],
-        "additionalProperties": false
-      },
+      "companion": {"type": "object", "properties": {"file": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*--(?:pulse|accent|percussion|texture|bass|melody|arpeggio|harmony)\\.json$"}}, "required": ["file"], "additionalProperties": false},
       "parameters": {
-        "type": "object",
-        "properties": {
-          "on": {
-            "type": "boolean"
-          },
-          "level": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "character": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "duration": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "space": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "delay": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "chorus": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          }
-        },
-        "required": [],
-        "additionalProperties": false,
+        "type": "object", "properties": {"on": {"type": "boolean"}, "level": {"type": "number", "minimum": 0, "maximum": 100}, "character": {"type": "number", "minimum": 0, "maximum": 100}, "duration": {"type": "number", "minimum": 0, "maximum": 100}, "space": {"type": "number", "minimum": 0, "maximum": 100}, "delay": {"type": "number", "minimum": 0, "maximum": 100}, "chorus": {"type": "number", "minimum": 0, "maximum": 100}}, "required": [], "additionalProperties": false,
         "minProperties": 1
       }
     },
     "oneOf": [
+      {"type": "object", "properties": {"format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "probe"}}, "required": ["format", "mode"], "additionalProperties": false},
       {
         "type": "object",
         "properties": {
-          "format": {
-            "const": "halo-score"
-          },
-          "requestId": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
-            "maxLength": 128
-          },
-          "mode": {
-            "const": "probe"
-          }
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]},
+          "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/createVoice"}, "accent": {"$ref": "#/$defs/createVoice"}, "percussion": {"$ref": "#/$defs/createVoice"}, "texture": {"$ref": "#/$defs/createVoice"}, "bass": {"$ref": "#/$defs/createVoice"}, "melody": {"$ref": "#/$defs/createVoice"}, "arpeggio": {"$ref": "#/$defs/createVoice"}, "harmony": {"$ref": "#/$defs/createVoice"}}, "required": [], "additionalProperties": false}
         },
-        "required": [
-          "format",
-          "mode"
-        ],
-        "additionalProperties": false
+        "required": ["format", "mode", "world", "tempo", "bars", "meter", "key", "voices"], "additionalProperties": false
       },
       {
         "type": "object",
         "properties": {
-          "format": {
-            "const": "halo-score"
-          },
-          "requestId": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
-            "maxLength": 128
-          },
-          "mode": {
-            "const": "replace"
-          },
-          "world": {
-            "enum": [
-              "ambient",
-              "reactor"
-            ]
-          },
-          "tempo": {
-            "type": "number",
-            "minimum": 30,
-            "maximum": 200
-          },
-          "bars": {
-            "enum": [
-              4,
-              8
-            ]
-          },
-          "meter": {
-            "enum": [
-              "4/4",
-              "3/4"
-            ]
-          },
-          "key": {
-            "type": "string",
-            "enum": [
-              "D MINOR",
-              "F MAJOR",
-              "C MAJOR",
-              "A MINOR",
-              "E MINOR",
-              "G MAJOR",
-              "D MAJOR",
-              "B MINOR",
-              "F♯ MINOR",
-              "A MAJOR",
-              "E MAJOR",
-              "C♯ MINOR",
-              "G♯ MINOR",
-              "B MAJOR",
-              "F♯ MAJOR",
-              "D♯ MINOR",
-              "A♯ MINOR",
-              "C♯ MAJOR",
-              "G♯ MAJOR",
-              "F MINOR",
-              "C MINOR",
-              "D♯ MAJOR",
-              "A♯ MAJOR",
-              "G MINOR"
-            ]
-          },
-          "voices": {
-            "type": "object",
-            "properties": {
-              "pulse": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "accent": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "percussion": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "texture": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "bass": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "melody": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "arpeggio": {
-                "$ref": "#/$defs/createVoice"
-              },
-              "harmony": {
-                "$ref": "#/$defs/createVoice"
-              }
-            },
-            "required": [],
-            "additionalProperties": false
-          }
-        },
-        "required": [
-          "format",
-          "mode",
-          "world",
-          "tempo",
-          "bars",
-          "meter",
-          "key",
-          "voices"
-        ],
-        "additionalProperties": false
-      },
-      {
-        "type": "object",
-        "properties": {
-          "format": {
-            "const": "halo-score"
-          },
-          "requestId": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
-            "maxLength": 128
-          },
-          "mode": {
-            "const": "replace"
-          },
-          "world": {
-            "enum": [
-              "ambient",
-              "reactor"
-            ]
-          },
-          "tempo": {
-            "type": "number",
-            "minimum": 30,
-            "maximum": 200
-          },
-          "bars": {
-            "enum": [
-              4,
-              8
-            ]
-          },
-          "meter": {
-            "enum": [
-              "4/4",
-              "3/4"
-            ]
-          },
-          "key": {
-            "type": "string",
-            "enum": [
-              "D MINOR",
-              "F MAJOR",
-              "C MAJOR",
-              "A MINOR",
-              "E MINOR",
-              "G MAJOR",
-              "D MAJOR",
-              "B MINOR",
-              "F♯ MINOR",
-              "A MAJOR",
-              "E MAJOR",
-              "C♯ MINOR",
-              "G♯ MINOR",
-              "B MAJOR",
-              "F♯ MAJOR",
-              "D♯ MINOR",
-              "A♯ MINOR",
-              "C♯ MAJOR",
-              "G♯ MAJOR",
-              "F MINOR",
-              "C MINOR",
-              "D♯ MAJOR",
-              "A♯ MAJOR",
-              "G MINOR"
-            ]
-          },
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]},
           "phrases": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 15,
+            "type": "array", "minItems": 1, "maxItems": 15,
             "items": {
               "type": "object",
               "properties": {
-                "id": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "bars": {
-                  "enum": [
-                    4,
-                    8
-                  ]
-                },
-                "meter": {
-                  "enum": [
-                    "4/4",
-                    "3/4"
-                  ]
-                },
-                "key": {
-                  "type": "string",
-                  "enum": [
-                    "D MINOR",
-                    "F MAJOR",
-                    "C MAJOR",
-                    "A MINOR",
-                    "E MINOR",
-                    "G MAJOR",
-                    "D MAJOR",
-                    "B MINOR",
-                    "F♯ MINOR",
-                    "A MAJOR",
-                    "E MAJOR",
-                    "C♯ MINOR",
-                    "G♯ MINOR",
-                    "B MAJOR",
-                    "F♯ MAJOR",
-                    "D♯ MINOR",
-                    "A♯ MINOR",
-                    "C♯ MAJOR",
-                    "G♯ MAJOR",
-                    "F MINOR",
-                    "C MINOR",
-                    "D♯ MAJOR",
-                    "A♯ MAJOR",
-                    "G MINOR"
-                  ]
-                },
-                "voices": {
-                  "type": "object",
-                  "properties": {
-                    "pulse": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "accent": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "percussion": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "texture": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "bass": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "melody": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "arpeggio": {
-                      "$ref": "#/$defs/createVoice"
-                    },
-                    "harmony": {
-                      "$ref": "#/$defs/createVoice"
-                    }
-                  },
-                  "required": [],
-                  "additionalProperties": false
-                }
+                "id": {"type": "integer", "minimum": 1}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]}, "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]},
+                "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/createVoice"}, "accent": {"$ref": "#/$defs/createVoice"}, "percussion": {"$ref": "#/$defs/createVoice"}, "texture": {"$ref": "#/$defs/createVoice"}, "bass": {"$ref": "#/$defs/createVoice"}, "melody": {"$ref": "#/$defs/createVoice"}, "arpeggio": {"$ref": "#/$defs/createVoice"}, "harmony": {"$ref": "#/$defs/createVoice"}}, "required": [], "additionalProperties": false}
               },
-              "required": [
-                "id",
-                "voices"
-              ],
-              "additionalProperties": false
+              "required": ["id", "voices"], "additionalProperties": false
             }
           },
-          "sections": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 32,
-            "items": {
-              "type": "object",
-              "properties": {
-                "phrase": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "repeats": {
-                  "type": "integer",
-                  "minimum": 1,
-                  "maximum": 8
-                },
-                "name": {
-                  "enum": [
-                    "intro",
-                    "verse",
-                    "verse2",
-                    "chorus",
-                    "bridge",
-                    "outro",
-                    "phrase"
-                  ]
-                },
-                "fade": {
-                  "enum": [
-                    "none",
-                    "in",
-                    "out"
-                  ]
-                }
-              },
-              "required": [
-                "phrase"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "repeat": {
-            "type": "boolean"
-          }
+          "sections": {"type": "array", "minItems": 1, "maxItems": 32, "items": {"type": "object", "properties": {"phrase": {"type": "integer", "minimum": 1}, "repeats": {"type": "integer", "minimum": 1, "maximum": 8}, "name": {"enum": ["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"]}, "fade": {"enum": ["none", "in", "out"]}}, "required": ["phrase"], "additionalProperties": false}}, "repeat": {"type": "boolean"}
         },
-        "required": [
-          "format",
-          "mode",
-          "world",
-          "tempo",
-          "bars",
-          "meter",
-          "key",
-          "phrases",
-          "sections"
-        ],
-        "additionalProperties": false
+        "required": ["format", "mode", "world", "tempo", "bars", "meter", "key", "phrases", "sections"], "additionalProperties": false
       },
       {
         "type": "object",
         "properties": {
-          "format": {
-            "const": "halo-score"
-          },
-          "requestId": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
-            "maxLength": 128
-          },
-          "mode": {
-            "const": "edit"
-          },
-          "world": {
-            "enum": [
-              "ambient",
-              "reactor"
-            ]
-          },
-          "tempo": {
-            "type": "number",
-            "minimum": 30,
-            "maximum": 200
-          },
-          "bars": {
-            "enum": [
-              4,
-              8
-            ]
-          },
-          "meter": {
-            "enum": [
-              "4/4",
-              "3/4"
-            ]
-          },
-          "key": {
-            "type": "string",
-            "enum": [
-              "D MINOR",
-              "F MAJOR",
-              "C MAJOR",
-              "A MINOR",
-              "E MINOR",
-              "G MAJOR",
-              "D MAJOR",
-              "B MINOR",
-              "F♯ MINOR",
-              "A MAJOR",
-              "E MAJOR",
-              "C♯ MINOR",
-              "G♯ MINOR",
-              "B MAJOR",
-              "F♯ MAJOR",
-              "D♯ MINOR",
-              "A♯ MINOR",
-              "C♯ MAJOR",
-              "G♯ MAJOR",
-              "F MINOR",
-              "C MINOR",
-              "D♯ MAJOR",
-              "A♯ MAJOR",
-              "G MINOR"
-            ]
-          },
-          "phraseId": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "voices": {
-            "type": "object",
-            "properties": {
-              "pulse": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "accent": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "percussion": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "texture": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "bass": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "melody": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "arpeggio": {
-                "$ref": "#/$defs/editVoice"
-              },
-              "harmony": {
-                "$ref": "#/$defs/editVoice"
-              }
-            },
-            "required": [],
-            "additionalProperties": false
-          }
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "edit"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]}, "phraseId": {"type": "integer", "minimum": 1},
+          "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/editVoice"}, "accent": {"$ref": "#/$defs/editVoice"}, "percussion": {"$ref": "#/$defs/editVoice"}, "texture": {"$ref": "#/$defs/editVoice"}, "bass": {"$ref": "#/$defs/editVoice"}, "melody": {"$ref": "#/$defs/editVoice"}, "arpeggio": {"$ref": "#/$defs/editVoice"}, "harmony": {"$ref": "#/$defs/editVoice"}}, "required": [], "additionalProperties": false}
         },
-        "required": [
-          "format",
-          "mode",
-          "world",
-          "tempo",
-          "bars",
-          "meter",
-          "key",
-          "voices"
-        ],
-        "additionalProperties": false
+        "required": ["format", "mode", "world", "tempo", "bars", "meter", "key", "voices"], "additionalProperties": false
       },
       {
         "type": "object",
         "properties": {
-          "format": {
-            "const": "halo-score"
-          },
-          "requestId": {
-            "type": "string",
-            "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
-            "maxLength": 128
-          },
-          "mode": {
-            "const": "patch"
-          },
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "patch"},
           "patches": {
-            "type": "array",
-            "minItems": 1,
-            "maxItems": 15,
+            "type": "array", "minItems": 1, "maxItems": 15,
             "items": {
               "type": "object",
               "properties": {
-                "phraseId": {
-                  "type": "integer",
-                  "minimum": 1
-                },
-                "voices": {
-                  "type": "object",
-                  "properties": {
-                    "pulse": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "accent": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "percussion": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "texture": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "bass": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "melody": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "arpeggio": {
-                      "$ref": "#/$defs/parameters"
-                    },
-                    "harmony": {
-                      "$ref": "#/$defs/parameters"
-                    }
-                  },
-                  "required": [],
-                  "additionalProperties": false,
-                  "minProperties": 1
-                }
+                "phraseId": {"type": "integer", "minimum": 1},
+                "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/parameters"}, "accent": {"$ref": "#/$defs/parameters"}, "percussion": {"$ref": "#/$defs/parameters"}, "texture": {"$ref": "#/$defs/parameters"}, "bass": {"$ref": "#/$defs/parameters"}, "melody": {"$ref": "#/$defs/parameters"}, "arpeggio": {"$ref": "#/$defs/parameters"}, "harmony": {"$ref": "#/$defs/parameters"}}, "required": [], "additionalProperties": false, "minProperties": 1}
               },
-              "required": [
-                "voices"
-              ],
-              "additionalProperties": false
+              "required": ["voices"], "additionalProperties": false
             }
           }
         },
-        "required": [
-          "format",
-          "mode",
-          "patches"
-        ],
-        "additionalProperties": false
+        "required": ["format", "mode", "patches"], "additionalProperties": false
       }
     ]
   },
+  "authoring": {"guide": "AGENT_GUIDE.md#required-json-structure", "instruction": "Fill the matching symbolic form in the guide with typed values and original musical events. requestSchema is the formal contract."},
   "score": {
-    "fields": [
-      "format",
-      "requestId",
-      "mode",
-      "world",
-      "tempo",
-      "bars",
-      "meter",
-      "key",
-      "voices",
-      "phraseId",
-      "phrases",
-      "sections",
-      "repeat",
-      "patches"
-    ],
-    "required": [
-      "format",
-      "mode"
-    ],
-    "requiredByMode": {
-      "probe": [],
-      "patch": [
-        "patches"
-      ],
-      "replace": [
-        "world",
-        "tempo",
-        "bars",
-        "meter",
-        "key"
-      ],
-      "edit": [
-        "world",
-        "tempo",
-        "bars",
-        "meter",
-        "key",
-        "voices"
-      ]
-    },
-    "alternativesByMode": {
-      "replace": [
-        [
-          "voices"
-        ],
-        [
-          "phrases",
-          "sections"
-        ]
-      ]
-    },
-    "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).",
-    "format": "halo-score",
-    "mode": [
-      "replace",
-      "edit",
-      "patch",
-      "probe"
-    ],
-    "world": [
-      "ambient",
-      "reactor"
-    ],
-    "tempo": [
-      30,
-      200
-    ],
-    "bars": [
-      4,
-      8
-    ],
-    "meter": [
-      "4/4",
-      "3/4"
-    ],
-    "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.",
-    "phrases": {
-      "fields": [
-        "id",
-        "bars",
-        "meter",
-        "key",
-        "voices"
-      ],
-      "required": [
-        "id",
-        "voices"
-      ],
-      "max": 15
-    },
-    "sections": {
-      "fields": [
-        "phrase",
-        "repeats",
-        "name",
-        "fade"
-      ],
-      "required": [
-        "phrase"
-      ],
-      "max": 32,
-      "names": [
-        "intro",
-        "verse",
-        "verse2",
-        "chorus",
-        "bridge",
-        "outro",
-        "phrase"
-      ],
-      "fade": [
-        "none",
-        "in",
-        "out"
-      ],
-      "defaults": {
-        "repeats": 1,
-        "name": "phrase",
-        "fade": "none"
-      }
-    },
-    "repeat": "Boolean; song only, default false.",
+    "fields": ["format", "requestId", "mode", "world", "tempo", "bars", "meter", "key", "voices", "phraseId", "phrases", "sections", "repeat", "patches"], "required": ["format", "mode"], "requiredByMode": {"probe": [], "patch": ["patches"], "replace": ["world", "tempo", "bars", "meter", "key"], "edit": ["world", "tempo", "bars", "meter", "key", "voices"]}, "alternativesByMode": {"replace": [["voices"], ["phrases", "sections"]]},
+    "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).", "format": "halo-score", "mode": ["replace", "edit", "patch", "probe"], "world": ["ambient", "reactor"], "tempo": [30, 200], "bars": [4, 8], "meter": ["4/4", "3/4"],
+    "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.", "phrases": {"fields": ["id", "bars", "meter", "key", "voices"], "required": ["id", "voices"], "max": 15},
+    "sections": {"fields": ["phrase", "repeats", "name", "fade"], "required": ["phrase"], "max": 32, "names": ["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"], "fade": ["none", "in", "out"], "defaults": {"repeats": 1, "name": "phrase", "fade": "none"}}, "repeat": "Boolean; song only, default false.",
     "voices": {
-      "roles": [
-        "pulse",
-        "accent",
-        "percussion",
-        "texture",
-        "bass",
-        "melody",
-        "arpeggio",
-        "harmony"
-      ],
-      "fields": [
-        "sound",
-        "notes",
-        "steps",
-        "on",
-        "level",
-        "character",
-        "duration",
-        "space",
-        "delay",
-        "chorus"
-      ],
-      "creation": "`voices` is an object keyed by ROLE (роль). Each ROLE (роль) contains ONE object, ONE sound string and exactly one notes/steps event array. Never an array of sounds. Omitted ROLE (роль) are silent.",
-      "editing": "Unmentioned VOICE (голос) and fields are preserved; changing sound is explicit. edit targets one PHRASE (фраза); tempo is shared by the whole COMPOSITION (композиция). Use patch for parameter-only changes.",
-      "notes": "[STEP (шаг сетки), MIDI, ...] with unique STEP (шаг сетки), integer MIDI 0..127 and ROLE (роль) polyphony from instruments.json.tracks.",
-      "steps": "Unique integer hits for unpitched TIMBRE (тембр) only; [] means intentional silence.",
-      "controls": "on is boolean; level, character, duration, space, delay, chorus are 0..100.",
-      "defaults": {
-        "on": true,
-        "level": 50,
-        "character": 50,
-        "duration": 50,
-        "space": 30,
-        "delay": 0,
-        "chorus": 0
-      }
+      "roles": ["pulse", "accent", "percussion", "texture", "bass", "melody", "arpeggio", "harmony"], "fields": ["sound", "notes", "steps", "on", "level", "character", "duration", "space", "delay", "chorus"], "creation": "`voices` is an object keyed by ROLE (роль). Each ROLE (роль) contains ONE object, ONE sound string and exactly one notes/steps event array.  Omitted ROLE (роль) are silent.",
+      "editing": "Unmentioned VOICE (голос) and fields are preserved; changing sound is explicit. edit targets one PHRASE (фраза); tempo is shared by the whole COMPOSITION (композиция). Use patch for parameter-only changes.", "notes": "[STEP (шаг сетки), MIDI, ...] with unique STEP (шаг сетки), integer MIDI 0..127 and ROLE (роль) polyphony from instruments.json.tracks.", "steps": "Unique integer hits for unpitched TIMBRE (тембр) only; [] means intentional silence.",
+      "controls": "on is boolean; level, character, duration, space, delay, chorus are 0..100.", "defaults": {"on": true, "level": 50, "character": 50, "duration": 50, "space": 30, "delay": 0, "chorus": 0}
     },
     "strict": "Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions."
   },
   "synchronization": {
-    "owner": "HALO",
-    "task": "Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; the agent never supplies version counters.",
-    "merge": "Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.",
+    "owner": "HALO", "task": "Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; HALO supplies and manages version counters.", "merge": "Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.",
     "conflict": "pending_approval.conflicts requires user choice: accept the proposed conflict values or reject and keep site music. Missing task baseline after reconnect also requires user review. Changes during review trigger a new review."
   },
   "preflight": {
-    "format": "halo-score",
-    "mode": "probe",
-    "required": [
-      "format",
-      "mode"
-    ],
-    "receipt": "ready",
-    "meaning": "Use the SAME fresh ID for probe then music. Before composing, write a probe into existing requests/ and read its real ready RECEIPT (ответ HALO) from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder."
+    "format": "halo-score", "mode": "probe", "required": ["format", "mode"], "receipt": "ready", "meaning": "Use the SAME fresh ID for probe then music. Before composing, write a probe into existing requests/ and read its real ready RECEIPT (ответ HALO) from responses/. The probe checks exchange and preserves the project. On denial or missing ready, report the path and error and end the attempt. Agent writes stay in the verified requests/ folder; HALO writes responses/."
   },
-  "parameterPatch": {
-    "mode": "patch",
-    "required": [
-      "format",
-      "mode",
-      "patches"
-    ],
-    "patches": "1..15 objects: {phraseId, VOICE (голос)}. Existing phraseId required for a COMPOSITION (композиция); omitted for single PHRASE (фраза). Unique targets. VOICE (голос) maps ROLE (роль) to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes."
-  },
-  "stateExport": {
-    "score": "Canonical halo-score projection of all PHRASE (фраза) and SECTION (секция); HALO manages freshness. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it."
-  },
+  "parameterPatch": {"mode": "patch", "required": ["format", "mode", "patches"], "patches": "1..15 objects: {phraseId, VOICE (голос)}. Existing phraseId required for a COMPOSITION (композиция); omitted for single PHRASE (фраза). Unique targets. VOICE (голос) maps ROLE (роль) to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; existing notes, STEP (шаг сетки) and sound are preserved."},
+  "stateExport": {"score": "Canonical halo-score projection of all PHRASE (фраза) and SECTION (секция); HALO manages freshness. Check scoreExport.complete and materialized. The exported representation uses SCORE (партитура) fields; patch preserves internal HALO data."},
   "receipts": {
-    "statuses": [
-      "ready",
-      "pending_approval",
-      "applied",
-      "rejected",
-      "error"
-    ],
-    "identity": "id equals ID; requestId, if supplied, equals the REQUEST (запрос) basename.",
-    "freshness": "After correction read the response; HALO tracks content identity internally. Matching applied/rejected are terminal.",
-    "checks": "Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.",
-    "corrections": 2,
-    "approval": "RECEIPT (ответ HALO) statuses are output only, never REQUEST (запрос) commands. Conflicts are reported in pending_approval.conflicts and always require the HALO user, even with automatic apply enabled. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.",
+    "statuses": ["ready", "pending_approval", "applied", "rejected", "error"], "identity": "id equals ID; requestId, if supplied, equals the REQUEST (запрос) basename.", "freshness": "After correction read the response; HALO tracks content identity internally. Matching applied/rejected are terminal.",
+    "checks": "Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Use the available built-in wait tool for these bounded checks.", "corrections": 2,
+    "approval": "RECEIPT (ответ HALO) statuses describe HALO output. Conflicts are reported in pending_approval.conflicts and always require the HALO user, even with automatic apply enabled. Only the HALO user can approve. Report pending_approval, invite human approval and end the turn.",
     "idLifecycle": "Each later user musical change needs a new ID and a new probe. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.",
-    "evidence": "scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive BAR (такт) without new notes in an active authored pitched part.",
-    "enforcement": "HALO cannot police external RECEIPT (ответ HALO) reads or file writes; those limits require the external tool adapter."
+    "evidence": "scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive BAR (такт) without new notes in an active authored pitched part.", "enforcement": "The external tool adapter enforces agent file permissions and bounded RECEIPT (ответ HALO) reads."
   },
   "terminology": {
-    "PHRASE": "PHRASE (фраза): A container of 4 or 8 BAR (такт) with its own events; the `phrases` field contains these containers.",
-    "LOOP": "LOOP (цикл): Repeated playback of one PHRASE (фраза); not a separate REQUEST (запрос) type or a synonym for COMPOSITION (композиция).",
-    "VOICE": "VOICE (голос): One part in a fixed ROLE (роль); `voices` contains up to eight parts.",
-    "STATE": "STATE (снимок состояния): The read-only project-state.json file; contains the applied SCORE (партитура) in `score`.",
-    "SCORE": "SCORE (партитура): Musical events, TIMBRE (тембр) and structure in halo-score format; not a prose description.",
-    "COMPOSITION": "COMPOSITION (композиция): The whole piece: one PHRASE (фраза) or several PHRASE (фраза) arranged through SECTION (секция).",
-    "SECTION": "SECTION (секция): An arrangement entry referencing a PHRASE (фраза) and specifying `repeats`.",
-    "BAR": "BAR (такт): An ordinary musical BAR (такт). Use BAR (такт) consistently for this unit.",
-    "BEAT": "BEAT (доля): One quarter note in either supported meter.",
-    "STEP": "STEP (шаг сетки): One sixteenth note; four STEP (шаг сетки) per BEAT (доля).",
-    "REST": "REST (пауза): A deliberate absence of new attacks; previous sounds may sustain.",
-    "TEMPO": "TEMPO (темп): Quarter-note BEAT (доля) per minute; the `tempo` field.",
-    "METER": "METER (размер): The supported time signature, 4/4 or 3/4; the `meter` field.",
-    "KEY": "KEY (тональность): A supported named key; the `key` label does not transpose actual MIDI.",
-    "BRIDGE_ROOT": "BRIDGE_ROOT (корневая папка): The one verified connected folder; never changes during a task.",
-    "REQUEST": "REQUEST (запрос): The requests/ID.json file written by the agent.",
-    "RECEIPT": "RECEIPT (ответ HALO): The responses/ID.result.json file written only by HALO.",
-    "ROLE": "ROLE (роль): A fixed musical function and a key in `voices`.",
-    "SLOT": "SLOT (физический слот): A stable UI position independent of the chosen TIMBRE (тембр).",
-    "BANK": "BANK (банк тембров): A source of TIMBRE (тембр); `bankId` does not assign a ROLE (роль).",
-    "TIMBRE": "TIMBRE (тембр): The selected sound; supply its `canonicalId` in `sound`."
+    "PHRASE": "PHRASE (фраза): A container of 4 or 8 BAR (такт) with its own events; the `phrases` field contains these containers.", "LOOP": "LOOP (цикл): Repeated playback of one PHRASE (фраза); submit it using the PHRASE (фраза) REQUEST (запрос) form.", "VOICE": "VOICE (голос): One part in a fixed ROLE (роль); `voices` contains up to eight parts.",
+    "STATE": "STATE (снимок состояния): The read-only project-state.json file; contains the applied SCORE (партитура) in `score`.", "SCORE": "SCORE (партитура): Numeric musical events, TIMBRE (тембр) and structure in halo-score format.", "COMPOSITION": "COMPOSITION (композиция): The whole piece: one PHRASE (фраза) or several PHRASE (фраза) arranged through SECTION (секция).",
+    "SECTION": "SECTION (секция): An arrangement entry referencing a PHRASE (фраза) and specifying `repeats`.", "BAR": "BAR (такт): An ordinary musical BAR (такт). Use BAR (такт) consistently for this unit.", "BEAT": "BEAT (доля): One quarter note in either supported meter.", "STEP": "STEP (шаг сетки): One sixteenth note; four STEP (шаг сетки) per BEAT (доля).", "REST": "REST (пауза): A deliberate absence of new attacks; previous sounds may sustain.",
+    "TEMPO": "TEMPO (темп): Quarter-note BEAT (доля) per minute; the `tempo` field.", "METER": "METER (размер): The supported time signature, 4/4 or 3/4; the `meter` field.", "KEY": "KEY (тональность): A supported named key; authored MIDI supplies the actual pitches.", "BRIDGE_ROOT": "BRIDGE_ROOT (корневая папка): The one verified connected folder; remains fixed throughout a task.", "REQUEST": "REQUEST (запрос): The requests/ID.json file written by the agent.",
+    "RECEIPT": "RECEIPT (ответ HALO): The responses/ID.result.json file written only by HALO.", "ROLE": "ROLE (роль): A fixed musical function and a key in `voices`.", "SLOT": "SLOT (физический слот): A stable UI position independent of the chosen TIMBRE (тембр).", "BANK": "BANK (банк тембров): A source of TIMBRE (тембр); select ROLE (роль) using compatibleRoles.", "TIMBRE": "TIMBRE (тембр): The selected sound; supply its `canonicalId` in `sound`."
   }
 }

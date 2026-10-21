@@ -39,7 +39,7 @@ test('workflow guide delegates format and complete palette to their authoritativ
  assert.match(guide,/capabilities.json.requestSchema/);
  assert.match(guide,/compatibleRoles/);
  assert.match(guide,/Choose from this catalog/);
- assert.doesNotMatch(guide,/### ambient|### reactor|Required JSON structure|Voice fields/);
+ assert.doesNotMatch(guide,/### ambient|### reactor|Voice fields/);
 });
 
 test('every advertised instrument can score an original part through the real engine validator',()=>{
@@ -595,15 +595,81 @@ test('real directory roundtrip exports linked context, detects companion-only ch
 
 
 
-test('composer workflow guide is bounded and has no copied format or score examples',()=>{
+test('composer workflow guide is bounded and has symbolic forms without scored music',()=>{
  const files=FileBridge.getContextFiles(createTestApp().api),guide=files['AGENT_GUIDE.md'];
  assert.doesNotMatch(guide,/\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
  assert.doesNotMatch(guide,/```json|REPLACE_WITH|Mandatory bar audit|ROOT_VERIFIED|climax|cadence|solfege|D natural minor/);
  assert.match(guide,/format exactly halo-score/);assert.match(guide,/Before writing, check/);
  assert.doesNotMatch(guide,/baseRevision|submissionVersion/);assert.match(guide,/SAME task ID|SAME ID/);
- assert.match(guide,/canonicalId/);assert.ok(guide.length<=11000,'workflow only, no catalog or schema duplication');
+ assert.match(guide,/canonicalId/);assert.ok(guide.length<=15000,'bounded workflow and symbolic forms without catalog duplication');
  const rules=JSON.parse(files['music-rules.json']);assert.equal(rules.barAudit,undefined);assert.equal(rules.orchestration,undefined);assert.equal(rules.keyChanges,undefined);
  assert.ok(rules.keys.includes('D MINOR'));assert.equal(rules.timeSignatures['3/4'].stepsPerBar,12);
+});
+
+test('schema-derived symbolic forms fill into requests accepted by the real receiver',()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=JSON.parse(files['capabilities.json']);
+ const guide=files['AGENT_GUIDE.md'],templates=Object.fromEntries([...guide.matchAll(/### (\w+)\n\n```text\n([\s\S]*?)\n```/g)].map(m=>[m[1],m[2]]));
+ assert.equal(caps.authoring.templates,undefined,'guide owns symbolic forms');
+ assert.deepEqual(Object.keys(templates),['probe','replacePhrase','replaceSong','edit','patch','pitchedVoice','unpitchedVoice']);
+ const registry=JSON.parse(files['instruments.json']);
+ const pitched=registry.sounds.find(s=>s.world==='ambient'&&s.pitched&&s.compatibleRoles.includes('melody'));
+ const hit=registry.sounds.find(s=>s.world==='ambient'&&!s.pitched&&s.compatibleRoles.includes('percussion'));
+ function fill(value,key=''){
+  if(Array.isArray(value))return value.map((v,i)=>fill(v,key==='notes'?(Array.isArray(v)?'event':i===0?'step':'pitch'):key==='event'?(i===0?'step':'pitch'):key==='steps'?'step':key));
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k.startsWith('⟨')?(k.includes('requested parameter')?'on':'melody'):k,fill(v,k.includes('requested parameter')?'on':k)]));
+  if(typeof value!=='string'||!value.startsWith('⟨'))return value;
+  const values={world:'ambient',tempo:96,bars:4,meter:'4/4',key:'C MAJOR',id:1,phrase:1,on:true,sound:pitched.canonicalId,step:0,pitch:60};
+  assert.ok(key in values,'typed placeholder '+key);return values[key];
+ }
+ for(const [name,text]of Object.entries(templates)){
+  assert.ok(guide.includes(text),name+' appears literally in guide');
+  const symbolic=JSON.parse(text);
+  function noMusic(v){if(Array.isArray(v))for(const x of v)noMusic(x);else if(v&&typeof v==='object')for(const x of Object.values(v))noMusic(x);else assert.equal(typeof v,'string','all creative values remain symbolic');}
+  noMusic(symbolic);
+  let request=fill(symbolic);
+  if(name==='pitchedVoice')request={...fill(JSON.parse(templates.replacePhrase)),voices:{melody:request}};
+  if(name==='unpitchedVoice')request={...fill(JSON.parse(templates.replacePhrase)),voices:{percussion:{...request,sound:hit.canonicalId}}};
+  const result=FileBridge.parseAndValidateRequest(api,request,'filled-form');
+  assert.equal(result.ok,true,name+': '+result.error);
+ }
+ assert.ok(guide.indexOf('## Required JSON structure')<guide.indexOf('## Vocabulary'));
+ for(const [name,text]of Object.entries(files))assert.doesNotMatch(text,/\b(?:never|do not|must not|not allowed)\b/i,name+' uses affirmative instructions');
+});
+
+test('compact references preserve complete JSON data and bounded independently readable catalog rows',()=>{
+ const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=api.getCapabilities();
+ const documents={'capabilities.json':FileBridge.generateCapabilities(caps),'instruments.json':FileBridge.generateInstruments(caps),'music-rules.json':FileBridge.generateMusicRules(caps)};
+ let referenceLines=files['AGENT_GUIDE.md'].split('\n').length;
+ for(const [name,data]of Object.entries(documents)){
+  assert.deepEqual(JSON.parse(files[name]),data,name+' round trips all catalog/schema/metadata values');
+  referenceLines+=files[name].split('\n').length;
+ }
+ assert.ok(referenceLines<=450,'bounded reference package including full formal schema');
+ for(const [name,text]of Object.entries(files))for(const line of text.split('\n')){
+  assert.ok(line.length<=480,name+' exceeds character budget');
+  assert.ok(Buffer.byteLength(line,'utf8')<=768,name+' exceeds UTF-8 byte budget');
+ }
+ const catalog=JSON.parse(files['instruments.json']);
+ for(const sound of catalog.sounds){
+  const id='"canonicalId": '+JSON.stringify(sound.canonicalId);
+  const rows=files['instruments.json'].split('\n').filter(line=>line.includes(id));
+  assert.equal(rows.length,1,sound.canonicalId+' has one readable record');
+  assert.equal((rows[0].match(/"canonicalId":/g)||[]).length,1,'catalog records remain separate');
+ }
+ assert.equal(JSON.parse(files['capabilities.json']).authoring.templates,undefined);
+});
+
+test('compact note tuples preserve a full phrase through export while keeping score objects expanded',async()=>{
+ const {api}=createTestApp(),notes=Array.from({length:128},(_,step)=>[step,60+step%12]);
+ const request=scoreRequest(api,{voices:{melody:{sound:'harp',notes}}});
+ const result=FileBridge.parseAndValidateRequest(api,request,'compact-events');assert.equal(result.ok,true,result.error);
+ api.setEnabled(true);await api.applyOperations(result.transaction);
+ const text=FileBridge.getContextFiles(api)['project-state.json'],state=JSON.parse(text);
+ assert.deepEqual(state.score.voices.melody.notes,notes);
+ assert.match(text,/"notes": \[\n\s*\[0, 60\], \[1, 61\]/);
+ assert.match(text,/"score": \{\n\s*"format": "halo-score",\n/);
+ assert.ok(text.split('\n').every(line=>line.length<=480));
+ const accepted=FileBridge.parseAndValidateRequest(api,state.score,'compact-reimport');assert.equal(accepted.ok,true,accepted.error);
 });
 
 test('copied sparse score has a long melody/accompaniment gap even while percussion covers the whole phrase',()=>{
@@ -641,10 +707,10 @@ test('status/approved objects never apply and rejection guidance never asks to r
  const f=await scoreFixture();try{
   for(const status of ['approved','pending_approval','applied','rejected']){
    f.req.files.set('req-proof.json',JSON.stringify({id:'req-proof',status}));await f.bridge.checkFolder();
-   assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/status.*not requests/);assert.equal(f.bridge.getStatus().pending,null);
+   assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/Fill the symbolic form/);assert.equal(f.bridge.getStatus().pending,null);
   }
   f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();await f.bridge.rejectPending();
-  const terminal=f.receipt();assert.match(terminal.instructionForAgent,/STOP/);assert.doesNotMatch(terminal.instructionForAgent,/Correct only/);
+  const terminal=f.receipt();assert.match(terminal.instructionForAgent,/end this turn/);assert.doesNotMatch(terminal.instructionForAgent,/Correct only/);
   f.req.files.set('req-proof.json',JSON.stringify({id:'req-proof',status:'approved'}));await f.bridge.checkFolder();assert.deepEqual(f.receipt(),terminal);
   f.req.files.set('req-next.json',JSON.stringify(scoreRequest(f.api,{key:'D minor'})));await f.bridge.checkFolder();assert.equal(f.bridge.getStatus().pending.id,'req-next');
  }finally{f.bridge.dispose()}
@@ -665,9 +731,9 @@ test('NYE descriptive document fails with useful structural guidance and cannot 
  const descriptive={id:'NYE2026',baseRevision:api.getProjectState().revision,mode:'replace',world:'ambient',tempo:30,bars:8,meter:'4/4',key:'D minor',
   voices:{melody:[{sound:'bell'},{sound:'vibes'}],harmony:[{sound:'air'},{sound:'organ'}],percussion:[{sound:'shaker'},{sound:'hat'}]},
   lyrics:{theme:'holiday'},composition_notes:{development:'described, not scored'},bar_audit_plan:{seconds_per_bar:2.5}};
- const r=await FileBridge.processRequest(api,descriptive,'NYE2026');assert.equal(r.ok,false);assert.match(r.error,/root.format/);assert.match(r.help,/ONE object/);assert.match(r.help,/do not merely add format/);
+ const r=await FileBridge.processRequest(api,descriptive,'NYE2026');assert.equal(r.ok,false);assert.match(r.error,/root.format/);assert.match(r.help,/ONE object/);assert.match(r.help,/Fill the matching symbolic form/);
  const withFormat=FileBridge.parseAndValidateRequest(api,{...descriptive,format:'halo-score'},'NYE2026');
- assert.equal(withFormat.ok,false);assert.match(withFormat.error,/score.lyrics/);assert.match(withFormat.error,/score.voices.melody: expected ONE object/);
+ assert.equal(withFormat.ok,false);assert.match(withFormat.error,/score.lyrics/);assert.match(withFormat.error,/score.voices.melody: expected one object/);
  assert.equal(FileBridge.parseAndValidateRequest(api,scoreRequest(api,{voices:{melody:{sound:'bell'}}}),'no-events').ok,false);
 });
 
@@ -957,8 +1023,8 @@ test('data lexer preserves comment delimiters and escapes inside strings and bou
 test('sixth edit workflow and mandatory duration review share a stable bilingual vocabulary across all five files',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const rows=guide.split('\n').filter(line=>/^\| [A-F]\./.test(line));assert.equal(rows.length,6);
- const edit=rows[5];assert.match(edit,/mode=edit/);assert.match(edit,/phraseId/);assert.match(edit,/Preserve ALL other PHRASE/);assert.match(edit,/repeats/);
- assert.match(guide,/musical idea spans the requested duration/);assert.match(guide,/Long REST.*must be deliberate parts/);assert.match(guide,/Do not require a note in every BAR/);
+ const edit=rows[5];assert.match(edit,/mode=edit/);assert.match(edit,/phraseId/);assert.match(edit,/Preserve ALL other PHRASE/);assert.match(edit,/Repeated references share its edit/);
+ assert.match(guide,/musical idea spans the requested duration/);assert.match(guide,/Long REST[\s\S]*?must be deliberate parts/);assert.match(guide,/Preserve intentional silence/);
  const canonical=JSON.parse(files['capabilities.json']).terminology;
  assert.ok(canonical.BRIDGE_ROOT);assert.match(JSON.parse(files['instruments.json']).concepts.musicalRole,/`ROOT`=percussion/);
  assert.doesNotMatch(JSON.parse(files['instruments.json']).concepts.musicalRole,/BRIDGE_ROOT/);

@@ -1,5 +1,26 @@
 # Release validation — File Bridge, 2026-10-20
 
+## 2026-10-21 — Compact reference records and event tuples
+
+334/334 Node tests and 12 JSON Schema syntax checks pass with checkout-local TEMP/TMP. Reference JSON round-trips to the complete generated data. Tests check every exported line against 480 characters and 768 UTF-8 bytes, separate all 62 catalog records, ensure the guide owns the only symbolic forms, and preserve all 128 authored melody events through expanded-object export and receiver reimport. Both full-context and incremental-state exports use the same score serializer. git diff --check passes. Logs: artifacts/bridge-compact-full.log and artifacts/bridge-compact-schema.log.
+
+| File | Previous lines | Compact lines |
+| --- | ---: | ---: |
+| AGENT_GUIDE.md | 241 | 139 |
+| capabilities.json | 1105 | 149 |
+| instruments.json | 1812 | 103 |
+| music-rules.json | 88 | 17 |
+| Reference total | 3246 | 408 |
+| project-state.json (separate test snapshot) | 351 | 173 |
+
+The complete reference package is 408 lines; the desired 100–200 total remains an optimization target. Schema, catalog and musical/approval metadata were preserved. Reference bytes decreased from 96,370 to 68,299; line reduction does not establish proportional token savings. Reference maximum line lengths are 479/477/477/465 characters respectively; measured UTF-8 maxima are 515/515/519/509 bytes. The 480-character layout budget is selected locally, not a measured Bionic/model limit. Actual snapshot size depends on the composition. No external-model rerun, browser/device QA, listening review or connected-folder writes were performed. Reload HALO and choose Update Files.
+
+## 2026-10-21 — Symbolic authoring forms and affirmative guidance
+
+332/332 Node tests pass with checkout-local TEMP/TMP; 12 canonical JSON Schema syntax checks pass. New regression fills all five schema-derived request forms and both voice forms with test-only data and submits them to the real receiver. It checks literal guide/template agreement, symbolic creative values, early structure placement and affirmative wording across all five generated files. Existing tests preserve terminal receipts, human approval, conflicts, original notes and intentional rests. Root capabilities.json matches the generator. git diff --check passes. Logs: artifacts/bridge-authoring-full.log and artifacts/bridge-authoring-schema.log.
+
+Both in-app manual locales and the protocol/capability/API documents describe the forms. This change adds authoring guidance and changes corrective wording; receiver/schema acceptance and audio behavior remain unchanged. No live model rerun, browser/device QA, listening review or connected-folder writes were performed. Reload HALO and choose Update Files to export the revised context.
+
 ## 2026-10-21 — File Bridge synchronization ownership
 
 - Node suite: 331 tests passed after adding task-baseline, independent merge, same-value concurrency, full-replacement conflict, missing/reconnected baseline, automatic-apply blocking and renewed-approval coverage. Existing real filesystem roundtrip now uses one ID for probe then music with no counters.

@@ -1,5 +1,7 @@
 # File Bridge — current halo-score contract
 
+Reference layout, 2026-10-21: capabilities.json, instruments.json and music-rules.json remain standard JSON with complete members packed within 480 characters per line. Catalog sound records stay separate; nested structures wrap when required. The guide packs symbolic forms, uses a glossary table and wraps prose to the same character budget. This is a selected formatting budget, not a measured Bionic response limit. project-state.json retains expanded objects and bounded horizontal event arrays; initial export and incremental state synchronization share the serializer. Formatting preserves parsed values and introduces no dependency.
+
 Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-21. One strict format, `halo-score`, with four modes: probe, replace, edit, patch. WebMCP/internal operations and portable projects are separate APIs, never alternative File Bridge request shapes.
 
 ## Contents
@@ -64,6 +66,8 @@ The sixth workflow routes note or timbre changes in one PHRASE (фраза) to e
 Before publication the agent must ensure that the musical idea spans the requested duration. Long rests must be deliberate parts of the composition. This is an authoring requirement, not a new rejection threshold or automatic filler: no note is required in every bar and intentional silence is preserved.
 
 ## Required JSON structure
+
+AGENT_GUIDE.md#required-json-structure leads with the single copy of symbolic authoring forms. capabilities.json.authoring.guide links to that section; requestSchema remains in capabilities.json. These forms are generated from requestSchema, with literal keys and typed angle-bracket slots. Five request forms plus pitched/unpitched voice forms carry structure and leave musical values for original composition. Select the form for the task, fill slots with their stated JSON types, and validate the completed request. Edit/patch song targets use the existing phraseId as explained beside the forms. Exported guidance and corrective receipts describe required actions affirmatively; receiver checks and protocol ownership remain authoritative.
 
 capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for task freshness, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
 

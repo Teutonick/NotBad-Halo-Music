@@ -1,3 +1,11 @@
+## 2026-10-21 — Compact File Bridge reference layout
+
+Packed reference JSON into bounded, readable records (480 characters per line) and compacted symbolic forms/glossary layout. The guide owns the single copy of request forms; capabilities.json retains its formal schema and a guide link. Score exports preserve expanded objects and compact note/step arrays, including incremental state sync. Parsed catalog/schema/music data and receiver behavior remain unchanged. Reload HALO and choose Update Files.
+
+## 2026-10-21 — File Bridge symbolic authoring forms
+
+Added schema-derived request and voice forms at the beginning of the agent guide and in capabilities.json. Creative values remain typed slots; music is authored per task. Rephrased exported agent guidance and corrective receipts as affirmative actions, preserving all receiver and approval checks. Updated both manual locales and contract references.
+
 ## 2026-10-21 — Centered panel fold controls
 
 ## 2026-10-21 — File Bridge owns synchronization
