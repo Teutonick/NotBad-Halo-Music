@@ -1,6 +1,6 @@
 # File Bridge — current halo-score contract
 
-Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-20. One strict format, `halo-score`, with four modes: probe, replace, edit, patch. WebMCP/internal operations and portable projects are separate APIs, never alternative File Bridge request shapes.
+Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-21. One strict format, `halo-score`, with four modes: probe, replace, edit, patch. WebMCP/internal operations and portable projects are separate APIs, never alternative File Bridge request shapes.
 
 ## Contents
 
@@ -17,9 +17,17 @@ Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-20. One stri
 
 ## Folder preflight
 
-ROOT is the absolute connected folder supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/; never create substitutes or directories. Before composing each task, read live revision and write a small probe request into requests/ using format halo-score, mode probe and that integer baseRevision. No world, notes or other musical fields are allowed in a probe. Optional requestId must match its filename.
+ROOT is the absolute connected folder supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/; never create substitutes or directories. Choose one fresh task ID and write requests/ID.json with format halo-score and mode probe. No world, notes or other musical fields are allowed. Optional requestId must match its filename.
 
-Read back that request and only its responses/ID.result.json. HALO returns ready with matching ID, currentRevision, submissionVersion and applied:false. It creates no approval proposal, changes no project state and never starts playback. A ready ID is finished and cannot later carry music; readiness persists across reconnection. Use a different fresh ID for the score. On failure or no ready within the normal bounded read limit, stop before composing; report exact path/error.
+Read back the request and only responses/ID.result.json. A matching ready proves exchange without music mutation or approval. HALO captures the original project for this task. Read STATE and replace the probe with music under the SAME ID. No version numbers need to be copied, compared or corrected by the agent. On denial or missing ready within the bounded read limit, stop before composing.
+
+### HALO-owned synchronization
+
+HALO compiles against the captured task state and compares original, current and proposed music. Independent field changes merge; identical concurrent changes are accepted. Track slots merge independently. Phrase arrays merge only when IDs and order are unchanged. Note arrays and arrangement arrays are atomic; HALO never invents notes or combines conflicting musical arrays. Full replace after any project change requires human review. Explicit parameter patches retain their requested values, including values equal to the original state.
+
+Conflicts appear as pending_approval.conflicts and a bilingual user choice, even with automatic application enabled. Accept agent version uses the displayed proposal, retaining safely merged site changes; reject preserves current browser music and archives the request as rejected. Request source files remain unchanged. This is not a folder rollback or an automatic rewrite of the agent's score.
+
+Task bases are bounded to 16 session snapshots. Reload, reconnect, reset or eviction can make a task baseline unavailable; HALO then requires explicit user review (TASK_BASE_UNAVAILABLE), never blind automatic rebasing. Existing ready receipts do not recreate a lost baseline. Corrected files keep their original task baseline. Before application HALO rereads all source bytes and checks current state again. Later project changes rebuild the proposal and require another review; later source changes invalidate approval. Internal revision counters, content fingerprints and schema versions remain HALO responsibilities. WebMCP retains its separate explicit revision contract.
 
 The external agent requires read access to context/receipts and write access only to requests/. ONLY HALO writes responses/ and project-state.json. A probe verifies the real exchange; it does not grant operating-system or Bionic/LM Studio tool permissions. Those must be arranged in that tool host. HALO cannot block an external shell from writing arbitrary paths: [external adapter requirements](file-bridge-tool-adapter.md).
 
@@ -39,7 +47,7 @@ The guide contains no live revision and no scored examples. It distinguishes cre
 
 ### Complete current score export
 
-STATE.score is a directly accepted halo-score replacement projection with live baseRevision, per-phrase bars/meter/key, all eight voices, their events and exposed parameters, sections and repeats. It represents current applied browser music, never unapproved requests. STATE contains only this normalized score, revision/export metadata and file references. Internal project fields (setup, numeric key index, noteEvents, startStep, visual state) are not exported to the agent. There is no second score-state file or competing musical representation.
+STATE.score is a directly accepted halo-score replacement projection without transport counters, with per-phrase bars/meter/key, all eight voices, their events and exposed parameters, sections and repeats. It represents current applied browser music, never unapproved requests. STATE contains only this normalized score, revision/export metadata and file references. Internal project fields (setup, numeric key index, noteEvents, startStep, visual state) are not exported to the agent. There is no second score-state file or competing musical representation.
 
 The complete internal project stays inside HALO, including master settings, generator configuration and Track 09 references. These are preserved by parameter patching; they are not fields to copy into a music request.
 
@@ -57,9 +65,9 @@ Before publication the agent must ensure that the musical idea spans the request
 
 ## Required JSON structure
 
-capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for live revision, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
+capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for task freshness, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
 
-Common fields: format is exactly halo-score; baseRevision is the live integer; mode selects the shape below. Optional requestId must equal the basename. Other unknown fields fail.
+Common fields: format is exactly halo-score; mode selects the shape below. Optional requestId must equal the basename. Other unknown fields fail.
 
 | Mode | Fields besides common fields | Semantics |
 | --- | --- | --- |
@@ -80,7 +88,7 @@ The reader never executes expressions, resolves duplicate keys or invents missin
 
 ### Atomic parameter patch
 
-patches is a nonempty array of at most 15 objects, each with voices and, for a song, a required existing phraseId. For a single phrase omit phraseId. A target may appear once. Each voices maps role IDs to nonempty objects containing ONLY on/level/character/duration/space/delay/chorus. No notes, steps, sound, key, tempo, world or meter are permitted. Unmentioned data is cloned unchanged. Every entry validates before a single authoritative preview/apply; an invalid target/value rejects the entire request. One approval applies all entries under the same revision check and Undo transaction. Approval rereads all submitted content; stale revisions or modified proposals cannot silently apply.
+patches is a nonempty array of at most 15 objects, each with voices and, for a song, a required existing phraseId. For a single phrase omit phraseId. A target may appear once. Each voices maps role IDs to nonempty objects containing ONLY on/level/character/duration/space/delay/chorus. No notes, steps, sound, key, tempo, world or meter are permitted. Unmentioned data is cloned unchanged. Every entry validates before a single authoritative preview/apply; an invalid target/value rejects the entire request. One approval applies all entries under HALO freshness checks and Undo transaction. Approval rereads all submitted content; stale revisions or modified proposals cannot silently apply.
 
 For drum muting, inspect actual sound.pitched separately in each phrase. A pulse slot may hold pitched bass. Build only the appropriate per-phrase on:false changes. This preserves latent notes/timbres, repeated references, generator settings and Track 09. The preview lists changed parameters, not a replacement score.
 
@@ -113,13 +121,13 @@ Optional companions are requests/ID--role.json containing a Voice; the reference
 
 ## Paths and delivery
 
-Bind ROOT and the path variables once: STATE_PATH=ROOT/project-state.json; REQUEST_PATH=ROOT/requests/ID.json; RECEIPT_PATH=ROOT/responses/ID.result.json. Binding never authorizes editing: STATE_PATH and RECEIPT_PATH remain read-only to the agent. New unused IDs: 1..128 ASCII letters/digits separated by single hyphen/underscore; double hyphens are reserved for companions. No directory creation or fallback paths on denial. Each new user task uses a fresh probe ID and a separate fresh music ID. Correct an unfinished error under its existing ID; never use a new ID to evade errors.
+Bind ROOT and the path variables once: STATE_PATH=ROOT/project-state.json; REQUEST_PATH=ROOT/requests/ID.json; RECEIPT_PATH=ROOT/responses/ID.result.json. Binding never authorizes editing: STATE_PATH and RECEIPT_PATH remain read-only to the agent. New unused IDs: 1..128 ASCII letters/digits separated by single hyphen/underscore; double hyphens are reserved for companions. No directory creation or fallback paths on denial. Each new user task uses one fresh ID for probe then music. Correct an unfinished error under its existing ID; never use a new ID to evade errors.
 
 ## Receipts and correction
 
-Only matching real receipts count. Process applied/rejected first regardless of ok:false; report and stop. pending_approval means technically validated and waiting for the human: report diagnostics and invite approval, then stop. Do not wait for approval, create it or claim playback. A later user task reads newly applied live STATE. ready belongs only to the probe and permits proceeding to compose under a different ID.
+Only matching real receipts count. Process applied/rejected first regardless of ok:false; report and stop. pending_approval means technically validated and waiting for the human: report diagnostics and invite approval, then stop. Do not wait for approval, create it or claim playback. A later user task reads newly applied live STATE. ready belongs only to the probe and permits proceeding to compose under the same ID.
 
-On error/ok:false, read error/help/instructionForAgent, correct the same unfinished request at most twice, then require changed submissionVersion. Revision conflicts require reconciling with STATE, not blindly replacing baseRevision. Missing/stale receipt: at most 3 reads with built-in waits of 4–5 seconds; without a wait tool one immediate reread. Then unconfirmed and stop. No shell waits, servers, browsers or delegated polling. Resolve an earlier pending proposal before assuming it applied.
+On error/ok:false, read error/help/instructionForAgent, correct the same unfinished request at most twice and read the updated response. HALO tracks submission identity internally. Report conflicts and stop for the user; do not rewrite music to bypass them. Missing/stale receipt: at most 3 reads with built-in waits of 4–5 seconds; without a wait tool one immediate reread. Then unconfirmed and stop. No shell waits, servers, browsers or delegated polling. Resolve an earlier pending proposal before assuming it applied.
 
 ## Runtime score diagnostics
 
@@ -127,6 +135,6 @@ scoreAudit reports actual time, keys, per-role attacksPerBar and section timing.
 
 ## Refresh and validation
 
-Reload HALO and choose Update Files to refresh all five context documents. Refresh snapshot exports current state/projection and forces fresh request/companion/receipt reads; it never rebases, edits or applies a request. Terminal ready/applied/rejected IDs cannot replay. Auto scans run only while the integration panel/page are visible; manual checks remain. Clear Requests requires confirmation and preserves browser music/localStorage.
+Reload HALO and choose Update Files to refresh all five context documents. Refresh snapshot exports current state/projection and forces fresh request/companion/receipt reads; it never rebases, edits or applies a request. Terminal applied/rejected IDs cannot replay; ready IDs accept music for the same task. Auto scans run only while the integration panel/page are visible; manual checks remain. Clear Requests requires confirmation and preserves browser music/localStorage.
 
 No backend, runtime dependency, CDN or build step is introduced. Related: [engine registry](engine-capabilities.md), [agent API](agent-api-specification.md), [regression](file-bridge-regression.md), [validation](release-validation.md).

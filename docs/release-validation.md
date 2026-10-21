@@ -1,5 +1,13 @@
 # Release validation — File Bridge, 2026-10-20
 
+## 2026-10-21 — File Bridge synchronization ownership
+
+- Node suite: 331 tests passed after adding task-baseline, independent merge, same-value concurrency, full-replacement conflict, missing/reconnected baseline, automatic-apply blocking and renewed-approval coverage. Existing real filesystem roundtrip now uses one ID for probe then music with no counters.
+- Local preview started using scripts/preview.ps1 at http://127.0.0.1:8766/. Desktop in-app Chromium loaded the existing integration panel; console warning/error capture was empty. The legacy browser adapter was unavailable; the supported current browser API worked.
+- Browser folder permission, visual conflict-card interaction, mobile/Safari and audible acceptance were not exercised. Node filesystem tests and isolated bridge mocks establish protocol/state behavior, not physical-device or external-model acceptance.
+- All paths remain relative and classic-script based; no backend, runtime dependency, CDN, deployment or commit.
+
+
 ## English context and JSON-key audit — 2026-10-20
 
 68 targeted File Bridge/file-tool tests pass; 12 canonical-schema cases and one bilingual user-manual smoke test pass. A recursive audit rejects Cyrillic or parenthesized decoration in every JSON property name across all four generated JSON documents. A separate allowlist check across all five files permits Russian only inside parentheses matching a defined glossary translation; all remaining instructions are English. timing and terminology use plain English identifiers. Generated state still passes the unchanged halo-score validator. Logs: artifacts/bridge-english-context-targeted.log, artifacts/bridge-english-context-schema.log, artifacts/bridge-english-context-ui-smoke.log. git diff --check passes. Full regression remains paused; no connected-folder writes, model rerun or listening acceptance.

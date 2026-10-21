@@ -1,5 +1,8 @@
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
+File Bridge synchronization, 2026-10-21: HALO owns version counters, task baselines and three-way state comparison. Agents use one fresh ID for probe → ready → music, with no baseRevision or submissionVersion bookkeeping. Independent edits merge; overlapping music or a missing session baseline requires user acceptance/rejection even in auto-apply mode. Full replacements conflict after project edits. Notes/sections are atomic; stable phrase IDs and eight track slots can merge independently. Approval rereads files and rebuilds changed previews for another review. Baselines are bounded to 16 session tasks and are lost on reload/reconnect; old ready receipts never restore them. WebMCP revision semantics are unchanged. No runtime dependency or deployment-path change.
+
+
 Panel controls, 2026-10-21: bottom-panel fold controls are centered, 76×30 px, with a double upward expand chevron. Collapse/minimize symbols and Track 09-only minimization remain. Layout-only change; audio, persistence and API semantics are unchanged. Visually checked in six isolated Chromium states at desktop and mobile viewport sizes; no device/audio acceptance claimed.
 
 

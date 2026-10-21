@@ -1,5 +1,7 @@
 # NotBad HALO
 
+File Bridge handles task versions and concurrent edits inside HALO. Agents use one ID for probe then music; conflicts are resolved by the user. Reload HALO and choose Update Files for the revised guide.
+
 File Bridge now checks real folder exchange before composition, exports the whole song as halo-score, and supports atomic parameter-only edits. [Contract](docs/file-bridge-protocol.md) · [Five-step regression](docs/file-bridge-regression.md) · [Manual candidate](docs/file-bridge-contract-audit.md). Reload HALO and Update Files; grant external-agent access to the connected folder before leaving it unattended.
 
 <div align="center">

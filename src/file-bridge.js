@@ -145,6 +145,29 @@
   }
 
   // Composer-facing notation. All output still passes the authoritative agent preview.
+  // Arrays of notes/sections are authored musical units, never guessed or merged.
+  function mergeBridgeState(base, current, proposed, path = 'project', conflicts = []){
+    const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
+    if(same(base,proposed)) return clone(current);
+    if(same(base,current)||same(current,proposed)) return clone(proposed);
+    if(base&&current&&proposed&&!Array.isArray(base)&&typeof base==='object'&&typeof current==='object'&&typeof proposed==='object'){
+      const out={};
+      for(const key of new Set([...Object.keys(base),...Object.keys(current),...Object.keys(proposed)])){
+        if(!(key in base)||!(key in current)||!(key in proposed)){
+          if(same(base[key],proposed[key])) {if(key in current)out[key]=clone(current[key]);}
+          else if(same(base[key],current[key])||same(current[key],proposed[key])) {if(key in proposed)out[key]=clone(proposed[key]);}
+          else {conflicts.push(path+'.'+key);if(key in proposed)out[key]=clone(proposed[key]);}
+        }else out[key]=mergeBridgeState(base[key],current[key],proposed[key],path+'.'+key,conflicts);
+      }
+      return out;
+    }
+    if(path.endsWith('.phrases')&&[base,current,proposed].every(a=>Array.isArray(a))&&JSON.stringify(base.map(p=>p.id))===JSON.stringify(current.map(p=>p.id))&&JSON.stringify(base.map(p=>p.id))===JSON.stringify(proposed.map(p=>p.id)))
+      return base.map((v,i)=>mergeBridgeState(v,current[i],proposed[i],path+'.'+i,conflicts));
+    if(path.endsWith('.tracks')&&[base,current,proposed].every(a=>Array.isArray(a)&&a.length===8))
+      return base.map((v,i)=>mergeBridgeState(v,current[i],proposed[i],path+'.'+i,conflicts));
+    conflicts.push(path); return clone(proposed);
+  }
+
   function compileScore(score, api, report = []){
     const caps = api.getCapabilities(), state = api.getProjectState();
     const registry = generateInstruments(caps), errors = [];
@@ -157,7 +180,7 @@
     object(score, scoreFields, 'score');
     if (score.mode === 'patch') {
       object(score,['format','requestId','baseRevision','mode','patches'],'score');
-      if (!Number.isSafeInteger(score.baseRevision)) fail('score.baseRevision','copy the live revision');
+
       const current=state.project, next=clone(current), seen=new Set();
       if (!Array.isArray(score.patches)||!score.patches.length||score.patches.length>15) fail('score.patches','expected 1..15 phrase parameter patches');
       for (const [i,entry] of (Array.isArray(score.patches)?score.patches:[]).entries()) {
@@ -183,14 +206,14 @@
         }
       }
       if(errors.length)throw Error('SCORE_ERROR:\n'+errors.slice(0,16).join('\n'));
-      return {requestId:score.requestId,schemaVersion:1,baseRevision:score.baseRevision,operations:[{op:current.phrases?'composition.replace':'project.replace',project:next}]};
+      return {requestId:score.requestId,schemaVersion:1,baseRevision:score.baseRevision ?? state.revision,operations:[{op:current.phrases?'composition.replace':'project.replace',project:next}]};
     }
     if(score.patches!==undefined)fail('score.patches','only supported in mode patch');
 
     for (const field of ['mode','world','tempo','bars','meter','key']) if (!Object.hasOwn(score,field)) fail('score.'+field,'required explicit field');
     const edit = score.mode === 'edit';
     if (score.mode !== undefined && !['edit','replace'].includes(score.mode)) fail('score.mode', 'use replace for new music or edit to preserve unmentioned voices');
-    if (!Number.isSafeInteger(score.baseRevision)) fail('score.baseRevision', 'copy the revision number from project-state.json');
+
     const current = state.project;
     let source = current;
     if (current.phrases) {
@@ -312,7 +335,7 @@
       } else operations = [{op:'project.replace',project}];
     }
     if (errors.length) throw Error('SCORE_ERROR:\n' + errors.slice(0,16).join('\n'));
-    return {requestId:score.requestId,schemaVersion:1,baseRevision:score.baseRevision,operations};
+    return {requestId:score.requestId,schemaVersion:1,baseRevision:score.baseRevision ?? state.revision,operations};
   }
 
   const protocolVersion = 3;
@@ -331,7 +354,7 @@
       PHRASE:'A container of 4 or 8 BAR with its own events; the `phrases` field contains these containers.',
       LOOP:'Repeated playback of one PHRASE; not a separate request type or a synonym for COMPOSITION.',
       VOICE:'One part in a fixed ROLE; `voices` contains up to eight parts.',
-      STATE:'The read-only project-state.json file; contains `revision` and SCORE in `score`.',
+      STATE:'The read-only project-state.json file; contains the applied SCORE in `score`.',
       SCORE:'Musical events, timbres and structure in halo-score format; not a prose description.',
       COMPOSITION:'The whole piece: one PHRASE or several PHRASE arranged through SECTION.',
       SECTION:'An arrangement entry referencing a PHRASE and specifying `repeats`.',
@@ -345,7 +368,6 @@
       BRIDGE_ROOT:'The one verified connected folder; never changes during a task.',
       REQUEST:'The requests/ID.json file written by the agent.',
       RECEIPT:'The responses/ID.result.json file written only by HALO.',
-      REVISION:'Version of the applied COMPOSITION; copy `revision` into `baseRevision`.',
       ROLE:'A fixed musical function and a key in `voices`.',
       SLOT:'A stable UI position independent of the chosen TIMBRE.',
       BANK:'A source of TIMBRE; `bankId` does not assign a ROLE.',
@@ -395,13 +417,13 @@
     };
     const roleProperties=ref=>Object.fromEntries(caps.roles.map(r=>[r.id,{$ref:'#/$defs/'+ref}]));
     const roles=edit=>object(roleProperties(edit?'editVoice':'createVoice'));
-    const common={format:{const:'halo-score'},baseRevision:integer(0),requestId:{type:'string',pattern:'^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$',maxLength:128}};
+    const common={format:{const:'halo-score'},requestId:{type:'string',pattern:'^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$',maxLength:128}};
     const metadata={world:{enum:['ambient','reactor']},tempo:{type:'number',minimum:30,maximum:200},bars:{enum:[4,8]},meter:{enum:['4/4','3/4']},key:{type:'string',enum:caps.harmony.keys.map(k=>k.name)}};
-    const required=['format','baseRevision','mode'],music=[...required,...Object.keys(metadata)];
+    const required=['format','mode'],music=[...required,...Object.keys(metadata)];
     const phrase=object({id:integer(1),bars:metadata.bars,meter:metadata.meter,key:metadata.key,voices:roles(false)},['id','voices']);
     const section=object({phrase:integer(1),repeats:integer(1,8),name:{enum:['intro','verse','verse2','chorus','bridge','outro','phrase']},fade:{enum:['none','in','out']}},['phrase']);
     return {$schema:'https://json-schema.org/draft/2020-12/schema',title:'HALO File Bridge canonical request',
-      description:'Canonical syntax only. The receiver additionally validates live revision, filename identity, world/role compatibility, canonical timbre ID, pitched/unpitched event kind, role polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.',
+      description:'Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical timbre ID, pitched/unpitched event kind, role polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.',
       $defs:{
         createVoice:{oneOf:[literalVoice(false),{$ref:'#/$defs/companion'}]},
         editVoice:{oneOf:[literalVoice(true),{$ref:'#/$defs/companion'}]},
@@ -427,14 +449,14 @@
         root:'Verify one connected root containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables ROOT, STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Binding a path never authorizes writing that file; STATE_PATH and RECEIPT_PATH are read-only to the agent.'},
       timing:timingVocabulary(),
       limits: {tempo:caps.limits.bpm,bars:caps.limits.bars,tracks:caps.limits.tracks,stepsPerBar:{'4/4':16,'3/4':12},phrases:caps.limits.phrases,sections:caps.limits.sections,totalBars:caps.limits.totalBars,bytes:caps.limits.bytes},
-      syntax:{canonical:'JSON matching requestSchema',acceptedPresentation:['UTF-8 BOM','one json/jsonc/json5 code fence','line and block comments','trailing commas','single-quoted strings','unquoted identifier keys and single-token string values','missing commas between whitespace-separated complete values'],neverRepair:'Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All semantic/revision/path checks still apply after parsing.'},
+      syntax:{canonical:'JSON matching requestSchema',acceptedPresentation:['UTF-8 BOM','one json/jsonc/json5 code fence','line and block comments','trailing commas','single-quoted strings','unquoted identifier keys and single-token string values','missing commas between whitespace-separated complete values'],neverRepair:'Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All musical, freshness and path checks still apply after parsing.'},
       requestSchema:requestSchema(caps),
-      score: {fields:scoreFields, required:['format','baseRevision','mode'],
+      score: {fields:scoreFields.filter(k=>k!=='baseRevision'), required:['format','mode'],
         requiredByMode:{probe:[],patch:['patches'],replace:['world','tempo','bars','meter','key'],edit:['world','tempo','bars','meter','key','voices']},
         alternativesByMode:{replace:[['voices'],['phrases','sections']]},
         editTarget:'Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).',
         format:'halo-score', mode:['replace','edit','patch','probe'], world:['ambient','reactor'], tempo:[30,200], bars:[4,8], meter:['4/4','3/4'],
-        shape:'replace or edit: `voices` for one phrase; `phrases` and `sections` for a new composition; edit on a composition needs `phraseId`. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.',
+        shape:'replace or edit: `voices` for one phrase; `phrases` and `sections` for a new composition; edit on a composition needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.',
         phrases:{fields:['id','bars','meter','key','voices'],required:['id','voices'],max:15},
         sections:{fields:['phrase','repeats','name','fade'],required:['phrase'],max:32,
           names:['intro','verse','verse2','chorus','bridge','outro','phrase'],fade:['none','in','out'],defaults:{repeats:1,name:'phrase',fade:'none'}},
@@ -446,16 +468,17 @@
           steps:'Unique integer hits for unpitched timbres only; [] means intentional silence.',
           controls:'on is boolean; level, character, duration, space, delay, chorus are 0..100.',
           defaults:{on:true,level:50,character:50,duration:50,space:30,delay:0,chorus:0}},
-        strict:'Unknown fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. No automatic revision rebasing.'},
-      preflight:{format:'halo-score',mode:'probe',required:['format','mode','baseRevision'],receipt:'ready',meaning:'Before composing, write a probe into existing requests/ and read its real ready receipt from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder.'},
-      parameterPatch:{mode:'patch',required:['format','mode','baseRevision','patches'],patches:'1..15 objects: {phraseId, voices}. Existing phraseId required for a song; omitted for single phrase. Unique targets. voices maps roles to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes.'},
-      stateExport:{score:'Canonical halo-score projection of all phrases and sections; baseRevision is live. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it.'},
+        strict:'Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions.'},
+      synchronization:{owner:'HALO',task:'Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; the agent never supplies version counters.',merge:'Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.',conflict:'pending_approval.conflicts requires user choice: accept the proposed conflict values or reject and keep site music. Missing task baseline after reconnect also requires user review. Changes during review trigger a new review.'},
+      preflight:{format:'halo-score',mode:'probe',required:['format','mode'],receipt:'ready',meaning:'Use the SAME fresh ID for probe then music. Before composing, write a probe into existing requests/ and read its real ready receipt from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder.'},
+      parameterPatch:{mode:'patch',required:['format','mode','patches'],patches:'1..15 objects: {phraseId, voices}. Existing phraseId required for a song; omitted for single phrase. Unique targets. voices maps roles to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes.'},
+      stateExport:{score:'Canonical halo-score projection of all phrases and sections; HALO manages freshness. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it.'},
       receipts:{statuses:['ready','pending_approval','applied','rejected','error'],
         identity:'id equals ID; requestId, if supplied, equals the request basename.',
-        freshness:'After correction require a changed submissionVersion for pending/error. Matching applied/rejected are terminal.',
+        freshness:'After correction read the response; HALO tracks content identity internally. Matching applied/rejected are terminal.',
         checks:'Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.',
-        corrections:2, approval:'Receipt statuses are output only, never request commands. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.',
-        idLifecycle:'Each later user musical change needs a new ID and live revision. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.',
+        corrections:2, approval:'Receipt statuses are output only, never request commands. Conflicts are reported in pending_approval.conflicts and always require the HALO user, even with automatic apply enabled. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.',
+        idLifecycle:'Each later user musical change needs a new ID and a new probe. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.',
         evidence:'scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive bars without new notes in an active authored pitched part.',
         enforcement:'HALO cannot police external receipt reads or file writes; those limits require the external tool adapter.'}
     };
@@ -618,7 +641,7 @@
         return {bars:project.bars,meter,key:key.name,voices};
       }
       const first=current.phrases?current.phrases[0].project:current;
-      const score={format:'halo-score',baseRevision:state.revision,mode:'replace',world:first.setup,tempo:current.tempo};
+      const score={format:'halo-score',mode:'replace',world:first.setup,tempo:current.tempo};
       if(current.phrases){
         if(current.phrases.some(p=>p.project.setup!==first.setup))throw Error('Mixed worlds cannot be represented in one halo-score');
         const phrases=current.phrases.map(p=>({id:p.id,...phrase(p.project,p.id)}));
@@ -659,13 +682,13 @@ ${Object.values(terminology()).map(value=>value.replace(/^([^:]+):/,'**$1** —'
 | [capabilities.json](capabilities.json) | Sole format authority: requestSchema, mode fields, limits and responses. Read before writing. |
 | [instruments.json](instruments.json) | Complete TIMBRE (тембр) catalog: canonicalId, compatibleRoles, pitched, acousticRange and fixed ROLE (роль). Choose from this catalog, not memory. |
 | [music-rules.json](music-rules.json) | Exact timing vocabulary, grid and supported key names. |
-| [project-state.json](project-state.json) | STATE (снимок состояния): live revision, the whole COMPOSITION (композиция) in score and scoreExport limitations. |
+| [project-state.json](project-state.json) | STATE (снимок состояния): the whole COMPOSITION (композиция) in score and scoreExport limitations. |
 
 A REQUEST (запрос) is one object with format exactly halo-score. Its structure is capabilities.json.requestSchema. Prose, portable projects and status objects are not a SCORE (партитура). SLOT (физический слот), BANK (банк тембров) and TIMBRE (тембр) are distinct concepts. MIDI input bounds and acousticRange are different constraints in instruments.json.
 
 ## Folder preflight
 BRIDGE_ROOT (корневая папка) is the exact absolute path supplied by the user. Verify existing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind one BRIDGE_ROOT (корневая папка). Never create directories or use a scratchpad or Bionic workspace as a substitute.
-Before composing EACH new task, read live STATE (снимок состояния). Choose an unused probe ID. Write and read back requests/ID.json with only format=halo-score, mode=probe, baseRevision=STATE.revision (integer). Read the real responses/ID.result.json: matching id, status=ready, currentRevision equal to probe baseRevision. ready proves exchange, not music approval. Retire the probe ID; use another fresh ID for music.
+Before composing EACH new task choose a fresh ID. Write requests/ID.json with only format=halo-score and mode=probe. Read responses/ID.result.json with matching id and status=ready. HALO captures the task baseline. Read STATE, then replace the probe with your musical score using the SAME ID. HALO handles versions, freshness and conflicts; do not supply or compare revision counters.
 The agent writes ONLY requests/. ONLY HALO writes responses/ and context files. Binding a path does not authorize writing it. On denied access, ambiguous BRIDGE_ROOT (корневая папка) or no ready within the delivery limit, STOP before composing and report the exact path and error. Never manufacture a RECEIPT (ответ HALO). Bionic or LM Studio permissions must be granted in that host separately from browser permissions.
 
 ## Six workflows
@@ -687,13 +710,13 @@ Read the full timing vocabulary in music-rules.json. A BAR (такт) has 16 STE
 At 120 BPM one 4/4 BAR (такт) lasts 2 s; eight last 16 s. In eight-bar 4/4, positions 0..15 belong only to the first BAR (такт); 112..127 belong to the eighth. More notes in the first BAR (такт) do not populate later ones. Event starts are not sounding duration.
 
 ## Delivery
-1. After real ready, choose a fresh unused ASCII music ID and read live STATE (снимок состояния) again. Bind REQUEST_PATH=BRIDGE_ROOT/requests/ID.json and RECEIPT_PATH=BRIDGE_ROOT/responses/ID.result.json. Keep these exact paths for the task. Never modify STATE (снимок состояния) or RECEIPT (ответ HALO).
-2. Before writing, check capabilities.json.requestSchema, live revision, compatible TIMBRE (тембр), notes for pitched or steps for unpitched sounds, unique integer positions, each PHRASE (фраза) boundary, polyphony and all sections references. Ensure the musical idea spans the requested duration. Long REST (пауза) must be deliberate parts of the COMPOSITION (композиция). Compare actual events across all BAR (такт) with the brief. Do not require a note in every BAR (такт) or fill intentional silence automatically. For patch verify ONLY requested parameters change; for edit verify unrelated VOICE (голос) and PHRASE (фраза) remain unchanged.
+1. After real ready, keep the SAME task ID and read STATE (снимок состояния). Bind REQUEST_PATH=BRIDGE_ROOT/requests/ID.json and RECEIPT_PATH=BRIDGE_ROOT/responses/ID.result.json. Keep these exact paths for the task. Never modify STATE (снимок состояния) or RECEIPT (ответ HALO).
+2. Before writing, check capabilities.json.requestSchema, compatible TIMBRE (тембр), notes for pitched or steps for unpitched sounds, unique integer positions, each PHRASE (фраза) boundary, polyphony and all sections references. Ensure the musical idea spans the requested duration. Long REST (пауза) must be deliberate parts of the COMPOSITION (композиция). Compare actual events across all BAR (такт) with the brief. Do not require a note in every BAR (такт) or fill intentional silence automatically. For patch verify ONLY requested parameters change; for edit verify unrelated VOICE (голос) and PHRASE (фраза) remain unchanged.
 3. Write REQUEST_PATH and read it back. Optional VOICE (голос) companion files follow capabilities.json.delivery: write and read companions first, publish the main REQUEST (запрос) last. No subdirectories or alternative locations.
-4. Read only RECEIPT_PATH with matching id. applied or rejected: report and STOP regardless of ok:false. pending_approval: report actual status and relevant scoreReport diagnostics, invite approval in HALO and STOP. Never poll for approval or claim playback. ready belongs only to the probe.
-5. On error or ok:false read error, help and instructionForAgent. Correct the same unfinished REQUEST (запрос) at most twice; require changed submissionVersion for the new pending_approval or error response. Reconcile revision conflicts with live STATE (снимок состояния); never blindly rebase. Never change RECEIPT (ответ HALO) or evade errors with another ID.
+4. Read only RECEIPT_PATH with matching id. applied or rejected: report and STOP regardless of ok:false. pending_approval: report actual status and relevant scoreReport diagnostics, invite approval in HALO and STOP. Never poll for approval or claim playback. ready belongs only to the probe; replace that probe with music under the same ID.
+5. On error or ok:false read error, help and instructionForAgent. Correct the same unfinished REQUEST (запрос) at most twice; Read the new response. Conflicts belong to the user in HALO; stop and report them without rewriting music to bypass them. Never change RECEIPT (ответ HALO) or evade errors with another ID.
 6. Missing or stale RECEIPT (ответ HALO): at most 3 reads with built-in waits of 4–5 seconds. Without a wait tool, only one immediate reread. Then report unconfirmed delivery and STOP. No shell loops, browser discovery, servers or delegated polling. The same limit applies to probes.
-7. Each later user brief needs new probe and music IDs plus live revision. Reported pending_approval, applied and rejected retire the music ID. Resolve pending_approval with the user before treating a REQUEST (запрос) as applied.
+7. Each later user brief needs one fresh ID for probe then music. Reported pending_approval, applied and rejected retire the music ID. Resolve pending_approval with the user before treating a REQUEST (запрос) as applied.
 
 Final report: exact request path and ID, real status or unconfirmed delivery, relevant feedback and required user action. A file write does not prove loading, approval or playback.
 `;
@@ -784,9 +807,9 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
       try{
         const id=scoreIdentity(parsed,fallbackId);
         const allowed=['format','requestId','baseRevision','mode'];
-        if(Object.keys(parsed).some(k=>!allowed.includes(k)))throw Error('SCORE_ERROR: probe allows only format, mode, baseRevision, requestId');
+        if(Object.keys(parsed).some(k=>!allowed.includes(k)))throw Error('SCORE_ERROR: probe allows only format, mode, requestId');
         const currentRevision=api.getProjectState().revision;
-        if(!Number.isSafeInteger(parsed.baseRevision)||parsed.baseRevision!==currentRevision)throw Error('CONFLICT_REVISION_MISMATCH: read live project-state.json before probing');
+        // The folder bridge owns task freshness; probe carries no revision obligation.
         return {ok:true,id,probe:true,currentRevision};
       }catch(e){return {ok:false,id:fallbackId,error:e.message};}
     }
@@ -845,11 +868,11 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
 
   function generateErrorGuidance(errorMessage, consecutiveCount = 1){
     const msg=String(errorMessage||'');
-    if(msg==='REJECTED_BY_USER')return {help:'The user rejected this proposal. This ID is terminal.',instructionForAgent:'STOP. Never rewrite or resubmit this ID or write an approval command. A later user music request requires a new ID and live STATE revision.'};
+    if(msg==='REJECTED_BY_USER')return {help:'The user rejected this proposal. This ID is terminal.',instructionForAgent:'STOP. Never rewrite or resubmit this ID or write an approval command. A later user music request requires a new ID and probe.'};
     const help=msg.includes('score.format') || msg.includes('only format halo-score')
       ? 'Read AGENT_GUIDE.md#required-json-structure. Root requires format: halo-score. voices maps each role to ONE object with one sound string and actual numeric notes/steps arrays. Remove lyrics, composition_notes and bar_audit_plan; do not merely add format to a descriptive document.'
       : msg.includes('CONFLICT_REVISION')
-      ? 'Read STATE again and reconcile the score with user changes. Never change baseRevision alone to bypass a conflict.'
+      ? 'Stop and ask the user to resolve the proposal in HALO. Do not rewrite music to bypass a conflict.'
       : msg.includes('absoluteStep must be an integer')
         ? 'Use integer phrase-local absoluteStep positions on the sixteenth-note grid. Fractions such as 0.5 are unsupported; do not silently round or change formats. Correct the reported positions deliberately, then reread the matching receipt.'
       : msg.includes('FILE_NOT_FOUND')
@@ -857,7 +880,7 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
         : 'Keep format halo-score. Read the indicated field and capabilities.json; sound IDs and role compatibility are in instruments.json. Do not switch formats or locations.';
     return {help,instructionForAgent:consecutiveCount>=3
       ? 'STOP: two correction rounds exhausted. Report the exact error and fixed paths.'
-      : 'Correct only the indicated cause in the same ID and paths, at most two rounds. Read the matching RECEIPT and require a changed submissionVersion after correction. Stop on pending_approval, applied or rejected.'};
+      : 'Correct only the indicated cause in the same ID and paths, at most two rounds. Read the matching RECEIPT and read the updated response after correction. Stop on pending_approval, applied or rejected.'};
   }
 
   async function processRequest(api, textContent, fallbackId, options = {}){
@@ -1043,10 +1066,13 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
     }
     function canPoll(){ return active && !doc?.hidden && (!panelVisible || panelVisible()); }
     let consecutiveErrors = 0;
+    let reviewingAgain = false;
     let lastSyncedRevision = null;
     const listeners = new Set();
     const processedContent = new Map();
     const terminalIds = new Set();
+    const taskBases = new Map();
+    const readyIds = new Set();
     const win = env.window || root;
     const requestByteLimit = api.getCapabilities().limits.bytes || 524288;
 
@@ -1126,7 +1152,55 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
       const fingerprint = JSON.stringify([text, [...files].sort(([a],[b])=>a.localeCompare(b))]);
       const previous = submissionCache.get(fallbackId);
       if (!force && previous?.fingerprint === fingerprint) return previous;
-      if (!parsed) parsed = parseAndValidateRequest(api, resolved, fallbackId, {});
+      if (!parsed) {
+        const base=taskBases.get(fallbackId), live=api.getProjectState();
+        const source=base||live;
+        const sourceApi=Object.create(api);
+        sourceApi.getProjectState=()=>clone(source);
+        sourceApi.getRevision=()=>source.revision;
+        // Preview against the captured base without mutating the live engine.
+        sourceApi.previewOperations=request=>{
+          // Score compilation emits full replacements. Validate them through the
+          // real engine at its live revision, while retaining the task's before.
+          const preview=api.previewOperations({...request,baseRevision:live.revision});
+          return {...preview,before:clone(source.project)};
+        };
+        parsed=parseAndValidateRequest(sourceApi,{...resolved,baseRevision:source.revision},fallbackId,{});
+        if(parsed.ok&&!parsed.probe){
+          const conflicts=[];
+          const proposed=parsed.preview.after;
+          const after=base?(resolved.mode==='replace'&&JSON.stringify(base.project)!==JSON.stringify(live.project)
+            ?(conflicts.push('project'),proposed):mergeBridgeState(base.project,live.project,proposed,'project',conflicts)):proposed;
+          if(!base)conflicts.push('TASK_BASE_UNAVAILABLE');
+          if(base&&resolved.mode==='patch')for(const entry of resolved.patches){
+            const find=p=>p.phrases?p.phrases.find(v=>v.id===entry.phraseId)?.project:p;
+            const b=find(base.project),c=find(live.project),a=find(after);
+            if(b&&c&&a)for(const [role,values]of Object.entries(entry.voices)){
+              const i=api.getCapabilities().roles.findIndex(r=>r.id===role);
+              for(const [key,value]of Object.entries(values)){
+                if(c.tracks[i][key]!==b.tracks[i][key]&&c.tracks[i][key]!==value)conflicts.push('patch.'+(entry.phraseId??'single')+'.'+role+'.'+key);
+                a.tracks[i][key]=value;
+              }
+            }
+          }
+          parsed.transaction={schemaVersion:1,baseRevision:live.revision,operations:[{op:after.phrases?'composition.replace':'project.replace',project:after}]};
+          try{
+            parsed.preview=api.previewOperations(parsed.transaction);
+          }catch(e){
+            // Individually valid concurrent edits may be incompatible together
+            // (for example a shorter meter and later note positions). Do not ask
+            // the composer to repair an automatic merge or invent a compromise.
+            conflicts.push('project: incompatible concurrent changes');
+            parsed.transaction.operations[0].project=proposed;
+            parsed.transaction.operations[0].op=proposed.phrases?'composition.replace':'project.replace';
+            parsed.preview=api.previewOperations(parsed.transaction);
+          }
+          parsed.currentRevision=live.revision;
+          parsed.scoreAudit=auditScore(parsed.preview.after,api.getCapabilities());
+          parsed.scoreReport=diagnoseScore(parsed.preview.after,parsed.scoreAudit);
+          parsed.conflicts=conflicts;
+        }
+      }
       // Correlation token, not a security hash. Includes companion content.
       let hash = 2166136261;
       for (let i=0;i<fingerprint.length;i++) hash = Math.imul(hash ^ fingerprint.charCodeAt(i), 16777619);
@@ -1170,7 +1244,8 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
             if (responseCache.size >= 512) responseCache.clear();
             responseCache.set(name, responseText);
             const result = JSON.parse(responseText);
-            if (result.id === name.slice(0,-12) && ['rejected','applied','ready'].includes(result.status)) {
+            if(result.id===name.slice(0,-12)&&result.status==='ready')readyIds.add(result.id);
+            if (result.id === name.slice(0,-12) && ['rejected','applied'].includes(result.status)) {
               terminalIds.add(name.slice(0, -12));
             }
           } catch {}
@@ -1196,25 +1271,29 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
           }
           if(parsed.probe){
             consecutiveErrors=0;state.error=null;state.lastResult=null;
-            await writeResponse({ok:true,status:'ready',applied:false,id:parsed.id,submissionVersion:submission.submissionVersion,currentRevision:parsed.currentRevision,instructionForAgent:'Folder exchange verified. This probe ID is finished. Read live STATE and use a different new ID for the music; only HALO writes responses.'},baseId);
-            terminalIds.add(baseId);continue;
+            await writeResponse({ok:true,status:'ready',applied:false,id:parsed.id,submissionVersion:submission.submissionVersion,currentRevision:parsed.currentRevision,instructionForAgent:'Folder exchange verified. Read STATE and submit music using this same ID. HALO manages freshness; only HALO writes responses.'},baseId);
+            if(!readyIds.has(baseId)&&!taskBases.has(baseId)){
+              if(taskBases.size>=16)taskBases.delete(taskBases.keys().next().value);
+              taskBases.set(baseId,clone(api.getProjectState()));
+            }
+            readyIds.add(baseId);continue;
           }
           consecutiveErrors = 0;
           state.error = null;
           state.snapshotRevision = null;
-          state.pending = {id:parsed.id, filename, transaction:parsed.transaction, preview:parsed.preview, baseId,
+          state.pending = {id:parsed.id, conflicts:parsed.conflicts||[], filename, transaction:parsed.transaction, preview:parsed.preview, baseId,
             ...(parsed.scoreMode ? {scoreMode:parsed.scoreMode,scoreReport:parsed.scoreReport,scoreAudit:parsed.scoreAudit} : {}),
 };
           // Private handles/fingerprint are not serialized into UI or context files.
           pendingSource = {directory, requestFile, fingerprint:submission.fingerprint};
           const response = {ok:true, status:'pending_approval', applied:false, id:parsed.id, submissionVersion:submission.submissionVersion,
-            baseRevision:parsed.transaction.baseRevision, currentRevision:parsed.currentRevision,
-            instructionForAgent:'Inspect scoreAudit and every scoreReport item. After reporting pending_approval, STOP; only the user approves in HALO. Never write status/approved commands. A later user musical change requires a NEW ID and live STATE.',
+            conflicts:parsed.conflicts||[], baseRevision:parsed.transaction.baseRevision, currentRevision:parsed.currentRevision,
+            instructionForAgent:'Inspect scoreAudit and every scoreReport item. After reporting pending_approval, STOP; only the user approves in HALO. Never write status/approved commands. A later user musical change requires a NEW ID and probe.',
             ...(parsed.scoreReport ? {scoreReport:parsed.scoreReport,scoreAudit:parsed.scoreAudit} : {}),
 timestamp:new Date().toISOString()};
           await writeResponse(response, baseId);
           state.lastResult = null;
-          if (state.autoApply) await commitPending();
+          if (state.autoApply && !reviewingAgain && !state.pending.conflicts.length) await commitPending();
           break;
         }
         state.lastCheck = new Date().toISOString();
@@ -1236,6 +1315,15 @@ timestamp:new Date().toISOString()};
             throw Error('REQUEST_CHANGED: Files changed after validation; wait for a new proposal and review it again.');
           }
         }
+        const liveRevision=api.getRevision?api.getRevision():api.getProjectState().revision;
+        if(p.transaction.baseRevision!==liveRevision){
+          submissionCache.delete(p.baseId);processedContent.delete(p.baseId);
+          state.pending=null;pendingSource=null;
+          // Rebuild the proposal against the live state; require another review.
+          state.busy=false;reviewingAgain=true;
+          try{await checkFolder();}finally{state.busy=true;reviewingAgain=false;}
+          return;
+        }
         api.setEnabled(true);
         const applied = await api.applyOperations(p.transaction);
         // Mark before I/O so a failed response write cannot re-apply in this session.
@@ -1244,7 +1332,7 @@ timestamp:new Date().toISOString()};
         consecutiveErrors = 0;
         const response = {ok:true, status:'applied', applied:true, id:p.id,
           appliedRevision:applied.revision, currentRevision:applied.revision,
-          instructionForAgent:'STOP. This ID is applied and terminal. Never rewrite it or wait for approval. A later user musical change requires a NEW ID and live STATE.',
+          instructionForAgent:'STOP. This ID is applied and terminal. Never rewrite it or wait for approval. A later user musical change requires a NEW ID and probe.',
           ...(p.scoreReport ? {scoreReport:p.scoreReport,scoreAudit:p.scoreAudit} : {}),
 timestamp:new Date().toISOString()};
         committedResponse = response;
@@ -1311,6 +1399,7 @@ timestamp:new Date().toISOString()};
     }
 
     async function connect(handle){
+      taskBases.clear();
       console.log('[HALO File Bridge] connect() called with:', handle?.name);
       const validHandle = asDirectoryHandle(handle);
       if (!validHandle) {
@@ -1322,7 +1411,7 @@ timestamp:new Date().toISOString()};
         notify();
         return;
       }
-      fileCache.clear(); cachedBytes = 0; responseCache.clear(); submissionCache.clear(); processedContent.clear(); terminalIds.clear();
+      fileCache.clear(); cachedBytes = 0; responseCache.clear(); submissionCache.clear(); processedContent.clear(); terminalIds.clear(); readyIds.clear();
       pendingSource = null; state.pending = null;
       dirHandle = validHandle;
       state.snapshotRevision = null;
@@ -1369,6 +1458,7 @@ timestamp:new Date().toISOString()};
     }
 
     async function disconnect(){
+      taskBases.clear();
       if (pollInterval) clearInterval(pollInterval);
       pollInterval = null;
       dirHandle = null;
@@ -1437,6 +1527,7 @@ timestamp:new Date().toISOString()};
     }
 
     async function resetLocalChanges(lang = 'ru'){
+      taskBases.clear();
       if (!dirHandle) return;
       console.log('[HALO File Bridge] resetLocalChanges initiated on folder:', dirHandle.name);
       state.busy = true;
@@ -1552,6 +1643,7 @@ timestamp:new Date().toISOString()};
         if (pollInterval) clearInterval(pollInterval);
         pollInterval = null;
         dirHandle = null;
+        taskBases.clear();readyIds.clear();
         listeners.clear();
       }
     };
@@ -1784,7 +1876,7 @@ timestamp:new Date().toISOString()};
         `;
         if (Number.isSafeInteger(s.snapshotRevision)) {
           const refreshed=document.createElement('p');
-          refreshed.textContent=tr('Снимок обновлён: ревизия '+s.snapshotRevision+'. Неисправленный запрос останется с ошибкой; передайте агенту актуальный project-state.json.','Snapshot updated: revision '+s.snapshotRevision+'. An uncorrected request remains in error; ask the agent to read current project-state.json.');
+          refreshed.textContent=tr('Снимок обновлён: ревизия '+s.snapshotRevision+'. HALO самостоятельно проверяет актуальность предложений.','Snapshot updated: revision '+s.snapshotRevision+'. HALO checks proposal freshness automatically.');
           meta.append(refreshed);
         }
         if (hasError) {
@@ -1795,8 +1887,8 @@ timestamp:new Date().toISOString()};
           const isRevMismatch = String(s.error || s.lastResult?.error || '').includes('CONFLICT_REVISION_MISMATCH');
           if (isRevMismatch) {
             errText.textContent = tr(
-              'Запрос основан на старой ревизии. «Обновить снимок» выгружает текущий проект, но не исправляет и не применяет запрос. Затем агент должен прочитать project-state.json, согласовать партитуру с текущим проектом и исправить тот же незавершённый запрос.',
-              'The request uses an old revision. Refresh snapshot exports the current project; it neither repairs nor applies the request. The agent must then read project-state.json, reconcile the score with the current project and correct the same unfinished request.'
+              'Запрос основан на старой ревизии. «Обновить снимок» выгружает текущий проект, но не исправляет и не применяет запрос. HALO пересобирает предложение относительно текущего проекта; проверьте конфликты в карточке предложения.',
+              'The request uses an old revision. Refresh snapshot exports the current project; it neither repairs nor applies the request. HALO rebuilds proposals against the current project; review conflicts in the proposal panel.'
             );
           } else {
             errText.textContent = tr('Агент должен прочитать error/help в responses/ID.result.json и исправить указанные поля того же незавершённого запроса. Очистка папки удаляет запросы и ответы, а не исправляет партитуру.', 'The agent must read error/help in responses/ID.result.json and correct the indicated fields of the same unfinished request. Clearing the folder deletes requests and receipts; it does not repair the score.');
@@ -1881,9 +1973,14 @@ timestamp:new Date().toISOString()};
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
             <strong style="color:#d8ffff;font-size:11px;">🔔 ${tr('Входящий запрос от агента:','Incoming agent request:')} <span style="color:#7ef0dc;">${s.pending.id}</span></strong>
           </div>
-          <span style="font-size:10px;color:#a2bacb;">Base rev: ${s.pending.transaction.baseRevision}</span>
+
         `;
         pendingBox.append(pHead);
+        if(s.pending.conflicts?.length){
+          const warning=document.createElement('p');
+          warning.textContent=tr('Изменения пересекаются или исходное состояние задания недоступно. Принять предложение — заменить конфликтующие данные вариантом агента. Отклонить — сохранить музыку сайта.','Changes overlap or the task baseline is unavailable. Accept proposal to replace conflicting data with the agent version; reject to keep site music.')+' '+s.pending.conflicts.join(', ');
+          pendingBox.append(warning);
+        }
 
         const pOps = document.createElement('ul');
         pOps.style.cssText = 'margin:6px 0 10px 18px;padding:0;font-size:10px;color:#cbe2ee;';
@@ -1901,10 +1998,10 @@ timestamp:new Date().toISOString()};
               const li = document.createElement('li'), role = roleNames[roles[i].id];
               if(s.pending.scoreMode==='patch'){
                 const before=s.pending.preview.before;
-                const old=(before.phrases?before.phrases.find(p=>p.id===phrase.id).project:before).tracks[i];
-                const changes=['on','level','character','duration','space','delay','chorus'].filter(k=>old[k]!==track[k]);
+                const old=(before.phrases?before.phrases.find(p=>p.id===phrase.id)?.project:before)?.tracks[i];
+                const changes=['on','level','character','duration','space','delay','chorus'].filter(k=>old?.[k]!==track[k]);
                 if(!changes.length)continue;
-                li.textContent=(phrase.id===null?'':tr('Фраза ','Phrase ')+phrase.id+': ')+tr(...role)+' — '+changes.map(k=>k+': '+old[k]+' → '+track[k]).join(', ');
+                li.textContent=(phrase.id===null?'':tr('Фраза ','Phrase ')+phrase.id+': ')+tr(...role)+' — '+changes.map(k=>k+': '+(old?.[k]??'—')+' → '+track[k]).join(', ');
                 pOps.append(li);continue;
               }
               li.textContent = (phrase.id === null ? '' : `${tr('Фраза','Phrase')} ${phrase.id}: `) + tr(...role) +
@@ -1957,7 +2054,7 @@ timestamp:new Date().toISOString()};
         const btnApply = document.createElement('button');
         btnApply.className = 'glass-btn';
         btnApply.style.cssText = 'font-size:10px;padding:4px 14px;background:rgba(42,120,105,.6);border-color:#7df0dc;color:#fff;font-weight:600;';
-        btnApply.textContent = tr('✓ Применить изменения', '✓ Apply Changes');
+        btnApply.textContent = s.pending.conflicts?.length ? tr('Принять вариант агента','Accept agent version') : tr('✓ Применить изменения', '✓ Apply Changes');
         btnApply.onclick = () => bridge.applyPending();
 
         const btnReject = document.createElement('button');
@@ -1996,12 +2093,13 @@ timestamp:new Date().toISOString()};
 
     el('strong', tr('Пример запроса для агента (Bionic / Antigravity / Codex):', 'Example prompt for agent (Bionic / Antigravity / Codex):'), 'display:block;font-size:11px;margin-bottom:4px;');
     const promptBox = el('div', tr(
-      '«Вот папка HALO. Прочитай AGENT_GUIDE.md. До сочинения проверь обмен запросом-пробой по руководству; без ready или при отказе доступа остановись. Затем сочини новогодний джингл на 8 тактов (bars/measures). Перед записью проверь формат и позиции событий. Передай партитуру в HALO и прочитай responses/ID.result.json. При applied/rejected остановись. При pending_approval сообщи статус, попроси одобрить в HALO и остановись. Иначе при status:error или ok:false прочитай error/help/instructionForAgent, исправь тот же незавершённый запрос и проверь ответ снова — максимум 2 исправления. Если ответа нет, соблюдай лимит проверок из руководства и сообщи, что доставка не подтверждена».',
-      '“Here is the HALO folder. Read AGENT_GUIDE.md. Before composing, verify the folder exchange with the guide’s probe; stop without ready or on denied access. Then compose an eight-bar (eight-measure) New Year jingle. Check the format and event positions before writing. Send the score to HALO and read responses/ID.result.json. On applied/rejected stop. On pending_approval report the status, invite approval in HALO and stop. Otherwise, on status:error or ok:false read error/help/instructionForAgent, correct the same unfinished request and check again — at most 2 corrections. If no receipt arrives, follow the guide’s check limit and report unconfirmed delivery.”'
+      '«Вот папка HALO. Прочитай AGENT_GUIDE.md и сочини новогодний джингл на 8 тактов. Выбери подходящие тембры из каталога, запиши оригинальные партии в score и передай их в HALO по руководству. Прочитай ответ HALO и сообщи результат; если нужно моё решение, остановись».',
+      '“Here is the HALO folder. Read AGENT_GUIDE.md and compose an eight-bar New Year jingle. Choose suitable catalog timbres, write original parts as a score and deliver them to HALO using the guide. Read HALO’s response and report the result; stop if my decision is needed.”'
     ), 'font-size:10px;line-height:1.5;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.1);border-radius:8px;padding:8px 10px;color:#d5ebf5;user-select:all;');
   }
 
   const api = {
+    mergeBridgeState,
     parseScoreText,
     auditScore,
     generateCapabilities,

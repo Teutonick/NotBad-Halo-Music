@@ -465,7 +465,7 @@ test('only canonical score fields are accepted; no aliases, defaults, case repai
   {voices:{melody:{sound:'harp',notes:[[0,72]],comment:'metadata'}}},{voices:{texture:{sound:'wind',notes:[[0,72]]}}},
   {voices:{texture:{sound:'organ',steps:[0]}}},{voices:{melody:{sound:'harp',notes:[[0,72],[0,76]]}}}];
  for(const extra of rejected){const r=FileBridge.parseAndValidateRequest(api,scoreRequest(api,extra),'strict');assert.equal(r.ok,false,JSON.stringify(extra));}
- for(const field of ['mode','world','tempo','bars','meter','key','baseRevision']){
+ for(const field of ['mode','world','tempo','bars','meter','key']){
   const req=scoreRequest(api);delete req[field];assert.equal(FileBridge.parseAndValidateRequest(api,req,'required').ok,false,field);
  }
 });
@@ -508,14 +508,13 @@ test('operation envelopes are rejected, directories are ignored, companions neve
  }finally{f.bridge.dispose()}
 });
 
-test('stale revision is never automatically rebased and later manual edits block approval',async()=>{
+test('missing baseline requires human review; changes during review rebuild instead of overwriting',async()=>{
  const f=await scoreFixture();try{
   f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api,{baseRevision:0})));
-  await f.bridge.checkFolder();assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/CONFLICT_REVISION/);
-  assert.equal(FileBridge.parseAndValidateRequest(f.api,scoreRequest(f.api,{baseRevision:0}),'stale',{allowRebase:true}).ok,false);
-  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');assert.deepEqual(f.bridge.getStatus().pending.conflicts,['TASK_BASE_UNAVAILABLE']);
   f.api.setEnabled(true);await f.api.applyOperations({schemaVersion:1,baseRevision:f.api.getProjectState().revision,operations:[{op:'master.patch',values:{tempo:80}}]});
-  await f.bridge.applyPending();assert.equal(f.receipt().status,'error');assert.equal(f.api.getProjectState().project.tempo,80);
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'pending_approval');assert.equal(f.api.getProjectState().project.tempo,80);
+  await f.bridge.rejectPending();assert.equal(f.api.getProjectState().project.tempo,80);
  }finally{f.bridge.dispose()}
 });
 
@@ -586,7 +585,7 @@ test('real directory roundtrip exports linked context, detects companion-only ch
   await fs.writeFile(companion,JSON.stringify({sound:'harp',notes:[[0,72],[127,79]]}));await bridge.checkFolder();
   assert.notEqual((await receipt()).submissionVersion,first.submissionVersion);await bridge.applyPending();assert.equal((await receipt()).status,'applied');
   assert.deepEqual(api.getProjectState().project.tracks[5].noteEvents,[{step:0,notes:[72]},{step:127,notes:[79]}]);
-  const exported=JSON.parse(await fs.readFile(path.join(folder,'project-state.json'),'utf8'));assert.equal(exported.project,undefined);assert.equal(exported.score.baseRevision,api.getProjectState().revision);assert.equal(exported.scoreExport.complete,true);
+  const exported=JSON.parse(await fs.readFile(path.join(folder,'project-state.json'),'utf8'));assert.equal(exported.project,undefined);assert.equal(exported.score.baseRevision,undefined);assert.equal(exported.scoreExport.complete,true);
   await bridge.checkFolder();assert.equal(bridge.getStatus().pending,null);
  }finally{
   bridge.dispose();assert.equal(path.dirname(path.resolve(folder)),tempRoot,'cleanup is confined to this test parent');await fs.rm(folder,{recursive:true,force:true});
@@ -601,6 +600,7 @@ test('composer workflow guide is bounded and has no copied format or score examp
  assert.doesNotMatch(guide,/\[\s*\[\s*\d|\[\s*\d+\s*,\s*\d+/);
  assert.doesNotMatch(guide,/```json|REPLACE_WITH|Mandatory bar audit|ROOT_VERIFIED|climax|cadence|solfege|D natural minor/);
  assert.match(guide,/format exactly halo-score/);assert.match(guide,/Before writing, check/);
+ assert.doesNotMatch(guide,/baseRevision|submissionVersion/);assert.match(guide,/SAME task ID|SAME ID/);
  assert.match(guide,/canonicalId/);assert.ok(guide.length<=11000,'workflow only, no catalog or schema duplication');
  const rules=JSON.parse(files['music-rules.json']);assert.equal(rules.barAudit,undefined);assert.equal(rules.orchestration,undefined);assert.equal(rules.keyChanges,undefined);
  assert.ok(rules.keys.includes('D MINOR'));assert.equal(rules.timeSignatures['3/4'].stepsPerBar,12);
@@ -704,23 +704,16 @@ test('musical timing and bar boundaries at 120 BPM agree with published glossary
 });
 
 
-test('snapshot refresh exports live revision without rebasing, rereads same-metadata corrections and never replays terminal IDs',async()=>{
+test('snapshot refresh rereads same-metadata corrections without replaying terminal IDs',async()=>{
  const f=await scoreFixture();try{
   const original=f.req.getFileHandle.bind(f.req);
   f.req.getFileHandle=async(...args)=>{const h=await original(...args),get=h.getFile.bind(h);h.getFile=async()=>{const file=await get(),text=await file.text();return {size:text.length,lastModified:1,text:async()=>text}};return h};
-  const stale=scoreRequest(f.api,{baseRevision:0});f.req.files.set('req-proof.json',JSON.stringify(stale));
-  await f.bridge.checkFolder();assert.equal(f.receipt().status,'error');
-  const before=f.api.getProjectState();
-  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'error');assert.match(f.receipt().error,/CONFLICT_REVISION/);
-  assert.deepEqual(f.api.getProjectState(),before);assert.equal(JSON.parse(f.req.files.get('req-proof.json')).baseRevision,0);
-  assert.equal(JSON.parse(f.root.files.get('project-state.json')).revision,before.revision);assert.equal(f.bridge.getStatus().snapshotRevision,before.revision);
-  f.req.files.set('req-proof.json',JSON.stringify({...stale,baseRevision:before.revision}));
-  await f.bridge.checkFolder();assert.equal(f.receipt().status,'error','idle metadata cache still sees old bytes');
-  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'pending_approval');assert.equal(f.bridge.getStatus().snapshotRevision,null);
-  assert.equal(f.api.getProjectState().revision,before.revision,'refresh never applies');
+  const score=scoreRequest(f.api,{tempo:120});f.req.files.set('req-proof.json',JSON.stringify(score));
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');
+  f.req.files.set('req-proof.json',JSON.stringify({...score,tempo:140}));
+  await f.bridge.refreshSnapshot();assert.equal(f.bridge.getStatus().pending.preview.after.tempo,140);
   await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');const applied=f.api.getProjectState();
-  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api,{tempo:140})));
-  await f.bridge.refreshSnapshot();assert.equal(f.receipt().status,'applied');assert.deepEqual(f.api.getProjectState(),applied);
+  f.req.files.set('req-proof.json',JSON.stringify({...score,tempo:100}));await f.bridge.refreshSnapshot();assert.deepEqual(f.api.getProjectState(),applied);
  }finally{f.bridge.dispose()}
 });
 
@@ -753,11 +746,11 @@ test('fractional-step receipt explains the grid and same-ID correction produces 
  }finally{f.bridge.dispose()}
 });
 
-test('copyable bilingual prompt explicitly requires receipt-driven bounded error repair and stopping',()=>{
+test('copyable bilingual prompt focuses on music and delegates delivery rules to the guide',()=>{
  const fs=require('node:fs'),source=fs.readFileSync(require.resolve('../src/file-bridge.js'),'utf8');
  const prompt=source.slice(source.indexOf('const promptBox ='),source.indexOf('const api = {',source.indexOf('const promptBox =')));
- for(const lang of ['Перед записью проверь','Check the format','максимум 2 исправления','at most 2 corrections','доставка не подтверждена','unconfirmed delivery'])assert.ok(prompt.includes(lang),lang);
- assert.equal(prompt.split('error/help/instructionForAgent').length-1,2);assert.equal(prompt.split('responses/ID.result.json').length-1,2);
+ for(const text of ['Прочитай AGENT_GUIDE.md','Read AGENT_GUIDE.md','оригинальные партии','original parts','сообщи результат','report the result'])assert.ok(prompt.includes(text),text);
+ assert.doesNotMatch(prompt,/baseRevision|submissionVersion|at most 2 corrections/);
  assert.match(FileBridge.getContextFiles(createTestApp().api)['AGENT_GUIDE.md'],/read error, help and instructionForAgent/);
 });
 
@@ -774,7 +767,7 @@ test('snapshot exports all phrase events and parameters in directly accepted hal
  const {api}=createTestApp();await seedTwoPhraseSong(api);const before=api.getProjectState();
  const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);
  assert.equal(state.scoreExport.complete,true);assert.deepEqual(state.scoreExport.materialized,[]);assert.equal(state.project,undefined);
- assert.equal(state.score.baseRevision,before.revision);assert.equal(state.score.phrases.length,2);assert.deepEqual(state.score.sections,before.project.sections);
+ assert.equal(state.score.baseRevision,undefined);assert.equal(state.score.phrases.length,2);assert.deepEqual(state.score.sections,before.project.sections);
  assert.equal(state.score.phrases[0].voices.melody.duration,70);assert.equal(state.score.phrases[1].voices.melody.space,45);
  const parsed=FileBridge.parseAndValidateRequest(api,state.score,'roundtrip');assert.equal(parsed.ok,true,parsed.error);
  assert.deepEqual(parsed.preview.after,before.project,'canonical full song reimports without losing notes, sounds, parameters or arrangement');
@@ -803,19 +796,19 @@ test('single-phrase parameter patch needs no musical metadata and rejects stale 
  assert.equal(FileBridge.parseAndValidateRequest(api,{...patch,baseRevision:0},'stale').ok,false);assert.deepEqual(api.getProjectState(),before);
 });
 
-test('probe verifies real folder roundtrip without approval/mutation and its ID cannot become a music request',async()=>{
+test('probe verifies real folder roundtrip without approval/mutation and its ID becomes the music request',async()=>{
  const f=await scoreFixture();try{
   const before=f.api.getProjectState();f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'probe',baseRevision:before.revision}));
   await f.bridge.checkFolder();const ready=f.receipt();assert.equal(ready.status,'ready');assert.equal(ready.applied,false);assert.equal(ready.id,'req-proof');assert.ok(ready.submissionVersion);
   assert.equal(f.bridge.getStatus().pending,null);assert.deepEqual(f.api.getProjectState(),before);
-  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.equal(f.receipt().status,'ready');assert.deepEqual(f.api.getProjectState(),before);
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');assert.deepEqual(f.api.getProjectState(),before);assert.deepEqual(f.bridge.getStatus().pending.conflicts,[]);
  }finally{f.bridge.dispose()}
 });
 
-test('probe rejects forged readiness, music payloads and stale revision',()=>{
+test('probe rejects forged readiness and music payloads; counters are HALO-owned',()=>{
  const {api}=createTestApp(),probe={format:'halo-score',mode:'probe',baseRevision:api.getProjectState().revision};
  assert.equal(FileBridge.parseAndValidateRequest(api,probe,'access-check').probe,true);
- for(const extra of [{status:'ready'},{voices:{}},{baseRevision:0},{baseRevision:'1'}])assert.equal(FileBridge.parseAndValidateRequest(api,{...probe,...extra},'access-check').ok,false);
+ for(const extra of [{status:'ready'},{voices:{}}])assert.equal(FileBridge.parseAndValidateRequest(api,{...probe,...extra},'access-check').ok,false);
 });
 
 test('generated snapshot discloses materialization and its emitted score passes the same validator',()=>{
@@ -836,7 +829,7 @@ test('song-wide patch is reviewed once, reread on approval and applied as one re
   f.req.files.set('req-proof.json',JSON.stringify(patch));await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');assert.deepEqual(f.api.getProjectState(),before);
   await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');const after=f.api.getProjectState();assert.equal(after.revision,before.revision+1);
   const expected=structuredClone(before.project);for(const p of expected.phrases)p.project.tracks[5].on=false;assert.deepEqual(after.project,expected);
-  const exported=JSON.parse(f.root.files.get('project-state.json'));assert.equal(exported.score.baseRevision,after.revision);assert.ok(exported.score.phrases.every(p=>p.voices.melody.on===false));
+  const exported=JSON.parse(f.root.files.get('project-state.json'));assert.equal(exported.score.baseRevision,undefined);assert.ok(exported.score.phrases.every(p=>p.voices.melody.on===false));
  }finally{f.bridge.dispose()}
 });
 
@@ -893,12 +886,12 @@ test('one machine-readable canonical schema separates mutually exclusive modes a
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=JSON.parse(files['capabilities.json']),state=JSON.parse(files['project-state.json']);
  assert.equal(caps.requestSchema.$schema,'https://json-schema.org/draft/2020-12/schema');assert.equal(caps.requestSchema.oneOf.length,5);
  const [probe,phrase,song,edit,patch]=caps.requestSchema.oneOf;
- for(const shape of caps.requestSchema.oneOf){assert.equal(shape.additionalProperties,false);assert.ok(shape.required.includes('baseRevision'));assert.ok(shape.required.includes('format'));}
+ for(const shape of caps.requestSchema.oneOf){assert.equal(shape.additionalProperties,false);assert.ok(!shape.required.includes('baseRevision'));assert.ok(shape.required.includes('format'));}
  assert.ok(phrase.required.includes('voices'));assert.ok(!song.properties.voices);assert.ok(song.required.includes('phrases'));assert.ok(song.required.includes('sections'));
- assert.deepEqual(probe.required,['format','baseRevision','mode']);assert.ok(!probe.properties.voices);assert.ok(!patch.properties.world);assert.ok(patch.required.includes('patches'));assert.ok(edit.properties.phraseId);
+ assert.deepEqual(probe.required,['format','mode']);assert.ok(!probe.properties.voices);assert.ok(!patch.properties.world);assert.ok(patch.required.includes('patches'));assert.ok(edit.properties.phraseId);
  assert.doesNotMatch(files['capabilities.json'],/Fix ROOT|Fix STATE|Fix.*RECEIPT/);
  assert.doesNotMatch(files['project-state.json'],/"(?:project|visual|setup|noteEvents|startStep|noteTranspose|instrument)"\s*:/);
- assert.equal(state.score.baseRevision,state.revision);assert.equal(typeof state.score.key,'string');assert.ok(state.score.meter);
+ assert.equal(state.score.baseRevision,undefined);assert.equal(typeof state.score.key,'string');assert.ok(state.score.meter);
  assert.equal(FileBridge.parseAndValidateRequest(api,state.score,'schema-export').ok,true);
 });
 
@@ -1001,4 +994,70 @@ test('all context instructions are English and translations appear only in gloss
   assert.ok(doc.terminology.PHRASE);assert.match(doc.terminology.PHRASE,/PHRASE \(фраза\)/);
  }
  const caps=JSON.parse(files['capabilities.json']);assert.deepEqual(Object.keys(caps.timing),['BAR','BEAT','TEMPO','STEP','POSITION','PHRASE','SECTION','REST']);
+});
+
+async function openTask(f){
+ f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'probe'}));
+ await f.bridge.checkFolder();assert.equal(f.receipt().status,'ready');
+}
+async function manualLevel(f,index,level){
+ f.api.setEnabled(true);await f.api.applyOperations({schemaVersion:1,baseRevision:f.api.getProjectState().revision,operations:[{op:'track.patch',trackIndex:index,values:{level}}]});
+}
+test('bridge merges independent parameter edits and accepts no counters from agent',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);await manualLevel(f,0,25);
+  f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'patch',patches:[{voices:{melody:{level:35}}}]}));
+  await f.bridge.checkFolder();assert.deepEqual(f.bridge.getStatus().pending.conflicts,[]);
+  await f.bridge.applyPending();const p=f.api.getProjectState().project;assert.equal(p.tracks[0].level,25);assert.equal(p.tracks[5].level,35);
+ }finally{f.bridge.dispose()}
+});
+test('overlap blocks auto apply and offers explicit user acceptance or rejection',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);await manualLevel(f,5,25);f.bridge.setAutoApply(true);
+  f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'patch',patches:[{voices:{melody:{level:50}}}]}));
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'pending_approval');assert.ok(f.bridge.getStatus().pending.conflicts.length);assert.equal(f.api.getProjectState().project.tracks[5].level,25);
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');assert.equal(f.api.getProjectState().project.tracks[5].level,50);
+ }finally{f.bridge.dispose()}
+});
+test('full replacement conflicts after manual edits and missing baseline blocks auto apply',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);await manualLevel(f,0,25);f.bridge.setAutoApply(true);
+  f.req.files.set('req-proof.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.deepEqual(f.bridge.getStatus().pending.conflicts,['project']);
+  await f.bridge.rejectPending();assert.equal(f.api.getProjectState().project.tracks[0].level,25);
+  f.req.files.set('another.json',JSON.stringify(scoreRequest(f.api)));await f.bridge.checkFolder();assert.deepEqual(f.bridge.getStatus().pending.conflicts,['TASK_BASE_UNAVAILABLE']);
+ }finally{f.bridge.dispose()}
+});
+test('three-way merging treats notes as atomic and merges stable phrase IDs independently',()=>{
+ const base={phrases:[{id:1,project:{tracks:Array.from({length:8},()=>({level:50,notes:[[0,60]]}))}}]};
+ const live=structuredClone(base),next=structuredClone(base);live.phrases[0].project.tracks[0].level=25;next.phrases[0].project.tracks[5].level=35;
+ const conflicts=[],out=FileBridge.mergeBridgeState(base,live,next,'project',conflicts);assert.deepEqual(conflicts,[]);assert.equal(out.phrases[0].project.tracks[0].level,25);
+ live.phrases[0].project.tracks[5].notes=[[0,62]];next.phrases[0].project.tracks[5].notes=[[0,64]];
+ FileBridge.mergeBridgeState(base,live,next,'project',conflicts);assert.ok(conflicts.some(p=>p.endsWith('.notes')));
+});
+
+test('reconnect never recreates a baseline from an old ready receipt',async()=>{
+ const f=await scoreFixture();let other;try{
+  await openTask(f);f.bridge.dispose();await manualLevel(f,5,25);
+  other=FileBridge.createBridge(f.api,{pollInterval:0});other.setAutoApply(true);await other.connect(f.root);
+  f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'patch',patches:[{voices:{melody:{level:35}}}]}));
+  await other.checkFolder();assert.deepEqual(other.getStatus().pending.conflicts,['TASK_BASE_UNAVAILABLE']);assert.equal(f.api.getProjectState().project.tracks[5].level,25);
+  await other.rejectPending();assert.equal(f.receipt().status,'rejected');assert.equal(f.api.getProjectState().project.tracks[5].level,25);
+ }finally{other?.dispose();f.bridge.dispose()}
+});
+test('identical concurrent patch values do not conflict and auto apply works with a live task',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);await manualLevel(f,5,35);f.bridge.setAutoApply(true);
+  f.req.files.set('req-proof.json',JSON.stringify({format:'halo-score',mode:'patch',patches:[{voices:{melody:{level:35}}}]}));
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'applied');assert.equal(f.api.getProjectState().project.tracks[5].level,35);
+ }finally{f.bridge.dispose()}
+});
+
+test('scoped score edit preserves independent manual changes and changes after preview require renewed approval',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);await manualLevel(f,0,25);
+  const score=scoreRequest(f.api,{mode:'edit',voices:{melody:{level:35}}});delete score.baseRevision;
+  f.req.files.set('req-proof.json',JSON.stringify(score));await f.bridge.checkFolder();assert.deepEqual(f.bridge.getStatus().pending.conflicts,[]);
+  await manualLevel(f,1,20);await f.bridge.applyPending();assert.equal(f.receipt().status,'pending_approval');assert.equal(f.api.getProjectState().project.tracks[5].level,50);
+  await f.bridge.applyPending();const after=f.api.getProjectState().project;assert.equal(after.tracks[0].level,25);assert.equal(after.tracks[1].level,20);assert.equal(after.tracks[5].level,35);
+ }finally{f.bridge.dispose()}
 });

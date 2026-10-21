@@ -70,12 +70,12 @@
       "unquoted identifier keys and single-token string values",
       "missing commas between whitespace-separated complete values"
     ],
-    "neverRepair": "Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All semantic/revision/path checks still apply after parsing."
+    "neverRepair": "Never invent missing values, colons, closing quotes/brackets, split fused numbers, resolve duplicate keys, execute expressions or change musical data. All musical, freshness and path checks still apply after parsing."
   },
   "requestSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
     "title": "HALO File Bridge canonical REQUEST (запрос)",
-    "description": "Canonical syntax only. The receiver additionally validates live REVISION (ревизия), filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.",
+    "description": "Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. JSON Schema does not grant permissions or validate musical quality.",
     "$defs": {
       "createVoice": {
         "oneOf": [
@@ -329,10 +329,6 @@
           "format": {
             "const": "halo-score"
           },
-          "baseRevision": {
-            "type": "integer",
-            "minimum": 0
-          },
           "requestId": {
             "type": "string",
             "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$",
@@ -344,7 +340,6 @@
         },
         "required": [
           "format",
-          "baseRevision",
           "mode"
         ],
         "additionalProperties": false
@@ -354,10 +349,6 @@
         "properties": {
           "format": {
             "const": "halo-score"
-          },
-          "baseRevision": {
-            "type": "integer",
-            "minimum": 0
           },
           "requestId": {
             "type": "string",
@@ -453,7 +444,6 @@
         },
         "required": [
           "format",
-          "baseRevision",
           "mode",
           "world",
           "tempo",
@@ -469,10 +459,6 @@
         "properties": {
           "format": {
             "const": "halo-score"
-          },
-          "baseRevision": {
-            "type": "integer",
-            "minimum": 0
           },
           "requestId": {
             "type": "string",
@@ -672,7 +658,6 @@
         },
         "required": [
           "format",
-          "baseRevision",
           "mode",
           "world",
           "tempo",
@@ -689,10 +674,6 @@
         "properties": {
           "format": {
             "const": "halo-score"
-          },
-          "baseRevision": {
-            "type": "integer",
-            "minimum": 0
           },
           "requestId": {
             "type": "string",
@@ -792,7 +773,6 @@
         },
         "required": [
           "format",
-          "baseRevision",
           "mode",
           "world",
           "tempo",
@@ -808,10 +788,6 @@
         "properties": {
           "format": {
             "const": "halo-score"
-          },
-          "baseRevision": {
-            "type": "integer",
-            "minimum": 0
           },
           "requestId": {
             "type": "string",
@@ -874,7 +850,6 @@
         },
         "required": [
           "format",
-          "baseRevision",
           "mode",
           "patches"
         ],
@@ -886,7 +861,6 @@
     "fields": [
       "format",
       "requestId",
-      "baseRevision",
       "mode",
       "world",
       "tempo",
@@ -902,7 +876,6 @@
     ],
     "required": [
       "format",
-      "baseRevision",
       "mode"
     ],
     "requiredByMode": {
@@ -961,7 +934,7 @@
       "4/4",
       "3/4"
     ],
-    "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/baseRevision/mode/patches only. probe: format/baseRevision/mode only.",
+    "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.",
     "phrases": {
       "fields": [
         "id",
@@ -1046,31 +1019,35 @@
         "chorus": 0
       }
     },
-    "strict": "Unknown fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. No automatic REVISION (ревизия) rebasing."
+    "strict": "Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions."
+  },
+  "synchronization": {
+    "owner": "HALO",
+    "task": "Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; the agent never supplies version counters.",
+    "merge": "Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.",
+    "conflict": "pending_approval.conflicts requires user choice: accept the proposed conflict values or reject and keep site music. Missing task baseline after reconnect also requires user review. Changes during review trigger a new review."
   },
   "preflight": {
     "format": "halo-score",
     "mode": "probe",
     "required": [
       "format",
-      "mode",
-      "baseRevision"
+      "mode"
     ],
     "receipt": "ready",
-    "meaning": "Before composing, write a probe into existing requests/ and read its real ready RECEIPT (ответ HALO) from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder."
+    "meaning": "Use the SAME fresh ID for probe then music. Before composing, write a probe into existing requests/ and read its real ready RECEIPT (ответ HALO) from responses/. No project mutation or approval. Stop on denial/missing ready; never write responses or use another folder."
   },
   "parameterPatch": {
     "mode": "patch",
     "required": [
       "format",
       "mode",
-      "baseRevision",
       "patches"
     ],
     "patches": "1..15 objects: {phraseId, VOICE (голос)}. Existing phraseId required for a COMPOSITION (композиция); omitted for single PHRASE (фраза). Unique targets. VOICE (голос) maps ROLE (роль) to on/level/character/duration/space/delay/chorus ONLY. All patches apply atomically after one approval; no notes/steps/sound changes."
   },
   "stateExport": {
-    "score": "Canonical halo-score projection of all PHRASE (фраза) and SECTION (секция); baseRevision is live. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it."
+    "score": "Canonical halo-score projection of all PHRASE (фраза) and SECTION (секция); HALO manages freshness. Check scoreExport.complete and materialized. No internal project, numeric key index, noteEvents or startStep is exposed. Internal data stays in HALO; patch preserves it."
   },
   "receipts": {
     "statuses": [
@@ -1081,11 +1058,11 @@
       "error"
     ],
     "identity": "id equals ID; requestId, if supplied, equals the REQUEST (запрос) basename.",
-    "freshness": "After correction require a changed submissionVersion for pending/error. Matching applied/rejected are terminal.",
+    "freshness": "After correction read the response; HALO tracks content identity internally. Matching applied/rejected are terminal.",
     "checks": "Read immediately; absent/stale only: built-in wait 4–5 seconds, at most 3 reads. Without wait tool: one immediate reread. Never shell waits.",
     "corrections": 2,
-    "approval": "RECEIPT (ответ HALO) statuses are output only, never REQUEST (запрос) commands. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.",
-    "idLifecycle": "Each later user musical change needs a new ID and live REVISION (ревизия). Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.",
+    "approval": "RECEIPT (ответ HALO) statuses are output only, never REQUEST (запрос) commands. Conflicts are reported in pending_approval.conflicts and always require the HALO user, even with automatic apply enabled. Only the HALO user can approve. Stop on pending_approval and invite human approval; never poll for it.",
+    "idLifecycle": "Each later user musical change needs a new ID and a new probe. Same ID is only for the current unfinished submission within the same turn. Reported pending, applied and rejected end it.",
     "evidence": "scoreAudit contains actual seconds, named keys, scale/pitch classes and per-role attacksPerBar. Counts are event starts, not sustain or musical quality. scoreReport warns PART_BAR_GAP for two or more consecutive BAR (такт) without new notes in an active authored pitched part.",
     "enforcement": "HALO cannot police external RECEIPT (ответ HALO) reads or file writes; those limits require the external tool adapter."
   },
@@ -1093,7 +1070,7 @@
     "PHRASE": "PHRASE (фраза): A container of 4 or 8 BAR (такт) with its own events; the `phrases` field contains these containers.",
     "LOOP": "LOOP (цикл): Repeated playback of one PHRASE (фраза); not a separate REQUEST (запрос) type or a synonym for COMPOSITION (композиция).",
     "VOICE": "VOICE (голос): One part in a fixed ROLE (роль); `voices` contains up to eight parts.",
-    "STATE": "STATE (снимок состояния): The read-only project-state.json file; contains `revision` and SCORE (партитура) in `score`.",
+    "STATE": "STATE (снимок состояния): The read-only project-state.json file; contains the applied SCORE (партитура) in `score`.",
     "SCORE": "SCORE (партитура): Musical events, TIMBRE (тембр) and structure in halo-score format; not a prose description.",
     "COMPOSITION": "COMPOSITION (композиция): The whole piece: one PHRASE (фраза) or several PHRASE (фраза) arranged through SECTION (секция).",
     "SECTION": "SECTION (секция): An arrangement entry referencing a PHRASE (фраза) and specifying `repeats`.",
@@ -1107,7 +1084,6 @@
     "BRIDGE_ROOT": "BRIDGE_ROOT (корневая папка): The one verified connected folder; never changes during a task.",
     "REQUEST": "REQUEST (запрос): The requests/ID.json file written by the agent.",
     "RECEIPT": "RECEIPT (ответ HALO): The responses/ID.result.json file written only by HALO.",
-    "REVISION": "REVISION (ревизия): Version of the applied COMPOSITION (композиция); copy `revision` into `baseRevision`.",
     "ROLE": "ROLE (роль): A fixed musical function and a key in `voices`.",
     "SLOT": "SLOT (физический слот): A stable UI position independent of the chosen TIMBRE (тембр).",
     "BANK": "BANK (банк тембров): A source of TIMBRE (тембр); `bankId` does not assign a ROLE (роль).",

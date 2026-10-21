@@ -16,9 +16,9 @@ if (-not $haloState.scoreExport.complete) { throw 'Candidate score must be repre
 $haloPhrase = Copy-HaloValue $haloState.score
 if ($haloPhrase.phrases) { throw 'This smoke fixture must be a single phrase.' }
 Test-HaloCase 'normalized current phrase' $haloPhrase $true
-$haloProbe = @{format='halo-score'; mode='probe'; baseRevision=$haloState.revision}
+$haloProbe = @{format='halo-score'; mode='probe'}
 Test-HaloCase 'probe without musical metadata' $haloProbe $true
-$haloPatch = @{format='halo-score'; mode='patch'; baseRevision=$haloState.revision; patches=@(@{voices=@{pulse=@{on=$false}}})}
+$haloPatch = @{format='halo-score'; mode='patch'; patches=@(@{voices=@{pulse=@{on=$false}}})}
 Test-HaloCase 'parameter patch without score metadata' $haloPatch $true
 $haloEdit = Copy-HaloValue $haloPhrase
 $haloEdit.mode='edit'; $haloEdit.voices=@{melody=@{level=40}}
