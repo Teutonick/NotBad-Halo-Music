@@ -609,6 +609,7 @@ test('composer workflow guide is bounded and has symbolic forms without scored m
 test('schema-derived symbolic forms fill into requests accepted by the real receiver',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),caps=JSON.parse(files['capabilities.json']);
  const guide=files['AGENT_GUIDE.md'],templates=Object.fromEntries([...guide.matchAll(/### (\w+)\n\n```text\n([\s\S]*?)\n```/g)].map(m=>[m[1],m[2]]));
+ assert.doesNotMatch(guide,/[⟨⟩]/,'symbolic forms use font-independent ASCII delimiters');
  assert.equal(caps.authoring.templates,undefined,'guide owns symbolic forms');
  assert.deepEqual(Object.keys(templates),['probe','replacePhrase','replaceSong','edit','patch','pitchedVoice','unpitchedVoice']);
  const registry=JSON.parse(files['instruments.json']);
@@ -616,8 +617,8 @@ test('schema-derived symbolic forms fill into requests accepted by the real rece
  const hit=registry.sounds.find(s=>s.world==='ambient'&&!s.pitched&&s.compatibleRoles.includes('percussion'));
  function fill(value,key=''){
   if(Array.isArray(value))return value.map((v,i)=>fill(v,key==='notes'?(Array.isArray(v)?'event':i===0?'step':'pitch'):key==='event'?(i===0?'step':'pitch'):key==='steps'?'step':key));
-  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k.startsWith('⟨')?(k.includes('requested parameter')?'on':'melody'):k,fill(v,k.includes('requested parameter')?'on':k)]));
-  if(typeof value!=='string'||!value.startsWith('⟨'))return value;
+  if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).map(([k,v])=>[k.startsWith('<<')?(k.includes('requested parameter')?'on':'melody'):k,fill(v,k.includes('requested parameter')?'on':k)]));
+  if(typeof value!=='string'||!value.startsWith('<<'))return value;
   const values={world:'ambient',tempo:96,bars:4,meter:'4/4',key:'C MAJOR',id:1,phrase:1,on:true,sound:pitched.canonicalId,step:0,pitch:60};
   assert.ok(key in values,'typed placeholder '+key);return values[key];
  }

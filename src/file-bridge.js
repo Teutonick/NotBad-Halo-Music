@@ -478,7 +478,7 @@
   // Render symbolic authoring forms from the same schema used by the contract.
   // Placeholders carry types, never playable musical content.
   function requestTemplates(caps){
-    const schema=requestSchema(caps),slot=label=>'⟨'+label+'⟩';
+    const schema=requestSchema(caps),slot=label=>'<<'+label+'>>';
     function shape(node,path=''){
       if(node.$ref)return shape(schema.$defs[node.$ref.split('/').pop()],path);
       if(node.const!==undefined)return node.const;
@@ -735,7 +735,7 @@
 Translate the user's creative brief into original musical events. Preserve the requested music when developing or editing it. Report file writes, HALO responses, approval and playback only from observed tool results.
 
 ## Required JSON structure
-Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace angle-bracket slots with their stated JSON types. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs. JSON timbres may come from either world when compatibleRoles includes the target role.
+Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace each <<slot>> with a value of its stated JSON type. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs. JSON timbres may come from either world when compatibleRoles includes the target role.
 
 ${Object.entries(requestTemplates(caps)).map(([name,text])=>'### '+name+'\n\n```text\n'+text+'\n```').join('\n\n')}
 
