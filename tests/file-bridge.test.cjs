@@ -672,6 +672,70 @@ test('compact note tuples preserve a full phrase through export while keeping sc
  const accepted=FileBridge.parseAndValidateRequest(api,state.score,'compact-reimport');assert.equal(accepted.ok,true,accepted.error);
 });
 
+test('one-phrase arrangement normalization preserves repeats, sections, borrowed timbres and exact music',async()=>{
+ const {api}=createTestApp(),notes=[[0,72],[64,76],[127,79]];
+ const score=scoreRequest(api,{world:'reactor',repeat:true,sections:[{phrase:7,repeats:2,name:'intro',fade:'in'},{phrase:7,repeats:1,name:'outro',fade:'out'}],voices:{pulse:{sound:'deep',notes}}});
+ const original=structuredClone(score),r=FileBridge.preflightScore(api,score,'borrowed-loop');
+ assert.equal(r.ok,true,r.error);assert.deepEqual(score,original,'preflight leaves draft untouched');
+ assert.deepEqual(r.normalizedScore.phrases,[{id:7,voices:score.voices}]);assert.equal(r.normalizedScore.voices,undefined);
+ assert.deepEqual(r.preview.after.sections,score.sections);assert.equal(r.preview.after.repeat,true);
+ const pulse=r.preview.after.phrases[0].project.tracks[0];assert.equal(pulse.sound,'deep');assert.equal(pulse.soundWorld,'ambient');
+ assert.deepEqual(pulse.noteEvents.map(e=>[e.step,...e.notes]),notes);
+ assert.ok(r.scoreReport.some(x=>x.code==='SINGLE_PHRASE_ARRANGEMENT_NORMALIZED'));
+ assert.ok(r.scoreReport.some(x=>x.code==='CROSS_WORLD_TIMBRE'));
+ api.setEnabled(true);await api.applyOperations(r.transaction);
+ const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.equal(state.scoreExport.complete,true);assert.equal(state.score.phrases[0].voices.pulse.sound,'deep');
+ assert.equal(FileBridge.preflightScore(api,state.score,'reexport').ok,true);
+ for(const repeat of [false,true]){
+  const simple=FileBridge.preflightScore(api,scoreRequest(api,{repeat}),'simple-repeat');
+  assert.equal(simple.ok,true,simple.error);assert.equal(simple.preview.after.repeat,repeat);
+ }
+ const ambiguous=FileBridge.preflightScore(api,scoreRequest(api,{sections:[{phrase:1},{phrase:2}]}),'ambiguous');assert.equal(ambiguous.ok,false);
+});
+
+test('borrowed sample identity survives parameter patches, edits, export, undo and redo',async()=>{
+ const {api}=createTestApp(),notes=[[0,72],[64,76],[127,79]];
+ const r=FileBridge.preflightScore(api,scoreRequest(api,{voices:{melody:{sound:'attack-piano',notes}}}),'sample-borrow');assert.equal(r.ok,true,r.error);
+ api.setEnabled(true);await api.applyOperations(r.transaction);
+ const before=api.getProjectState().project,track=before.tracks[5];assert.equal(track.soundWorld,'reactor');assert.equal(track.instrument,'AURA');
+ assert.equal(S.soundFor({...track,setup:'ambient'}).id,'reactor-attack-piano');
+ const patch=FileBridge.preflightScore(api,{format:'halo-score',mode:'patch',patches:[{voices:{melody:{level:23}}}]},'sample-level');assert.equal(patch.ok,true,patch.error);await api.applyOperations(patch.transaction);
+ const edit=FileBridge.preflightScore(api,scoreRequest(api,{mode:'edit',voices:{melody:{space:12}}}),'sample-space');assert.equal(edit.ok,true,edit.error);await api.applyOperations(edit.transaction);
+ const after=api.getProjectState().project.tracks[5];assert.equal(after.soundWorld,'reactor');assert.equal(after.sound,track.sound);assert.deepEqual(after.noteEvents,track.noteEvents);
+ const exported=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.equal(exported.score.voices.melody.sound,'attack-piano');assert.deepEqual(exported.score.voices.melody.notes,notes);
+ await api.undo();assert.equal(api.getProjectState().project.tracks[5].soundWorld,'reactor');await api.redo();assert.equal(api.getProjectState().project.tracks[5].space,12);
+ assert.equal(FileBridge.preflightScore(api,scoreRequest(api,{voices:{melody:{sound:'shaker',steps:[0]}}}),'role-mismatch').ok,false);
+ assert.equal(FileBridge.preflightScore(api,scoreRequest(api,{voices:{melody:{sound:'missing',notes}}}),'unknown-timbre').ok,false);
+});
+
+test('host draft gate writes only checked canonical scores and protects existing output files',()=>{
+ const fs=require('node:fs'),path=require('node:path'),os=require('node:os'),{spawnSync}=require('node:child_process');
+ const dir=fs.mkdtempSync(path.join(os.tmpdir(),'halo-preflight-'));
+ try{
+  const {api}=createTestApp(),state=path.join(dir,'project-state.json'),input=path.join(dir,'draft.json'),output=path.join(dir,'checked.json');
+  fs.writeFileSync(state,FileBridge.getContextFiles(api)['project-state.json']);
+  const draft=scoreRequest(api,{repeat:true,voices:{melody:{sound:'attack-piano',notes:[[0,72],[64,76]]}}});delete draft.baseRevision;fs.writeFileSync(input,JSON.stringify(draft));
+  const script=path.resolve(__dirname,'../scripts/preflight-score.cjs'),args=[script,input,'--state',state,'--id','checked','--output',output];
+  const first=spawnSync(process.execPath,args,{encoding:'utf8'});assert.equal(first.status,0,first.stdout+first.stderr);assert.equal(JSON.parse(first.stdout).ok,true);
+  const canonical=JSON.parse(fs.readFileSync(output));assert.ok(canonical.phrases);assert.equal(canonical.repeat,true);assert.equal(FileBridge.preflightScore(api,canonical,'checked').ok,true);
+  const saved=fs.readFileSync(output,'utf8'),again=spawnSync(process.execPath,args,{encoding:'utf8'});assert.equal(again.status,1);assert.equal(fs.readFileSync(output,'utf8'),saved);
+  fs.unlinkSync(output);draft.voices.melody.sound='unknown';fs.writeFileSync(input,JSON.stringify(draft));
+  const invalid=spawnSync(process.execPath,args,{encoding:'utf8'});assert.equal(invalid.status,1);assert.equal(fs.existsSync(output),false);
+ }finally{fs.rmSync(dir,{recursive:true,force:true})}
+});
+
+test('folder exchange accepts normalized borrowed music with the existing ready, review and receipt lifecycle',async()=>{
+ const f=await scoreFixture();try{
+  await openTask(f);
+  const score=scoreRequest(f.api,{repeat:false,voices:{melody:{sound:'attack-piano',notes:[[0,72],[64,76],[127,79]]}}}),text=JSON.stringify(score);
+  f.req.files.set('req-proof.json',text);await f.bridge.checkFolder();
+  assert.equal(f.receipt().status,'pending_approval');assert.ok(f.receipt().scoreReport.some(r=>r.code==='SINGLE_PHRASE_ARRANGEMENT_NORMALIZED'));assert.ok(f.receipt().scoreReport.some(r=>r.code==='CROSS_WORLD_TIMBRE'));
+  await f.bridge.applyPending();assert.equal(f.receipt().status,'applied');assert.equal(f.api.getProjectState().project.phrases[0].project.tracks[5].soundWorld,'reactor');
+  assert.equal(f.req.files.get('req-proof.json'),text,'receiver preserves the author file');
+  await f.bridge.checkFolder();assert.equal(f.receipt().status,'applied');
+ }finally{f.bridge.dispose()}
+});
+
 test('copied sparse score has a long melody/accompaniment gap even while percussion covers the whole phrase',()=>{
  const {api}=createTestApp();
  const score=scoreRequest(api,{voices:{melody:{sound:'harp',notes:[[0,72],[4,76],[120,79],[124,72]]},bass:{sound:'deep',notes:[[0,36],[112,43]]},harmony:{sound:'organ',notes:[[0,60,64,67],[112,59,62,67]]},percussion:{sound:'shaker',steps:[0,16,32,48,64,80,96,112]}}});

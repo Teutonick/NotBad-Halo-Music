@@ -2,7 +2,7 @@
 (function(root){
  'use strict';
  const copy=x=>JSON.parse(JSON.stringify(x));
- const fields=['instrument','sound','generator','on','steps','exact','sequence','noteEvents','noteTranspose','level','density','character','duration','space','delay','delayTime','chorus'];
+ const fields=['instrument','sound','soundWorld','generator','on','steps','exact','sequence','noteEvents','noteTranspose','level','density','character','duration','space','delay','delayTime','chorus'];
  const visualOptions={scene:['ORBIT','BLOOM','CURRENT'],motion:['DRIFT','IN TIME','PHRASE'],effects:['CLASSIC','COSMIC','HYPER']};
  function create(env){
   let enabled=false,busy=false,last='',revision=0,undo=[],redo=[];
@@ -42,6 +42,7 @@
   function capabilities(){
    const R=env.sounds.roles;
    return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','project.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:15,sections:32,totalBars:128,bytes:524288,operations:256},
+    crossWorldTimbres:{source:'track.soundWorld records the catalog origin; omitted uses the phrase setup',selection:'JSON may select compatible timbres from either catalog; manual bank selection and GENERATE use the current world'},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},
@@ -120,6 +121,7 @@
       if((o.values?.steps!==undefined||o.values?.noteEvents!==undefined)&&o.values?.exact===undefined&&gen===3){
         t.exact=true;
       }
+      if(o.values?.sound!==undefined&&o.values.soundWorld===undefined)delete t.soundWorld;
       patch(t,o.values,fields,'track.patch');
       if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true');
     }

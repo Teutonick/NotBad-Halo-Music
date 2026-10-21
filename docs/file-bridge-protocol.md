@@ -1,5 +1,27 @@
 # File Bridge — current halo-score contract
 
+## 2026-10-21 — Shared preflight, one-phrase recovery and borrowed timbres
+
+HALO validates incoming scores before preview/application using the same pure `HaloFileBridge.preflightScore(api, draft, id, options)` entry point available to host adapters. The result includes `ok`, errors or the validated preview/transaction, `normalizedScore`, `scoreReport` and `scoreAudit`; checking alone leaves the draft and live music unchanged. File Bridge keeps its existing probe/ready, freshness, conflict and approval lifecycle.
+
+A `mode:replace` request with root `voices` plus `repeat` or `sections` referencing one positive integer phrase ID is normalized to `phrases + sections`. A missing/empty sections list becomes one section for that authored phrase. Existing section order, repeats, names, fades, the repeat flag, tempo and all musical events are preserved. `SINGLE_PHRASE_ARRANGEMENT_NORMALIZED` is informational. Multiple distinct section targets still require explicitly authored phrases; musical data is supplied by its author. Canonical requestSchema continues to describe the normalized forms.
+
+A voice `sound` may select any built-in canonicalId compatible with its role, across AMBIENT and REACTOR. The root `world` retains the phrase world/visuals and native generation palette. Catalog world/setups describe the timbre origin. HALO stores an optional per-track `soundWorld` in native projects and derives it automatically from the selected score sound; score voices continue to use `sound`, with the existing fields. `CROSS_WORLD_TIMBRE` reports a borrowed origin. Unknown identifiers, incompatible roles, event-kind/polyphony/timing errors and unsafe file references retain strict validation.
+
+Imported timbres survive parameter-only patches, scoped edits, portable/share/local storage, Undo/Redo, score audit/export and phrase transitions. The manual editor identifies the imported timbre and offers native banks; its parameter controls preserve the sound. Native bank selection and GENERATE return the track to the phrase world's palette. Local sample preparation checks actual timbres across every song phrase, including later borrowed sampled parts, before live/offline playback. Existing sample-failure handling remains authoritative.
+
+### Optional host draft gate before file publication
+
+From a checkout with Node, a host can run:
+
+```text
+node scripts/preflight-score.cjs DRAFT.json --state PROJECT_STATE_PATH --id TASK_ID --output NEW_CHECKED_FILE.json
+```
+
+The tool uses only repository code and Node built-ins. A complete exported `project-state.json` supplies the baseline for edits. It reads voice companions from the draft's directory with the existing receiver rules, checks the entire resolved draft, and creates a new canonical file only after success. Output publication uses exclusive hard-link creation from fully written temporary bytes in the same directory; existing files remain protected even under a competing writer. An unsupported filesystem fails closed and the staged temporary file is removed. Omitting `--output` performs a read-only check. Exit 0 means this snapshot-based check passed; exit 1 means no checked output was created. Draft/candidate files belong to the host adapter; the existing flat bridge delivery paths still govern publication of the final request.
+
+This is optional host tooling, separate from the five exported context files and the static site's runtime. A folder-only agent without this integration is checked when HALO reads its request. The live receiver owns freshness and approvals; offline preflight certifies the supplied snapshot and music structure, rather than a later live browser revision. The CLI performs no browser writes, approval or playback and preserves the current request-ID/probe workflow.
+
 Reference layout, 2026-10-21: capabilities.json, instruments.json and music-rules.json remain standard JSON with complete members packed within 480 characters per line. Catalog sound records stay separate; nested structures wrap when required. The guide packs symbolic forms, uses a glossary table and wraps prose to the same character budget. This is a selected formatting budget, not a measured Bionic response limit. project-state.json retains expanded objects and bounded horizontal event arrays; initial export and incremental state synchronization share the serializer. Formatting preserves parsed values and introduces no dependency.
 
 Implemented in [src/file-bridge.js](../src/file-bridge.js), 2026-10-21. One strict format, `halo-score`, with four modes: probe, replace, edit, patch. WebMCP/internal operations and portable projects are separate APIs, never alternative File Bridge request shapes.
@@ -69,7 +91,7 @@ Before publication the agent must ensure that the musical idea spans the request
 
 AGENT_GUIDE.md#required-json-structure leads with the single copy of symbolic authoring forms. capabilities.json.authoring.guide links to that section; requestSchema remains in capabilities.json. These forms are generated from requestSchema, with literal keys and typed angle-bracket slots. Five request forms plus pitched/unpitched voice forms carry structure and leave musical values for original composition. Select the form for the task, fill slots with their stated JSON types, and validate the completed request. Edit/patch song targets use the existing phraseId as explained beside the forms. Exported guidance and corrective receipts describe required actions affirmatively; receiver checks and protocol ownership remain authoritative.
 
-capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for task freshness, filename/companion identity, world/timbre/role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
+capabilities.json.requestSchema is the machine-readable canonical syntax (JSON Schema 2020-12). Its five exclusive branches cover probe, phrase replacement, song replacement, edit and patch; voices is never required for a song replacement. Schema references use local $defs; no runtime fetch, validator dependency or CDN is added. The existing receiver remains authoritative for task freshness, filename/companion identity, timbre origin and role compatibility, event kind/polyphony, phrase-specific bounds, unique note onsets, references and arranged length. A schema pass alone is not delivery or musical acceptance.
 
 Common fields: format is exactly halo-score; mode selects the shape below. Optional requestId must equal the basename. Other unknown fields fail.
 
@@ -115,7 +137,7 @@ beatSeconds = 60 / tempo; stepSeconds = 15 / tempo; barSeconds = beatsPerBar × 
 | MOSS | arpeggio | 1 |
 | AURA | harmony | 4 |
 
-A fixed physical slot is not an instrument bank. Choose canonical sound IDs by world and compatibleRoles. affinityRoles are recommendations. Only instruments.json lists all 62 timbres, recommended/compatible roles and acoustic registers. canonicalId is unique within each world: the formerly ambiguous ambient hat entries are rain-hat (RAIN source bank) and moss-hat (MOSS source bank). The receiver maps them to original engine IDs/banks without changing synthesis or saved projects. Bare hat is not a current canonical ID. Never submit trackIndex, instrument or a role field inside Voice.
+A fixed physical slot is not an instrument bank. Choose canonical sound IDs by compatibleRoles; catalog world identifies their preserved origin. affinityRoles are recommendations. Only instruments.json lists all 62 timbres, recommended/compatible roles and acoustic registers. canonicalId is unique within each world: the formerly ambiguous ambient hat entries are rain-hat (RAIN source bank) and moss-hat (MOSS source bank). The receiver maps them to original engine IDs/banks without changing synthesis or saved projects. Bare hat is not a current canonical ID. Never submit trackIndex, instrument or a role field inside Voice.
 
 ## Large scores and songs
 

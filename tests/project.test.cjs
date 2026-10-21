@@ -17,10 +17,10 @@ test('offline export passes the same master EQ and scene width to the audio engi
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'../src/export.js'),'utf8'),sandbox);
  await sandbox.HaloExport.render(project);assert.deepEqual(settings,project.mix);
 });
-test('reactor project roundtrip preserves setup and rejects mixed or unknown banks; older files stay ambient',()=>{
+test('reactor project roundtrip preserves source timbres across worlds and rejects unknown worlds; older files stay ambient',()=>{
  const rock=tracks.map(t=>({...t,setup:'reactor',sound:S.reactorBanks[t.name].sounds[0].id})),project=P.capture(rock,4,100,2,0,S,M);
  assert.equal(P.parse(JSON.stringify(project),S).setup,'reactor');
- assert.throws(()=>P.validate({...project,setup:'unknown'},S));assert.throws(()=>P.validate({...project,setup:'ambient'},S));
+ assert.throws(()=>P.validate({...project,setup:'unknown'},S));assert.ok(P.validate({...project,setup:'ambient'},S).tracks.every(t=>t.soundWorld==='reactor'));
  const old=P.capture(tracks,4,72,1,0,S,M);delete old.setup;assert.equal(P.validate(old,S).setup,'ambient');
 });
 test('bounded BPM rejects overflows, scientific notation, nonnumbers and out-of-range input',()=>{
@@ -178,5 +178,22 @@ test('bank and role aliases resolve to canonical slots and cross-bank sounds aut
   assert.equal(validated.tracks[0].instrument, 'GLASS');
   assert.equal(validated.tracks[2].instrument, 'ROOT');
   assert.equal(validated.tracks[6].instrument, 'EMBER'); // Auto-resolved to EMBER
+});
+
+test('borrowed origins persist through portable/share/capture paths and sampled offline export',async()=>{
+ const fs=require('node:fs'),vm=require('node:vm'),Song=require('../src/song.js');
+ const p=P.capture(tracks,4,100,2,0,S,M);Object.assign(p.tracks[5],{sound:'reactor-attack-piano',soundWorld:'reactor',instrument:'AURA'});
+ const clean=P.validate(p,S);assert.equal(clean.tracks[5].soundWorld,'reactor');assert.equal(S.needsSamples(clean),true);
+ const shared=await P.decodeShare(await P.encodeShare(clean),S);assert.equal(shared.tracks[5].soundWorld,'reactor');
+ const runtime=clean.tracks.map(t=>({...t,setup:clean.setup,pattern:[0,4,8,12],manualSteps:t.steps,manualBars:clean.bars}));
+ assert.equal(P.capture(runtime,4,100,2,0,S,M).tracks[5].soundWorld,'reactor');
+ assert.throws(()=>P.validate({...clean,tracks:clean.tracks.map((t,i)=>i===5?{...t,soundWorld:'other'}:t)},S),/INVALID_SOUND_WORLD/);
+ let prepared=0,plays=[];
+ const samples={piano:[]},sandbox={HaloSounds:S,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloSamples:{prepare:async()=>{prepared++;return samples}},HaloAudio:{create(ctx,ts,volume,loaded){assert.equal(loaded,samples);return {update(){},play(i,notes,time,v,sound){plays.push(sound.id)}}}},OfflineAudioContext:function(ch,length){this.startRendering=async()=>({getChannelData:()=>new Float32Array(length)})}};
+ vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/export.js','utf8'),sandbox);
+ await sandbox.HaloExport.render(clean);assert.equal(prepared,1);assert.ok(plays.includes('reactor-attack-piano'));
+ const native=P.capture(tracks,4,100,2,0,S,M),song=Song.validate({format:'halo-composition',version:1,tempo:100,phrases:[{id:1,project:native},{id:2,project:clean}],sections:[{phrase:1,repeats:1,name:'phrase',fade:'none'},{phrase:2,repeats:1,name:'phrase',fade:'none'}]},P,S);
+ plays=[];await sandbox.HaloExport.render(song);assert.equal(prepared,2,'samples prepared for later borrowed phrase');assert.ok(plays.includes('reactor-attack-piano'));
+ sandbox.HaloSamples.prepare=async()=>{throw Error('pack failed')};await assert.rejects(sandbox.HaloExport.render(clean),/pack failed/);
 });
 

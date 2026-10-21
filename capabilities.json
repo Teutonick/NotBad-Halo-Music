@@ -16,7 +16,7 @@
   },
   "requestSchema": {
     "$schema": "https://json-schema.org/draft/2020-12/schema", "title": "HALO File Bridge canonical REQUEST (запрос)",
-    "description": "Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. Host permissions and musical quality require separate verification.",
+    "description": "Canonical syntax only. HALO manages freshness and additionally validates filename identity, TIMBRE (тембр) origin and ROLE (роль) compatibility, canonical TIMBRE (тембр) ID, pitched/unpitched event kind, ROLE (роль) polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. Host permissions and musical quality require separate verification.",
     "$defs": {
       "createVoice": {
         "oneOf": [
@@ -110,7 +110,10 @@
       }
     ]
   },
-  "authoring": {"guide": "AGENT_GUIDE.md#required-json-structure", "instruction": "Fill the matching symbolic form in the guide with typed values and original musical events. requestSchema is the formal contract."},
+  "authoring": {
+    "guide": "AGENT_GUIDE.md#required-json-structure", "instruction": "Fill the matching symbolic form in the guide with typed values and original musical events. requestSchema is the formal contract.",
+    "prepublication": "Optional host adapter: HaloFileBridge.preflightScore(api, draft, id). Repository CLI: node scripts/preflight-score.cjs DRAFT.json --state project-state.json --id TASK_ID --output NEW_FILE.json. Output is created only after successful validation; live HALO checks freshness and approval."
+  },
   "score": {
     "fields": ["format", "requestId", "mode", "world", "tempo", "bars", "meter", "key", "voices", "phraseId", "phrases", "sections", "repeat", "patches"], "required": ["format", "mode"], "requiredByMode": {"probe": [], "patch": ["patches"], "replace": ["world", "tempo", "bars", "meter", "key"], "edit": ["world", "tempo", "bars", "meter", "key", "voices"]}, "alternativesByMode": {"replace": [["voices"], ["phrases", "sections"]]},
     "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).", "format": "halo-score", "mode": ["replace", "edit", "patch", "probe"], "world": ["ambient", "reactor"], "tempo": [30, 200], "bars": [4, 8], "meter": ["4/4", "3/4"],
@@ -121,7 +124,7 @@
       "editing": "Unmentioned VOICE (голос) and fields are preserved; changing sound is explicit. edit targets one PHRASE (фраза); tempo is shared by the whole COMPOSITION (композиция). Use patch for parameter-only changes.", "notes": "[STEP (шаг сетки), MIDI, ...] with unique STEP (шаг сетки), integer MIDI 0..127 and ROLE (роль) polyphony from instruments.json.tracks.", "steps": "Unique integer hits for unpitched TIMBRE (тембр) only; [] means intentional silence.",
       "controls": "on is boolean; level, character, duration, space, delay, chorus are 0..100.", "defaults": {"on": true, "level": 50, "character": 50, "duration": 50, "space": 30, "delay": 0, "chorus": 0}
     },
-    "strict": "Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions."
+    "normalization": "A replace score with root voices plus repeat or sections referencing one phrase ID is wrapped into one phrase and its sections. Authored events and arrangement values are preserved; canonical output uses phrases + sections.", "strict": "Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions."
   },
   "synchronization": {
     "owner": "HALO", "task": "Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; HALO supplies and manages version counters.", "merge": "Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.",

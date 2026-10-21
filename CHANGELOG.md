@@ -1,3 +1,7 @@
+## 2026-10-21 — External-score recovery and borrowed built-in timbres
+
+Added shared draft preflight and an optional Node host gate which writes a new checked file only on success. HALO accepts unambiguous root-voice arrangements with repeat/sections by preserving them as one-phrase compositions. JSON/MCP/File Bridge can borrow known role-compatible timbres across worlds; track.soundWorld preserves source identity through manual controls, storage, history, export and sample preparation. The editor displays the imported sound while native selection/GENERATE retain the current world palette. Ambiguous arrangements and musical/security checks remain strict.
+
 ## 2026-10-21 — Compact File Bridge reference layout
 
 Packed reference JSON into bounded, readable records (480 characters per line) and compacted symbolic forms/glossary layout. The guide owns the single copy of request forms; capabilities.json retains its formal schema and a guide link. Score exports preserve expanded objects and compact note/step arrays, including incremental state sync. Parsed catalog/schema/music data and receiver behavior remain unchanged. Reload HALO and choose Update Files.

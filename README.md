@@ -1,5 +1,7 @@
 # NotBad HALO
 
+JSON/MCP/File Bridge can now borrow compatible timbres across AMBIENT and REACTOR. Imported sounds survive controls, saving and export; manual bank selection and GENERATE use the current world. HALO normalizes a one-phrase arrangement and validates scores before review. Optional host draft gate: scripts/preflight-score.cjs; reload HALO and Update Files.
+
 File Bridge: symbolic request forms live at the start of AGENT_GUIDE.md. capabilities.json links to the forms and retains the formal schema. References use compact records with a 480-character line budget; state keeps readable objects and compact note tuples. Reload HALO and choose Update Files.
 
 File Bridge handles task versions and concurrent edits inside HALO. Agents use one ID for probe then music; conflicts are resolved by the user. Reload HALO and choose Update Files for the revised guide.

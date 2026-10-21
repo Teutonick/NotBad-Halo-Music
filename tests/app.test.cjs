@@ -598,3 +598,26 @@ test('natural song end updates transport text at the scheduled audio boundary',(
  assert.ok(Math.abs(timer.ms-160)<0.01);assert.equal(nodes.transportTitle.textContent,'YOUR UNIVERSE IS ALIVE');
  timer.fn();assert.equal(context.playing,false);assert.equal(nodes.transportTitle.textContent,'UNIVERSE PAUSED');assert.equal(nodes.transportDesc.textContent,'Tap to continue your soundscape');
 });
+
+test('borrowed timbre survives manual controls, autosave and world restore; native selection and GENERATE clear it',async()=>{
+ const data=new Map(),storage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)},a=app(storage),$=id=>a.document.getElementById(id);
+ const S=a.sandbox.HaloSounds,P=a.sandbox.HaloProject;
+ const project=P.capture(Object.keys(S.banks).map(name=>({...S.roles.initial('ambient',name),name,setup:'ambient',on:true,level:50,density:50,character:50,duration:50,space:30,pattern:[0,4,8,12]})),4,72,1,0,S,a.sandbox.HaloMotion);
+ const load=async p=>{const text=JSON.stringify(p);await $('projectFile').onchange({target:{files:[{size:text.length,text:async()=>text}]}})};
+ Object.assign(project.tracks[5],{instrument:'AURA',sound:'reactor-attack-piano',soundWorld:'reactor',generator:3,exact:true,steps:[0,32],noteEvents:[{step:0,notes:[72]},{step:32,notes:[76]}],noteTranspose:0});
+ await load(P.validate(project,S));
+ $('tracks').children[5].oncontextmenu({preventDefault(){}});
+ assert.equal($('typeLabel').textContent,'Attack piano');assert.equal($('types').children.length,1);assert.equal($('instrumentBank').value,'__imported__');
+ assert.ok($('instrumentBank').children.some(o=>o.value==='__imported__'&&o.disabled));
+ $('character').oninput({target:{value:'34'}});$('fxReverb').oninput({target:{value:'23'}});
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project;};
+ assert.equal(read().tracks[5].soundWorld,'reactor');assert.deepEqual(read().tracks[5].noteEvents,project.tracks[5].noteEvents);
+ a.timeouts.filter(t=>t.ms===250).at(-1).fn();
+ const restored=app(storage);assert.equal(restored.document.getElementById('typeLabel').textContent,'Attack piano');
+ let prepared=0;a.sandbox.HaloSamples={load:async()=>{},prepare:async()=>{prepared++;return {}}};
+ await $('play').onclick();assert.equal(prepared,1,'borrowed sample loads in ambient world');await $('play').onclick();
+ await $('setupSwitch').onclick();await $('setupSwitch').onclick();assert.equal(read().tracks[5].soundWorld,'reactor');
+ $('instrumentBank').onchange({target:{value:'EMBER'}});assert.equal(read().tracks[5].soundWorld,undefined);assert.equal($('instrumentBank').value,'EMBER');
+ assert.deepEqual(read().tracks[5].noteEvents,project.tracks[5].noteEvents,'native timbre choice keeps authored notes');
+ await load(project);$('regen').onclick();assert.equal(read().tracks[5].soundWorld,undefined);assert.equal(a.sandbox.HaloSounds.soundFor({...read().tracks[5],setup:'ambient'}).sampleBank,undefined);
+});

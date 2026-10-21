@@ -93,7 +93,7 @@
           const counts=t.exact?Array(p.bars).fill(0):null;
           if(counts)for(const step of t.steps)counts[Math.floor(step/stepsPerBar)]++;
           const pitches=[...new Set((t.noteEvents||[]).flatMap(e=>e.notes.map(n=>n%12)))].sort((a,b)=>a-b);
-          const canonical=registry.sounds.find(s=>s.world===p.setup&&s.bankId===t.instrument&&engineSoundId(s,caps)===t.sound);
+          const canonical=registry.sounds.find(s=>s.world===(t.soundWorld||p.setup)&&s.bankId===t.instrument&&engineSoundId(s,caps)===t.sound);
           return {role:t.role,sound:canonical?.canonicalId??null,enabled:t.on&&t.level>0,source:t.exact?'authored':'generated',
             attacksPerBar:counts,firstStep:t.exact&&t.steps.length?t.steps[0]:null,lastStep:t.exact&&t.steps.length?t.steps[t.steps.length-1]:null,
             pitchClasses:pitches};
@@ -251,14 +251,15 @@
       project.tracks = caps.roles.map((role, i) => {
         const part = voices?.[role.id];
         if (edit && part === undefined) return clone(phraseSource.tracks[i]);
-        const pool = registry.sounds.filter(s => s.setups.includes(world) && s.compatibleRoles.includes(role.id));
-        const preferred = pool.find(s => s.affinityRoles.includes(role.id)) || pool[0];
+        const pool = registry.sounds.filter(s => s.compatibleRoles.includes(role.id));
+        const native = pool.filter(s=>s.world===world);
+        const preferred = native.find(s => s.affinityRoles.includes(role.id)) || native[0];
         let sound = preferred;
         if (part?.sound !== undefined) {
-          sound = pool.find(s => s.canonicalId === part.sound);
-          if (!sound) { fail(path + '.voices.' + role.id + '.sound', 'choose one of: ' + pool.map(s=>s.canonicalId).join(', ')); sound = preferred; }
+          sound = pool.find(s => s.world===world&&s.canonicalId===part.sound)||pool.find(s => s.canonicalId === part.sound);
+          if (!sound) { fail(path + '.voices.' + role.id + '.sound', 'received '+JSON.stringify(part.sound)+'; role='+role.id+', visual world='+world+'; choose compatible canonicalId: ' + pool.map(s=>s.canonicalId).join(', ')); sound = preferred; }
         } else if (edit) {
-          sound = pool.find(s => s.bankId === phraseSource.tracks[i].instrument && engineSoundId(s,caps) === phraseSource.tracks[i].sound);
+          sound = pool.find(s => s.world===(phraseSource.tracks[i].soundWorld||world)&&s.bankId === phraseSource.tracks[i].instrument && engineSoundId(s,caps) === phraseSource.tracks[i].sound);
           if (!sound && part) fail(path+'.voices.'+role.id+'.sound', 'retained sound is incompatible; choose an explicit compatible canonical ID');
           sound ||= preferred;
         }
@@ -267,6 +268,8 @@
         // A timbre/level-only edit must not turn a generated voice into another generator.
         if (!edit || part?.sound !== undefined || part?.notes !== undefined || part?.steps !== undefined) {
           Object.assign(track, {instrument:sound?.bankId, sound:sound?engineSoundId(sound,caps):undefined});
+          delete track.soundWorld;
+          if(sound&&sound.world!==world){track.soundWorld=sound.world;if(part?.sound!==undefined)report.push({severity:'info',code:'CROSS_WORLD_TIMBRE',path:path+'.voices.'+role.id+'.sound',ru:'Тембр из '+sound.world+' сохранён в мире '+world+'.',en:'Timbre from '+sound.world+' retained in world '+world+'.'});}
         }
         if (!edit) Object.assign(track, {role:role.id,generator:3});
         if (part === undefined) return {...track,on:false,exact:true,steps:[],noteEvents:[],noteTranspose:keys[key].offset};
@@ -423,7 +426,7 @@
     const phrase=object({id:integer(1),bars:metadata.bars,meter:metadata.meter,key:metadata.key,voices:roles(false)},['id','voices']);
     const section=object({phrase:integer(1),repeats:integer(1,8),name:{enum:['intro','verse','verse2','chorus','bridge','outro','phrase']},fade:{enum:['none','in','out']}},['phrase']);
     return {$schema:'https://json-schema.org/draft/2020-12/schema',title:'HALO File Bridge canonical request',
-      description:'Canonical syntax only. HALO manages freshness and additionally validates filename identity, world/role compatibility, canonical timbre ID, pitched/unpitched event kind, role polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. Host permissions and musical quality require separate verification.',
+      description:'Canonical syntax only. HALO manages freshness and additionally validates filename identity, timbre origin and role compatibility, canonical timbre ID, pitched/unpitched event kind, role polyphony, retained edit sound, phrase-specific event bounds, unique note onsets, reference identity, arranged length and companion bytes. Host permissions and musical quality require separate verification.',
       $defs:{
         createVoice:{oneOf:[literalVoice(false),{$ref:'#/$defs/companion'}]},
         editVoice:{oneOf:[literalVoice(true),{$ref:'#/$defs/companion'}]},
@@ -512,7 +515,7 @@
       limits: {tempo:caps.limits.bpm,bars:caps.limits.bars,tracks:caps.limits.tracks,stepsPerBar:{'4/4':16,'3/4':12},phrases:caps.limits.phrases,sections:caps.limits.sections,totalBars:caps.limits.totalBars,bytes:caps.limits.bytes},
       syntax:{canonical:'JSON matching requestSchema',acceptedPresentation:['UTF-8 BOM','one json/jsonc/json5 code fence','line and block comments','trailing commas','single-quoted strings','unquoted identifier keys and single-token string values','missing commas between whitespace-separated complete values'],repairPolicy:'Presentation normalization preserves complete, uniquely keyed literal data and musical values. Incomplete values, fused numbers, duplicate keys and expressions require an author correction. Musical, freshness and path checks apply after parsing.'},
       requestSchema:requestSchema(caps),
-      authoring:{guide:'AGENT_GUIDE.md#required-json-structure',instruction:'Fill the matching symbolic form in the guide with typed values and original musical events. requestSchema is the formal contract.'},
+      authoring:{guide:'AGENT_GUIDE.md#required-json-structure',instruction:'Fill the matching symbolic form in the guide with typed values and original musical events. requestSchema is the formal contract.',prepublication:'Optional host adapter: HaloFileBridge.preflightScore(api, draft, id). Repository CLI: node scripts/preflight-score.cjs DRAFT.json --state project-state.json --id TASK_ID --output NEW_FILE.json. Output is created only after successful validation; live HALO checks freshness and approval.'},
       score: {fields:scoreFields.filter(k=>k!=='baseRevision'), required:['format','mode'],
         requiredByMode:{probe:[],patch:['patches'],replace:['world','tempo','bars','meter','key'],edit:['world','tempo','bars','meter','key','voices']},
         alternativesByMode:{replace:[['voices'],['phrases','sections']]},
@@ -530,6 +533,7 @@
           steps:'Unique integer hits for unpitched timbres only; [] means intentional silence.',
           controls:'on is boolean; level, character, duration, space, delay, chorus are 0..100.',
           defaults:{on:true,level:50,character:50,duration:50,space:30,delay:0,chorus:0}},
+        normalization:'A replace score with root voices plus repeat or sections referencing one phrase ID is wrapped into one phrase and its sections. Authored events and arrangement values are preserved; canonical output uses phrases + sections.',
         strict:'Unknown structural fields, aliases, prefixed/case-variant sounds, operation envelopes and unsafe references are errors. HALO owns task baselines, safe merging and user conflict decisions.'},
       synchronization:{owner:'HALO',task:'Use one fresh ID: probe, ready, then music under the same ID. HALO captures the original project; HALO supplies and manages version counters.',merge:'Non-overlapping field changes merge. Note/section arrays are atomic; phrase arrays merge only with identical IDs and order. Full replacement conflicts with later musical edits.',conflict:'pending_approval.conflicts requires user choice: accept the proposed conflict values or reject and keep site music. Missing task baseline after reconnect also requires user review. Changes during review trigger a new review.'},
       preflight:{format:'halo-score',mode:'probe',required:['format','mode'],receipt:'ready',meaning:'Use the SAME fresh ID for probe then music. Before composing, write a probe into existing requests/ and read its real ready receipt from responses/. The probe checks exchange and preserves the project. On denial or missing ready, report the path and error and end the attempt. Agent writes stay in the verified requests/ folder; HALO writes responses/.'},
@@ -631,7 +635,7 @@
         physicalSlot:'tracks[].trackIndex and slot are fixed UI identities, not instrument banks or timbre descriptions.',
         musicalRole:'tracks[].role is the `voices` key. `GLASS`=pulse, `TIDAL`=accent, `ROOT`=percussion; read all eight mappings in tracks.',
         soundBank:'sounds[].bankId identifies the internal source bank; tracks[].role identifies the destination role. Use canonicalId as the score sound value.',
-        timbre:'Choose sounds[].canonicalId literally as voice.sound, filtered by world in setups and role in compatibleRoles.',
+        timbre:'Choose sounds[].canonicalId literally as voice.sound, filtered by role in compatibleRoles. JSON can borrow from either world; world/setups record the sound origin. The score world selects visuals and generation defaults.',
         affinity:'affinityRoles are recommended orchestration, compatibleRoles are hard constraints. Neither reassigns a physical slot.',
         pitch:'Pitched timbres require notes; unpitched timbres require steps. Integer MIDI 0..127 is the hard input limit. acousticRange guides the engine playback register: playback octave folding moves valid MIDI into the timbre register (plus bass-specific register policy), preserving pitch class. tracks[].acousticRange guides the role playback register; integer MIDI 0..127 remains the input pitch bound.'
       },
@@ -644,11 +648,11 @@
       soundWorlds: {
         ambient: {
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
-          selection: 'Filter sounds by setups containing ambient and compatibleRoles containing the target role.'
+          selection: 'JSON accepts compatibleRoles matches from either sound world. Manual selection and GENERATE use the current world.'
         },
         reactor: {
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
-          selection: 'Filter sounds by setups containing reactor and compatibleRoles containing the target role.'
+          selection: 'JSON accepts compatibleRoles matches from either sound world. Sample loading follows actual timbres, including borrowed recordings.'
         }
       }
     };
@@ -677,7 +681,7 @@
         const position=step=>((step-(project.startStep||0))%size+size)%size;
         for(const [index,t]of tracks.entries()){
           const role=caps.roles[index].id,actual=sounds.soundFor(t);
-          const sound=registry.sounds.find(s=>s.world===project.setup&&s.bankId===t.instrument&&engineSoundId(s,caps)===actual.id);
+          const sound=registry.sounds.find(s=>s.world===(t.soundWorld||project.setup)&&s.bankId===t.instrument&&engineSoundId(s,caps)===actual.id);
           const canonical=sound?.canonicalId||actual.id;
           if(!sound||!sound.compatibleRoles.includes(role))throw Error('Cannot represent '+role+' / '+canonical+' in halo-score without changing its role or timbre');
           const v={sound:canonical,on:t.on};for(const c of ['level','character','duration','space','delay','chorus'])v[c]=t[c]??(c==='space'?30:['delay','chorus'].includes(c)?0:50);
@@ -731,13 +735,13 @@
 Translate the user's creative brief into original musical events. Preserve the requested music when developing or editing it. Report file writes, HALO responses, approval and playback only from observed tool results.
 
 ## Required JSON structure
-Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace angle-bracket slots with their stated JSON types. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs.
+Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace angle-bracket slots with their stated JSON types. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs. JSON timbres may come from either world when compatibleRoles includes the target role.
 
 ${Object.entries(requestTemplates(caps)).map(([name,text])=>'### '+name+'\n\n```text\n'+text+'\n```').join('\n\n')}
 
 For pitched voices use notes: each event is [absolute phrase step, MIDI pitch, additional simultaneous MIDI pitches up to role polyphony]. For unpitched voices replace the notes member with steps: an array of integer absolute phrase steps. Choose the event kind using instruments.json sound.pitched. Empty event arrays express intentional silence. Omitted roles are silent in replace.
 For edit include just the requested sound, events or controls in each selected voice. Add phraseId with the existing integer phrase ID for edit and each patch entry when STATE.score contains a song; omit phraseId for a single phrase. Patches use the requested subset of on, level, character, duration, space, delay and chorus; replace the parameter-key slot with each requested parameter name. on is boolean; the other controls are numbers 0..100. For song replacement each section.phrase references an authored phrase.id; add optional repeats/name/fade and repeat using requestSchema.
-Before delivery, verify the completed form against requestSchema, catalog compatibility, phrase bounds and the requested musical duration. Read [the delivery procedure](#delivery) for folder exchange; the probe form starts that exchange.
+HALO runs score preflight before preview and application. Hosts can use authoring.prepublication in capabilities.json to check drafts before publishing files. A root-voices replace with repeat or one-target sections is normalized to a one-phrase composition, preserving authored music. Before delivery, review the requested musical duration; HALO checks the structure, catalog compatibility and phrase bounds. Read [the delivery procedure](#delivery) for folder exchange; the probe form starts that exchange.
 
 ## Contents
 [Required JSON structure](#required-json-structure) · [Vocabulary](#vocabulary) · [Files](#files) · [Folder preflight](#folder-preflight) · [Six workflows](#six-workflows) · [Timing](#timing) · [Delivery](#delivery)
@@ -867,6 +871,21 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
     return parseAndValidateRequest(api, resolved, fallbackId, options);
   }
 
+  function normalizeScoreShape(score,report){
+    const normalized=clone(score);
+    if(normalized.mode==='replace'&&normalized.voices&&normalized.phrases===undefined&&(normalized.sections!==undefined||normalized.repeat!==undefined)){
+      const sections=normalized.sections;
+      // A single explicit target identifies the existing authored phrase unambiguously.
+      const ids=Array.isArray(sections)?[...new Set(sections.map(s=>s?.phrase))]:[];
+      if((sections===undefined||Array.isArray(sections))&&ids.length<=1&&(ids.length===0||Number.isSafeInteger(ids[0])&&ids[0]>0)){
+        const id=ids[0]??1;
+        normalized.phrases=[{id,voices:normalized.voices}];delete normalized.voices;
+        normalized.sections=sections?.length?sections:[{phrase:id}];
+        report.push({severity:'info',code:'SINGLE_PHRASE_ARRANGEMENT_NORMALIZED',path:'score',ru:'Корневая партия оформлена как композиция из одной фразы; ноты, секции и repeat сохранены.',en:'Root voices were wrapped as a one-phrase composition; notes, sections and repeat are preserved.'});
+      }
+    }
+    return normalized;
+  }
   function parseAndValidateRequest(api, textContent, fallbackId, options = {}){
     let parsed;
     try {
@@ -899,10 +918,12 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
 
     const scoreMode = parsed.mode;
     const scoreReport = [];
+    let normalizedScore;
     try {
       scoreIdentity(parsed,fallbackId);
       if (new TextEncoder().encode(JSON.stringify(parsed)).length > (api.getCapabilities().limits.bytes || 524288)) throw Error('PAYLOAD_TOO_LARGE');
-      parsed = compileScore(parsed, api, scoreReport);
+      normalizedScore=normalizeScoreShape(parsed,scoreReport);
+      parsed = compileScore(normalizedScore, api, scoreReport);
     } catch(err) { return {ok:false,error:err.message,id:fallbackId}; }
     const transaction = parsed;
     const requestId = String(parsed.requestId || transaction.requestId || fallbackId);
@@ -935,6 +956,7 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
       ok: true,
       id: requestId,
       transaction: effectiveTransaction,
+      normalizedScore,
       preview,
       scoreMode, scoreAudit, scoreReport:[...scoreReport,...diagnoseScore(preview.after,scoreAudit)],
       currentRevision
@@ -1272,7 +1294,7 @@ Final report: exact request path and ID, real status or unconfirmed delivery, re
           }
           parsed.currentRevision=live.revision;
           parsed.scoreAudit=auditScore(parsed.preview.after,api.getCapabilities());
-          parsed.scoreReport=diagnoseScore(parsed.preview.after,parsed.scoreAudit);
+          parsed.scoreReport=[...parsed.scoreReport.filter(item=>item.severity==='info'),...diagnoseScore(parsed.preview.after,parsed.scoreAudit)];
           parsed.conflicts=conflicts;
         }
       }
@@ -2187,6 +2209,7 @@ timestamp:new Date().toISOString()};
     resolveRequestPayload,
     resolveAndValidateRequest,
     parseAndValidateRequest,
+    preflightScore:parseAndValidateRequest,
     processRequest,
     createBridge,
     panel: renderFileBridgePanel

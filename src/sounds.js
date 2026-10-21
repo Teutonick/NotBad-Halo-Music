@@ -108,10 +108,15 @@
   for(const bank of Object.values(reactorBanks)){for(const s of bank.sounds)Object.freeze(s.pattern);Object.freeze(bank.sounds);Object.freeze(bank)}
   Object.freeze(reactorBanks);
   function banksFor(setup){return setup==='reactor'?reactorBanks:banks}
-  function bankFor(track){return banksFor(track.setup)[track.instrument||track.name]}
+  function bankFor(track){return banksFor(track.soundWorld||track.setup)[track.instrument||track.name]}
   function soundFor(track) {
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
+  }
+  function needsSamples(value){
+    if(Array.isArray(value))return value.some(t=>!!soundFor(t).sampleBank);
+    if(value.phrases)return value.phrases.some(p=>needsSamples(p.project));
+    return needsSamples(value.tracks.map(t=>({...t,setup:value.setup})));
   }
   function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=undefined,mode='minor',timeSignature=track.timeSignature||'4/4'){
     if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
@@ -268,7 +273,7 @@
     const choice=sounds[Math.floor(random01(seed*1777+index*97)*sounds.length)];
     const roleId=roles.forTrack(track).id;
     const seq=pickSequence(roleId,seed,index,bars,timeSignature);
-    const result={instrument:choice.instrument,sound:choice.sound.id,variation:seed,generator:3,role:roleId,sequence:seq,phraseBars:bars,timeSignature};
+    const result={instrument:choice.instrument,sound:choice.sound.id,soundWorld:track.setup||'ambient',variation:seed,generator:3,role:roleId,sequence:seq,phraseBars:bars,timeSignature};
     ['character','duration','density','level','space'].forEach((key,i)=>{
       const isWildcard=random01(seed*733+index*59+i*29)<0.16;
       const corridor=(!isWildcard&&roleCorridors[roleId]?.[key])||[20,100];
@@ -318,7 +323,12 @@
   function cycleLength(track,bars=4,timeSignature='4/4'){const spb=timeSignature==='3/4'?12:16;return track.manualSteps?track.manualBars*spb:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars,timeSignature).period:track.generator===2?bars*spb:spb}
   function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
   function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
-  const api = { banks, reactorBanks, banksFor, bankFor, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
+  function editorPalette(track){
+    const imported=!!track.soundWorld&&track.soundWorld!==(track.setup||'ambient'),current=track.instrument||track.name,bank=bankFor(track),choices=availableBanks({...track,generator:3});
+    if(!imported&&!choices[current])choices[current]=bank;
+    return {imported,banks:choices,selected:imported?'__imported__':current,sounds:imported?[soundFor(track)]:bank.sounds};
+  }
+  const api = { banks, reactorBanks, banksFor, bankFor, needsSamples, editorPalette, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

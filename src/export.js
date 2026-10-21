@@ -5,7 +5,7 @@
   const spb=project.timeSignature==='3/4'?12:16,phraseSteps=project.bars*spb;
   const rate=44100,seconds=project.bars*(project.timeSignature==='3/4'?3:4)*60/project.tempo,length=Math.round(seconds*rate);
   const ctx=new OfflineAudioContext(2,length*2,rate);
-  const samples=project.setup==='reactor'?await HaloSamples.prepare(ctx):{};
+  const samples=HaloSounds.needsSamples(project)?await HaloSamples.prepare(ctx):{};
   const tracks=project.tracks.map(t=>({...t,setup:project.setup,phraseBars:project.bars,timeSignature:project.timeSignature,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:project.bars}:{})}));HaloSounds.arrange(tracks);
   const engine=HaloAudio.create(ctx,tracks,project.masterVolume,samples,project.mix,project.tempo);
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
@@ -24,7 +24,7 @@
   if(root.HaloLiveLoop)await root.HaloLiveLoop.ready();
   const totalSteps=song.sections.reduce((sum,s,i)=>{const p=HaloSong.phrase(song,i);return sum+p.bars*(p.timeSignature==='3/4'?12:16)*s.repeats},0);
   const rate=44100,length=Math.round(totalSteps*(60/song.tempo/4)*rate),ctx=new OfflineAudioContext(2,length,rate);
-  const samples=HaloSong.phrase(song,0).setup==='reactor'?await HaloSamples.prepare(ctx):{};
+  const samples=HaloSounds.needsSamples(song)?await HaloSamples.prepare(ctx):{};
   const tracks=Array.from({length:8},()=>({}));let engine=null,last=-1;
   for(let step=0;step<totalSteps;step++){
    const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4,spb=p.timeSignature==='3/4'?12:16;
