@@ -1,5 +1,8 @@
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
+Panel controls, 2026-10-21: bottom-panel fold controls are centered, 76×30 px, with a double upward expand chevron. Collapse/minimize symbols and Track 09-only minimization remain. Layout-only change; audio, persistence and API semantics are unchanged. Visually checked in six isolated Chromium states at desktop and mobile viewport sizes; no device/audio acceptance claimed.
+
+
 ## File Bridge — six-workflow contract, 2026-10-20
 
 Agent context is English across all five files; Russian appears only in parenthesized glossary translations inside values. JSON keys are plain English identifiers, including timing.BAR and terminology.PHRASE. Six workflows and duration-intent review are preserved.

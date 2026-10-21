@@ -1,3 +1,7 @@
+## 2026-10-21 — Centered panel fold controls
+
+Centered the shared bottom-panel action group and widened its buttons to 76×30 px with clear borders and hover feedback. Replaced the expand arrow with a symmetric double upward chevron; retained collapse/minimize symbols and Track 09-only minimization. Verified six states in isolated Edge Chromium at 1600×1000 and 390×844: button-group centers match the viewport center, no page errors. No audio, persistence or API changes.
+
 ## 2026-10-20 — English agent instructions and undecorated JSON keys
 
 Translated all five agent-context documents to English; retained Russian only as parenthesized glossary translations inside values. Removed translated/decorated timing and terminology property names. Added recursive key checks and a language/translation allowlist check across the complete generated package. Six workflows, musical duration review and score semantics are unchanged. Full regression remains paused.
