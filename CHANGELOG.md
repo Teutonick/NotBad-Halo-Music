@@ -1,3 +1,10 @@
+## 2026-10-21 — Top-aligned promo disclosure tab and responsive menu shift
+
+- Vertically aligned the left-edge project promotion rail to match the upper boundary of the `.music-controls` menu blocks (`PHRASE`, `KEY`, `FILE`).
+- Expanding the promotion disclosure card smoothly slides the adjacent menu blocks to the right by its expansion width (230px) using GPU-accelerated transitions (`transition: transform .3s ease`).
+- Collapsing the card restores menu blocks to their original left position in complete synchrony.
+- Added automated integration tests covering the menu shift on expand and collapse. All 342 tests pass.
+
 ## 2026-10-21 — External-score recovery and borrowed built-in timbres
 
 Added shared draft preflight and an optional Node host gate which writes a new checked file only on success. HALO accepts unambiguous root-voice arrangements with repeat/sections by preserving them as one-phrase compositions. JSON/MCP/File Bridge can borrow known role-compatible timbres across worlds; track.soundWorld preserves source identity through manual controls, storage, history, export and sample preparation. The editor displays the imported sound while native selection/GENERATE retain the current world palette. Ambiguous arrangements and musical/security checks remain strict.

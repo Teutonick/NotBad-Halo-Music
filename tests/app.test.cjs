@@ -251,10 +251,10 @@ test('workspace reset requires confirmation, clears storage and reloads, and ret
  assert.equal(failed.calls.some(c=>c[0]==='reload'),false);assert.match(failed.document.getElementById('toast').textContent,/Could not reset/);
 });
 test('compact promo disclosure collapses after eight seconds and supports manual closing',()=>{
- const a=app(),toggle=a.document.getElementById('promoToggle'),card=a.document.getElementById('productPromo');
- toggle.click();assert.equal(toggle['aria-expanded'],'true');assert.ok(card.classList.contains('promo-expanded'));
- a.timeouts.find(t=>t.ms===8000).fn();assert.equal(toggle['aria-expanded'],'false');
- toggle.click();toggle.click();assert.equal(toggle['aria-expanded'],'false');
+ const a=app(),toggle=a.document.getElementById('promoToggle'),card=a.document.getElementById('productPromo'),menu=a.document.getElementById('musicControls');
+ toggle.click();assert.equal(toggle['aria-expanded'],'true');assert.ok(card.classList.contains('promo-expanded'));assert.ok(menu.classList.contains('promo-shifted'));
+ a.timeouts.find(t=>t.ms===8000).fn();assert.equal(toggle['aria-expanded'],'false');assert.ok(!menu.classList.contains('promo-shifted'));
+ toggle.click();assert.ok(menu.classList.contains('promo-shifted'));toggle.click();assert.equal(toggle['aria-expanded'],'false');assert.ok(!menu.classList.contains('promo-shifted'));
 });
 test('visual-only mode suppresses music shortcuts and Escape restores controls without closing editors',()=>{
  const a=app(),button=a.document.getElementById('visualOnly');a.document.getElementById('patternEditor').hidden=false;
