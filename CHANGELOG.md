@@ -1,3 +1,11 @@
+## 2026-10-22 — Preserving terms acceptance across workspace reset
+
+- Updated «Reset workspace» (`executeReset` in `index.html`) so that confirming a workspace reset clears project settings, manual patterns, drafts, window layouts and autosaves from `localStorage` while retaining the site terms acceptance (`halo-terms-acceptance`).
+- Exported `HaloTerms.KEY` in `src/terms.js` and added Node module export.
+- Resetting the workspace no longer re-triggers the terms and conditions agreement dialog on page reload if terms were previously accepted.
+- Updated bilingual User Manual in `index.html` (RU and EN) and documentation.
+- Added regression tests in `tests/app.test.cjs` and `tests/terms.test.cjs`. All 346 tests pass.
+
 ## 2026-10-22 — Non-sticky workstation actions, 30% spacing reduction and scrollbar arrow cleanup
 
 - Changed `.workspace-window-actions` position from `sticky` to `relative`, allowing the collapse (`#workstationToggle`) and Track 09 minimization buttons to scroll naturally with the workstation content instead of remaining fixed/pinned over panel controls.

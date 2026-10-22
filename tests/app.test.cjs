@@ -250,6 +250,35 @@ test('workspace reset requires confirmation, clears storage and reloads, and ret
  const failed=app({getItem(){return null},setItem(){},clear(){throw Error('blocked')}});failed.sandbox.confirm=()=>true;failed.document.getElementById('resetWorkspace').click();
  assert.equal(failed.calls.some(c=>c[0]==='reload'),false);assert.match(failed.document.getElementById('toast').textContent,/Could not reset/);
 });
+test('workspace reset preserves terms acceptance in localStorage while clearing project state and reloading',()=>{
+ const store=new Map([
+  ['notbad-halo-autosave-v1','{"project":{"setup":"reactor"}}'],
+  ['halo-audio-input-v1','{"deviceId":"default"}'],
+  ['halo-terms-acceptance',JSON.stringify({version:'2026-10-18.1',acceptedAt:'2026-10-18T10:00:00.000Z'})]
+ ]);
+ const storage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),clear:()=>store.clear()};
+ const a=app(storage);
+ a.sandbox.confirm=()=>true;
+ a.document.getElementById('resetWorkspace').click();
+ assert.equal(store.has('notbad-halo-autosave-v1'),false,'clears autosave');
+ assert.equal(store.has('halo-audio-input-v1'),false,'clears other settings');
+ assert.equal(store.has('halo-terms-acceptance'),true,'preserves terms acceptance');
+ assert.equal(JSON.parse(store.get('halo-terms-acceptance')).version,'2026-10-18.1');
+ assert.equal(a.calls.some(c=>c[0]==='reload'),true);
+});
+test('workspace reset preserves in-memory terms acceptance if storage item was missing',()=>{
+ const store=new Map([
+  ['notbad-halo-autosave-v1','{"project":{}}']
+ ]);
+ const storage={getItem:k=>store.get(k)||null,setItem:(k,v)=>store.set(k,v),clear:()=>store.clear()};
+ const a=app(storage);
+ a.sandbox.HaloTerms={isAccepted:()=>true,version:'2026-10-18.1',KEY:'halo-terms-acceptance'};
+ a.sandbox.confirm=()=>true;
+ a.document.getElementById('resetWorkspace').click();
+ assert.equal(store.has('notbad-halo-autosave-v1'),false);
+ assert.equal(store.has('halo-terms-acceptance'),true);
+ assert.equal(JSON.parse(store.get('halo-terms-acceptance')).version,'2026-10-18.1');
+});
 test('compact promo disclosure collapses after eight seconds and supports manual closing',()=>{
  const a=app(),toggle=a.document.getElementById('promoToggle'),card=a.document.getElementById('productPromo'),menu=a.document.getElementById('musicControls');
  toggle.click();assert.equal(toggle['aria-expanded'],'true');assert.ok(card.classList.contains('promo-expanded'));assert.ok(menu.classList.contains('promo-shifted'));

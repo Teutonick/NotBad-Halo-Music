@@ -9,6 +9,7 @@ function setup(saved,unavailable=false){
 }
 test('terms block dismissal and require explicit checked acceptance, stored with version',()=>{
  const {api,nodes,writes}=setup(null),d=nodes.find(n=>n.tag==='dialog'),check=nodes.find(n=>n.tag==='input'),button=nodes.filter(n=>n.tag==='button').at(-1);
+ assert.equal(api.KEY,'halo-terms-acceptance');
  assert.equal(api.isAccepted(),false);assert.equal(d.open,true);assert.equal(button.disabled,true);
  let prevented=false;d.handlers.cancel({preventDefault(){prevented=true}});assert.ok(prevented);
  prevented=false;d.handlers.keydown({key:'Escape',preventDefault(){prevented=true},stopPropagation(){}});assert.ok(prevented);

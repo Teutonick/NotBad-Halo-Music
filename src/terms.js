@@ -31,5 +31,6 @@
   }
   render();d.addEventListener('cancel',e=>e.preventDefault());d.addEventListener('keydown',e=>{if(e.key==='Escape')e.preventDefault();e.stopPropagation()});d.showModal();
  }
- root.HaloTerms={isAccepted:()=>accepted,init(locale,onLanguage){if(!accepted)mount(locale,onLanguage)},version:VERSION};
+ root.HaloTerms={isAccepted:()=>accepted,init(locale,onLanguage){if(!accepted)mount(locale,onLanguage)},version:VERSION,KEY};
+ if(typeof module!=='undefined'&&module.exports)module.exports=root.HaloTerms;
 })(globalThis);
