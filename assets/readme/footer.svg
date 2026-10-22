@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="280" viewBox="0 0 1600 280" role="img" aria-labelledby="title desc">
+<title id="title">Make something only you would make.</title><desc id="desc">NotBad HALO. Eight orbital lines and a golden play symbol.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#101b2c"/><stop offset="1" stop-color="#090e1b"/></linearGradient></defs>
+<rect width="1600" height="280" rx="24" fill="url(#bg)"/>
+<g fill="none" stroke="#7bdcd9" opacity=".18" transform="translate(1400 140) rotate(-22)"><ellipse rx="88" ry="54"/><ellipse rx="118" ry="73"/><ellipse rx="148" ry="94"/><ellipse rx="178" ry="115"/><ellipse rx="208" ry="137"/><ellipse rx="238" ry="160"/><ellipse rx="268" ry="185"/><ellipse rx="298" ry="210"/></g>
+<path d="M80 62h58" stroke="#f7bc25" stroke-width="4"/>
+<text x="80" y="123" fill="#f3f4ec" font-family="Arial,Helvetica,sans-serif" font-size="45" font-weight="900" letter-spacing="-1">MAKE SOMETHING</text>
+<text x="80" y="180" fill="#f7bc25" font-family="Arial,Helvetica,sans-serif" font-size="45" font-weight="900" letter-spacing="-1">ONLY YOU WOULD MAKE.</text>
+<text x="80" y="233" fill="#a9c1d7" font-family="Arial,Helvetica,sans-serif" font-size="17" letter-spacing="4">NOTBAD HALO · FOLLOW YOUR EARS</text>
+<circle cx="1385" cy="140" r="59" fill="#f7bc25"/><path d="M1373 114l37 26-37 26z" fill="#101521"/>
+</svg>

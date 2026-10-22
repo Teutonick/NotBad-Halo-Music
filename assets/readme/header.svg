@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="480" viewBox="0 0 1600 480" role="img" aria-labelledby="title desc">
+<title id="title">NotBad HALO</title><desc id="desc">Eight luminous orbits. A small spark. A whole universe.</desc>
+<defs>
+<linearGradient id="bg" x2="1" y2="1"><stop stop-color="#090e1b"/><stop offset="1" stop-color="#16243d"/></linearGradient>
+<radialGradient id="glow"><stop stop-color="#70e9ee" stop-opacity=".22"/><stop offset="1" stop-color="#70e9ee" stop-opacity="0"/></radialGradient>
+<linearGradient id="ring"><stop stop-color="#f7bc25"/><stop offset=".5" stop-color="#9af2e9"/><stop offset="1" stop-color="#c2a4ff"/></linearGradient>
+<pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1" fill="#b1c6df" opacity=".12"/></pattern>
+</defs>
+<rect width="1600" height="480" rx="28" fill="url(#bg)"/><rect width="1600" height="480" rx="28" fill="url(#dots)"/>
+<circle cx="1250" cy="245" r="330" fill="url(#glow)"/>
+<g fill="none" stroke="url(#ring)" transform="translate(1250 245) rotate(-24)">
+<ellipse rx="72" ry="48" opacity=".25"/><ellipse rx="98" ry="66" opacity=".3"/><ellipse rx="125" ry="86" opacity=".35"/><ellipse rx="152" ry="108" opacity=".4"/>
+<ellipse rx="181" ry="130" opacity=".45"/><ellipse rx="211" ry="154" opacity=".5"/><ellipse rx="243" ry="180" opacity=".55"/><ellipse rx="277" ry="208" opacity=".6"/>
+<g stroke-width="4" stroke-linecap="round"><ellipse rx="72" ry="48" stroke-dasharray="80 400"/><ellipse rx="98" ry="66" stroke-dasharray="105 520"/><ellipse rx="125" ry="86" stroke-dasharray="130 650"/><ellipse rx="152" ry="108" stroke-dasharray="155 800"/><ellipse rx="181" ry="130" stroke-dasharray="180 960"/><ellipse rx="211" ry="154" stroke-dasharray="205 1100"/><ellipse rx="243" ry="180" stroke-dasharray="230 1250"/><ellipse rx="277" ry="208" stroke-dasharray="255 1420"/></g>
+</g>
+<g fill="#fff4cb"><circle cx="1331" cy="260" r="5"/><circle cx="1372" cy="263" r="5"/><circle cx="1409" cy="267" r="5"/><circle cx="1445" cy="271" r="5"/></g>
+<path d="M80 83h280l-8 40H74z" fill="#f7bc25"/>
+<text x="94" y="110" fill="#101521" font-family="Arial,Helvetica,sans-serif" font-size="17" font-weight="700" letter-spacing="3">MUSIC CONSTRUCTOR</text>
+<text x="77" y="192" fill="#b2c7db" font-family="Arial,Helvetica,sans-serif" font-size="34" font-weight="700" letter-spacing="9">NotBad</text>
+<text x="70" y="330" fill="#f5f6ee" font-family="Arial,Helvetica,sans-serif" font-size="164" font-weight="900" letter-spacing="-8">HALO<tspan fill="#f7bc25">.</tspan></text>
+<text x="80" y="392" fill="#c7d6e6" font-family="Arial,Helvetica,sans-serif" font-size="25" letter-spacing="2">A SMALL SPARK. A WHOLE UNIVERSE.</text>
+<path d="M80 433H690" stroke="#f7bc25" stroke-width="3"/>
+<text x="1490" y="445" text-anchor="end" fill="#b2c7db" font-family="Arial,Helvetica,sans-serif" font-size="14" letter-spacing="3">EIGHT VOICES · ONE PULSE</text>
+</svg>
