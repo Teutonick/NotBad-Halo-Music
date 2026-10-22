@@ -256,6 +256,27 @@ test('compact promo disclosure collapses after eight seconds and supports manual
  a.timeouts.find(t=>t.ms===8000).fn();assert.equal(toggle['aria-expanded'],'false');assert.ok(!menu.classList.contains('promo-shifted'));
  toggle.click();assert.ok(menu.classList.contains('promo-shifted'));toggle.click();assert.equal(toggle['aria-expanded'],'false');assert.ok(!menu.classList.contains('promo-shifted'));
 });
+test('workstation window actions scroll with panel content and do not use sticky positioning',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ const match=html.match(/\.workspace-window-actions\s*\{([^}]+)\}/);
+ assert.ok(match,'workspace-window-actions CSS rule exists');
+ assert.ok(!match[1].includes('position:sticky'),'workspace actions must not be sticky');
+ assert.ok(match[1].includes('position:relative'),'workspace actions must be relative to scroll with content');
+ assert.ok(match[1].includes('margin:0 0 6px'),'workspace actions have reduced top/bottom spacing');
+ const a=app(),toggle=a.document.getElementById('workstationToggle');
+ toggle.click();
+ assert.equal(toggle['aria-expanded'],'false');
+ toggle.click();
+ assert.equal(toggle['aria-expanded'],'true');
+});
+test('scrollbar buttons are hidden and workstation uses custom webkit scrollbar without arrows',()=>{
+ const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
+ assert.ok(html.includes('::-webkit-scrollbar-button'),'webkit-scrollbar-button rules exist');
+ assert.ok(html.includes('.bottom.workstation::-webkit-scrollbar-button'),'workstation button rule exists');
+ const wsMatch=html.match(/\.bottom\.workstation[^{]*\{([^}]+)\}/);
+ assert.ok(wsMatch,'bottom.workstation CSS rule exists');
+ assert.ok(wsMatch[1].includes('scrollbar-width:auto'),'scrollbar-width:auto avoids native windows arrow buttons');
+});
 test('visual-only mode suppresses music shortcuts and Escape restores controls without closing editors',()=>{
  const a=app(),button=a.document.getElementById('visualOnly');a.document.getElementById('patternEditor').hidden=false;
  button.click();assert.equal(button['aria-pressed'],'true');const before=a.document.getElementById('tracks').children[0]['aria-pressed'];

@@ -1,3 +1,11 @@
+## 2026-10-22 — Non-sticky workstation actions, 30% spacing reduction and scrollbar arrow cleanup
+
+- Changed `.workspace-window-actions` position from `sticky` to `relative`, allowing the collapse (`#workstationToggle`) and Track 09 minimization buttons to scroll naturally with the workstation content instead of remaining fixed/pinned over panel controls.
+- Adjusted top and bottom offsets around the window action buttons (`margin: 0 0 6px;`), reducing visual clearances by ~30% (~12px from upper border and 6px bottom margin).
+- Styled window action buttons with a subdued background (`rgba(16,28,43,.75)`), matching the `AUDIO INPUT / MIC` button aesthetic.
+- Removed native scrollbar arrow buttons across WebKit/Blink by replacing direct `scrollbar-width: thin` with custom `::-webkit-scrollbar` styling and hiding all `::-webkit-scrollbar-button` variants, leaving only the minimalist rounded slider thumb.
+- Added regression tests for relative positioning, toggle function, reduced spacing, and scrollbar button suppression. All 344 tests pass.
+
 ## 2026-10-21 — Top-aligned promo disclosure tab and responsive menu shift
 
 - Vertically aligned the left-edge project promotion rail to match the upper boundary of the `.music-controls` menu blocks (`PHRASE`, `KEY`, `FILE`).
