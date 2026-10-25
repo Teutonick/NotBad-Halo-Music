@@ -35,7 +35,7 @@ function scoreRequest(api, values={}){
 test('workflow guide delegates format and complete palette to their authoritative files',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const registry=JSON.parse(files['instruments.json']);
- assert.equal(registry.sounds.length,94);
+ assert.equal(registry.sounds.length,96);
  assert.match(guide,/capabilities.json.requestSchema/);
  assert.match(guide,/compatibleRoles/);
  assert.match(guide,/Choose from this catalog/);
@@ -418,7 +418,7 @@ test('normalized export exposes the full song without leaking engine representat
   assert.equal(exported.music,undefined);
   const caps=JSON.parse(files['capabilities.json']);
   const inst=JSON.parse(files['instruments.json']),engine=api.getCapabilities();
-  assert.equal(inst.sounds.length,94);
+  assert.equal(inst.sounds.length,96);
   for(const role of inst.tracks){
     const source=engine.roles[role.trackIndex];
     assert.equal(role.maxNotes,source.maxNotes);

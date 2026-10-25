@@ -114,11 +114,14 @@
     const bank = bankFor(track);
     return bank.sounds.find(s => s.id === track.sound) || bank.sounds[0];
   }
-  function needsSamples(value){
-    if(Array.isArray(value))return value.some(t=>!!soundFor(t).sampleBank);
-    if(value.phrases)return value.phrases.some(p=>needsSamples(p.project));
-    return needsSamples(value.tracks.map(t=>({...t,setup:value.setup})));
+  function requiredSampleBanks(value,includeNative=false){
+    if(value.phrases)return [...new Set(value.phrases.flatMap(p=>requiredSampleBanks(p.project,includeNative)))];
+    const tracks=Array.isArray(value)?value:value.tracks.map(t=>({...t,setup:value.setup}));
+    const banks=tracks.map(t=>soundFor(t).sampleBank).filter(Boolean);
+    if(includeNative)for(const setup of new Set(Array.isArray(value)?tracks.map(t=>t.setup||'ambient'):[value.setup]))for(const bank of Object.values(banksFor(setup)))for(const sound of bank.sounds)if(sound.sampleBank)banks.push(sound.sampleBank);
+    return [...new Set(banks)];
   }
+  function needsSamples(value){return requiredSampleBanks(value).length>0}
   function notesFor(track,index,bar,local,seed,transpose=0,bars=track.phraseBars||4,absoluteStep=undefined,mode='minor',timeSignature=track.timeSignature||'4/4'){
     if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
     const spb=timeSignature==='3/4'?12:16;
@@ -324,12 +327,21 @@
   function cycleLength(track,bars=4,timeSignature='4/4'){const spb=timeSignature==='3/4'?12:16;return track.manualSteps?track.manualBars*spb:track.generator===3?roles.plan(track,soundFor(track),track.variation||1,bars,timeSignature).period:track.generator===2?bars*spb:spb}
   function availableBanks(track){if(track.generator!==3)return banksFor(track.setup);return Object.fromEntries(Object.entries(banksFor(track.setup)).filter(([id,bank])=>bank.sounds.some(s=>roles.compatible(track,s))))}
   function availableSounds(track){return bankFor(track).sounds.filter(s=>track.generator!==3||roles.compatible(track,s))}
-  function editorPalette(track){
+  function editorPalette(track,allWorlds=false){
+    if(allWorlds){
+      const choices={};
+      for(const world of ['ambient','reactor','water'])for(const [id,bank] of Object.entries(banksFor(world))){
+        const sounds=bank.sounds.filter(s=>roles.compatible(track,s));
+        if(sounds.length)choices[world+':'+id]={...bank,sounds,world,instrument:id,label:world.toUpperCase()+' · '+id};
+      }
+      const world=track.soundWorld||track.setup||'ambient',current=world+':'+(track.instrument||track.name);
+      return {imported:false,banks:choices,selected:current,sounds:choices[current]?.sounds||[],world};
+    }
     const imported=!!track.soundWorld&&track.soundWorld!==(track.setup||'ambient'),current=track.instrument||track.name,bank=bankFor(track),choices=availableBanks({...track,generator:3});
     if(!imported&&!choices[current])choices[current]=bank;
-    return {imported,banks:choices,selected:imported?'__imported__':current,sounds:imported?[soundFor(track)]:bank.sounds};
+    return {imported,banks:choices,selected:imported?'__imported__':current,sounds:imported?[soundFor(track)]:bank.sounds,world:track.soundWorld||track.setup||'ambient'};
   }
-  const api = { banks, reactorBanks, waterBanks, banksFor, bankFor, needsSamples, editorPalette, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
+  const api = { banks, reactorBanks, waterBanks, banksFor, bankFor, needsSamples, requiredSampleBanks, editorPalette, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

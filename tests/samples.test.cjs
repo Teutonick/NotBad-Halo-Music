@@ -50,3 +50,32 @@ test('local pack loading keeps repository subpaths, coalesces requests and retri
  await assert.rejects(samples.load(),/could not load/);assert.equal(urls.length,4);await samples.load();assert.equal(urls.length,5);await samples.load();assert.equal(urls.length,5);
  assert.ok(urls.every(url=>url.startsWith('https://example.invalid/halo/assets/reactor/')));
 });
+
+
+test('natural WATER handpan has pinned CC0 evidence, verified PCM hashes and distinct recorded roots',()=>{
+ const folder=path.join(__dirname,'../assets/water'),m=JSON.parse(fs.readFileSync(path.join(folder,'handpan-manifest.json'),'utf8'));
+ assert.equal(m.rights,'CC0-1.0');assert.match(m.revision,/^[a-f0-9]{40}$/);assert.match(fs.readFileSync(path.join(folder,m.localEvidence),'utf8'),/CC0/);
+ let bank;vm.runInNewContext(fs.readFileSync(path.join(folder,'handpan.js'),'utf8'),{HaloSamples:{register(pack,banks){assert.equal(pack,'handpan');bank=banks['water-handpan']}}});
+ assert.equal(bank.length,18);assert.equal(new Set(bank.map(r=>r.root)).size,9);assert.ok(m.totalPackBytes<6*1024*1024);
+ for(const [i,e] of m.samples.entries()){
+  const bytes=Buffer.from(bank[i].data,'base64');assert.equal(crypto.createHash('sha256').update(bytes).digest('hex'),e.wavSHA256);assert.match(e.sourceSHA256,/^[a-f0-9]{64}$/);
+  assert.equal(bytes.readUInt16LE(22),1);assert.equal(bytes.readUInt32LE(24),32000);assert.equal(bytes.readUInt16LE(34),16);assert.ok(e.duration>1&&e.duration<=3.4);
+  let peak=0;for(let j=44;j<bytes.length;j+=2)peak=Math.max(peak,Math.abs(bytes.readInt16LE(j)));assert.ok(peak>1000&&peak<27000);
+ }
+});
+
+test('WATER handpan decodes alone and incremental REACTOR preparation retains cached natural recordings',async()=>{
+ const samples=loader();vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../assets/water/handpan.js'),'utf8'),{HaloSamples:samples});
+ let count=0;const ctx={async decodeAudioData(bytes){count++;return {duration:(bytes.byteLength-44)/64000,numberOfChannels:1}}};
+ const first=samples.prepare(ctx,['water-handpan']);assert.equal(samples.prepare(ctx,['water-handpan']),first);
+ const bank=await first;assert.equal(count,18);assert.deepEqual(Object.keys(bank),['water-handpan']);
+ const all=await samples.prepare(ctx);assert.equal(all,bank);assert.equal(count,148);assert.equal(all['water-handpan'].length,18);
+ await samples.prepare(ctx,['water-handpan']);assert.equal(count,148);
+});
+
+
+test('concurrent pack requests never decode more than four buffers at once',async()=>{
+ const samples=loader();let active=0,max=0;
+ const ctx={async decodeAudioData(bytes){active++;max=Math.max(max,active);await new Promise(resolve=>setImmediate(resolve));active--;return {duration:(bytes.byteLength-44)/64000,numberOfChannels:1}}};
+ await samples.prepare(ctx);assert.equal(max,4);assert.equal(active,0);
+});

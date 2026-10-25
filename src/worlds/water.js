@@ -5,13 +5,32 @@
  const movement=typeof module!=='undefined'&&module.exports?require('./water-motion.js'):root.HaloWaterMotion;
  const stones=typeof module!=='undefined'&&module.exports?require('./water-stones.js'):root.HaloWaterStones;
  const splashes=typeof module!=='undefined'&&module.exports?require('./water-splashes.js'):root.HaloWaterSplashes;
- // Capture the local script base once; never load an external sky or media URL.
- const assetURL=typeof document!=='undefined'&&document.currentScript?.src?new URL('../../assets/water/arctic-sky.png',document.currentScript.src).href:null;
+ // Fixed project assets only. Local files have opaque origins in Chromium:
+ // use the same PNG packed as a classic-script data URL for direct file opening.
+ const scriptURL=typeof document!=='undefined'?document.currentScript?.src:null;
+ const assetURL=scriptURL?new URL('../../assets/water/arctic-sky.png',scriptURL).href:null;
+ const packedURL=scriptURL?new URL('../../assets/water/arctic-sky.data.js',scriptURL).href:null;
  let skyImage=null,skyFailed=false;const prepared=new WeakSet();
  function prepare(renderer){
   if(!renderer.gl||!assetURL||skyFailed||typeof root.Image!=='function')return;
-  if(!skyImage){skyImage=new root.Image();skyImage.onload=()=>{try{renderer.setTexture('water',skyImage);prepared.add(renderer)}catch(error){skyFailed=true;console.warn('WATER sky unavailable:',error.message)}};skyImage.onerror=()=>{skyFailed=true;console.warn('WATER sky unavailable; procedural fallback active')};skyImage.src=assetURL}
-  if(skyImage.complete&&skyImage.naturalWidth&&!prepared.has(renderer)){try{renderer.setTexture('water',skyImage);prepared.add(renderer)}catch(error){skyFailed=true;console.warn('WATER sky unavailable:',error.message)}}
+  const upload=()=>{try{if(renderer.setTexture('water',skyImage)!==false)prepared.add(renderer)}catch(error){skyFailed=true;console.warn('WATER sky unavailable:',error.message)}};
+  if(!skyImage){
+   skyImage=new root.Image();skyImage.onload=upload;
+   skyImage.onerror=()=>{skyFailed=true;console.warn('WATER sky unavailable; procedural fallback active')};
+   if(new URL(assetURL).protocol==='file:'){
+    const script=document.createElement('script');script.src=packedURL;
+    script.onload=()=>{
+     script.remove();const data=root.HaloWaterSkyDataURL;delete root.HaloWaterSkyDataURL;
+     if(typeof data!=='string'||!data.startsWith('data:image/png;base64,')){skyImage.onerror();return;}
+     skyImage.src=data;
+    };
+    script.onerror=()=>{script.remove();skyImage.onerror()};document.head.appendChild(script);
+   }else{
+    // Set before src so the decoded bitmap can be used by WebGL.
+    skyImage.crossOrigin='anonymous';skyImage.src=assetURL;
+   }
+  }
+  if(skyImage.complete&&skyImage.naturalWidth&&!prepared.has(renderer))upload();
  }
  const shader=`#version 300 es
  precision highp float;

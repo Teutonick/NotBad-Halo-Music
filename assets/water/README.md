@@ -12,3 +12,13 @@ The texture loads once, only when WATER uses WebGL2. The sea remains a live shad
 ## Generation prompt
 
 Use case: photorealistic-natural. Asset type: original environment sky texture for a real-time ocean shader. Create a wide 2:1 panoramic photograph of an immense dramatic overcast Arctic SKY ONLY, looking from horizon up toward zenith, with natural three-dimensional layered stratocumulus storm clouds, dense charcoal-blue undersides, silver illuminated edges, soft cool daylight breaking through a gap in the upper right. Strong natural photographic detail and depth, subtle blue-gray atmosphere. The very bottom 8 percent fades to pale mist at a distant sky horizon; sky and clouds fill the entire image. Large billowing cloud structures fill upper two thirds, smaller distant cloud banks near bottom. Rectilinear wide panorama, no fisheye. No ocean, no water, no terrain, no mountains, no boats, no buildings, no stars, no UI, no text, no borders, no watermark. This must look like a real photograph of weather, not a painting or stylized render. Entirely original environment asset.
+
+## Direct local-file compatibility
+
+`arctic-sky.data.js` is a generated base64 representation of the exact same PNG, not a new image. Direct `file://` documents load this classic-script payload only on first GPU WATER activation; the decoded data URL is usable as a WebGL texture without relying on cross-origin access to a file image. The temporary global payload is released after assignment. HTTP(S) uses the PNG with anonymous CORS and never requests this companion. No external domain or relaxed browser policy is required.
+
+After editing the source PNG, run `node scripts/pack-water-sky.cjs` and ship both files. Tests decode the packed asset and compare all bytes against the PNG. The generated file is already included; users do not run a build. Original image provenance/license above applies to both representations.
+
+## Recorded handpan (separate from the original sky)
+
+`handpan.js` contains 18 real FreePats Hang strikes under CC0 1.0. These recordings are not covered by the sky-generation statement above. Performance: Mar; recording: Gonzalo and Roberto; editing: Roberto / FreePats. Pinned revision, source/output hashes, MIDI roots, local filenames and processing are in `handpan-manifest.json`; full rights evidence is in `rights/handpan-CC0.txt` and source notes in `rights/handpan-README.txt`. Source: https://freepats.zenvoid.org/ChromaticPercussion/hang.html . No source picture or performed song is included. Maintainer import utility: `python scripts/import-water-handpan.py` with the ffmpeg path documented in that script. The app loads the included classic-script sample pack directly without an importer/build.

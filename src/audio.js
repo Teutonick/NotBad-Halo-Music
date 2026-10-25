@@ -160,6 +160,7 @@
       }
     }
     function setTempo(bpm, at=ctx.currentTime) {
+      tempo=Math.max(30,Math.min(200,Number(bpm)||72));
       if (!delayTaps) return;
       const now = at;
       for (const div of Object.keys(DELAY_DIVISIONS)) {
@@ -200,10 +201,10 @@
       const duration = Math.min(policy?.maxDuration||8, Math.max(.08, patch.decay * (.35 + t.duration / 100 * 1.3)));
       const rockDrum=patch.sampleBank&&['kick','snare','tom'].includes(patch.engine);
       const attack = policy?.attack ?? (patch.engine === 'pad' || patch.ambient ? .35 : patch.punch || rockDrum ? .003 : .012);
-      const peak = velocity * (rockDrum ? (patch.engine==='kick'?.14:.11) : patch.id.startsWith('reactor-') ? .065 : patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
+      const peak = velocity * (patch.waterVoice==='pulse'?.085:patch.waterVoice==='bass'?.075:patch.waterVoice==='accent'?.075:rockDrum ? (patch.engine==='kick'?.14:.11) : patch.id.startsWith('reactor-') ? .065 : patch.punch ? .095 : patch.ambient ? .03 : patch.engine === 'noise' ? .035 : .06);
       gain.gain.setValueAtTime(.00001, time);
       gain.gain.exponentialRampToValueAtTime(peak, time + attack);
-      if(patch.sampleBank&&!ringingGuitar)gain.gain.exponentialRampToValueAtTime(peak*.8,time+attack+duration*.65);
+      if((patch.sampleBank&&!ringingGuitar)||patch.waterVoice==='bass')gain.gain.exponentialRampToValueAtTime(peak*.8,time+attack+duration*.65);
       if(!ringingGuitar)gain.gain.exponentialRampToValueAtTime(.00001, time + attack + duration);
       const end = time + attack + duration + .06, sources = [];
       let remaining = 0, released = false;
@@ -231,7 +232,7 @@
         start(o, amplitude);
       }
       active.add(voice);
-      if(patch.waterVoice){waterAudio.play(ctx,patch,pitches,time,duration,start,processing,noiseBuffer);
+      if(patch.waterVoice){waterAudio.play(ctx,patch,pitches,time,duration,start,processing,noiseBuffer,tempo);
       } else if(patch.sampleBank){
         const samplePitches=pitches.length?pitches:[0];
         const regions=sampleBank[patch.sampleBank];

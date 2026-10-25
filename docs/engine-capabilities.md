@@ -1,10 +1,33 @@
 # HALO Engine Capabilities & Technical Specification
 
+## WATER body and recorded handpan — 2026-10-25
+
+WATER now has 34 presets: 32 original electronic voices plus `water-handpan-natural` / `water-handpan-dry`, built from 18 real CC0 FreePats Hang strikes. Catalog total is 96 timbres and sample metadata totals 148 recordings (130 REACTOR + 18 handpan). Canonical File Bridge IDs are `handpan-natural` and `handpan-dry`. Read compatibility and range from the live catalog: recorded handpan supports accent/percussion/texture/melody/arpeggio/harmony, MIDI 57–74, not pulse/bass. Native D minor is most natural; other keys use existing sampler pitch shifting and may color fixed resonances. Authored pitches are preserved. Provenance, exact source revision, processing and limitations: `docs/water-sounds.md` / `assets/water/handpan-manifest.json` (docs-relative link: `water-sounds.md`).
+
+Existing electronic IDs remain valid, with authorized sound changes: kick impact/body, thicker snare accents, and bass with a clean sub plus saturated moving mid band. Bass modulation is scheduled from audio time at .5/1/2/4 cycles per beat by preset; sustain holds body before release. No new writable parameter or visual timing owner. Audio master gain/limiter are unchanged. New WATER defaults place natural handpan on the arpeggio role; existing saved timbres/notes are not replaced.
+
+Sample loading now accepts internal allowlisted bank subsets, retains context caches and bounds decoding globally to four concurrent buffers. Native banks are prepared before live play/world switches so subsequent GENERATE remains ready; offline export loads only actual score banks. WATER handpan does not require the REACTOR pack. File opening/static Pages remain supported with local classic scripts. No CDN, backend or runtime dependency. Existing JSON/WebMCP/File Bridge fields/operations remain unchanged; sample/preset catalogs and references are synchronized.
+
+
+## WATER local-file sky loading — 2026-10-25
+
+Direct `file://` opening now lazily loads the original PNG as a packaged classic-script data URL (`assets/water/arctic-sky.data.js`), avoiding an opaque-origin file image upload to WebGL. HTTP(S)/GitHub Pages still load the relative PNG directly with anonymous CORS set before `src`; they do not load the larger packed copy. No external asset URL, browser security setting or runtime dependency is introduced. PNG provenance is unchanged. The generated copy is byte-checked against its source in tests and can be refreshed with `node scripts/pack-water-sky.cjs`; end users need no build. Both files ship locally.
+
+Failed texture uploads now release the rejected handle and preserve any prior valid texture. A deferred upload (context lost/disposed) is not marked prepared. Missing image/packed asset retains procedural sky. Musical transport, voices, project/agent fields and existing modes are unchanged. Live direct-file browser verification is restricted by the test browser URL policy; see release-validation for actual coverage.
+
+
+## Instrument editor: parallel-world timbres — 2026-10-25
+
+The instrument SOUND pane has a localized “Sounds from all worlds” checkbox, off by default. Off: native compatible banks plus the already selected borrowed timbre, if any. On: compatible families from AMBIENT, REACTOR and WATER, labeled by origin. Filtering uses the fixed slot role’s `compatibleRoles`, not waveform, orbit color or the selected family. Incompatible timbres cannot be selected even through a forged change event. This does not change the slot role or world setup.
+
+Toggling only changes the visible palette; disabling it retains an already chosen borrowed sound. Choosing a timbre preserves authored notes, manual steps and other voices; existing `soundWorld` stores origin for autosave/project/share/live/offline playback. REACTOR recordings are prepared before selection; failure or cancelled/stale requests retain the old sound. GENERATE remains native to the active world. The global UI-only opt-in persists as `ui.allWorldSounds` in local autosave, absent/invalid defaults false. No new musical parameter, project version, agent operation, dependency or sound asset. Existing WebMCP/File Bridge borrowing and revision rules are unchanged.
+
+
 ## WATER sound world and compact wakes — 2026-10-25
 
 Preset/provenance details: [WATER sound palette](water-sounds.md). Compositions are stored separately per musical world, so an existing AMBIENT/REACTOR song cannot override WATER playback or generation.
 
-WATER is now a third musical setup, superseding the historical visual-only notes below. It has 32 original procedural presets, four per fixed role, in `src/water-sounds.js`; `src/audio-water.js` supplies bounded FM/subtractive synthesis, swept kicks, filtered noise drums, metallic hats, bass, melodic/arpeggio voices and chord layers. No recordings or third-party audio are included. Live playback and offline export share the same synthesis and audio-clock scheduling, role polyphony, envelopes and cleanup. Character/duration/space/level and existing FX remain supported. Ten WATER ensemble profiles reuse the original quantized motif library; this is a new palette, not a new genre-specific generator.
+WATER is now a third musical setup, superseding the historical visual-only notes below. It has 32 original procedural presets, four per fixed role, plus two recorded CC0 handpan presets, in `src/water-sounds.js`; `src/audio-water.js` supplies bounded FM/subtractive synthesis, swept kicks, filtered noise drums, metallic hats, bass, melodic/arpeggio voices and chord layers. Recorded audio is limited to the verified CC0 handpan subset. Live playback and offline export share the same synthesis and audio-clock scheduling, role polyphony, envelopes and cleanup. Character/duration/space/level and existing FX remain supported. Ten WATER ensemble profiles reuse the original quantized motif library; this is a new palette, not a new genre-specific generator.
 
 First WATER workspace: 120 BPM, four bars, eight native role defaults. All three workspaces persist independently; playing switches at the next bar. Portable version-1 `setup` and optional `soundWorld` accept `water`; role-compatible cross-world timbres remain supported. Old visual-only water saves are not automatically retimbred. Leave the overlay and select WATER again to initialize the dedicated palette. CLASSIC/COSMIC/HYPER wakes now use widths 2/5/10 and caps 16/30/48 fragments, with smaller individual glyphs; pause retention, underwater distortion and distinct slot signatures remain. These are visual-only constants.
 

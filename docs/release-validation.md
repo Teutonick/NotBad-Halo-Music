@@ -1,5 +1,30 @@
 # Release validation — File Bridge, 2026-10-20
 
+## WATER revised body and recorded handpan — 2026-10-25
+
+Full Node regression: **376 passed, zero failed**, with TEMP/TMP `.tmp/water-tests` and the standard outside-sandbox execution for File Bridge's existing hard-link fixture. After the final next-bar tempo propagation change, all 64 app/sound tests passed again. New checks cover the 18-recording manifest/hash/CC0 evidence, nine roots and bounded PCM; handpan-only preparation; incremental bank retention; failed-decode retry; a global four-buffer decoding limit; and bass modulation at 120/90 BPM with an isolated sub. Existing all-preset source cleanup, role compatibility, persistence, catalog and export tests pass. `git diff --check` passed.
+
+Actual Chromium offline demo uses an isolated audition page and original exact eight-bar D-minor notes at 140 BPM, with the real recorded handpan and revised electronic bass/kick. Final WAV: stereo 44.1 kHz PCM16, 13.714286 seconds, peak .147247, RMS .033956, DC -.000278, zero clipped samples. The first audition page diagnostic mistakenly read AudioBuffer.duration from the export wrapper; the harness was corrected to length/sampleRate and rendered successfully. This was a QA harness error, not a product export failure. Final page reports PASS, logs `[]`. These measurements describe this demo, not every possible score or a loudness-matched comparison with the earlier differently arranged demo.
+
+Main localhost WATER: reloaded, saw six melody-family choices including Handpan natural/dry, selected the actual natural recording, started playback at the original master volume 0 and observed YOUR UNIVERSE IS ALIVE with no warnings/errors. Restored Prism stab, paused, and restored the expanded workstation; authored notes and volume were unchanged. Screenshot `water-heavy-handpan-ui.png` records the live selection. Handpan requires no REACTOR pack. The user's YouTube link opened with title “Dark lights, deeper beats” / darktechno tags; no reference-track listening or waveform analysis was performed and no reference audio was imported. The final demo is for user listening review. No Safari, physical-device, direct-file live-browser or headphone listening acceptance claim.
+
+
+## WATER direct-file cloud fix — 2026-10-25
+
+The user confirmed the reported `texImage2D` cross-origin image rejection occurs when opening HTML directly from disk. Added a lazy classic-script data-URL representation of the same original PNG for `file://`, while preserving relative HTTP(S) PNG loading with CORS mode assigned before source. Tests decode the bundled payload and compare every byte against the source; cover lazy/no-GPU behavior, repository-prefixed asset resolution, upload retry after false/deferred completion, and GPU cleanup/previous-image retention after upload exceptions.
+
+Full regression: **372 Node tests passed, 0 failed**; TEMP/TMP `.tmp/water-tests`, outside sandbox for the existing File Bridge hard-link fixture. `git diff --check` passed. Maintainer regeneration command `node scripts/pack-water-sky.cjs` produced the checked asset.
+
+Actual Chromium HTTP preview reload: WATER clouds/reflections visible, warnings/errors `[]`; playback remained paused and authored music was not edited. Screenshot `water-sky-restored.png` is a local QA artifact. Attempting to open the local diagnostic HTML via the in-app browser was rejected by its URL policy (HTTP(S) protocols only). That block was respected; no alternate browser/security workaround was attempted. Therefore direct `file://` visual acceptance is pending user verification; automated file-branch and byte-integrity checks passed. The optional local diagnostic `artifacts/water-sky-file-check.html` reports real WebGL upload status if opened manually. No physical-device, Safari or audible test claim.
+
+
+## Parallel-world editor palette — 2026-10-25
+
+Full regression: 370 Node tests passed, zero failures; TEMP/TMP in `.tmp/water-tests`, outside sandbox for the File Bridge hard-link fixture. Final focus adjustment rechecked all 41 app tests. New coverage exhaustively compares every compatible timbre across all three worlds for every stable role; verifies default-off, no musical mutation on filtering, origin persistence/reload, incompatible selection rejection, and sample preparation/failure/cancellation behavior.
+
+Chromium localhost check: opened the WATER melody editor, verified the native four-family default and opt-in families from all worlds, excluded unpitched families, reloaded with the checkbox retained, and verified RU/EN labels. Selected a real REACTOR palm guitar in WATER, started playback at the original master volume 0, observed the playing state and no console warnings/errors, then restored Prism stab, pause, English and the default-off checkbox. Viewed 788×904 and 390×844; the existing editor scroll exposes controls on narrow screens. No physical-device/Safari or listening acceptance claim. Musical origin/export semantics remain covered by existing round-trip tests. Updated manuals, registry, API specification and generated File Bridge references together.
+
+
 ## WATER original electronic palette / compact wakes — 2026-10-25
 
 Full regression: **367 Node tests passed, 0 failures** (TEMP/TMP `.tmp/water-tests`, outside sandbox for the existing File Bridge atomic hard-link fixture). New checks cover native WATER sound selection/generation, three-workspace save/restore and next-bar switching, 32-preset finite audio scheduling and complete FM/noise node cleanup, File Bridge WATER scores and role-compatible borrowing, and composition isolation across worlds. Existing tests cover all visual modes/meters, fallback and static Pages classic-script loading.

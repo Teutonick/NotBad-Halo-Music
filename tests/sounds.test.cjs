@@ -259,10 +259,32 @@ test('all 32 original WATER voices schedule on the audio clock and clean up FM/n
  const S=require('../src/sounds.js');
  const tracks=Object.keys(S.waterBanks).map(name=>({...track(name),...S.roles.initial('water',name),setup:'water'}));
  const ctx=context(),audio=Audio.create(ctx,tracks),baseline=ctx.nodes.length;
- for(const [i,t] of tracks.entries())for(const patch of S.waterBanks[t.name].sounds)for(const duration of [0,100]){
+ for(const [i,t] of tracks.entries())for(const patch of S.waterBanks[t.name].sounds.filter(s=>!s.sampleBank))for(const duration of [0,100]){
   t.duration=duration;audio.play(i,patch.playback.pitched?[36,60,84]:[],.25,.8,patch);
  }
  for(const source of ctx.sources){assert.equal(source.started,.25);assert.ok(source.stopped>.25&&source.stopped<9);source.onended()}
  assert.ok(audio.voices.every(v=>v.size===0));assert.ok(ctx.nodes.slice(baseline).every(n=>n.disconnected));
- assert.ok(Object.values(S.waterBanks).flatMap(b=>b.sounds).every(p=>!p.sampleBank&&p.setups[0]==='water'));
+ assert.equal(Object.values(S.waterBanks).flatMap(b=>b.sounds).filter(p=>!p.sampleBank&&p.setups[0]==='water').length,32);
+});
+
+
+test('parallel-world editor palette exposes every compatible timbre and excludes incompatible banks for all eight roles',()=>{
+ const S=require('../src/sounds.js'),worlds=['ambient','reactor','water'];
+ for(const setup of worlds)for(const name of Object.keys(S.banks)){
+  const t={...S.roles.initial(setup,name),name,setup};
+  const native=S.editorPalette(t);assert.ok(Object.keys(native.banks).every(id=>!id.includes(':')));
+  const all=S.editorPalette(t,true),expected=worlds.flatMap(w=>Object.values(S.banksFor(w)).flatMap(b=>b.sounds.filter(s=>S.roles.compatible(t,s)).map(s=>w+':'+s.id)));
+  const actual=Object.values(all.banks).flatMap(b=>b.sounds.map(s=>b.world+':'+s.id));assert.deepEqual(actual.sort(),expected.sort());
+  assert.ok(Object.values(all.banks).every(b=>b.sounds.length&&b.sounds.every(s=>S.roles.compatible(t,s))));
+  assert.equal(all.selected,setup+':'+t.instrument);
+ }
+});
+
+
+test('WATER bass modulation follows audio tempo without changing the clean sub register',()=>{
+ const S=require('../src/sounds.js'),t={...track('RAIN'),...S.roles.initial('water','RAIN'),setup:'water',sound:'water-acid-current'},ctx=context(),audio=Audio.create(ctx,[t],50,{},undefined,120);
+ audio.play(0,[38],.25,.8,S.soundFor(t));assert.ok(ctx.sources.some(n=>n.oscillator&&n.type==='triangle'&&n.frequency.value===8));
+ assert.ok(ctx.sources.some(n=>n.oscillator&&n.type==='sine'&&n.frequency.calls.some(([v])=>v>32&&v<40)));
+ audio.setTempo(90);audio.play(0,[38],.5,.8,S.soundFor(t));assert.ok(ctx.sources.some(n=>n.oscillator&&n.type==='triangle'&&n.frequency.value===6));
+ assert.deepEqual(S.requiredSampleBanks({setup:'water',tracks:[]},true),['water-handpan']);
 });

@@ -81,12 +81,12 @@ test('destination buttons list only the other two musical worlds',async()=>{
  await $('waterSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.deepEqual(destinations(),new Set(['reactor','water']));
 });
 
-test('musical worlds preserve sounds, generated/manual identity and drafts across switches and reload',()=>{
+test('musical worlds preserve sounds, generated/manual identity and drafts across switches and reload',async()=>{
  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
  const a=app(storage),$=id=>a.document.getElementById(id);
  $('patternEditor').hidden=true;$('editPattern').onclick();$('stepGrid').children[1].click();
  $('setupSwitch').onclick();assert.equal($('bpmInput').value,'100');
- $('tracks').children[7].oncontextmenu({preventDefault(){}});assert.equal($('types').children.length,4);$('types').children[2].click();
+ $('tracks').children[7].oncontextmenu({preventDefault(){}});assert.equal($('types').children.length,4);await $('types').children[2].onclick();
  $('bpmInput').onchange({target:{value:'112'}});$('editPattern').onclick();$('stepGrid').children[3].click();
  $('setupSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.equal($('patternEditor').hidden,false);
  $('setupSwitch').onclick();assert.equal($('bpmInput').value,'112');assert.equal($('typeLabel').textContent,'Analog arpeggio');assert.equal($('patternEditor').hidden,false);
@@ -117,13 +117,13 @@ test('EQ and stereo width persist and survive switching musical worlds',()=>{
  $('eqLow').oninput({target:{value:'100'}});assert.equal($('eqLow').value,'5');
 });
 
-test('compatible instruments can move between orbits and mappings survive autosave and world switching',()=>{
+test('compatible instruments can move between orbits and mappings survive autosave and world switching',async()=>{
  for(const reactor of [false,true]){
   const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
   if(reactor)$('setupSwitch').onclick();
   $('tracks').children[0].oncontextmenu({preventDefault(){}});
   assert.ok($('instrumentBank').children.length>0);
-  $('instrumentBank').onchange({target:{value:reactor?'VEIL':'ROOT'}});
+  await $('instrumentBank').onchange({target:{value:reactor?'VEIL':'ROOT'}});
   assert.equal($('instrumentBank').value,reactor?'VEIL':'ROOT');
   assert.equal($('typeLabel').textContent,reactor?'Palm mute':'Round bass');
   assert.notEqual($('ensembleName').textContent,'Legacy phrase');
@@ -139,7 +139,7 @@ test('compatible instruments can move between orbits and mappings survive autosa
 
 test('new phrases drive the live scheduler on eight bars and retain old projects until explicit regeneration',async()=>{
  const a=app(),$=id=>a.document.getElementById(id),S=a.sandbox.HaloSounds;
- $('setupSwitch').onclick();$('bars').onclick();$('tracks').children[0].oncontextmenu({preventDefault(){}});$('instrumentBank').onchange({target:{value:'MOSS'}});
+ $('setupSwitch').onclick();$('bars').onclick();$('tracks').children[0].oncontextmenu({preventDefault(){}});await $('instrumentBank').onchange({target:{value:'MOSS'}});
  await $('play').onclick();
  for(let now=.1;now<19.1;now+=.04){a.ctx.currentTime=now;a.timers[1]()}
  const lead=a.calls.filter(c=>c[0]==='play'&&c[1]===0);assert.ok(lead.length>4);assert.ok(lead.every(c=>c[4]==='reactor-singing-lead'));
@@ -699,4 +699,34 @@ test('borrowed timbre survives manual controls, autosave and world restore; nati
  $('instrumentBank').onchange({target:{value:'EMBER'}});assert.equal(read().tracks[5].soundWorld,undefined);assert.equal($('instrumentBank').value,'EMBER');
  assert.deepEqual(read().tracks[5].noteEvents,project.tracks[5].noteEvents,'native timbre choice keeps authored notes');
  await load(project);$('regen').onclick();assert.equal(read().tracks[5].soundWorld,undefined);assert.equal(a.sandbox.HaloSounds.soundFor({...read().tracks[5],setup:'ambient'}).sampleBank,undefined);
+});
+
+
+test('instrument editor opt-in shows compatible parallel worlds, preserves music on filtering and persists sound origin',async()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)},a=app(storage),$=id=>a.document.getElementById(id);
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1'))};
+ a.sandbox.document.getElementById('tracks').children[5].oncontextmenu({preventDefault(){}});
+ const before=read();assert.equal($('allWorldSounds').checked,false);
+ $('allWorldSounds').onchange({target:{checked:true}});assert.deepEqual(read().project,before.project);
+ assert.ok($('instrumentBank').children.some(b=>b.value==='reactor:VEIL'));
+ assert.ok(!$('instrumentBank').children.some(b=>b.value==='water:ROOT'));
+ await $('instrumentBank').onchange({target:{value:'water:ROOT'}});assert.deepEqual(read().project,before.project);
+ await $('instrumentBank').onchange({target:{value:'reactor:VEIL'}});
+ const next=read();assert.equal(next.project.tracks[5].soundWorld,'reactor');assert.equal(next.project.tracks[5].sound,'reactor-palm-guitar');
+ assert.equal(next.project.setup,'ambient');assert.deepEqual(next.project.tracks.slice(0,5),before.project.tracks.slice(0,5));
+ const b=app(storage);assert.equal(b.document.getElementById('allWorldSounds').checked,true);
+ $('allWorldSounds').onchange({target:{checked:false}});assert.deepEqual(read().project,next.project);assert.equal($('instrumentBank').value,'__imported__');
+});
+
+
+test('parallel sampled timbre waits for preparation and failed or cancelled requests preserve the old sound',async()=>{
+ const data=new Map(),a=app({getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)}),$=id=>a.document.getElementById(id);
+ $('tracks').children[5].oncontextmenu({preventDefault(){}});$('allWorldSounds').onchange({target:{checked:true}});await $('play').onclick();
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1')).project.tracks[5].sound};
+ const before=read();let ready;
+ a.sandbox.HaloSamples.prepare=()=>new Promise(resolve=>{ready=resolve});
+ const pending=$('instrumentBank').onchange({target:{value:'reactor:VEIL'}});assert.equal(read(),before);ready({});await pending;assert.equal(read(),'reactor-palm-guitar');
+ const cancelled=$('instrumentBank').onchange({target:{value:'reactor:MOSS'}});$('closeEditor').onclick();ready({});await cancelled;assert.equal(read(),'reactor-palm-guitar');
+ $('tracks').children[5].oncontextmenu({preventDefault(){}});a.sandbox.HaloSamples.prepare=async()=>{throw Error('unavailable')};
+ await $('instrumentBank').onchange({target:{value:'reactor:MOSS'}});assert.equal(read(),'reactor-palm-guitar');
 });

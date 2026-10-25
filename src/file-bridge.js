@@ -647,10 +647,10 @@
       parameterGlossary,
       rangeSemantics:{sounds:'acousticRange is the timbre playback register; octave folding brings valid MIDI pitches into the playback register while preserving pitch class.',tracks:'acousticRange describes role register guidance; bass additionally uses the engine bass register policy.'},
       soundWorlds: {
-        water: {description: '32 original procedural electronic timbres: FM, sub bass, synthesized drums, glitch and chord stabs. No imported recordings.',selection: 'Manual selection and GENERATE use native WATER sounds; JSON supports role-compatible borrowing.'},
+        water: {description: '34 WATER timbres: 32 original electronic voices with punchier kicks and tempo-linked saturated bass, plus two natural CC0 handpan presets from 18 FreePats recordings.',selection: 'Manual selection defaults to WATER; the all-world checkbox enables compatible borrowing. GENERATE stays native.'},
         ambient: {
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
-          selection: 'JSON accepts compatibleRoles matches from any sound world. Manual selection and GENERATE use the current world.'
+          selection: 'JSON accepts compatibleRoles matches from any sound world. Manual selection defaults to the current world; its all-world checkbox allows compatible borrowing. GENERATE stays native.'
         },
         reactor: {
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',

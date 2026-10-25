@@ -1,5 +1,24 @@
 ## 2026-10-22 — Preserving terms acceptance across workspace reset
 
+## 2026-10-25 — WATER weight and real handpan
+
+- Reworked electronic kick/snare body and bass sustain; added a clean mono sub plus saturated, audio-tempo-linked wobble mids without raising master gain.
+- Added natural/dry handpan presets from 18 verified CC0 FreePats recordings, with pinned provenance, rights evidence and reproducible import. Updated defaults only for newly initialized WATER scores.
+- Load/decode only required sample packs, retain incremental context caches and preserve native-bank readiness for GENERATE; keep four-buffer decode concurrency. No new runtime dependency.
+
+
+## 2026-10-25 — Restore WATER clouds when opening HTML from disk
+
+- Added a lazily loaded, byte-identical local sky payload for direct `file://` use; HTTP(S) retains the normal PNG with explicit anonymous CORS. No browser security changes or external media.
+- Clean up failed GPU texture uploads and preserve an existing valid sky. Audio and project state remain unchanged.
+
+
+## 2026-10-25 — Optional parallel-world instrument palette
+
+- Added a localized, persisted, default-off “Sounds from all worlds” checkbox in the instrument editor; all three worlds are filtered by fixed voice-role compatibility and labeled by origin.
+- Preserve selected borrowed timbres when hiding the wider palette; prepare recordings before applying a choice and keep the old sound on failure/cancellation. GENERATE remains native.
+
+
 ## 2026-10-25 — WATER electronic palette
 
 - Added 32 original synthesized WATER timbres: electronic drums, FM percussion, sub/reese bass, digital textures, arpeggios and chord stabs. Dedicated 120 BPM workspace, three-world persistence, portable projects and agent catalogs; no imported audio.

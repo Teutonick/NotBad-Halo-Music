@@ -12,7 +12,11 @@
 
 ---
 
-**WATER:** an independent electronic palette of 32 original synthesized timbres: sub bass, electronic drums, FM percussion, digital textures, arpeggios and chord stabs. First entry starts at 120 BPM; AMBIENT, REACTOR and WATER keep separate workspaces. Narrow, distinct foam/spray wakes remain visible on pause and underwater. All motion/effect modes work. No imported audio or runtime dependency. Older visual-only water saves keep their music; leave and re-enter WATER for the new palette.
+**WATER:** an independent electronic palette of 32 original electronic timbres plus two recorded handpan presets: sub bass, electronic drums, FM percussion, digital textures, arpeggios and chord stabs. First entry starts at 120 BPM; AMBIENT, REACTOR and WATER keep separate workspaces. Narrow, distinct foam/spray wakes remain visible on pause and underwater. All motion/effect modes work. The recorded handpan is verified CC0 FreePats material; no new runtime dependency. Older visual-only water saves keep their music; leave and re-enter WATER for the new palette.
+
+WATER clouds also support opening `index.html` directly from disk: keep the supplied `assets/water/` files together. The local sky companion ships ready to use; no build or browser security changes are required.
+
+The instrument editor’s **Sounds from all worlds** checkbox optionally reveals role-compatible timbres from every world. It defaults off, remembers your choice and preserves selected borrowed sounds when disabled.
 
 ### 01 / INTRO
 

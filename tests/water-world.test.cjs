@@ -145,11 +145,39 @@ test('GPU world programs are lazy, cached, recovered and released without a rend
 
 test('local sky loads only for an active GPU world, resolves under a Pages prefix and uploads once',()=>{
  const images=[],uploads=[];
- class Image{constructor(){images.push(this)}set src(value){this.url=value}}
+ class Image{constructor(){images.push(this)}set src(value){this.url=value;assert.equal(this.crossOrigin,'anonymous','CORS mode must be set before HTTP src')}}
  const sandbox={HaloWaterSplashes:require('../src/worlds/water-splashes.js'),HaloWaterMotion:require('../src/worlds/water-motion.js'),HaloWaterStones:require('../src/worlds/water-stones.js'),Image,URL,document:{currentScript:{src:'https://example.test/repository/src/worlds/water.js'}},console};
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/worlds/water.js'),'utf8'),sandbox);
  const world=sandbox.HaloWaterWorld,renderer={gl:{},setTexture:(...args)=>uploads.push(args)};
  assert.equal(images.length,0);world.prepare({gl:null});assert.equal(images.length,0);
  world.prepare(renderer);world.prepare(renderer);assert.equal(images.length,1);assert.equal(images[0].url,'https://example.test/repository/assets/water/arctic-sky.png');
  images[0].complete=true;images[0].naturalWidth=1024;images[0].onload();world.prepare(renderer);assert.equal(uploads.length,1);
+});
+
+
+test('direct file sky lazily loads byte-identical packaged PNG and retries a deferred GPU upload',()=>{
+ const images=[],scripts=[],uploads=[];
+ class Image{constructor(){images.push(this)}set src(v){this.url=v}}
+ const sandbox={HaloWaterSplashes:require('../src/worlds/water-splashes.js'),HaloWaterMotion:require('../src/worlds/water-motion.js'),HaloWaterStones:require('../src/worlds/water-stones.js'),Image,URL,console,document:{currentScript:{src:'file:///C:/HALO/src/worlds/water.js'},createElement:()=>({remove(){this.removed=true}}),head:{appendChild:s=>scripts.push(s)}}};
+ vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/worlds/water.js'),'utf8'),sandbox);
+ let ready=false;const renderer={gl:{},setTexture(...args){if(!ready)return false;uploads.push(args);return true}};
+ sandbox.HaloWaterWorld.prepare({gl:null});assert.equal(scripts.length,0);
+ sandbox.HaloWaterWorld.prepare(renderer);sandbox.HaloWaterWorld.prepare(renderer);assert.equal(scripts.length,1);
+ assert.equal(scripts[0].src,'file:///C:/HALO/assets/water/arctic-sky.data.js');assert.equal(images[0].url,undefined);
+ vm.runInContext(fs.readFileSync(path.join(__dirname,'../assets/water/arctic-sky.data.js'),'utf8'),sandbox);
+ const data=sandbox.HaloWaterSkyDataURL;assert.deepEqual(Buffer.from(data.split(',')[1],'base64'),fs.readFileSync(path.join(__dirname,'../assets/water/arctic-sky.png')));
+ scripts[0].onload();assert.equal(scripts[0].removed,true);assert.equal(sandbox.HaloWaterSkyDataURL,undefined);assert.equal(images[0].url,data);
+ images[0].complete=true;images[0].naturalWidth=1774;images[0].onload();assert.equal(uploads.length,0);
+ ready=true;sandbox.HaloWaterWorld.prepare(renderer);sandbox.HaloWaterWorld.prepare(renderer);assert.equal(uploads.length,1);
+});
+
+test('failed sky uploads dispose the new GPU texture while retaining the previous valid sky',()=>{
+ const calls=[];let reject=false,next=0;
+ const gl=new Proxy({createTexture:()=>++next,isContextLost:()=>false,texImage2D(){if(reject)throw Error('cross-origin image')}},{get(t,k){if(k in t)return t[k];return (...args)=>{calls.push([k,...args]);return {}}}});
+ const canvas={getContext:()=>gl,addEventListener(){},removeEventListener(){}};
+ const sandbox={console};vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/worlds/renderer.js'),'utf8'),sandbox);
+ const r=sandbox.HaloWorldRenderer.create(canvas);r.setTexture('water',{});reject=true;
+ assert.throws(()=>r.setTexture('water',{}),/cross-origin/);
+ assert.deepEqual(calls.filter(c=>c[0]==='deleteTexture').map(c=>c[1]),[2]);r.dispose();
+ assert.deepEqual(calls.filter(c=>c[0]==='deleteTexture').map(c=>c[1]),[2,1]);
 });
