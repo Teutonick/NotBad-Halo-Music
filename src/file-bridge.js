@@ -223,7 +223,7 @@
     } else if (score.phraseId !== undefined) fail('score.phraseId', 'only supported when editing an existing song');
     if (score.phraseId !== undefined && !edit) fail('score.phraseId', 'only supported in edit mode');
     const world = score.world ?? (edit ? source.setup : 'ambient');
-    if (!['ambient','reactor'].includes(world)) fail('score.world', 'use ambient or reactor');
+    if (!['ambient','reactor','water'].includes(world)) fail('score.world', 'use ambient, reactor or water');
     if (edit && world !== source.setup) fail('score.world', 'edit preserves the sound world; use replace to create music in another world');
     const keys = caps.harmony.keys;
     const keyIndex = (value, fallback, path) => {
@@ -421,7 +421,7 @@
     const roleProperties=ref=>Object.fromEntries(caps.roles.map(r=>[r.id,{$ref:'#/$defs/'+ref}]));
     const roles=edit=>object(roleProperties(edit?'editVoice':'createVoice'));
     const common={format:{const:'halo-score'},requestId:{type:'string',pattern:'^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$',maxLength:128}};
-    const metadata={world:{enum:['ambient','reactor']},tempo:{type:'number',minimum:30,maximum:200},bars:{enum:[4,8]},meter:{enum:['4/4','3/4']},key:{type:'string',enum:caps.harmony.keys.map(k=>k.name)}};
+    const metadata={world:{enum:['ambient','reactor','water']},tempo:{type:'number',minimum:30,maximum:200},bars:{enum:[4,8]},meter:{enum:['4/4','3/4']},key:{type:'string',enum:caps.harmony.keys.map(k=>k.name)}};
     const required=['format','mode'],music=[...required,...Object.keys(metadata)];
     const phrase=object({id:integer(1),bars:metadata.bars,meter:metadata.meter,key:metadata.key,voices:roles(false)},['id','voices']);
     const section=object({phrase:integer(1),repeats:integer(1,8),name:{enum:['intro','verse','verse2','chorus','bridge','outro','phrase']},fade:{enum:['none','in','out']}},['phrase']);
@@ -520,7 +520,7 @@
         requiredByMode:{probe:[],patch:['patches'],replace:['world','tempo','bars','meter','key'],edit:['world','tempo','bars','meter','key','voices']},
         alternativesByMode:{replace:[['voices'],['phrases','sections']]},
         editTarget:'Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).',
-        format:'halo-score', mode:['replace','edit','patch','probe'], world:['ambient','reactor'], tempo:[30,200], bars:[4,8], meter:['4/4','3/4'],
+        format:'halo-score', mode:['replace','edit','patch','probe'], world:['ambient','reactor','water'], tempo:[30,200], bars:[4,8], meter:['4/4','3/4'],
         shape:'replace or edit: `voices` for one phrase; `phrases` and `sections` for a new composition; edit on a composition needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.',
         phrases:{fields:['id','bars','meter','key','voices'],required:['id','voices'],max:15},
         sections:{fields:['phrase','repeats','name','fade'],required:['phrase'],max:32,
@@ -586,7 +586,8 @@
 
     const allSounds = [
       ...findCompatible(caps.catalog?.ambient, 'ambient'),
-      ...findCompatible(caps.catalog?.reactor, 'reactor')
+      ...findCompatible(caps.catalog?.reactor, 'reactor'),
+      ...findCompatible(caps.catalog?.water, 'water')
     ];
 
     const roles = (caps.roles || []).map((r, i) => ({
@@ -635,7 +636,7 @@
         physicalSlot:'tracks[].trackIndex and slot are fixed UI identities, not instrument banks or timbre descriptions.',
         musicalRole:'tracks[].role is the `voices` key. `GLASS`=pulse, `TIDAL`=accent, `ROOT`=percussion; read all eight mappings in tracks.',
         soundBank:'sounds[].bankId identifies the internal source bank; tracks[].role identifies the destination role. Use canonicalId as the score sound value.',
-        timbre:'Choose sounds[].canonicalId literally as voice.sound, filtered by role in compatibleRoles. JSON can borrow from either world; world/setups record the sound origin. The score world selects visuals and generation defaults.',
+        timbre:'Choose sounds[].canonicalId literally as voice.sound, filtered by role in compatibleRoles. JSON can borrow from any world; world/setups record the sound origin. The score world selects visuals and generation defaults.',
         affinity:'affinityRoles are recommended orchestration, compatibleRoles are hard constraints. Neither reassigns a physical slot.',
         pitch:'Pitched timbres require notes; unpitched timbres require steps. Integer MIDI 0..127 is the hard input limit. acousticRange guides the engine playback register: playback octave folding moves valid MIDI into the timbre register (plus bass-specific register policy), preserving pitch class. tracks[].acousticRange guides the role playback register; integer MIDI 0..127 remains the input pitch bound.'
       },
@@ -646,13 +647,14 @@
       parameterGlossary,
       rangeSemantics:{sounds:'acousticRange is the timbre playback register; octave folding brings valid MIDI pitches into the playback register while preserving pitch class.',tracks:'acousticRange describes role register guidance; bass additionally uses the engine bass register policy.'},
       soundWorlds: {
+        water: {description: '32 original procedural electronic timbres: FM, sub bass, synthesized drums, glitch and chord stabs. No imported recordings.',selection: 'Manual selection and GENERATE use native WATER sounds; JSON supports role-compatible borrowing.'},
         ambient: {
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
-          selection: 'JSON accepts compatibleRoles matches from either sound world. Manual selection and GENERATE use the current world.'
+          selection: 'JSON accepts compatibleRoles matches from any sound world. Manual selection and GENERATE use the current world.'
         },
         reactor: {
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
-          selection: 'JSON accepts compatibleRoles matches from either sound world. Sample loading follows actual timbres, including borrowed recordings.'
+          selection: 'JSON accepts compatibleRoles matches from any sound world. Sample loading follows actual timbres, including borrowed recordings.'
         }
       }
     };
@@ -735,7 +737,7 @@
 Translate the user's creative brief into original musical events. Preserve the requested music when developing or editing it. Report file writes, HALO responses, approval and playback only from observed tool results.
 
 ## Required JSON structure
-Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace each <<slot>> with a value of its stated JSON type. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs. JSON timbres may come from either world when compatibleRoles includes the target role.
+Start here: choose the form for the user's intent, fill every symbolic slot and preserve literal keys and nesting. Forms come from capabilities.json.requestSchema. Replace each <<slot>> with a value of its stated JSON type. Compose original numeric events. Repeat collection members as needed. Select world, key, role and sound from the catalogs. JSON timbres may come from any world when compatibleRoles includes the target role.
 
 ${Object.entries(requestTemplates(caps)).map(([name,text])=>'### '+name+'\n\n```text\n'+text+'\n```').join('\n\n')}
 

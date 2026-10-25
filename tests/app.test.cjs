@@ -43,7 +43,9 @@ function app(storage, options = {}) {
   sandbox.localStorage=storage||{getItem(){return null},setItem(){}};
   sandbox.HaloAudio={ create(ctx,tracks) { return {ctx,setSamples(){},update:i=>calls.push(['update',i]),
     play:(i,notes,time,v,patch)=>calls.push(['play',i,notes,time,patch.id])}; } };
+  document.body=element('body');
   vm.createContext(sandbox);
+  for(const name of ['renderer','space','orbits','water-splashes','water-motion','water-stones','water'])vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/worlds/'+name+'.js'),'utf8'),sandbox);
   const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
   const scriptOpen=html.indexOf('<script>');
   const scriptClose=html.indexOf('</script>',scriptOpen);
@@ -51,6 +53,33 @@ function app(storage, options = {}) {
   vm.runInContext(code,sandbox);
   return { document, elements, events, calls, timers, ctx, sandbox, timeouts };
 }
+
+test('WATER has an independent native sound workspace and restores both drafts and all three worlds',async()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const a=app(storage),$=id=>a.document.getElementById(id);
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1'))};
+ $('editPattern').onclick();const before=read();
+ await $('waterSwitch').onclick();const water=read();
+ assert.equal(water.project.setup,'water');assert.equal(water.project.tempo,120);assert.equal(water.ui.visualWorld,'water');
+ assert.ok(water.project.tracks.every(t=>t.sound.startsWith('water-')));assert.equal(water.worlds.ambient.project.setup,'ambient');
+ const b=app(storage);assert.equal(b.document.body.classList.contains('water-world'),true);
+ await $('waterSwitch').onclick();const restored=read();assert.deepEqual(restored.project,before.project);assert.deepEqual(restored.draft,before.draft);
+ await $('setupSwitch').onclick();assert.equal(read().project.setup,'reactor');
+ await $('waterSwitch').onclick();assert.deepEqual(read().project,water.project);
+ await $('play').onclick();const timers=a.timers.length;
+ await $('waterSwitch').onclick();assert.equal(read().project.setup,'water','playing switch is queued');
+ a.ctx.currentTime=8;a.timers.at(-1)();assert.equal(read().project.setup,'ambient');assert.equal(a.timers.length,timers);
+});
+
+test('destination buttons list only the other two musical worlds',async()=>{
+ const a=app(),$=id=>a.document.getElementById(id),destinations=()=>new Set([$('setupSwitch')['data-world'],$('waterSwitch')['data-world']]);
+ assert.deepEqual(destinations(),new Set(['reactor','water']));
+ await $('waterSwitch').onclick();assert.deepEqual(destinations(),new Set(['reactor','ambient']));
+ assert.equal($('waterSwitch')['aria-label'],'Switch to AMBIENT world');
+ await $('setupSwitch').onclick();assert.equal($('bpmInput').value,'100');assert.deepEqual(destinations(),new Set(['ambient','water']));
+ await $('waterSwitch').onclick();assert.deepEqual(destinations(),new Set(['reactor','ambient']));
+ await $('waterSwitch').onclick();assert.equal($('bpmInput').value,'72');assert.deepEqual(destinations(),new Set(['reactor','water']));
+});
 
 test('musical worlds preserve sounds, generated/manual identity and drafts across switches and reload',()=>{
  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
@@ -640,7 +669,7 @@ test('default PHRASE panel reserves space above transport on narrow and wide lay
 });
 test('natural song end updates transport text at the scheduled audio boundary',()=>{
  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8');
- const start=html.indexOf(' finish(time){'),end=html.indexOf(',\n retriggerPhrase',start);
+ const start=html.indexOf(' finish(time){'),end=html.indexOf(' retriggerPhrase',start);
  const callback=html.slice(start,end);assert.ok(start>0&&end>start);
  const nodes={play:{classList:{remove(){}}},transportTitle:{textContent:'YOUR UNIVERSE IS ALIVE'},transportDesc:{textContent:'playing'}};
  let timer;const context={playing:true,frozenBeat:12,scheduler:1,audio:{ctx:{currentTime:5}},$:id=>nodes[id],clearInterval(){},setTimeout(fn,ms){timer={fn,ms}}};

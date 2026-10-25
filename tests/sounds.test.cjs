@@ -6,7 +6,7 @@ const track = name => ({ name, sound: banks[name].sounds[0].id, character: 50, d
 
 test('full randomization selects another affinity sound for the fixed role and bounds tuning to 20–100',()=>{
  const S=require('../src/sounds.js');
- for(const setup of ['ambient','reactor'])for(const [index,name] of Object.keys(banks).entries()){
+ for(const setup of ['ambient','reactor','water'])for(const [index,name] of Object.keys(banks).entries()){
   let t={...track(name),setup,on:false};
   for(let seed=2;seed<=128;seed++){
    const result=S.randomizeTrack(t,index,seed);assert.deepEqual(result,S.randomizeTrack(t,index,seed));
@@ -252,4 +252,17 @@ test('Track 09 solo gate silences all core gains and preserves mute/level on upd
  audio.update(0,.3);assert.equal(audio.trackGains[0].gain.calls.at(-1)[0],0);
  audio.setCoreMuted(false,.4);assert.equal(JSON.stringify(tracks),before);
  tracks.forEach((t,i)=>assert.equal(audio.trackGains[i].gain.calls.at(-1)[0],t.on?t.level/100*4*(t.ensembleGain||1):0));
+});
+
+
+test('all 32 original WATER voices schedule on the audio clock and clean up FM/noise graphs',()=>{
+ const S=require('../src/sounds.js');
+ const tracks=Object.keys(S.waterBanks).map(name=>({...track(name),...S.roles.initial('water',name),setup:'water'}));
+ const ctx=context(),audio=Audio.create(ctx,tracks),baseline=ctx.nodes.length;
+ for(const [i,t] of tracks.entries())for(const patch of S.waterBanks[t.name].sounds)for(const duration of [0,100]){
+  t.duration=duration;audio.play(i,patch.playback.pitched?[36,60,84]:[],.25,.8,patch);
+ }
+ for(const source of ctx.sources){assert.equal(source.started,.25);assert.ok(source.stopped>.25&&source.stopped<9);source.onended()}
+ assert.ok(audio.voices.every(v=>v.size===0));assert.ok(ctx.nodes.slice(baseline).every(n=>n.disconnected));
+ assert.ok(Object.values(S.waterBanks).flatMap(b=>b.sounds).every(p=>!p.sampleBank&&p.setups[0]==='water'));
 });

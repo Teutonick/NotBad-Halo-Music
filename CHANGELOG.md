@@ -1,5 +1,31 @@
 ## 2026-10-22 — Preserving terms acceptance across workspace reset
 
+## 2026-10-25 — WATER electronic palette
+
+- Added 32 original synthesized WATER timbres: electronic drums, FM percussion, sub/reese bass, digital textures, arpeggios and chord stabs. Dedicated 120 BPM workspace, three-world persistence, portable projects and agent catalogs; no imported audio.
+- Narrowed water wakes and reduced glyph size to separate neighboring lanes; kept per-voice shapes, pause retention and underwater distortion.
+
+
+## 2026-10-25
+
+- World destination orbits now form a vertical column and omit the active world, with localized target labels. Existing musical workspace/next-bar behavior is retained.
+- WATER adds audio-event-driven wet note glints and brighter, visibly distinct per-voice detached wakes; pause/underwater/reduced-motion behavior is preserved. No new audio behavior, schema or dependency.
+
+
+## 2026-10-24
+
+- WATER: replaced long tails with detached foam/spray fragments that remain on pause and underwater; reduced pebbles by 1.5×; added stable per-event splash-size variation by intensity; made forward water travel clearer and fitted sky projection for ultrawide screens. Music and API schemas unchanged.
+
+- WATER: matte pastel sea pebbles, eight distinct above-water wake signatures and increasing CLASSIC/COSMIC/HYPER intensity. Implemented DRIFT scene geometry, per-track IN TIME and true 4/8-bar PHRASE markers; splashes now follow each actual water crossing. Shared clock/music unchanged; Canvas and reduced-motion paths retained.
+
+- WATER: restored Filexa; added a barely perceptible forward surface-camera glide; replaced white drop sprites with shader-based translucent crowns, filaments, reflective microdroplets, mist and gentle ripples. Reduced-motion and Canvas fallback retained; music and APIs unchanged.
+
+- WATER naturalism pass: original local storm-cloud sky reflected in a multi-directional wave field, smoother mist horizon, neutral scattered droplets/crown and clockwise orbit motion (left emergence on bar 1, right immersion on bar 3). Lazy texture upload/recovery/disposal and procedural fallback. Visually checked in Chromium at desktop/mobile viewport sizes; no device/FPS/audio acceptance claim.
+
+- Added a first WATER visual environment with its own orbit selector beside AMBIENT/REACTOR, procedural sky/reflected water, submerged orbital bodies and transport-aligned droplets/ripples. Music is preserved; the visual selection persists locally. No dedicated WATER sound bank yet.
+- Isolated space and water graphics, shared orbit geometry and GPU lifecycle under `src/worlds/`. Lazy GPU programs, bounded analytic splashes, capped WATER resolution, reduced-motion behavior and Canvas fallback keep inactive worlds out of frame work. No new runtime dependency. Visual/device acceptance pending.
+
+
 - Updated «Reset workspace» (`executeReset` in `index.html`) so that confirming a workspace reset clears project settings, manual patterns, drafts, window layouts and autosaves from `localStorage` while retaining the site terms acceptance (`halo-terms-acceptance`).
 - Exported `HaloTerms.KEY` in `src/terms.js` and added Node module export.
 - Resetting the workspace no longer re-triggers the terms and conditions agreement dialog on page reload if terms were previously accepted.

@@ -55,7 +55,7 @@
       {
         "type": "object",
         "properties": {
-          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor", "water"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
           "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]},
           "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/createVoice"}, "accent": {"$ref": "#/$defs/createVoice"}, "percussion": {"$ref": "#/$defs/createVoice"}, "texture": {"$ref": "#/$defs/createVoice"}, "bass": {"$ref": "#/$defs/createVoice"}, "melody": {"$ref": "#/$defs/createVoice"}, "arpeggio": {"$ref": "#/$defs/createVoice"}, "harmony": {"$ref": "#/$defs/createVoice"}}, "required": [], "additionalProperties": false}
         },
@@ -64,7 +64,7 @@
       {
         "type": "object",
         "properties": {
-          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "replace"}, "world": {"enum": ["ambient", "reactor", "water"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
           "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]},
           "phrases": {
             "type": "array", "minItems": 1, "maxItems": 15,
@@ -84,7 +84,7 @@
       {
         "type": "object",
         "properties": {
-          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "edit"}, "world": {"enum": ["ambient", "reactor"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
+          "format": {"const": "halo-score"}, "requestId": {"type": "string", "pattern": "^[A-Za-z0-9]+(?:[-_][A-Za-z0-9]+)*$", "maxLength": 128}, "mode": {"const": "edit"}, "world": {"enum": ["ambient", "reactor", "water"]}, "tempo": {"type": "number", "minimum": 30, "maximum": 200}, "bars": {"enum": [4, 8]}, "meter": {"enum": ["4/4", "3/4"]},
           "key": {"type": "string", "enum": ["D MINOR", "F MAJOR", "C MAJOR", "A MINOR", "E MINOR", "G MAJOR", "D MAJOR", "B MINOR", "F♯ MINOR", "A MAJOR", "E MAJOR", "C♯ MINOR", "G♯ MINOR", "B MAJOR", "F♯ MAJOR", "D♯ MINOR", "A♯ MINOR", "C♯ MAJOR", "G♯ MAJOR", "F MINOR", "C MINOR", "D♯ MAJOR", "A♯ MAJOR", "G MINOR"]}, "phraseId": {"type": "integer", "minimum": 1},
           "voices": {"type": "object", "properties": {"pulse": {"$ref": "#/$defs/editVoice"}, "accent": {"$ref": "#/$defs/editVoice"}, "percussion": {"$ref": "#/$defs/editVoice"}, "texture": {"$ref": "#/$defs/editVoice"}, "bass": {"$ref": "#/$defs/editVoice"}, "melody": {"$ref": "#/$defs/editVoice"}, "arpeggio": {"$ref": "#/$defs/editVoice"}, "harmony": {"$ref": "#/$defs/editVoice"}}, "required": [], "additionalProperties": false}
         },
@@ -116,7 +116,7 @@
   },
   "score": {
     "fields": ["format", "requestId", "mode", "world", "tempo", "bars", "meter", "key", "voices", "phraseId", "phrases", "sections", "repeat", "patches"], "required": ["format", "mode"], "requiredByMode": {"probe": [], "patch": ["patches"], "replace": ["world", "tempo", "bars", "meter", "key"], "edit": ["world", "tempo", "bars", "meter", "key", "voices"]}, "alternativesByMode": {"replace": [["voices"], ["phrases", "sections"]]},
-    "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).", "format": "halo-score", "mode": ["replace", "edit", "patch", "probe"], "world": ["ambient", "reactor"], "tempo": [30, 200], "bars": [4, 8], "meter": ["4/4", "3/4"],
+    "editTarget": "Existing phraseId is required when editing one PHRASE (фраза) within a COMPOSITION (композиция) containing phrases; omit it for a single PHRASE (фраза).", "format": "halo-score", "mode": ["replace", "edit", "patch", "probe"], "world": ["ambient", "reactor", "water"], "tempo": [30, 200], "bars": [4, 8], "meter": ["4/4", "3/4"],
     "shape": "replace or edit: `voices` for one PHRASE (фраза); `phrases` and `sections` for a new COMPOSITION (композиция); edit on a COMPOSITION (композиция) needs `phraseId`. patch: format/mode/patches only. probe: format/mode only.", "phrases": {"fields": ["id", "bars", "meter", "key", "voices"], "required": ["id", "voices"], "max": 15},
     "sections": {"fields": ["phrase", "repeats", "name", "fade"], "required": ["phrase"], "max": 32, "names": ["intro", "verse", "verse2", "chorus", "bridge", "outro", "phrase"], "fade": ["none", "in", "out"], "defaults": {"repeats": 1, "name": "phrase", "fade": "none"}}, "repeat": "Boolean; song only, default false.",
     "voices": {

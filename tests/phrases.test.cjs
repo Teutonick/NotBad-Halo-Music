@@ -8,7 +8,7 @@ test('classic scripts initialize without CommonJS and resolve under a GitHub Pag
  const html=fs.readFileSync(path.join(__dirname,'../index.html'),'utf8'),scripts=[...html.matchAll(/<script src="([^"]+)"/g)].map(m=>m[1]);
  assert.ok(scripts.findIndex(s=>s.includes('/phrases.js'))<scripts.findIndex(s=>s.includes('/sounds.js')));
  const sandbox={};vm.createContext(sandbox);
- for(const file of ['phrases.js','roles.js','sounds.js','motion.js','composition.js','project.js','controls.js']){
+ for(const file of ['phrases.js','roles.js','water-sounds.js','sounds.js','motion.js','composition.js','project.js','controls.js']){
   const relative=scripts.find(s=>s.startsWith('./src/'+file));assert.ok(relative);
   assert.ok(new URL(relative,'https://example.invalid/NotBad-Halo-Music/').pathname.startsWith('/NotBad-Halo-Music/src/'));
   vm.runInContext(fs.readFileSync(path.join(__dirname,'../src',file),'utf8'),sandbox);

@@ -1,5 +1,54 @@
 # Release validation — File Bridge, 2026-10-20
 
+## WATER original electronic palette / compact wakes — 2026-10-25
+
+Full regression: **367 Node tests passed, 0 failures** (TEMP/TMP `.tmp/water-tests`, outside sandbox for the existing File Bridge atomic hard-link fixture). New checks cover native WATER sound selection/generation, three-workspace save/restore and next-bar switching, 32-preset finite audio scheduling and complete FM/noise node cleanup, File Bridge WATER scores and role-compatible borrowing, and composition isolation across worlds. Existing tests cover all visual modes/meters, fallback and static Pages classic-script loading.
+
+Actual Chromium preview at `http://127.0.0.1:8766/`: entered WATER, confirmed all eight native defaults and 120 BPM; played/paused at the user's original master volume 0; reloaded and confirmed WATER/native defaults restore instead of the prior AMBIENT song. Inspected 788×904, 1440×900 and 390×844; checked paused submerged compact wakes and destination buttons. Warning/error logs returned `[]`. Viewport override was cleared and playback left paused. No workspace reset or authored-note edit.
+
+Actual WAV export at temporary master 50% (restored to original 0%) used the browser OfflineAudioContext and common synthesis: 8.0 seconds, stereo 44.1 kHz PCM16; peak 0.111877, RMS 0.010898, DC 0.000166, zero clipped samples. This proves non-silent bounded PCM for the initial eight defaults, not human listening approval or a peak guarantee for every arrangement. No physical phone, Safari, headphone or reference-track listening acceptance claim. Screenshot/demo are local review artifacts, not product asset dependencies.
+
+
+## World destinations / WATER note glints — 2026-10-25
+
+Unit checks cover destination labels/targets across all three environments and both underlying sound setups, preservation when leaving WATER for its current setup, note-glint gating (pulse/play/pause/reduced motion), and distinct detached primitive geometry for all eight core wakes. Existing all-mode/meter/path/mute/persistence and audio tests remain in the regression suite. Final full regression: **364 Node tests passed, 0 failures**; TEMP/TMP in `.tmp/water-tests`, outside sandbox for the existing File Bridge hard-link check. `git diff --check` passed.
+
+Real in-app Chromium at 788×904: inspected a vertical REACTOR/AMBIENT column in WATER, clicked AMBIENT and back into WATER, and read destination attributes (REACTOR/WATER → REACTOR/AMBIENT). Playback showed note glints supplied by the existing visual-event path; captured warning/error logs returned []. Also checked 390×844 and RU destination ARIA labels, then restored English. Saved a 788×904 playback screenshot; left the app paused with the viewport override cleared. No audible, physical-device, Safari or measured FPS acceptance claim. No note edits or reset.
+
+
+### WATER pause/fragment/ultrawide follow-up — 2026-10-24
+
+New automated checks compare wake draw operations during playback and pause above and below water, assert the absence of connecting line/Bezier paths in wakes, verify shared coordinate refraction without input mutation, test splash-size stability/diversity within all three mode ranges, exercise vec4 uniform upload and prove horizontal sky coordinates stay inside the panorama at 390×844, 1440×900, 2507×992 and 3840×1080. Final full regression: **361 Node tests passed, 0 failures**. TEMP/TMP used `.tmp/water-tests`; execution outside sandbox was needed for the existing File Bridge hard-link test. `git diff --check` passed.
+
+Real Chromium preview tested at 2507×992 matching the supplied screenshot proportions. Inspected the fitted sky, reduced pebble size, playback→pause wake retention and under-water decoration; captured warnings/errors returned []. Forward motion was visually compared while the view stayed on the water. The existing original sky image was reused: projection correction, not a new asset. Device/FPS/Safari/listening and final artistic acceptance remain unclaimed. Also inspected 390×844 with HYPER/DRIFT. A 2507×992 paused HYPER/DRIFT screenshot was saved. Returned COSMIC/IN TIME, visible UI and paused transport; viewport override reset.
+
+
+### WATER pebble/mode parity — 2026-10-24
+
+Automated coverage now traverses every WATER motion/effect/scene combination in both meters and phrase lengths, with GPU/Canvas foreground paths; verifies stable inputs/hit targets, actual DRIFT roots/direction within bounded lifespan, deterministic reconstruction without previous frames, PHRASE 4/8-bar semantics and IN TIME right-axis event alignment. Effect budgets and unique core slot wake signatures are checked. Final regression: **358 Node tests passed, 0 failures**, with TEMP/TMP in `.tmp/water-tests` and execution outside sandbox for the File Bridge hard-link check. `git diff --check` passed.
+
+Real Chromium: UI traversed all nine CLASSIC/COSMIC/HYPER × DRIFT/IN TIME/PHRASE combinations during playback, and selected BLOOM/CURRENT/ORBIT in DRIFT. Captured warning/error logs returned []; pebbles, above-water wakes and under-water attenuation were inspected. Viewport checks: 1440×900 and 390×844, with a saved HYPER/DRIFT screenshot. Returned the app to COSMIC/IN TIME, ordinary UI and paused transport; viewport override reset. The WATER-only mobile action row was compacted/wrapped so the extra DRIFT scene button cannot push the visual-only button off screen; setup orbits follow the menu bottom on narrow screens. No note/timbre edits, workspace reset, listening, Safari/physical device or measured FPS claim. Visual effects remain subject to the user's artistic review.
+
+
+### WATER Filexa / dolly / optical splashes — 2026-10-24
+
+Real Chromium preview: inspected restored Filexa, water motion and actual shader compilation/rendering; captured warnings/errors on the app were empty. Also reviewed deterministic impact stages at +0.14, +0.32 and +0.65 seconds in a temporary isolated local fixture, rather than modifying the user's score or tempo. The temporary fixture was removed after use. Ordinary WATER rendering and playback remain on the main app; screenshot saved with patch delivery. Automated checks cover bounded splash lifetime and reduced-motion fallback alongside existing geometry, lazy loading, GPU lifecycle, persistence and transport regression. Final full regression: **355 Node tests passed, 0 failures**; TEMP/TMP redirected to `.tmp/water-tests`, run outside sandbox for File Bridge hard-link support. `git diff --check` passed. Desktop 1440×900 and mobile viewport 390×844 inspected; viewport override restored and transport paused afterward. No listening, physical mobile/Safari, measured FPS or final artistic acceptance claim.
+
+
+### WATER naturalism follow-up — 2026-10-24
+
+The user made the preview reachable; earlier browser-access limitations below are historical. Tested the updated local build in real in-app Chromium at default 787×904, desktop 1440×900 and mobile viewport 390×844. Inspected generated sky loading, sky/water reflection, horizon continuity, orbit bodies, droplets/ripples, resize, WATER ↔ space, playback/pause, reload restoration, visual-only and Escape recovery. `tab.dev.logs` filtered to warnings/errors returned `[]` after rendering and switching. GPU shader compilation and texture sampling therefore ran in this browser; no physical handset, Safari, listening, device FPS or photorealism acceptance is claimed. Temporary viewport override restored after QA; no user composition reset or note edits.
+
+Automated coverage adds clockwise geometry/left-right horizon assertions, static-Pages-prefixed sky URL, lazy one-time upload, texture reconstruction after context loss and disposal. Final full regression: **354 Node tests passed, 0 failures**, with TEMP/TMP in `.tmp/water-tests` and execution outside sandbox for File Bridge hard-link support. `git diff --check` passed. Generated-asset provenance and exact prompt are in `assets/water/README.md`.
+
+
+## WATER study — 2026-10-24
+
+Scope: local WATER toggle, preservation of music/transport/drafts, preference migration, bar 1/3 crossings in both meters, deterministic draw/hit-target mapping for eight/nine voices, Canvas fallback, reduced-motion branches and unchanged space geometry. Automated checks: 353 Node tests passed (0 failures), including all space scenes/motion/effect combinations in a fake Canvas context and lazy GPU program/cache/context-recovery/disposal contracts in a fake GL context; `git diff --check` passed. The full suite required running outside sandbox after File Bridge hard-link publication failed with EPERM even with TEMP/TMP redirected into `.tmp/water-tests`. Fakes do not establish real shader compilation or visible quality.
+
+Browser limitation: `scripts/preview.ps1` was started at 127.0.0.1:8766, including outside sandbox. The browser reported connection refusal/timeout; direct file navigation was rejected by its protocol policy. The legacy browser adapter also failed its trusted bridge bootstrap. No policy bypass, browser screenshot, mobile viewport, FPS, real GPU compilation, listening or Safari/iOS/physical-device acceptance is claimed. Full visual QA remains required before accepting the appearance or performance as finished.
+
+
 ## 2026-10-21 — External-score recovery and borrowed timbres
 
 342/342 Node tests pass outside the Windows sandbox with checkout-local TEMP/TMP. The host draft gate's atomic exclusive hard-link publication is denied with EPERM inside sandbox; the same full suite passes outside it. 12 canonical JSON Schema syntax checks pass. git diff --check passes. Logs: artifacts/bridge-crossworld-full.log, artifacts/bridge-crossworld-targeted.log (sandbox EPERM evidence), artifacts/bridge-crossworld-schema.log.

@@ -102,6 +102,7 @@
   if(timeSignature==='3/4')return bars===8?catalog6_8_swing:catalog3_4_waltz;
   return catalog;
  }
+ profiles.water=[['reef-step','Reef step','Рифовый шаг',[0,0,5,6],0],['tidal-dub','Tidal dub','Приливный даб',[0,5,0,3],1],['broken-reef','Broken reef','Ломаный риф',[0,6,3,5],2],['acid-lagoon','Acid lagoon','Эйсид-лагуна',[0,0,3,0],3],['deep-house','Deep house','Глубокий хаус',[0,5,2,6],4],['liquid-trance','Liquid trance','Жидкий транс',[0,6,5,3],5],['half-tide','Half tide','Полуприлив',[0,3,0,5],6],['circuit-surf','Circuit surf','Цифровой прибой',[0,2,6,0],7],['submarine','Submarine','Под водой',[0,0,5,0],8],['ocean-break','Ocean break','Океанский брейк',[0,5,6,0],9]];
  Object.values(profiles).forEach(list=>{list.forEach(profile=>{Object.freeze(profile[3]);Object.freeze(profile)});Object.freeze(list)});Object.freeze(profiles);
  const unpitched=new Set(['kick','snare','metal','tom','rhythm','texture']);
  function roleFor(track,sound){
@@ -119,14 +120,14 @@
   return 'accent';
  }
  // All same-world instrument/orbit pairs are allowed; musical role is independent of geometry.
- const matrix=Object.freeze(Object.fromEntries(['ambient','reactor'].map(world=>[world,Object.freeze(Object.fromEntries(slots.map(instrument=>[instrument,Object.freeze(Object.fromEntries(slots.map(orbit=>[orbit,Object.freeze({allowed:true,fit:instrument===orbit?'native':'alternative'})])))])))])));
+ const matrix=Object.freeze(Object.fromEntries(['ambient','reactor','water'].map(world=>[world,Object.freeze(Object.fromEntries(slots.map(instrument=>[instrument,Object.freeze(Object.fromEntries(slots.map(orbit=>[orbit,Object.freeze({allowed:true,fit:instrument===orbit?'native':'alternative'})])))])))])));
  function pair(a,b){return Object.freeze({allowed:true,relation:a===b?'layer':unpitched.has(a)!==unpitched.has(b)?'support':'contrast',balance:a===b?'share':'independent'})}
  const roleMatrix=Object.freeze(Object.fromEntries(Object.keys(catalog).map(a=>[a,Object.freeze(Object.fromEntries(Object.keys(catalog).map(b=>[b,pair(a,b)])))])));
  function assignments(tracks,sounds){
   const roles=tracks.map(t=>roleFor(t,sounds.soundFor(t)));
   return roles.map((role,i)=>({role,count:roles.filter(r=>roleMatrix[role][r].balance==='share').length,ordinal:roles.slice(0,i).filter(r=>roleMatrix[role][r].balance==='share').length}));
  }
- function ensemble(setup,seed){const list=profiles[setup==='reactor'?'reactor':'ambient'];return list[(seed-1)%list.length]}
+ function ensemble(setup,seed){const list=(profiles[setup]||profiles.ambient);return list[(seed-1)%list.length]}
  const majorScale=Object.freeze([0,2,4,5,7,9,11]);
  function chordFor(setup,seed,bar,bars=4,transpose=0,mode='minor'){
   if(typeof transpose==='object'&&transpose!==null){mode=transpose.mode||mode;transpose=transpose.offset??0}
@@ -162,7 +163,7 @@
     const addition=isSwing?(role==='lead'?10:role==='tom'?11:role==='snare'?10:8):isWaltz?(role==='lead'?10:role==='tom'?10:role==='snare'?8:9):(role==='lead'?15:role==='tom'?15:role==='snare'?14:13);
     if((seed+bar)%2===0)local.push(addition);else if(local.length>2)local.splice(local.length-1,1);
    }
-   if(track.setup!=='reactor'&&['rhythm','metal','tom'].includes(role)&&local.length>4)local=local.filter((_,i)=>i%2===0);
+   if(track.setup==='ambient'&&['rhythm','metal','tom'].includes(role)&&local.length>4)local=local.filter((_,i)=>i%2===0);
    // Repeated roles distribute activity but never forcibly mute a slot.
    if(assignment.count>1)local=local.filter((step,i)=>i%assignment.count===assignment.ordinal||i===0);
    local=[...new Set(local)].sort((a,b)=>a-b);

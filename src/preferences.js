@@ -6,6 +6,7 @@
   for(const field of ['scene','motionMode']){const n=value.ui?.[field];if(!Number.isInteger(n)||n<0||n>2)throw Error('Invalid view');clean.ui[field]=n}
   let effectMode=1;if(Number.isInteger(value.ui?.effectMode)&&value.ui.effectMode>=0&&value.ui.effectMode<=2){effectMode=value.ui.effectMode}else if(typeof value.ui?.richEffects==='boolean'){effectMode=value.ui.richEffects?1:0}else if(Number.isInteger(value.ui?.richEffects)&&value.ui.richEffects>=0&&value.ui.richEffects<=2){effectMode=value.ui.richEffects}else{throw Error('Invalid preference')}clean.ui.effectMode=effectMode;clean.ui.richEffects=effectMode!==0;
   for(const field of ['autoEvolve','autoKey']){if(typeof value.ui?.[field]!=='boolean')throw Error('Invalid preference');clean.ui[field]=value.ui[field]}
+  clean.ui.visualWorld=value.ui?.visualWorld==='water'?'water':'space';
   clean.ui.visualOnly=value.ui.visualOnly===true;
   clean.ui.backgroundAudio=value.ui?.backgroundAudio===true;
   for(const field of ['workstationCollapsed','track09Compact','audioInputOpen'])clean.ui[field]=value.ui?.[field]===true;
@@ -21,7 +22,7 @@
   clean.windows=Array.isArray(value.windows)?value.windows.slice(0,5).map(w=>({id:['editor','patternEditor','storageInfo','phraseGuide','audioInputWindow'].includes(w.id)?w.id:'editor',left:Math.max(0,Math.min(10000,Number(w.left)||0)),top:Math.max(0,Math.min(10000,Number(w.top)||0))})):[];
   if(!nested&&value.worlds){
    clean.worlds={};
-   for(const setup of ['ambient','reactor'])if(value.worlds[setup]){
+   for(const setup of ['ambient','reactor','water'])if(value.worlds[setup]){
     const saved=validate(value.worlds[setup],project,sounds,true);
     if(saved.project.setup!==setup)throw Error('Invalid setup state');
     clean.worlds[setup]=saved;

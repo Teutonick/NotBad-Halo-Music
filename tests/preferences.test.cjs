@@ -2,6 +2,12 @@ const test=require('node:test'),assert=require('node:assert/strict');
 const P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js'),Prefs=require('../src/preferences.js');
 const tracks=Object.keys(S.banks).map(name=>({name,sound:S.banks[name].sounds[0].id,on:true,level:65,density:70,character:50,duration:50,space:55,pattern:[0,4,8,12]}));
 const snapshot=()=>({version:1,project:P.capture(tracks,8,72,3,4,S,M),ui:{scene:2,motionMode:2,richEffects:true,autoEvolve:false,autoKey:true},manual:tracks.map(()=>null),draft:tracks.map(()=>[0,127]),selected:4,editTrack:2,windows:[{id:'editor',left:90,top:50}]});
+
+test('water is a bounded visual preference, independent of the musical setup',()=>{
+ const value=snapshot();value.ui.visualWorld='water';const saved=Prefs.parse(JSON.stringify(value),P,S);
+ assert.equal(saved.ui.visualWorld,'water');assert.deepEqual(saved.project,value.project);
+ for(const unsafe of [undefined,'ocean',{},'__proto__']){value.ui.visualWorld=unsafe;assert.equal(Prefs.validate(value,P,S).ui.visualWorld,'space')}
+});
 test('inactive worlds are validated, allowlisted and flattened without nested world graphs',()=>{
  const value=snapshot(),rock=snapshot();rock.project=P.capture(tracks.map(t=>({...t,setup:'reactor',sound:S.reactorBanks[t.name].sounds[0].id})),8,100,2,0,S,M);rock.worlds={untrusted:snapshot()};value.worlds={reactor:rock,unknown:rock};
  const result=Prefs.parse(JSON.stringify(value),P,S);assert.deepEqual(Object.keys(result.worlds),['reactor']);assert.equal(result.worlds.reactor.worlds,undefined);

@@ -12,6 +12,8 @@
 
 ---
 
+**WATER:** an independent electronic palette of 32 original synthesized timbres: sub bass, electronic drums, FM percussion, digital textures, arpeggios and chord stabs. First entry starts at 120 BPM; AMBIENT, REACTOR and WATER keep separate workspaces. Narrow, distinct foam/spray wakes remain visible on pause and underwater. All motion/effect modes work. No imported audio or runtime dependency. Older visual-only water saves keep their music; leave and re-enter WATER for the new palette.
+
 ### 01 / INTRO
 
 ## STOP MAKING TRACKS. START BUILDING UNIVERSES.

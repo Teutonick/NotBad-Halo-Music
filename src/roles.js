@@ -42,7 +42,8 @@
   return Object.entries(banks).flatMap(([instrument,bank])=>bank.sounds.filter(s=>metadata(s)[preferred?'affinityRoles':'compatibleRoles'].includes(role)).map(sound=>({instrument,sound})));
  }
  const defaults={ambient:[['ROOT','pulse'],['MOSS','wood'],['RAIN','shaker'],['AURA','wind'],['ROOT','round'],['GLASS','bell'],['EMBER','string'],['TIDAL','air']],reactor:[['GLASS','reactor-dry-kick'],['TIDAL','reactor-dry-snare'],['ROOT','reactor-tight-hat'],['EMBER','reactor-floor-tom'],['RAIN','reactor-pick-bass'],['VEIL','reactor-palm-guitar'],['AURA','reactor-analog-arp'],['AURA','reactor-attack-piano']]};
- function initial(setup,name){const index=slots.indexOf(name),[instrument,sound]=defaults[setup==='reactor'?'reactor':'ambient'][index];return {instrument,sound,role:roles[index].id,generator:3,sequence:{length:16,stepLength:1,offset:0}}}
+ defaults.water=[['GLASS','water-tidal-kick'],['TIDAL','water-salt-clap'],['ROOT','water-foam-hat'],['EMBER','water-grain-spray'],['RAIN','water-elastic-sub'],['VEIL','water-prism-stab'],['MOSS','water-ripple-seq'],['AURA','water-lagoon-chord']];
+ function initial(setup,name){const index=slots.indexOf(name),[instrument,sound]=(defaults[setup]||defaults.ambient)[index];return {instrument,sound,role:roles[index].id,generator:3,sequence:{length:16,stepLength:1,offset:0}}}
  function sequence(value={}){
   if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid track cycle');
   const length=value.length??16,stepLength=value.stepLength??1,offset=value.offset??0;

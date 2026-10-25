@@ -177,3 +177,13 @@ test('external playback reports required activation without entering a hanging a
  assert.equal((await api.setPlayback({playing:true})).playing,true);assert.equal(starts,1);
  assert.equal((await api.setPlayback({playing:false})).playing,false);
 });
+
+
+test('world switching isolates the composition from WATER generation and restores the original song',async()=>{
+ const a=app();await a.click('Build composition');const before=a.ui.portable();a.ui.saveWorld();
+ const tracks=Object.keys(S.waterBanks).map(name=>({...S.roles.initial('water',name),name,setup:'water',on:true,level:50,density:70,character:50,duration:50,space:20}));
+ await a.env.load(P.capture(tracks,4,120,1,0,S,M));a.ui.restoreWorld('water');
+ assert.equal(a.ui.portable(),null);assert.equal(a.ui.active(),false);a.ui.generated();assert.equal(a.ui.portable(),null);
+ await a.env.load(before.phrases[0].project);a.ui.restoreWorld('ambient');
+ assert.deepEqual(a.ui.portable(),before);assert.equal(a.messages.length,0);
+});

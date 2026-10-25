@@ -35,7 +35,7 @@ function scoreRequest(api, values={}){
 test('workflow guide delegates format and complete palette to their authoritative files',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const registry=JSON.parse(files['instruments.json']);
- assert.equal(registry.sounds.length,62);
+ assert.equal(registry.sounds.length,94);
  assert.match(guide,/capabilities.json.requestSchema/);
  assert.match(guide,/compatibleRoles/);
  assert.match(guide,/Choose from this catalog/);
@@ -418,7 +418,7 @@ test('normalized export exposes the full song without leaking engine representat
   assert.equal(exported.music,undefined);
   const caps=JSON.parse(files['capabilities.json']);
   const inst=JSON.parse(files['instruments.json']),engine=api.getCapabilities();
-  assert.equal(inst.sounds.length,62);
+  assert.equal(inst.sounds.length,94);
   for(const role of inst.tracks){
     const source=engine.roles[role.trackIndex];
     assert.equal(role.maxNotes,source.maxNotes);
@@ -426,7 +426,7 @@ test('normalized export exposes the full song without leaking engine representat
     assert.deepEqual(role.acousticRange,{minMidi:source.minMidi??24,maxMidi:source.maxMidi??96});
   }
   for(const sound of inst.sounds){
-    const source=engine.catalog[sound.world][sound.bankId].sounds.find(s=>s.id.replace(/^(ambient|reactor)-/,'')===sound.canonicalId || sound.bankId.toLowerCase()+'-'+s.id===sound.canonicalId);
+    const source=engine.catalog[sound.world][sound.bankId].sounds.find(s=>s.id.replace(/^(ambient|reactor|water)-/,'')===sound.canonicalId || sound.bankId.toLowerCase()+'-'+s.id===sound.canonicalId);
     assert.deepEqual(sound.compatibleRoles,source.playback.compatibleRoles);
     assert.deepEqual(sound.acousticRange,source.playback.range);
   }
@@ -645,7 +645,7 @@ test('compact references preserve complete JSON data and bounded independently r
   assert.deepEqual(JSON.parse(files[name]),data,name+' round trips all catalog/schema/metadata values');
   referenceLines+=files[name].split('\n').length;
  }
- assert.ok(referenceLines<=450,'bounded reference package including full formal schema');
+ assert.ok(referenceLines<=510,'bounded reference package including full formal schema');
  for(const [name,text]of Object.entries(files))for(const line of text.split('\n')){
   assert.ok(line.length<=480,name+' exceeds character budget');
   assert.ok(Buffer.byteLength(line,'utf8')<=768,name+' exceeds UTF-8 byte budget');
@@ -1191,4 +1191,15 @@ test('scoped score edit preserves independent manual changes and changes after p
   await manualLevel(f,1,20);await f.bridge.applyPending();assert.equal(f.receipt().status,'pending_approval');assert.equal(f.api.getProjectState().project.tracks[5].level,50);
   await f.bridge.applyPending();const after=f.api.getProjectState().project;assert.equal(after.tracks[0].level,25);assert.equal(after.tracks[1].level,20);assert.equal(after.tracks[5].level,35);
  }finally{f.bridge.dispose()}
+});
+
+
+test('WATER score uses its original native bank and permits compatible cross-world round trips',()=>{
+ const {api}=createTestApp();
+ const score={format:'halo-score',mode:'replace',world:'water',tempo:120,bars:4,meter:'4/4',key:'D minor',voices:{pulse:{sound:'tidal-kick',steps:[0,16,32,48]},melody:{sound:'liquid-fm',notes:[[0,62],[8,65],[24,69]]},bass:{sound:'elastic-sub',notes:[[0,38],[28,41]]}}};
+ const result=FileBridge.parseAndValidateRequest(api,score,'water-bank');assert.equal(result.ok,true,result.error);assert.equal(result.preview.after.setup,'water');
+ const project=result.preview.after;assert.equal(project.tracks[5].sound,'water-liquid-fm');
+ assert.deepEqual(P.validate(project,S),project);
+ const borrowed=S.roles.initial('ambient','VEIL');project.tracks[5]={...project.tracks[5],...borrowed,soundWorld:'ambient',noteEvents:[{step:0,notes:[62]}]};
+ const clean=P.validate(project,S);assert.equal(clean.setup,'water');assert.equal(clean.tracks[5].soundWorld,'ambient');
 });

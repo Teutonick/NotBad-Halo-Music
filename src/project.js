@@ -26,7 +26,7 @@
   if(data.version!==1)throw Error('UNSUPPORTED_VERSION: project version must be 1 (received: '+data.version+')');
   if(![4,8].includes(data.bars))throw Error('INVALID_BARS: phrase length must be 4 or 8 bars (received: '+data.bars+')');
   const rawSetup=data.setup??data.world??data.soundWorld;
-  if(rawSetup!==undefined&&!['ambient','reactor'].includes(rawSetup))throw Error('Unsupported setup: must be "ambient" or "reactor"');
+  if(rawSetup!==undefined&&!['ambient','reactor','water'].includes(rawSetup))throw Error('Unsupported setup: must be "ambient", "reactor" or "water"');
   let setup=rawSetup;
   if(!setup){
     const hasReactorSound=Array.isArray(data.tracks)&&data.tracks.some(t=>{
@@ -77,7 +77,7 @@
    seen.add(trackName);
    if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+trackName+'" requires boolean "on" flag');
    let soundId=t.sound;
-   if(t.soundWorld!==undefined&&!['ambient','reactor'].includes(t.soundWorld))throw Error('INVALID_SOUND_WORLD: use ambient or reactor');
+   if(t.soundWorld!==undefined&&!['ambient','reactor','water'].includes(t.soundWorld))throw Error('INVALID_SOUND_WORLD: use ambient, reactor or water');
    let soundWorld=t.soundWorld||setup,soundObj;
    function findSound(world){
     const catalog=sounds.banksFor(world),ordered=[instrument,...Object.keys(catalog).filter(id=>id!==instrument)];
@@ -87,7 +87,7 @@
     }
    }
    let match=findSound(soundWorld);
-   if(!match&&t.soundWorld===undefined){soundWorld=setup==='ambient'?'reactor':'ambient';match=findSound(soundWorld)}
+   if(!match&&t.soundWorld===undefined){for(const other of ['ambient','reactor','water'].filter(w=>w!==setup)){const found=findSound(other);if(found){soundWorld=other;match=found;break}}}
    if(!match)throw Error('INVALID_SOUND: choose a catalog sound ID; received "'+t.sound+'" for '+trackName);
    instrument=match.instrument;soundObj=match.sound;
    soundId=soundObj.id;

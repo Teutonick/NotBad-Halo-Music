@@ -3,6 +3,7 @@
   'use strict';
   const selectSample=typeof module!=='undefined'&&module.exports?require('./samples.js').select:root.HaloSamples.select;
   const roles=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;
+  const waterAudio=typeof module!=='undefined'&&module.exports?require('./audio-water.js'):root.HaloWaterAudio;
   const DELAY_DIVISIONS = { '1/16': 0.25, '1/8': 0.5, '1/8d': 0.75, '1/4': 1.0 };
   function calcDelayTime(div, bpm) {
     const mult = DELAY_DIVISIONS[div] || 0.5;
@@ -217,9 +218,9 @@
       const cleanup = () => {
         active.delete(voice); gain.disconnect(); filter.disconnect();processing.forEach(node=>node.disconnect());
       };
-      function start(source, amplitude) {
+      function start(source, amplitude, output=source) {
         const level = ctx.createGain(); level.gain.value = amplitude;
-        source.connect(level); level.connect(patch.drive?filter:gain); sources.push(source); remaining++;
+        output.connect(level); level.connect(patch.drive?filter:gain); sources.push(source); remaining++;
         source.onended = () => { source.disconnect(); level.disconnect(); if (--remaining === 0) cleanup(); };
         source.start(time); source.stop(ringingGuitar ? time + source.buffer.duration / source.playbackRate.value : end);
       }
@@ -230,7 +231,8 @@
         start(o, amplitude);
       }
       active.add(voice);
-      if(patch.sampleBank){
+      if(patch.waterVoice){waterAudio.play(ctx,patch,pitches,time,duration,start,processing,noiseBuffer);
+      } else if(patch.sampleBank){
         const samplePitches=pitches.length?pitches:[0];
         const regions=sampleBank[patch.sampleBank];
         samplePitches.forEach(note=>{

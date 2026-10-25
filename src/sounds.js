@@ -107,7 +107,8 @@
   };
   for(const bank of Object.values(reactorBanks)){for(const s of bank.sounds)Object.freeze(s.pattern);Object.freeze(bank.sounds);Object.freeze(bank)}
   Object.freeze(reactorBanks);
-  function banksFor(setup){return setup==='reactor'?reactorBanks:banks}
+  const waterBanks=(typeof module!=='undefined'&&module.exports?require('./water-sounds.js'):root.HaloWaterSounds).banks(patch);
+  function banksFor(setup){return setup==='water'?waterBanks:setup==='reactor'?reactorBanks:banks}
   function bankFor(track){return banksFor(track.soundWorld||track.setup)[track.instrument||track.name]}
   function soundFor(track) {
     const bank = bankFor(track);
@@ -328,7 +329,7 @@
     if(!imported&&!choices[current])choices[current]=bank;
     return {imported,banks:choices,selected:imported?'__imported__':current,sounds:imported?[soundFor(track)]:bank.sounds};
   }
-  const api = { banks, reactorBanks, banksFor, bankFor, needsSamples, editorPalette, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
+  const api = { banks, reactorBanks, waterBanks, banksFor, bankFor, needsSamples, editorPalette, chords, random01, soundFor, notesFor, shouldTrigger, patternFor,randomizeTrack,randomizeArrangement,arrange,velocityFor,phrases,roles,cycleLength,availableBanks,availableSounds };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.HaloSounds = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
