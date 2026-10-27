@@ -695,7 +695,7 @@
           }else{
             materialized.push({phraseId:id,role});const events=[];
             for(let step=0;step<project.bars*spb;step++){
-              const absolute=(project.startStep||0)+step,local=((absolute%size)+size)%size,clock=t.generator===3?absolute:local,active={...t,on:true};
+              const absolute=(project.startStep||0)+step,local=((absolute%size)+size)%size,clock=t.generator>=3?absolute:local,active={...t,on:true};
               if(sounds.shouldTrigger(active,index,clock,project.seed,project.bars,meter)){
                 const notes=sound.pitched?sounds.notesFor(t,index,Math.floor(local/spb),local%spb,project.seed,key.offset,project.bars,clock,key.mode,meter):[];
                 events.push(sound.pitched?[step,...notes]:step);

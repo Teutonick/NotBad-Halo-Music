@@ -1,5 +1,7 @@
 # Local phrase library / Локальная библиотека фраз
 
+Current update (2026-10-27): AMBIENT retains generator 3. New WATER/REACTOR GENERATE uses independent generator 4; saved 1–3 material remains unchanged. See [world-specific generation](world-generation.md) for profiles, musical rules, persistence and validation limits. The historical contracts below continue to describe generators 2/3.
+
 Historical generator version **2**, 2026-10-13. Source: `src/phrases.js`; patch resolution and integration: `src/sounds.js`. This is an original rule-based musical generator, not a trained neural model. It requires no account, API, model download, runtime dependency, CDN or backend. Classic relative scripts work with the existing zero-build GitHub Pages deployment.
 
 Generator **3** now wraps this unchanged library with fixed track roles, compatibility/affinity filters and optional cycles. The unrestricted assignment matrix below describes generator 2 and remains supported for legacy projects; current selection follows [track roles](track-roles.md).

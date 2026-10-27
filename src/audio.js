@@ -175,8 +175,8 @@
     function play(index, notes, time, velocity, patch) {
       if(patch.sampleBank&&!sampleBank[patch.sampleBank]?.length)throw Error('Sample bank is not ready');
       const t = tracks[index], active = voices[index];
-      if(t.generator===3&&!roles.compatible(t,patch))throw Error('Sound is incompatible with track role');
-      const policy=t.generator===3?roles.voicePolicy(t,patch):null;
+      if(t.generator>=3&&!roles.compatible(t,patch))throw Error('Sound is incompatible with track role');
+      const policy=t.generator>=3?roles.voicePolicy(t,patch):null;
       const pitches=notes.slice(0,policy?.maxNotes||3),noteCount=Math.max(1,pitches.length);
       const ringingGuitar = !!patch.sampleBank && patch.engine === 'guitar' && (!policy||policy.naturalGuitar);
       for(const voice of active)if(voice.end<=time)active.delete(voice);

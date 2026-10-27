@@ -68,8 +68,8 @@
     const seen=new Set();
     for(const t of data.tracks){
       if(t.soundWorld!==undefined&&!['ambient','reactor','water'].includes(t.soundWorld))throw Error('Invalid sound world');
-      if(t.instrument!==undefined&&!names.includes(t.instrument)||t.generator!==undefined&&![1,2,3].includes(t.generator))throw Error('Invalid track pattern');
-      if(t.generator===3){const R=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;t.sequence=R.sequence(t.sequence)}
+      if(t.instrument!==undefined&&!names.includes(t.instrument)||t.generator!==undefined&&![1,2,3,4].includes(t.generator))throw Error('Invalid track pattern');
+      if(t.generator>=3){const R=typeof module!=='undefined'&&module.exports?require('./roles.js'):root.HaloRoles;t.sequence=R.sequence(t.sequence)}
       if(!names.includes(t.name)||seen.has(t.name)||![4,8].includes(t.bars)||!Array.isArray(t.steps)||t.steps.length>128||t.steps.some(n=>!Number.isInteger(n)||n<0||n>=t.bars*16)||new Set(t.steps).size!==t.steps.length)throw Error('Invalid track pattern');
       seen.add(t.name);
     }

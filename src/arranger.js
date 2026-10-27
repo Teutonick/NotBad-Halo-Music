@@ -9,21 +9,21 @@ function build(source,sounds){
   const transpose=(typeof module!=='undefined'&&module.exports?require('./composition.js'):root.HaloComposition).offsets[source.key];
   const original=clone(source);
   if(timeSignature==='3/4')original.timeSignature='3/4';
-  const runtime=source.tracks.map(t=>({...clone(t),setup:source.setup,timeSignature,...(t.generator!==3||t.exact?{manualSteps:[...t.steps],manualBars:source.bars}:{})}));
+  const runtime=source.tracks.map(t=>({...clone(t),setup:source.setup,timeSignature,...(!(t.generator>=3)||t.exact?{manualSteps:[...t.steps],manualBars:source.bars}:{})}));
   sounds.arrange(runtime);
-  const roles=runtime.map(t=>t.generator===3?sounds.roles.forTrack(t).id:(alias[sounds.phrases.roleFor(t,sounds.soundFor(t))]||'melody'));
+  const roles=runtime.map(t=>t.generator>=3?sounds.roles.forTrack(t).id:(alias[sounds.phrases.roleFor(t,sounds.soundFor(t))]||'melody'));
   const activity=runtime.map((t,i)=>t.on&&t.level>0&&source.tracks[i].steps.length?source.tracks[i].steps.length:0);
   const candidates=runtime.map((t,i)=>i).filter(i=>activity[i]);
   if(!candidates.length)throw Error('The verse needs at least one active part');
   const priority={melody:8,arpeggio:6,harmony:4,bass:3,texture:2,pulse:1,accent:0,percussion:0};
   const hook=candidates.sort((a,b)=>(priority[roles[b]]??0)-(priority[roles[a]]??0)||activity[b]-activity[a])[0];
-  const profile=sounds.phrases.ensemble(source.setup,source.seed),sparse=[1,7,9].includes(profile[4]);
+  const profile=(runtime.some(t=>t.generator===4)?sounds.roles.worlds:sounds.phrases).ensemble(source.setup,source.seed),sparse=[1,7,9].includes(profile[4]);
   function library(i,bars){
-    const t=runtime[i],sound=sounds.soundFor(t),plan=(t.generator===3?sounds.roles:sounds.phrases).plan(t,sound,source.seed,bars,timeSignature),period=plan.period||bars*spb,hits=new Set(plan.steps);
-    return Array.from({length:bars*spb},(_,n)=>n).filter(n=>hits.has((n+(t.generator===3?source.startStep:0))%period));
+    const t=runtime[i],sound=sounds.soundFor(t),plan=(t.generator>=3?sounds.roles:sounds.phrases).plan(t,sound,source.seed,bars,timeSignature),period=plan.period||bars*spb,hits=new Set(plan.steps);
+    return Array.from({length:bars*spb},(_,n)=>n).filter(n=>hits.has((n+(t.generator>=3?source.startStep:0))%period));
   }
   function pitch(i,step){
-    return sounds.notesFor(runtime[i],i,Math.floor(step/spb),step%spb,source.seed,transpose,source.bars,source.startStep+step,'minor',timeSignature);
+    return sounds.notesFor(runtime[i],i,Math.floor(step/spb),step%spb,source.seed,transpose,source.bars,source.startStep+step,runtime[i].generator===4?(typeof module!=='undefined'&&module.exports?require('./composition.js'):root.HaloComposition).modes[source.key]:'minor',timeSignature);
   }
   function chooseParts(kind){
    const selected=new Set([hook]);

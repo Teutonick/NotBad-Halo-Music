@@ -42,12 +42,13 @@
   function capabilities(){
    const R=env.sounds.roles;
    return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','project.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:15,sections:32,totalBars:128,bytes:524288,operations:256},
+    generators:{supported:[1,2,3,4],create:{ambient:3,reactor:4,water:4},legacy:'Saved generators 1/2/3 retain their musical rules; CREATE upgrades only the current phrase',worlds:env.sounds.roles.worlds?.profiles||{}},
     crossWorldTimbres:{source:'track.soundWorld records the catalog origin; omitted uses the phrase setup',selection:'JSON may select compatible timbres from either catalog; manual bank selection and GENERATE use the current world'},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor','water'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},
     parameters:{voice:{range:[0,100],fields:['level','density','character','duration','space','delay','chorus'],density:'Generated probability only; exact steps bypass density',duration:'Per-track envelope, bounded by role; no per-note duration',sequence:{length:[4,32],stepLength:[1,2,4],offset:'integer 0..length-1; exact steps bypass cycle'}},master:{masterVolume:[0,100],defaultVolume:50,mix:{low:[-9,9],mid:[-9,9],high:[-9,9],width:[0,100]},eqHz:[120,1000,6000],pan:'Core pan fixed per slot scaled by width; bass/pulse near center',dynamics:'Fixed peak-protection compressor, not editable'},fx:{space:'Shared 2.8 s convolution reverb send',delay:'Shared BPM-synced feedback',delayTime:['1/16','1/8','1/8d','1/4'],chorus:'Shared stereo chorus send'}},
-    notes:'MIDI 0..127, up to four per event and limited by role.maxNotes; exact=true for generator 3. steps must include each noteEvents.step. noteTranspose is the source key OFFSET, not key index: set it to harmony.keys[key].offset to play literal MIDI. Role/sample range folds octaves. No per-note velocity/duration/microtiming. Supply explicit notes for all pitched events when composing, rather than randomizing generators. Steps are sixteenths; eighths use 0,2,4,... . Rest = absent step.',
+    notes:'MIDI 0..127, up to four per event and limited by role.maxNotes; exact=true for generators 3 and 4. steps must include each noteEvents.step. noteTranspose is the source key OFFSET, not key index: set it to harmony.keys[key].offset to play literal MIDI. Role/sample range folds octaves. No per-note velocity/duration/microtiming. Supply explicit notes for all pitched events when composing, rather than randomizing generators. Steps are sixteenths; eighths use 0,2,4,... . Rest = absent step.',
     visuals:{...visualOptions,writable:env.visual?Object.keys(visualOptions):[],geometry:'Fixed slot index i, radius=(135+24*i)*responsiveScale; melody/arpeggio/harmony are outer slots. Track 09 outermost. No orbit reorder/radius/speed/phase/direction setters. Scenes only in DRIFT; shared clock owns notes. PHRASE markers show actual scheduled steps. Visual-only operations must never change music.'},
     composition:{schema:{format:'halo-composition',version:1,tempo:'30..200',masterVolume:'0..100',mix:'same as master',repeat:'boolean',phrases:[{id:'unique integer 1..1000000',label:'optional 1..10 letters/digits',project:'complete version-1 project'}],sections:[{phrase:'existing phrase ID',name:['intro','verse','verse2','chorus','bridge','outro','phrase'],repeats:'1..8',fade:['none','in','out']}]},durationSeconds:'totalBars * 240 / tempo (4/4)',repeatedReferences:'Same phrase ID shares edits; new ID+deep copy creates independent variation',transitions:'Section boundary, optional one-phrase fade in/out; no crossfade'},
     track09:{audioSentToModel:false,settings:'Existing liveLoop {version:1,layerIds,settings}; only local reference IDs, never PCM. Keep layerIds unchanged.',ranges:{bars:[1,2,4,8],level:[0,100],pan:[-100,100],space:[0,100],delay:[0,100],chorus:[0,100],character:[0,100],duration:[0,100],density:[0,100],pitch:[-12,12],rootNote:[36,84],pitchOctave:[-1,0,1],trimStart:[0,.95],trimEnd:[.01,1],offsetSec:[0,120],cycle:[4,32],stepLength:[1,2,4],offset:[0,15]},modes:['loop','slice','pitch'],patterns:'16 entries; sliceSteps -1..15; pitchSteps -1..7; -1=rest',slicePoints:'Optional array of normalized cut positions (0..1) or null for auto-transients',flags:['mute','solo','reverse','instantRestart'],unsupported:['upload','record','enable monitoring','read PCM']},
@@ -118,12 +119,12 @@
       if(!Number.isInteger(o.trackIndex)||o.trackIndex<0||o.trackIndex>7)throw Error('INVALID_TRACK: trackIndex must be 0..7');
       const t=p.tracks[o.trackIndex],prior=JSON.stringify(t.steps);
       const gen=o.values?.generator??t.generator;
-      if((o.values?.steps!==undefined||o.values?.noteEvents!==undefined)&&o.values?.exact===undefined&&gen===3){
+      if((o.values?.steps!==undefined||o.values?.noteEvents!==undefined)&&o.values?.exact===undefined&&gen>=3){
         t.exact=true;
       }
       if(o.values?.sound!==undefined&&o.values.soundWorld===undefined)delete t.soundWorld;
       patch(t,o.values,fields,'track.patch');
-      if(t.generator===3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true');
+      if(t.generator>=3&&!t.exact&&prior!==JSON.stringify(t.steps))throw Error('EXACT_REQUIRED: manual steps modification requires exact=true');
     }
     else throw Error('UNKNOWN_OPERATION');
    }
@@ -134,7 +135,7 @@
    const current=state(),C=env.composition;
    const music=(current.project.phrases||[{id:null,project:current.project}]).map(entry=>{
     const p=entry.project,key=C?.definitions[p.key]||{offset:0,mode:'minor'};const runtime=p.tracks.map(t=>({...t,setup:p.setup,timeSignature:p.timeSignature}));env.sounds.arrange(runtime);const tracks=runtime.map((t,i)=>{
-     const track={...t,setup:p.setup,phraseBars:p.bars,timeSignature:p.timeSignature,...(t.generator!==3||t.exact?{manualSteps:t.steps,manualBars:p.bars}:{})};
+     const track={...t,setup:p.setup,phraseBars:p.bars,timeSignature:p.timeSignature,...(!(t.generator>=3)||t.exact?{manualSteps:t.steps,manualBars:p.bars}:{})};
      const spb=p.timeSignature==='3/4'?12:16;
      return {trackIndex:i,role:env.sounds.roles.forTrack(t).id,policy:env.sounds.roles.voicePolicy(t,env.sounds.soundFor(track)),events:t.steps.map(step=>({step,notes:env.sounds.notesFor(track,i,Math.floor(step/spb),step%spb,p.seed,key.offset,p.bars,(p.startStep||0)+step,key.mode,p.timeSignature)}))};
     });
@@ -185,7 +186,7 @@
         delayTime:t.delayTime||'1/8',
         chorus:t.chorus??0
       };
-      if(g===3){
+      if(g>=3){
         clean.role=t.role||env.sounds?.roles?.forTrack(t)?.id||t.name.toLowerCase();
         clean.sequence=t.sequence||env.sounds?.roles?.sequence?.();
         clean.exact=t.exact===true;

@@ -72,7 +72,8 @@
    }
    if(!names.includes(trackName))throw Error('INVALID_TRACK_SLOT: unknown track name "'+t.name+'". Valid slot names are: ['+names.join(', ')+']');
    if(!names.includes(instrument))throw Error('INVALID_INSTRUMENT: unknown instrument "'+instrument+'". Valid instruments in "'+setup+'": ['+names.join(', ')+']');
-   if(![1,2,3].includes(generator))throw Error('INVALID_GENERATOR: generator must be 1, 2, or 3');
+   if(![1,2,3,4].includes(generator))throw Error('INVALID_GENERATOR: generator must be 1, 2, 3, or 4');
+   if(generator===4&&!['water','reactor'].includes(setup))throw Error('INVALID_GENERATOR: generator 4 requires WATER or REACTOR; AMBIENT uses generator 3');
    if(seen.has(trackName))throw Error('DUPLICATE_TRACK: duplicate track slot "'+trackName+'"');
    seen.add(trackName);
    if(typeof t.on!=='boolean')throw Error('INVALID_TRACK_ON: track "'+trackName+'" requires boolean "on" flag');
@@ -94,13 +95,13 @@
    const steps=Array.isArray(t.steps)?t.steps:[];
    if(steps.length>128||steps.some(n=>!Number.isInteger(n)||n<0||n>=maxPhraseSteps)||new Set(steps).size!==steps.length)throw Error('INVALID_STEPS: steps for track "'+t.name+'" must be unique integers between 0 and '+(maxPhraseSteps-1));
    const clean={name:trackName,instrument,generator,sound:soundId,...(soundWorld!==setup?{soundWorld}:{}),on:t.on!==false,steps:[...steps].sort((a,b)=>a-b)};
-   if(generator===3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role)throw Error('Invalid track role: slot '+trackName+' requires role '+role+', received '+t.role);if(t.exact!==undefined&&typeof t.exact!=='boolean')throw Error('INVALID_EXACT: track '+trackName+' exact must be boolean');if(!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role: slot '+trackName+' ('+role+') is incompatible with instrument '+instrument+' / sound '+soundId+'; choose a sound with compatibleRoles containing '+role+' in instruments.json');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
+   if(generator>=3){const role=sounds.roles.forTrack(clean).id;if(t.role!==undefined&&t.role!==role)throw Error('Invalid track role: slot '+trackName+' requires role '+role+', received '+t.role);if(t.exact!==undefined&&typeof t.exact!=='boolean')throw Error('INVALID_EXACT: track '+trackName+' exact must be boolean');if(!sounds.roles.compatible(clean,soundObj))throw Error('Invalid track role: slot '+trackName+' ('+role+') is incompatible with instrument '+instrument+' / sound '+soundId+'; choose a sound with compatibleRoles containing '+role+' in instruments.json');clean.role=role;clean.sequence=sounds.roles.sequence(t.sequence);clean.exact=t.exact===true}
    for(const field of ['level','density','character','duration','space'])clean[field]=number(t[field]??(field==='space'?30:50),0,100);
    clean.delay=number(t.delay??0,0,100);
    clean.delayTime=['1/16','1/8','1/8d','1/4'].includes(t.delayTime)?t.delayTime:'1/8';
    clean.chorus=number(t.chorus??0,0,100);
    if(t.noteEvents!==undefined){
-    if(!Array.isArray(t.noteEvents)||t.noteEvents.length>128||generator===3&&!clean.exact)throw Error('Invalid phrase notes');const used=new Set();
+    if(!Array.isArray(t.noteEvents)||t.noteEvents.length>128||generator>=3&&!clean.exact)throw Error('Invalid phrase notes');const used=new Set();
     clean.noteTranspose=number(t.noteTranspose??0,-12,12);if(!Number.isInteger(clean.noteTranspose))throw Error('Invalid phrase notes');
     clean.noteEvents=t.noteEvents.map(e=>{if(!e||!clean.steps.includes(e.step)||used.has(e.step)||!Array.isArray(e.notes)||e.notes.length>4||e.notes.some(n=>!Number.isInteger(n)||n<0||n>127))throw Error('Invalid phrase notes');used.add(e.step);return {step:e.step,notes:[...e.notes]}}).sort((a,b)=>a.step-b.step);
    }

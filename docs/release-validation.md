@@ -1,5 +1,22 @@
 # Release validation — File Bridge, 2026-10-20
 
+## World-specific generators — 2026-10-27
+
+Full Node regression: **388 passed, zero failed**, with repository `.tmp` TEMP/TMP and outside-sandbox execution for the existing File Bridge hard-link fixture. The initial sandbox EPERM on that fixture was environmental. New tests cover pre-change generator-2/3 event hashes in all three worlds, 24 keys, both meters, 4/8 bars, native/compatible timbres and strict pop-rock instrumentation, density/backbeat/fill behavior, exact silence, project/autosave/share/step persistence, agent Undo/Redo, composition development, absolute-clock preview and major-key offline/live event parity. `git diff --check` passes.
+
+Chrome extension browser QA used `scripts/preview.ps1` on `http://127.0.0.1:8766/`, outside sandbox after the sandbox socket restriction. The disposable `artifacts/world-generation/qa.html` copies the real app with relative assets and a Map-backed localStorage replacement backed only by a QA sessionStorage key. The user's origin localStorage and compositions were not read or changed. Its terms-accepted value is test data. Actual desktop viewport was 1951×910. Verified WATER/REACTOR GENERATE, eight voices/six enabled parts, persistence after reload, RU/EN profile/hook names, live Play/pause, and Orbit/Bloom/Current in DRIFT. A 390×844 viewport override verified keyboard GENERATE and on-screen button bounds (Play 46×46); the browser's screenshot was a scaled desktop capture, so this is DOM/interaction coverage, not physical-mobile visual acceptance. Viewport override was reset.
+
+Final real OfflineAudioContext exports, stereo 44.1 kHz PCM16 at master volume 50%:
+
+| World | Phrase | Duration | PCM peak | RMS | DC | Clipped samples |
+| --- | --- | --- | --- | --- | --- | --- |
+| WATER | Broken current, seed 3, 8 bars, D minor, 120 BPM | 16.0 s | .160980 | .031454 | -.000494 | 0 |
+| REACTOR | Summer reply, seed 6, 8 bars, F major, 100 BPM | 19.2 s | .180969 | .034437 | .000051 | 0 |
+
+These are actual generated scores from the UI, not manually authored substitute demonstrations. Each complete WAV was reopened with Python's wave reader and its PCM metrics checked. Final fixture error counters were `[]` for both worlds; earlier disposable-wrapper scope/text-replacement errors were corrected and the page reloaded. The initial browser adapter was unavailable; the supported Chrome browser API completed QA. REACTOR's first broad-affinity audition revealed synth-bass/tom substitutions; final generation now uses explicit role-specific instrumentation and stable-ID exclusions, verified by regression and the final render.
+
+Artifacts: `C:/Users/Никита/.codex/visualizations/2026/10/27/01a17e21-7c1f-7142-ba03-eea9a6846860/` contains `water-generator4.wav`, `reactor-generator4.wav`, `audio-validation.json`, and desktop/viewport QA captures. Renderer/role fakes in the full suite retain Canvas fallback coverage. No reference-track listening/analysis, headphone listening acceptance, acoustic artist-similarity judgment, Safari/iOS, physical phone or direct-file live-browser verification is claimed. No commit or deployment.
+
 ## WATER revised body and recorded handpan — 2026-10-25
 
 Full Node regression: **376 passed, zero failed**, with TEMP/TMP `.tmp/water-tests` and the standard outside-sandbox execution for File Bridge's existing hard-link fixture. After the final next-bar tempo propagation change, all 64 app/sound tests passed again. New checks cover the 18-recording manifest/hash/CC0 evidence, nine roots and bounded PCM; handpan-only preparation; incremental bank retention; failed-decode retry; a global four-buffer decoding limit; and bass modulation at 120/90 BPM with an isolated sub. Existing all-preset source cleanup, role compatibility, persistence, catalog and export tests pass. `git diff --check` passed.

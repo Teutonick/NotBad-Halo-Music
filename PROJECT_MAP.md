@@ -1,5 +1,11 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+## World-specific GENERATE — 2026-10-27
+
+AMBIENT retains its existing generator 3 unchanged. Pressing GENERATE in WATER or REACTOR now opts the current phrase into generator 4 (`src/world-phrases.js`): WATER has its own house/garage/broken/stutter/dub grooves, syncopated bass, repeating hooks and seventh/ninth/suspended harmony; REACTOR has light pop-rock kick/bass coordination, backbeat, rhythm guitar/piano, triads/add9 and phrase-end fills. Ten bilingual profiles per world coordinate harmony, motifs, timbre weights and six active voices. New cycles align to one bar; manual cycles remain editable. BPM, key/mode, meter, phrase length and master settings stay unchanged. Manual steps/notes are replaced, as before; Track 09 re-grooving is unchanged.
+
+Saved generators 1–3 keep their previous behavior in all worlds; new-workspace defaults also stay unchanged until GENERATE. Project/composition/autosave format remains 1; the existing generator enum adds 4 for WATER/REACTOR only. Role/sequence/exact contracts and File Bridge score syntax remain unchanged. Live playback, preview, persistence, agent operations, score materialization, composition development and offline export recognize version 4. Older app versions cannot import generator-4 projects. No new sound assets, dependencies, CDN or timing owner. See [world generation](docs/world-generation.md).
+
 ## WATER body and recorded handpan — 2026-10-25
 
 WATER now has 34 presets: 32 original electronic voices plus `water-handpan-natural` / `water-handpan-dry`, built from 18 real CC0 FreePats Hang strikes. Catalog total is 96 timbres and sample metadata totals 148 recordings (130 REACTOR + 18 handpan). Canonical File Bridge IDs are `handpan-natural` and `handpan-dry`. Read compatibility and range from the live catalog: recorded handpan supports accent/percussion/texture/melody/arpeggio/harmony, MIDI 57–74, not pulse/bass. Native D minor is most natural; other keys use existing sampler pitch shifting and may color fixed resonances. Authored pitches are preserved. Provenance, exact source revision, processing and limitations: `docs/water-sounds.md` / `assets/water/handpan-manifest.json` (docs-relative link: `water-sounds.md`).

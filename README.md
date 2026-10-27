@@ -18,6 +18,8 @@ WATER clouds also support opening `index.html` directly from disk: keep the supp
 
 The instrument editor’s **Sounds from all worlds** checkbox optionally reveals role-compatible timbres from every world. It defaults off, remembers your choice and preserves selected borrowed sounds when disabled.
 
+**GENERATE now belongs to each world:** AMBIENT keeps its existing musical character. WATER gets its own dance grooves, syncopated hooks and extended chords; REACTOR gets light pop-rock, coordinated bass/guitar/piano and phrase-end fills. Saved music keeps its prior generator until you press GENERATE in that phrase. [Musical rules and compatibility](docs/world-generation.md).
+
 ### 01 / INTRO
 
 ## STOP MAKING TRACKS. START BUILDING UNIVERSES.

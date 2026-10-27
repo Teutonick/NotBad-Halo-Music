@@ -36,8 +36,8 @@
     const spb = timeSignature==='3/4'?12:16;
     const pattern = sounds.patternFor({...track,variation:seed},bars,timeSignature), enabled = { ...track, on: true };
     return Array.from({length: bars*spb}, (_,step) => ({ step,
-      candidate: track.manualSteps?track.manualSteps.includes(track.generator===3?sounds.roles.mod(start+step,(track.manualBars||bars)*spb):step%((track.manualBars||bars)*spb)):pattern.includes(track.generator===3?sounds.roles.mod(start+step,sounds.cycleLength(track,bars,timeSignature)):track.generator===2?step:step % spb),
-      fires: sounds.shouldTrigger(enabled,index,track.generator===3?start+step:step,seed,bars,timeSignature) }));
+      candidate: track.manualSteps?track.manualSteps.includes(track.generator>=3?sounds.roles.mod(start+step,(track.manualBars||bars)*spb):step%((track.manualBars||bars)*spb)):pattern.includes(track.generator>=3?sounds.roles.mod(start+step,sounds.cycleLength(track,bars,timeSignature)):track.generator===2?step:step % spb),
+      fires: sounds.shouldTrigger(enabled,index,track.generator>=3?start+step:step,seed,bars,timeSignature) }));
   }
   const api = { phaseAt, phraseAt, phraseSteps, PHRASE_BARS, PHRASE_STEPS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

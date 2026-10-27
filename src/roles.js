@@ -2,6 +2,7 @@
 (function(root){
  'use strict';
  const F=typeof module!=='undefined'&&module.exports?require('./phrases.js'):root.HaloPhrases;
+ const worlds=typeof module!=='undefined'&&module.exports?require('./world-phrases.js'):root.HaloWorldPhrases;
  const slots=['GLASS','TIDAL','ROOT','EMBER','RAIN','VEIL','MOSS','AURA'];
  const definitions=[
   ['pulse','Pulse',1,2,'Short low impulses'],['accent','Accent',2,2,'Short accents'],
@@ -59,6 +60,7 @@
  }
  const cache=new Map();
  function plan(track,sound,seed,bars=4,timeSignature=track.timeSignature||'4/4'){
+  if(track.generator===4&&worlds.supports(track))return worlds.plan(track,sound,seed,bars,timeSignature);
   const timeSig=timeSignature==='3/4'?'3/4':'4/4';
   const spb=timeSig==='3/4'?12:16;
   const s=sequence(track.sequence),role=forTrack(track).id,key=[track.setup,track.name,track.instrument,sound.id,seed,bars,timeSig,s.length,s.stepLength,s.offset,track.arrangement?.count||1,track.arrangement?.ordinal||0].join(':');
@@ -83,6 +85,7 @@
   if(absoluteStep===undefined)absoluteStep=bar*spb+local;
   const role=forTrack(track).id,m=metadata(sound);if(!m.pitched)return [];
   if(['pulse','accent','percussion'].includes(role))return [m.referenceNote];
+  if(track.generator===4&&worlds.supports(track))return constrain(worlds.notes(track,sound,bar,local,seed,transpose,bars,absoluteStep,mode,timeSignature),sound,role);
   const clock=track.manualSteps?mod(absoluteStep,(track.manualBars||bars)*spb):absoluteStep,p=plan(track,sound,seed,bars,timeSig),pos=position(track,clock,bars),virtual=virtualSound(track,sound),base=F.plan(track,virtual,seed,bars,timeSig);
   const original=p.origins[mod(clock,p.period)]??(pos.cell*spb+Math.floor(pos.local*spb/pos.sequence.length));
   const within=base.steps.filter(n=>Math.floor(n/spb)===pos.cell).map(n=>n%spb),ordinal=Math.max(0,within.filter(n=>n<=original%spb).length-1);
@@ -121,6 +124,6 @@
   const spec=forTrack(roleOrTrack);
   return (spec&&glyphs[spec.id])||glyphs.pulse;
  }
- const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,constrain,velocity,voicePolicy,mod,glyphs,glyph};
+ const api={roles,byId,forTrack,describe,metadata,compatible,pool,initial,sequence,position,plan,notes,constrain,velocity,voicePolicy,mod,glyphs,glyph,worlds};
  if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloRoles=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

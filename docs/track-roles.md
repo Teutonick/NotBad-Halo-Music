@@ -1,5 +1,7 @@
 # Fixed roles / Фиксированные роли
 
+Current update (2026-10-27): AMBIENT retains generator 3. New WATER/REACTOR GENERATE uses independent generator 4; saved 1–3 material remains unchanged. See [world-specific generation](world-generation.md) for profiles, musical rules, persistence and validation limits. The historical contracts below continue to describe generators 2/3.
+
 Implemented 2026-10-13: generator 3, `src/roles.js`. Eight physical slots retain their IDs and geometry. A role controls timing, register, articulation and live voice budget; a preset supplies timbre and engine. Existing 140 motif families and 20 ensembles remain in `src/phrases.js` without changing generator-2 results.
 
 | Slot | Role | AMBIENT default | REACTOR default | Concurrent note budget |

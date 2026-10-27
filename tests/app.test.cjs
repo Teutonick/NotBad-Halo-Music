@@ -54,6 +54,20 @@ function app(storage, options = {}) {
   return { document, elements, events, calls, timers, ctx, sandbox, timeouts };
 }
 
+test('CREATE upgrades only WATER/REACTOR; editor cycles, locale and reload preserve the genre version',async()=>{
+ const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
+ const a=app(storage),$=id=>a.document.getElementById(id);
+ const read=()=>{a.timeouts.filter(t=>t.ms===250).at(-1).fn();return JSON.parse(data.get('notbad-halo-autosave-v1'))};
+ const ambient=read().project;
+ await $('waterSwitch').onclick();$('regen').onclick();$('tracks').children[5].oncontextmenu({preventDefault(){}});
+ let saved=read();assert.equal(saved.project.setup,'water');assert.ok(saved.project.tracks.every(t=>t.generator===4));assert.deepEqual(saved.worlds.ambient.project,ambient);
+ assert.equal($('motifName').textContent,'Hook');$('language').onclick();assert.equal($('motifName').textContent,'Хук');
+ $('cycleLength').onchange({target:{value:'7'}});saved=read();assert.equal(saved.project.tracks[5].generator,4);assert.equal(saved.project.tracks[5].sequence.length,7);
+ const b=app(storage);b.document.getElementById('tracks').children[5].oncontextmenu({preventDefault(){}});assert.equal(b.document.getElementById('cycleLength').value,'7');
+ await $('waterSwitch').onclick();await $('setupSwitch').onclick();$('regen').onclick();saved=read();assert.equal(saved.project.setup,'reactor');assert.ok(saved.project.tracks.every(t=>t.generator===4));
+ await $('setupSwitch').onclick();assert.deepEqual(read().project,ambient);
+});
+
 test('WATER has an independent native sound workspace and restores both drafts and all three worlds',async()=>{
  const data=new Map(),storage={getItem:key=>data.get(key)||null,setItem:(key,value)=>data.set(key,value)};
  const a=app(storage),$=id=>a.document.getElementById(id);

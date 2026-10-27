@@ -1,3 +1,9 @@
+## 2026-10-27 — Separate musical generators for WATER and REACTOR
+
+- Added original generator-4 dance grooves, extended harmony and hooks for WATER; light pop-rock rhythm-section/guitar/piano rules and fills for REACTOR, with ten coordinated profiles per world.
+- Keep AMBIENT and saved generators 1–3 unchanged. GENERATE upgrades only the current WATER/REACTOR phrase; version 4 persists through editing, storage, composition, agent tools and export.
+- Synchronize bilingual manual, engine/API capabilities and compatibility documentation. No new dependency or audio asset.
+
 ## 2026-10-22 — Preserving terms acceptance across workspace reset
 
 ## 2026-10-25 — WATER weight and real handpan

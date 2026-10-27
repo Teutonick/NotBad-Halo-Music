@@ -19,12 +19,12 @@ test('both worlds have the same eight fixed roles and compatible, preferred nati
  const counts=Object.values(S.banks).flatMap(b=>b.sounds).length+Object.values(S.reactorBanks).flatMap(b=>b.sounds).length;assert.equal(counts,62);
 });
 
-test('presets declare engine, compatibility and affinity separately; generation stays in the affinity pool',()=>{
+test('presets declare engine, compatibility and affinity separately; generation stays role-compatible with genre lead replies',()=>{
  for(const setup of ['ambient','reactor'])for(const [i,t] of tracks(setup).entries())for(let seed=2;seed<100;seed++){
   const before={...t,sequence:{length:7,stepLength:2,offset:3},on:false},choice=S.randomizeTrack(before,i,seed),sound=S.soundFor({...before,...choice});
-  assert.ok(sound.playback.compatibleRoles.includes(R.forTrack(t).id));assert.ok(sound.playback.affinityRoles.includes(R.forTrack(t).id));
-  assert.ok(choice.sequence.length>=4&&choice.sequence.length<=32);assert.ok([1,2,4].includes(choice.sequence.stepLength));assert.ok(choice.sequence.offset>=0&&choice.sequence.offset<choice.sequence.length);assert.equal(choice.role,R.forTrack(t).id);assert.equal(choice.generator,3);assert.equal(choice.on,undefined);
-  for(const key of ['character','duration','space','level','density'])assert.ok(choice[key]>=20&&choice[key]<=100);
+  assert.ok(sound.playback.compatibleRoles.includes(R.forTrack(t).id));if(!(setup==='reactor'&&R.forTrack(t).id==='arpeggio'))assert.ok(sound.playback.affinityRoles.includes(R.forTrack(t).id));
+  assert.ok(choice.sequence.length>=4&&choice.sequence.length<=32);assert.ok([1,2,4].includes(choice.sequence.stepLength));assert.ok(choice.sequence.offset>=0&&choice.sequence.offset<choice.sequence.length);assert.equal(choice.role,R.forTrack(t).id);assert.equal(choice.generator,setup==='ambient'?3:4);assert.equal(choice.on,undefined);
+  for(const key of ['character','duration','space','level','density'])assert.ok(choice[key]>=(setup==='reactor'&&key==='space'?0:20)&&choice[key]<=100);
  }
  const pulse=tracks('ambient')[0],melody=tracks('ambient')[5];assert.equal(R.compatible(pulse,S.banks.GLASS.sounds[0]),false);assert.equal(R.compatible(melody,S.banks.GLASS.sounds[0]),true);
  const piano=S.reactorBanks.AURA.sounds[0];assert.equal(R.metadata(piano).engine,'sampler');assert.equal(R.compatible(tracks('reactor')[0],piano),true);

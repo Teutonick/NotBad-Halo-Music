@@ -17,7 +17,7 @@ function soundInfo(t,p) {
 }
 function events(t,p) {
   const info=soundInfo(t,p), key=keys[p.key];
-  return (t.noteEvents || []).map(e=>({step:e.step,notes:e.notes.map(n=>n+(key?.offset||0)-(t.noteTranspose||0))})).map(e=>({...e,notes:t.generator===3&&info?S.roles.constrain(e.notes,info.sound,role(t)):e.notes}));
+  return (t.noteEvents || []).map(e=>({step:e.step,notes:e.notes.map(n=>n+(key?.offset||0)-(t.noteTranspose||0))})).map(e=>({...e,notes:t.generator>=3&&info?S.roles.constrain(e.notes,info.sound,role(t)):e.notes}));
 }
 function melody(p) { return (p.tracks||[]).filter(t=>t.on!==false&&role(t)==='melody').flatMap(t=>events(t,p)).sort((a,b)=>a.step-b.step); }
 function grams(p, contour=false) {
