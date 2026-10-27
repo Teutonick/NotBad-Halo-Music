@@ -20,6 +20,8 @@ The instrument editor’s **Sounds from all worlds** checkbox optionally reveals
 
 **GENERATE now belongs to each world:** AMBIENT keeps its existing musical character. WATER gets its own dance grooves, syncopated hooks and extended chords; REACTOR gets light pop-rock, coordinated bass/guitar/piano and phrase-end fills. Saved music keeps its prior generator until you press GENERATE in that phrase. [Musical rules and compatibility](docs/world-generation.md).
 
+**Agent reference:** MCP/File Bridge includes all 3 worlds, 96 timbres and 30 readable world profiles. After updating HALO, reload and choose **Update Files** for an existing File Bridge folder. Profiles guide the agent’s original composition.
+
 ### 01 / INTRO
 
 ## STOP MAKING TRACKS. START BUILDING UNIVERSES.

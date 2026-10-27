@@ -9,6 +9,7 @@
     "POSITION": "Zero-based event onset within ONE PHRASE (фраза); continues across BAR (такт) boundaries. Each different PHRASE (фраза) starts again at 0.", "PHRASE": "HALO SCORE (партитура) container of 4 or 8 musical BAR (такт); tempo and meter determine duration in seconds.", "SECTION": "COMPOSITION (композиция) arrangement entry referencing a PHRASE (фраза) and its repeats; events use that PHRASE (фраза)’s position grid.",
     "REST": "Intentional absence of new attacks; earlier sounds may sustain. Empty BAR (такт) are allowed; the agent authors each intended event explicitly."
   },
+  "musicalWorlds": {"available": ["ambient", "reactor", "water"], "catalog": "instruments.json.soundWorlds", "generation": "music-rules.json.worldGeneration"}, "localGeneration": {"supported": [1, 2, 3, 4], "create": {"ambient": 3, "reactor": 4, "water": 4}, "reference": "music-rules.json.worldGeneration", "authoring": "Profiles describe local GENERATE. External agents author original notes/steps using any compatible catalog timbre."},
   "limits": {"tempo": [30, 200], "bars": [4, 8], "tracks": 8, "stepsPerBar": {"4/4": 16, "3/4": 12}, "phrases": 15, "sections": 32, "totalBars": 128, "bytes": 524288},
   "syntax": {
     "canonical": "JSON matching requestSchema", "acceptedPresentation": ["UTF-8 BOM", "one json/jsonc/json5 code fence", "line and block comments", "trailing commas", "single-quoted strings", "unquoted identifier keys and single-token string values", "missing commas between whitespace-separated complete values"],

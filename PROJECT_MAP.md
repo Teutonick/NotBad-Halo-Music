@@ -1,5 +1,13 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+## Complete agent world reference — 2026-10-27
+
+The live WebMCP and File Bridge catalogs already include all 96 timbres across AMBIENT (30 procedural), REACTOR (32 recorded presets) and WATER (32 procedural + 2 recorded handpans). The generator update added musical rules, rather than new instruments or another world.
+
+WebMCP capabilities now expose readable `worlds` records: bilingual directions/names, live-derived timbre counts, generator versions and ten named profiles per world, including minor/major scale-degree progressions, chord voicing and generator-4 groove/active-role/cycle/fill defaults. Existing `catalog`, generator tuples and request operations remain compatible. File Bridge `instruments.json.soundWorlds` adds counts/version/reference; each sound declares recorded/procedural origin, with handpan register/native-key guidance. `music-rules.json.worldGeneration` derives the same 30 profiles from live capabilities. File Bridge retains English instructions and its RU glossary; UI/WebMCP metadata is bilingual. Profiles guide creative choices; external agents continue to author original events using any compatible built-in timbre, including borrowing across worlds.
+
+Reference packages retain schemaVersion 3; halo-score requests keep their existing structure and the project format stays 1. The single timbre registry, approval/conflict handling and authored-note semantics are unchanged. `capabilities.json` is regenerated from runtime. Existing connected folders receive the new guide/catalog/rules after reloading updated HALO and choosing **Update Files**. No connected user folder was modified by repository tests.
+
 ## World-specific GENERATE — 2026-10-27
 
 AMBIENT retains its existing generator 3 unchanged. Pressing GENERATE in WATER or REACTOR now opts the current phrase into generator 4 (`src/world-phrases.js`): WATER has its own house/garage/broken/stutter/dub grooves, syncopated bass, repeating hooks and seventh/ninth/suspended harmony; REACTOR has light pop-rock kick/bass coordination, backbeat, rhythm guitar/piano, triads/add9 and phrase-end fills. Ten bilingual profiles per world coordinate harmony, motifs, timbre weights and six active voices. New cycles align to one bar; manual cycles remain editable. BPM, key/mode, meter, phrase length and master settings stay unchanged. Manual steps/notes are replaced, as before; Track 09 re-grooving is unchanged.

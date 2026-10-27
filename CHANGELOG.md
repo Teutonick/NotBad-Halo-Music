@@ -1,3 +1,9 @@
+## 2026-10-27 — Complete world reference for MCP and File Bridge
+
+- Publish readable directions, live timbre counts and all 30 world profiles through WebMCP; derive the corresponding File Bridge musical reference from the same live libraries.
+- Clarify all 96 timbres, recorded/procedural source types and handpan guidance. Keep original note authoring and compatible cross-world choices available.
+- Synchronize guide/manual/API docs and shipped capabilities; existing connected folders refresh with Update Files after reload. No request format or engine change.
+
 ## 2026-10-27 — Separate musical generators for WATER and REACTOR
 
 - Added original generator-4 dance grooves, extended harmony and hooks for WATER; light pop-rock rhythm-section/guitar/piano rules and fills for REACTOR, with ten coordinated profiles per world.

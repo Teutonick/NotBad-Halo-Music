@@ -1,5 +1,13 @@
 # File Bridge — current halo-score contract
 
+## Complete agent world reference — 2026-10-27
+
+The live WebMCP and File Bridge catalogs already include all 96 timbres across AMBIENT (30 procedural), REACTOR (32 recorded presets) and WATER (32 procedural + 2 recorded handpans). The generator update added musical rules, rather than new instruments or another world.
+
+WebMCP capabilities now expose readable `worlds` records: bilingual directions/names, live-derived timbre counts, generator versions and ten named profiles per world, including minor/major scale-degree progressions, chord voicing and generator-4 groove/active-role/cycle/fill defaults. Existing `catalog`, generator tuples and request operations remain compatible. File Bridge `instruments.json.soundWorlds` adds counts/version/reference; each sound declares recorded/procedural origin, with handpan register/native-key guidance. `music-rules.json.worldGeneration` derives the same 30 profiles from live capabilities. File Bridge retains English instructions and its RU glossary; UI/WebMCP metadata is bilingual. Profiles guide creative choices; external agents continue to author original events using any compatible built-in timbre, including borrowing across worlds.
+
+Reference packages retain schemaVersion 3; halo-score requests keep their existing structure and the project format stays 1. The single timbre registry, approval/conflict handling and authored-note semantics are unchanged. `capabilities.json` is regenerated from runtime. Existing connected folders receive the new guide/catalog/rules after reloading updated HALO and choosing **Update Files**. No connected user folder was modified by repository tests.
+
 ## 2026-10-21 — Shared preflight, one-phrase recovery and borrowed timbres
 
 HALO validates incoming scores before preview/application using the same pure `HaloFileBridge.preflightScore(api, draft, id, options)` entry point available to host adapters. The result includes `ok`, errors or the validated preview/transaction, `normalizedScore`, `scoreReport` and `scoreAudit`; checking alone leaves the draft and live music unchanged. File Bridge keeps its existing probe/ready, freshness, conflict and approval lifecycle.

@@ -4,6 +4,32 @@
  const copy=x=>JSON.parse(JSON.stringify(x));
  const fields=['instrument','sound','soundWorld','generator','on','steps','exact','sequence','noteEvents','noteTranspose','level','density','character','duration','space','delay','delayTime','chorus'];
  const visualOptions={scene:['ORBIT','BLOOM','CURRENT'],motion:['DRIFT','IN TIME','PHRASE'],effects:['CLASSIC','COSMIC','HYPER']};
+ // Readable agent context derives profile values from the live musical libraries.
+ // Local CREATE choices describe a starting point; authored scores keep full compatibility.
+ function worldContexts(sounds){
+  const directions={
+   ambient:{en:'Calm ambient: sparse motifs, soft procedural timbres, sustained harmony and intentional silence.',ru:'Спокойный эмбиент: редкие мотивы, мягкие процедурные тембры, протяжённая гармония и осмысленные паузы.'},
+   reactor:{en:'Light pop-rock: kick/snare backbeat, electric bass, palm-muted or dry-crunch rhythm guitar, lead replies and piano; triads/add9.',ru:'Лёгкий поп-рок: бочка и бэкбит снейра, бас-гитара, приглушённая ритм-гитара, гитарные ответы и пианино; трезвучия/add9.'},
+   water:{en:'Electronic house/garage/break/stutter/dub: syncopated bass, short repeating hooks, arpeggio replies, phrase-end fills and seventh/ninth/suspended harmony.',ru:'Электронный хаус/гараж/брейк/статтер/даб: синкопированный бас, короткие хуки, ответы арпеджио, сбивки и септаккорды/нонаккорды/задержания.'}
+  };
+  const grooves={water:['house','garage','broken-beat','stutter','dub'],reactor:['open-backbeat','soft-strum','driving-eighths','piano-backbeat','pickup-backbeat']};
+  return Object.fromEntries(['ambient','reactor','water'].map(world=>{
+   const palette=Object.values(sounds.banksFor(world)).flatMap(bank=>bank.sounds),modern=world!=='ambient';
+   const profiles=(modern?sounds.roles.worlds?.profiles?.[world]:sounds.phrases?.profiles?.ambient)||[];
+   return [world,{
+    name:{en:world.toUpperCase(),ru:world.toUpperCase()},
+    timbres:{total:palette.length,procedural:palette.filter(s=>!s.sampleBank).length,recorded:palette.filter(s=>s.sampleBank).length},
+    generation:{version:modern?4:3,direction:directions[world],
+     ...(modern?{cycleDefaults:{lengthByMeter:{'4/4':16,'3/4':12},stepLength:1,offset:0},fills:{en:'Phrase end; eight bars also include a midpoint fill after bar four.',ru:'Конец фразы; в восьми тактах есть также промежуточная сбивка после четвёртого такта.'}}:{}),
+     harmonyDegrees:{en:'Zero-based scale degrees in the selected natural minor or major scale, one root per bar; repeat the four-root progression. AMBIENT resolves bar eight to degree zero.',ru:'Ступени выбранного натурального минора или мажора с нуля: один корень аккорда на такт, четыре корня повторяются. AMBIENT разрешает восьмой такт в нулевую ступень.'},
+     profiles:profiles.map(p=>({id:p[0],name:{en:p[1],ru:p[2]},groove:modern?grooves[world][p[5]]:'ambient-motif-library',
+      harmony:{minor:[...p[3]],major:[...(modern?p[4]:p[3])],voicing:modern?p[6]:'seventh'},
+      ...(modern?{activeRoles:['pulse','accent','bass','melody',...p[7].map(i=>sounds.roles.roles[i].id)]}:{})
+     }))
+    }
+   }];
+  }));
+ }
  function create(env){
   let enabled=false,busy=false,last='',revision=0,undo=[],redo=[];
   function state(snapshot=true){const value={project:check(env.read()),...(env.visual?{visual:env.visual()}:{} )},text=JSON.stringify(value);if(text!==last){revision++;last=text}return snapshot?{revision,...copy(value)}:{revision}}
@@ -43,7 +69,8 @@
    const R=env.sounds.roles;
    return {version:2,transport:'External browser agents through WebMCP Site Tools only; no LLM client in HALO',operations:['track.patch','phrase.patch','master.patch','project.patch','composition.replace','project.replace',...(env.visual?['visual.patch']:[])],trackFields:fields,phraseFields:['bars','startStep','seed','key','liveLoop','timeSignature'],masterFields:['tempo','masterVolume','mix'],limits:{bpm:[30,200],bars:[4,8],tracks:8,stepsPerBar:16,timeSignatures:['4/4','3/4'],phrases:15,sections:32,totalBars:128,bytes:524288,operations:256},
     generators:{supported:[1,2,3,4],create:{ambient:3,reactor:4,water:4},legacy:'Saved generators 1/2/3 retain their musical rules; CREATE upgrades only the current phrase',worlds:env.sounds.roles.worlds?.profiles||{}},
-    crossWorldTimbres:{source:'track.soundWorld records the catalog origin; omitted uses the phrase setup',selection:'JSON may select compatible timbres from either catalog; manual bank selection and GENERATE use the current world'},
+    worlds:worldContexts(env.sounds),
+    crossWorldTimbres:{source:'track.soundWorld records the catalog origin; omitted uses the phrase setup',selection:'JSON and the all-world manual palette can select compatible timbres from all built-in worlds; GENERATE uses the current world'},
     samples:env.samples||[],defaults:env.defaults?.()||{},catalog:Object.fromEntries(['ambient','reactor','water'].map(world=>[world,env.sounds.banksFor(world)])),
     roles:R.roles.map(r=>({...r,policy:R.voicePolicy({name:r.slot},{engine:'bell'})})),
     harmony:{keys:env.composition?.definitions||[],scales:{minor:[0,2,3,5,7,8,10],major:[0,2,4,5,7,9,11]},customChords:'Explicit MIDI noteEvents on harmony/bass/melody; no separate editable chord progression field'},

@@ -32,6 +32,54 @@ function bridgeFolder(){
 function scoreRequest(api, values={}){
  return {format:'halo-score',baseRevision:api.getProjectState().revision,mode:'replace',world:'ambient',tempo:96,bars:8,meter:'4/4',key:'C major',voices:{melody:{sound:'harp',notes:[[0,72],[124,76]]}},...values};
 }
+
+test('File Bridge world base matches live engine profiles and keeps one complete timbre catalog',async()=>{
+ const {api}=createTestApp(),caps=api.getCapabilities(),files=FileBridge.getContextFiles(api);
+ const registry=JSON.parse(files['instruments.json']),rules=JSON.parse(files['music-rules.json']),contract=JSON.parse(files['capabilities.json']);
+ assert.equal(registry.sounds.length,96);assert.deepEqual(contract.musicalWorlds.available,['ambient','reactor','water']);
+ assert.deepEqual(contract.localGeneration.create,{ambient:3,reactor:4,water:4});
+ assert.match(rules.authoring,/any catalog timbre/);
+ for(const [world,count] of [['ambient',30],['reactor',32],['water',34]]){
+  assert.equal(registry.sounds.filter(s=>s.world===world).length,count);
+  assert.deepEqual(registry.soundWorlds[world].timbres,caps.worlds[world].timbres);
+  assert.equal(registry.soundWorlds[world].generator,caps.generators.create[world]);
+  assert.equal(registry.soundWorlds[world].generationReference,'music-rules.json.worldGeneration.'+world);
+  const profiles=rules.worldGeneration[world].profiles;assert.equal(profiles.length,10);
+  profiles.forEach((p,i)=>{const source=caps.worlds[world].generation.profiles[i];assert.equal(p.id,source.id);assert.deepEqual(p.harmony,source.harmony);assert.equal(p.name,source.name.en)});
+ }
+ const handpans=registry.sounds.filter(s=>s.world==='water'&&s.canonicalId.startsWith('handpan-'));
+ assert.equal(handpans.length,2);
+ for(const sound of handpans){
+  assert.equal(sound.sourceType,'recorded');assert.deepEqual(sound.acousticRange,[57,74]);assert.match(sound.guidance,/native D minor/);
+  const request=scoreRequest(api,{world:'water',key:'D MINOR',voices:{melody:{sound:sound.canonicalId,notes:[[0,62],[8,65],[32,69]]}}});
+  const result=FileBridge.parseAndValidateRequest(api,request,'water-catalog');assert.equal(result.ok,true,result.error);
+  api.setEnabled(true);await api.applyOperations(result.transaction);
+  const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.equal(state.score.world,'water');assert.deepEqual(state.score.voices.melody.notes,request.voices.melody.notes);
+ }
+});
+
+test('Update Files writes the complete current world base without changing music',async()=>{
+ const {api}=createTestApp(),folder=bridgeFolder(),bridge=FileBridge.createBridge(api,{pollInterval:0}),before=api.getProjectState().project;
+ try{
+  await bridge.connect(folder);
+  folder.files.set('instruments.json','{}');folder.files.set('music-rules.json','{}');await bridge.syncFiles();
+  const registry=JSON.parse(folder.files.get('instruments.json')),rules=JSON.parse(folder.files.get('music-rules.json'));
+  assert.equal(registry.sounds.length,96);assert.equal(rules.worldGeneration.water.profiles.length,10);assert.equal(rules.worldGeneration.reactor.version,4);
+  assert.deepEqual(api.getProjectState().project,before);
+ }finally{await bridge.disconnect()}
+});
+
+test('generated WATER/REACTOR scores are materialized and accepted with every advertised world',async()=>{
+ const {api}=createTestApp();api.setEnabled(true);
+ for(const world of ['water','reactor']){
+  const tracks=S.roles.roles.map((r,i)=>{const t={name:r.slot,setup:world,...S.roles.initial(world,r.slot),on:true};return {...t,...S.randomizeTrack(t,i,3,8)}});
+  const project=P.capture(tracks,8,120,3,1,S,M),before=api.getProjectState();
+  await api.applyOperations({schemaVersion:1,baseRevision:before.revision,operations:[{op:'project.replace',project}]});
+  const state=JSON.parse(FileBridge.getContextFiles(api)['project-state.json']);assert.equal(state.scoreExport.complete,true);assert.equal(state.score.world,world);
+  const result=FileBridge.parseAndValidateRequest(api,state.score,'world-export');assert.equal(result.ok,true,result.error);
+  assert.deepEqual(api.getProjectState().project,project,'materialization/preflight preserve live music');
+ }
+});
 test('workflow guide delegates format and complete palette to their authoritative files',()=>{
  const {api}=createTestApp(),files=FileBridge.getContextFiles(api),guide=files['AGENT_GUIDE.md'];
  const registry=JSON.parse(files['instruments.json']);

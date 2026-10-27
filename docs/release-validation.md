@@ -1,5 +1,11 @@
 # Release validation — File Bridge, 2026-10-20
 
+## MCP / File Bridge world-reference refresh — 2026-10-27
+
+Full Node regression: **392 passed, zero failed**, using repository `.tmp` TEMP/TMP and the standard outside-sandbox run for File Bridge's hard-link fixture. The additional tests call the registered WebMCP `halo_get_capabilities`/`halo_get_context`/validate/apply/export wrappers, verify 30/32/34 timbres and all 30 readable world profiles against live libraries, replace WATER/REACTOR generator-4 projects and apply both handpan presets with exact notes. File Bridge tests verify the single 96-timbre registry, source types, handpan guidance, world/profile parity, generator-4 score materialization/preflight, and connect + Update Files readback using an isolated fake folder without changing music.
+
+Regenerated shipped `capabilities.json` and the disposable five-file package in `artifacts/agent-world-context/`. `scripts/check-file-bridge-contract.ps1 -PackageDirectory ./artifacts/agent-world-context` passes all **12** schema syntax cases. The guide plus schema/catalog/music rules remain within **497 lines**, with the existing 480-character/768-byte row limits; English composer instructions and parenthesized RU glossary rules still pass. `git diff --check` passes. Musical generation and audio engines were unchanged by this metadata refresh; the prior real-browser/audio evidence is recorded below. No fresh external-agent browser discovery, live user-folder refresh, commit or deployment is claimed. Existing connected folders need updated HALO reloaded and Update Files.
+
 ## World-specific generators — 2026-10-27
 
 Full Node regression: **388 passed, zero failed**, with repository `.tmp` TEMP/TMP and outside-sandbox execution for the existing File Bridge hard-link fixture. The initial sandbox EPERM on that fixture was environmental. New tests cover pre-change generator-2/3 event hashes in all three worlds, 24 keys, both meters, 4/8 bars, native/compatible timbres and strict pop-rock instrumentation, density/backbeat/fill behavior, exact silence, project/autosave/share/step persistence, agent Undo/Redo, composition development, absolute-clock preview and major-key offline/live event parity. `git diff --check` passes.

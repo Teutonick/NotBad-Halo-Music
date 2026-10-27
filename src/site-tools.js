@@ -13,7 +13,7 @@
   function add(name,description,schema,readOnly,run){definitions.set(name,{name,description,inputSchema:schema,annotations:{readOnlyHint:readOnly,consequentialHint:false,untrustedContentHint:true},run})}
   function authorize(){api.setEnabled(true)}
   add('halo_get_context',guidance+' Returns catalog, limits, current score, resolved notes, visual state and history counts.',empty,true,()=>({...api.getContext(),agentInstructions:guidance}));
-  add('halo_get_capabilities','Read actual built-in sounds/sample metadata, role compatibility, MIDI/key/FX/master/visual limits and operation fields. No PCM.',empty,true,()=>api.getCapabilities());
+  add('halo_get_capabilities','Read built-in worlds/timbres, readable world-generation profiles/harmony, sample metadata, role compatibility, MIDI/key/FX/master/visual limits and operation fields. World profiles guide original composition; compatible borrowed timbres remain available. No PCM.',empty,true,()=>api.getCapabilities());
   add('halo_get_state','Read the current canonical project, visual settings and revision after an edit. No audio data.',empty,true,()=>api.getProjectState());
   const transactionSchema=clone(transaction);transactionSchema.properties.operations.items.properties.op.enum=api.getCapabilities().operations;
   const batch={type:'object',properties:{transaction:transactionSchema},required:['transaction'],additionalProperties:false};

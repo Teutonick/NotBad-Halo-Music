@@ -3,6 +3,34 @@ const Bridge=require('../src/site-tools.js'),Agent=require('../src/agent.js'),P=
 function app(modelContext={registerTool(){}}){const native=new Map();const nativeContext=modelContext?{registerTool(d,o){native.set(d.name,d);return modelContext.registerTool(d,o)}}:null;let project=P.capture(Object.keys(S.banks).map(name=>({...S.roles.initial('ambient',name),name,setup:'ambient',on:true,level:50,density:50,character:50,duration:50,space:30,pattern:[0,4,8,12]})),4,72,1,0,S,M),playing=false;const events={};const api=Agent.create({project:P,song:Song,sounds:S,composition:C,read:()=>project,write:async p=>{project=p},playback:async on=>{playing=on;return {playing}}});const tools=Bridge.install(api,{document:{modelContext:nativeContext},addEventListener:(k,f)=>events[k]=f,removeEventListener:k=>delete events[k]});const call=async(name,args={},options={})=>{const d=native.get(name);if(!d)throw Error('UNKNOWN_TOOL');const r=await d.execute(args,options);const data=JSON.parse(r.content[0].text);if(r.isError)throw Error(data.error);return data.result};return {api,tools,events,call}}
 const tx=(api,operations)=>({schemaVersion:1,baseRevision:api.getProjectState().revision,operations});
 
+test('registered WebMCP publishes every world, timbre and readable genre profile, including recorded handpan',async()=>{
+ const a=app();await a.tools.ready;
+ const caps=await a.call('halo_get_capabilities'),context=await a.call('halo_get_context');
+ assert.deepEqual(caps.worlds,context.capabilities.worlds);
+ assert.deepEqual(Object.keys(caps.worlds),['ambient','reactor','water']);
+ for(const [world,count] of [['ambient',30],['reactor',32],['water',34]]){
+  const value=caps.worlds[world],catalog=Object.values(caps.catalog[world]).flatMap(b=>b.sounds);
+  assert.equal(value.timbres.total,count);assert.equal(catalog.length,count);assert.equal(value.timbres.recorded,catalog.filter(s=>s.sampleBank).length);
+  assert.equal(value.generation.profiles.length,10);assert.ok(value.generation.direction.en&&value.generation.direction.ru);
+  const source=world==='ambient'?S.phrases.profiles.ambient:S.roles.worlds.profiles[world];
+  value.generation.profiles.forEach((p,i)=>{assert.equal(p.id,source[i][0]);assert.deepEqual(p.harmony.minor,source[i][3]);assert.deepEqual(p.harmony.major,source[i][world==='ambient'?3:4]);assert.ok(p.name.en&&p.name.ru)});
+ }
+ assert.deepEqual(caps.worlds.water.timbres,{total:34,procedural:32,recorded:2});
+ for(const world of ['water','reactor']){
+  const tracks=S.roles.roles.map((r,i)=>{const t={name:r.slot,setup:world,...S.roles.initial(world,r.slot),on:true};return {...t,...S.randomizeTrack(t,i,2,8)}});
+  const project=P.capture(tracks,8,120,2,1,S,M),transaction=tx(a.api,[{op:'project.replace',project}]);
+  await a.call('halo_apply_operations',{transaction});const actual=(await a.call('halo_export_project')).project;
+  assert.equal(actual.setup,world);assert.ok(actual.tracks.every(t=>t.generator===4));assert.deepEqual(actual,project);
+ }
+ for(const id of ['water-handpan-natural','water-handpan-dry']){
+  const transaction=tx(a.api,[{op:'track.patch',trackIndex:5,values:{sound:id,exact:true,steps:[0,8],noteEvents:[{step:0,notes:[62]},{step:8,notes:[65]}],noteTranspose:0}}]);
+  assert.equal((await a.call('halo_validate_operations',{transaction})).valid,true);
+  await a.call('halo_apply_operations',{transaction});const p=(await a.call('halo_export_project')).project;
+  assert.equal(p.tracks[5].sound,id);assert.equal(p.tracks[5].soundWorld,'water');assert.deepEqual(p.tracks[5].noteEvents,transaction.operations[0].values.noteEvents);
+ }
+ a.tools.dispose();
+});
+
 test('registered WebMCP validates and preserves a borrowed timbre through apply, export and history',async()=>{
  const a=app();await a.tools.ready;
  const transaction=tx(a.api,[{op:'track.patch',trackIndex:5,values:{sound:'reactor-attack-piano'}}]);

@@ -512,6 +512,8 @@
         publication:'Complete and read back companions first, publish and read back request last.',
         root:'Verify one connected root containing AGENT_GUIDE.md, project-state.json, requests/ and responses/. Bind immutable path variables ROOT, STATE_PATH, REQUEST_PATH and RECEIPT_PATH once per task. Write permission covers requests/; STATE_PATH and RECEIPT_PATH are read-only to the agent.'},
       timing:timingVocabulary(),
+      musicalWorlds:{available:Object.keys(caps.catalog||{}),catalog:'instruments.json.soundWorlds',generation:'music-rules.json.worldGeneration'},
+      localGeneration:{supported:caps.generators?.supported||[1,2,3],create:caps.generators?.create||{ambient:3,reactor:3,water:3},reference:'music-rules.json.worldGeneration',authoring:'Profiles describe local GENERATE. External agents author original notes/steps using any compatible catalog timbre.'},
       limits: {tempo:caps.limits.bpm,bars:caps.limits.bars,tracks:caps.limits.tracks,stepsPerBar:{'4/4':16,'3/4':12},phrases:caps.limits.phrases,sections:caps.limits.sections,totalBars:caps.limits.totalBars,bytes:caps.limits.bytes},
       syntax:{canonical:'JSON matching requestSchema',acceptedPresentation:['UTF-8 BOM','one json/jsonc/json5 code fence','line and block comments','trailing commas','single-quoted strings','unquoted identifier keys and single-token string values','missing commas between whitespace-separated complete values'],repairPolicy:'Presentation normalization preserves complete, uniquely keyed literal data and musical values. Incomplete values, fused numbers, duplicate keys and expressions require an author correction. Musical, freshness and path checks apply after parsing.'},
       requestSchema:requestSchema(caps),
@@ -551,6 +553,15 @@
   }
 
   // Bridge IDs identify a world + source bank + timbre without changing engine IDs.
+  // Composer files retain their English contract; UI/WebMCP metadata can be bilingual.
+  function englishReference(value){
+    if(Array.isArray(value))return value.map(englishReference);
+    if(value&&typeof value==='object'){
+      if(typeof value.en==='string'&&Object.keys(value).every(k=>['en','ru'].includes(k)))return value.en;
+      return Object.fromEntries(Object.entries(value).map(([key,item])=>[key,englishReference(item)]));
+    }
+    return value;
+  }
   function canonicalSoundId(sound, bank, world, catalog){
     const short=id=>id.startsWith(world+'-')?id.slice(world.length+1):id;
     const id=short(sound.id);
@@ -574,10 +585,12 @@
             bankId: slotKey,
             canonicalId,
             name: s.name,
+            sourceType:s.sampleBank?'recorded':'procedural',
             pitched: !!s.playback?.pitched,
             compatibleRoles: s.playback?.compatibleRoles || [],
             affinityRoles: s.playback?.affinityRoles || [],
-            acousticRange: s.playback?.range || [24, 96]
+            acousticRange: s.playback?.range || [24, 96],
+            ...(s.sampleBank==='water-handpan'?{guidance:'Recorded handpan, native D minor, MIDI 57–74. Other keys use pitch shifting and can color fixed resonances; authored pitch classes are preserved.'}:{})
           });
         }
       }
@@ -595,6 +608,7 @@
       description: r.description, policy: r.policy, maxNotes: r.maxNotes,
       acousticRange: { minMidi: r.minMidi ?? 24, maxMidi: r.maxMidi ?? 96 }
     }));
+    const worldMetadata=world=>{const value=caps.worlds?.[world];return value?{name:englishReference(value.name),timbres:clone(value.timbres),generator:value.generation.version,generationReference:'music-rules.json.worldGeneration.'+world}:{};};
 
     const parameterGlossary = {
       character: {
@@ -647,12 +661,14 @@
       parameterGlossary,
       rangeSemantics:{sounds:'acousticRange is the timbre playback register; octave folding brings valid MIDI pitches into the playback register while preserving pitch class.',tracks:'acousticRange describes role register guidance; bass additionally uses the engine bass register policy.'},
       soundWorlds: {
-        water: {description: '34 WATER timbres: 32 original electronic voices with punchier kicks and tempo-linked saturated bass, plus two natural CC0 handpan presets from 18 FreePats recordings.',selection: 'Manual selection defaults to WATER; the all-world checkbox enables compatible borrowing. GENERATE stays native.'},
+        water: {...worldMetadata('water'),description: '34 WATER timbres: 32 original electronic voices with punchier kicks and tempo-linked saturated bass, plus two natural CC0 handpan presets from 18 FreePats recordings.',selection: 'Manual selection defaults to WATER; the all-world checkbox enables compatible borrowing. GENERATE stays native.'},
         ambient: {
+          ...worldMetadata('ambient'),
           description: '30 procedural synthesis patches designed for meditative, calming soundscapes.',
           selection: 'JSON accepts compatibleRoles matches from any sound world. Manual selection defaults to the current world; its all-world checkbox allows compatible borrowing. GENERATE stays native.'
         },
         reactor: {
+          ...worldMetadata('reactor'),
           description: '32 organic presets backed by 130 authentic CC0 acoustic/electric instrument recordings.',
           selection: 'JSON accepts compatibleRoles matches from any sound world. Sample loading follows actual timbres, including borrowed recordings.'
         }
@@ -662,10 +678,12 @@
 
   function generateMusicRulesData(caps){
     return {schemaVersion:protocolVersion,references,
-      description:'Optional HALO grid and key reference; musical composition is the agent’s task.',
+      description:'HALO grid, key and optional world-generation reference; original musical composition is the agent’s task.',
       timing:timingVocabulary(),
       timeSignatures:{'4/4':{stepsPerBar:16,phraseSteps:{4:64,8:128}},'3/4':{stepsPerBar:12,phraseSteps:{4:48,8:96}}},
       keys:caps.harmony.keys.map(k=>k.name),
+      worldGeneration:Object.fromEntries(Object.entries(caps.worlds||{}).map(([world,value])=>[world,englishReference(value.generation)])),
+      authoring:'World profiles describe local GENERATE. Compose original events for the user brief; any catalog timbre with the target compatibleRoles is available across worlds. Authored notes, rhythm, silence and instrumentation remain the agent’s choices.',
       events:'Absolute phrase steps; unique steps per voice. Integer MIDI 0..127; per-role polyphony and acoustic playback ranges are in instruments.json. Only integer MIDI 0..127 is a hard input pitch bound.',
       pitch:'Authored MIDI is literal. The key label supplies harmonic context; the engine plays authored pitches with its existing acoustic octave folding.'};
   }
@@ -760,7 +778,7 @@ ${Object.values(terminology()).map(value=>value.replace(/^([^:]+): (.*)$/,'| $1 
 | --- | --- |
 | [capabilities.json](capabilities.json) | Sole format authority: requestSchema, mode fields, limits and responses. Read before writing. |
 | [instruments.json](instruments.json) | Complete TIMBRE (тембр) catalog: canonicalId, compatibleRoles, pitched, acousticRange and fixed ROLE (роль). Choose from this catalog. |
-| [music-rules.json](music-rules.json) | Exact timing vocabulary, grid and supported key names. |
+| [music-rules.json](music-rules.json) | Timing, keys and optional world profiles/harmony. |
 | [project-state.json](project-state.json) | STATE (снимок состояния): the whole COMPOSITION (композиция) in score and scoreExport limitations. |
 
 A REQUEST (запрос) is one object with format exactly halo-score. Its structure is capabilities.json.requestSchema. A SCORE (партитура) contains numeric musical events in the structure above. SLOT (физический слот), BANK (банк тембров) and TIMBRE (тембр) are distinct concepts. MIDI input bounds and acousticRange are different constraints in instruments.json.
@@ -2184,7 +2202,7 @@ timestamp:new Date().toISOString()};
       <li><code>AGENT_GUIDE.md</code> — ${tr('Формат, инструменты и передача запроса','Format, instruments and delivery')}</li>
       <li><code>capabilities.json</code> — ${tr('Контракт партитуры, пути, статусы и лимиты','Score contract, paths, statuses and limits')}</li>
       <li><code>instruments.json</code> — ${tr('8 голосов, пресеты, совместимость и звуковой смысл каждого параметра','8 voices, presets, compatibility, and sonic meaning of each parameter')}</li>
-      <li><code>music-rules.json</code> — ${tr('Сетки HALO и названия тональностей','HALO grids and supported key names')}</li>
+      <li><code>music-rules.json</code> — ${tr('Сетки, тональности и музыкальные ориентиры трёх миров','Grids, keys and musical references for the three worlds')}</li>
       <li><code>project-state.json</code> — ${tr('Текущая ревизия и вся композиция как halo-score; scoreExport сообщает ограничения — только чтение','Live revision and complete composition as halo-score; scoreExport discloses limits — read-only')}</li>
       <li><code>requests/</code> — ${tr('Готовая папка входящих команд: пишите JSON-файлы прямо сюда (request-001.json и request-001--melody.json), без создания подпапок','Prepared incoming folder: write JSON files directly here (request-001.json and request-001--melody.json), without creating subfolders')}</li>
       <li><code>responses/</code> — ${tr('Папка ответов HALO (например, request-001.result.json)','HALO response folder (e.g. request-001.result.json)')}</li>
