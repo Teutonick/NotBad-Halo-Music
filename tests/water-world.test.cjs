@@ -94,9 +94,16 @@ test('water horizon crossings are bar 1 and bar 3 in both meters and repeat ever
   assert.ok(Water.point(0,Water.phase(bpb*3,meter)*Math.PI*2,500,350,1).y>350);
  }
 });
-test('water render keeps eight or nine hit targets, is deterministic after seeking, and supports CPU fallback',()=>{
- for(const n of [8,9])for(const gpu of [false,true])for(const reduced of [false,true]){
-  const frame={width:390,height:844,cx:195,cy:337,scale:.4,beat:8.3,tempo:72,meter:'4/4',tracks:Array.from({length:n},()=>({color:'#a4e7dd',on:true})),pulses:Array(n).fill(.5),playing:true,reduced,time:10,gpu,labels:true};
+test('auxiliary orbit slots place LINK immediately outside the active looper',()=>{
+ assert.deepEqual(Orbits.extraTracks(null,false,null),[]);
+ assert.deepEqual(Orbits.extraTracks(null,false,{muted:false}).map(t=>t.id),['link']);
+ assert.deepEqual(Orbits.extraTracks({muted:false},false,{muted:true}).map(t=>[t.id,t.on]),[['loop-audio',true],['link',false]]);
+ assert.deepEqual(Orbits.extraTracks(null,true,{muted:false}).map(t=>t.id),['loop-video','link']);
+});
+test('water render keeps up to ten hit targets, is deterministic after seeking, and supports CPU fallback',()=>{
+ for(const extras of [[],Orbits.extraTracks(null,false,{}),Orbits.extraTracks(null,true,{})])for(const gpu of [false,true])for(const reduced of [false,true]){
+  const tracks=[...waterTracks(),...extras],n=tracks.length;
+  const frame={width:390,height:844,cx:195,cy:337,scale:.4,beat:8.3,tempo:72,meter:'4/4',tracks,pulses:Array(n).fill(.5),playing:true,reduced,time:10,gpu,labels:true};
   const ctx=context(),nodes=Water.draw(ctx,frame);assert.equal(nodes.length,n);assert.deepEqual(Water.draw(context(),frame),nodes);
   assert.equal(ctx.calls.some(c=>c[0]==='fillRect'&&c[3]===390),!gpu);
   frame.playing=false;const paused=context();Water.draw(paused,frame);if(!gpu)assert.ok(paused.calls.length<ctx.calls.length);
@@ -122,9 +129,9 @@ test('extracted space foreground draws all scenes, motion modes and effects with
  const sandbox={HaloOrbitGeometry:Orbits,HaloSounds:require('../src/sounds.js'),HaloMotion:require('../src/motion.js'),HaloEffects:require('../src/effects.js'),HaloI18n:require('../src/i18n.js')};
  vm.createContext(sandbox);vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/worlds/space.js'),'utf8'),sandbox);
  const S=sandbox.HaloSounds,tracks=Object.keys(S.banks).map(name=>({...S.roles.initial('ambient',name),name,setup:'ambient',on:true,color:'#a4e7dd',variation:1}));
- for(const setup of ['ambient','reactor'])for(const scene of [0,1,2])for(const motionMode of [0,1,2])for(const effectMode of [0,1,2]){
-  const nodes=sandbox.HaloSpaceWorld.draw(context(),{particles:[],time:1,delta:.025,W:1200,H:900,cx:600,cy:400,scale:.8,fade:1,playing:false,master:1,instruments:tracks,motionMode,phraseBars:4,timeSignature:'4/4',visibleComposition:{seed:1},language:'en',setup,reducedMotion:{matches:false},effectMode,visualOnly:false,pulses:Array(8).fill(0),syncMotion:motionMode!==0,scene,phrase:sandbox.HaloMotion.phraseAt(1)});
-  assert.equal(nodes.length,8);
+ for(const extras of [[],Orbits.extraTracks({muted:false},false,{})])for(const setup of ['ambient','reactor'])for(const scene of [0,1,2])for(const motionMode of [0,1,2])for(const effectMode of [0,1,2]){
+  const nodes=sandbox.HaloSpaceWorld.draw(context(),{particles:[],time:1,delta:.025,W:1200,H:900,cx:600,cy:400,scale:.8,fade:1,playing:false,master:1,instruments:[...tracks,...extras],motionMode,phraseBars:4,timeSignature:'4/4',visibleComposition:{seed:1},language:'en',setup,reducedMotion:{matches:false},effectMode,visualOnly:false,pulses:Array(10).fill(0),syncMotion:motionMode!==0,scene,phrase:sandbox.HaloMotion.phraseAt(1)});
+  assert.equal(nodes.length,8+extras.length);
  }
 });
 

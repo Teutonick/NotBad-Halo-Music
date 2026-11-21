@@ -1,3 +1,19 @@
+## 2026-11-21 — Dashboard navigation height
+
+- Fit the full navigation rail above the dashboard footer and use an icon-only Track 10 button.
+
+## 2026-11-21 — HALO LINK outer orbit
+
+- Show Track 10 on orbit 9 when Track 09 is absent and orbit 10 when an audio or video loop occupies orbit 9.
+
+## 2026-11-21 — HALO LINK MIDI transport input
+
+- Accept MIDI Start and Stop from a selected input while HALO remains the tempo source. Show the last received command.
+
+## 2026-11-21 — HALO LINK capture and MIDI feedback
+
+- Keep phrase capture running through the normal loop boundary. Report MIDI send failures and show the USB clock-source hint for Felucca.
+
 ## 2026-11-21 — HALO LINK dashboard tab
 
 - Move Track 10 to the dashboard sidebar and group audio input, MIDI Clock, recording and takes. Apply shared range validation and mouse scrubbing.

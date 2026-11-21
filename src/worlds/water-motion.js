@@ -5,7 +5,7 @@
  const Motion=node?require('../motion.js'):root.HaloMotion;
  const Sounds=node?require('../sounds.js'):root.HaloSounds;
  const Geometry=node?require('./orbits.js'):root.HaloOrbitGeometry;
- const TAU=Math.PI*2,speeds=[1,.5,.25,1.5,.75,.375,1.25,.625,.875],offsets=[.23,1.62,3.3,2.07,5.2,.5,4.1,2.8,1.15];
+ const TAU=Math.PI*2,speeds=[1,.5,.25,1.5,.75,.375,1.25,.625,.875,1.125],offsets=[.23,1.62,3.3,2.07,5.2,.5,4.1,2.8,1.15,3.85];
  const mod=(x,n)=>((x%n)+n)%n;
  function interval(pattern,step,cycle){
   const list=pattern.length?pattern:[0],bar=Math.floor(step/cycle),local=mod(step,cycle);
@@ -21,8 +21,8 @@
  function lane(frame,index){
   const {beat=0,cx=0,cy=0,scale=1,motionMode=2,scene=0,phraseBars=4,meter='4/4',tempo=72}=frame;
   const track=frame.tracks[index],bars=phraseBars===8?8:4,bpb=meter==='3/4'?3:4,r=(135+index*24)*scale;
-  const cycle=motionMode===1&&index!==8?Sounds.cycleLength(track,bars,meter):16;
-  const pattern=motionMode===1?(index===8?(frame.track09Steps||[0,4,8,12]):track.manualSteps||Sounds.patternFor(track,bars,meter)):[];
+  const cycle=motionMode===1&&index<8?Sounds.cycleLength(track,bars,meter):16;
+  const pattern=motionMode===1?(index>=8?(frame.track09Steps||[0,4,8,12]):track.manualSteps||Sounds.patternFor(track,bars,meter)):[];
   function angleAt(b){
    if(motionMode===0)return b*TAU*speeds[index]/4+offsets[index];
    if(motionMode===1)return Motion.phaseAt(pattern,Math.max(0,b)*4,cycle)*TAU+Math.PI;

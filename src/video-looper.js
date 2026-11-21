@@ -547,6 +547,8 @@
     update();
    },
    keepsAudioRunning:()=>env.selected()&&mode==='preview'&&!problem,
+   hasOrbit:()=>env.selected()&&ready&&(settings.enabled||mode==='preview'),
+   stopOrbit(){controls.Enabled.checked=false;controls.Enabled.onchange();},
    wake(){
     if(!env.selected()||!ready||mode!=='armed'||!settings.enabled||timer!==null)return;
     const clock=env.clock();

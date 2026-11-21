@@ -2,8 +2,25 @@
   'use strict';
   const realtime = { clock: 0xf8, start: 0xfa, continue: 0xfb, stop: 0xfc };
 
+  function transportInput(receive) {
+    let port;
+    const message = event => {
+      if(event.data?.length!==1)return;
+      if(event.data[0]===realtime.start)receive('start');
+      if(event.data[0]===realtime.stop)receive('stop');
+    };
+    return {
+      select(next){
+        if(port===next)return;
+        if(port)port.onmidimessage=null;
+        port=next;
+        if(port)port.onmidimessage=message;
+      }
+    };
+  }
+
   function midiClock(now) {
-    let output, active = false, stopAt;
+    let output, active = false, stopAt, failed = false;
     function stop(when) {
       if (!active && !(stopAt > now() && when === undefined)) return;
       active = false;
@@ -14,9 +31,10 @@
       } catch (_) {}
     }
     return {
-      select(port) { if (output !== port) { stop(); output = port; } },
+      select(port) { if (output !== port) { stop(); output = port; failed = false; } },
       stop,
       active: () => active,
+      failed: () => failed,
       tick(ctx, time, bpm, step) {
         if (output?.state !== 'connected' || ctx.state !== 'running') return;
         const reference = ctx.getOutputTimestamp?.();
@@ -31,7 +49,8 @@
           for (let pulse = 0; pulse < 6; pulse++) {
             output.send([realtime.clock], stamp + pulse * 60000 / (24 * bpm));
           }
-        } catch (_) { stop(); }
+          failed = false;
+        } catch (_) { stop(); failed = true; }
       }
     };
   }
@@ -41,11 +60,16 @@
     const media = navigator.mediaDevices;
     const clock = midiClock(() => performance.now());
     const key = 'halo-external-link-v1';
-    const settings = { input: '', midi: '', trim: 100, monitor: false, solo: false, count: 1, offset: 0, from: 1, to: 4, kind: 'phrase' };
+    const settings = { input: '', midi: '', midiTransport: '', trim: 100, monitor: false, solo: false, count: 1, offset: 0, from: 1, to: 4, kind: 'phrase' };
     const bounds = { trim: [0, 150], count: [0, 4], offset: [-500, 500], from: [1, 128], to: [1, 128], volume: [0, 100] };
     const specs = Object.fromEntries(Object.entries(bounds).map(([name,[min,max]])=>[name,{min,max,step:1,dragStep:name==='offset'?5:1}]));
     let stream, source, trim, meter, gain, engine, midi, levelTimer, connectedInput, generation = 0, status = 'disconnected';
-    let takes, selectedMidi;
+    let takes, selectedMidi, selectedTransport, lastTransport;
+    const midiInput=transportInput(command=>{
+      lastTransport=command;
+      render();
+      env.midiTransport(command);
+    });
     const copy = {
       audioSection: ['Audio input', 'Аудиовход'], midiSection: ['MIDI Clock', 'MIDI Clock'],
       captureSection: ['Recording', 'Запись'], takesSection: ['Takes and export', 'Дубли и экспорт'],
@@ -97,6 +121,13 @@
       midiDenied: ['MIDI access unavailable', 'Нет доступа к MIDI'],
       midiLost: ['MIDI output lost', 'MIDI-выход отключён'],
       midiReady: ['MIDI output selected', 'MIDI-выход выбран'],
+      midiTransport: ['Start / Stop input', 'Вход Start / Stop'],
+      midiListening: ['Listening for Start / Stop', 'Ожидание Start / Stop'],
+      midiStart: ['MIDI Start received', 'Получена команда MIDI Start'],
+      midiStop: ['MIDI Stop received', 'Получена команда MIDI Stop'],
+      midiInputLost: ['Selected MIDI input is unavailable', 'Выбранный MIDI-вход недоступен'],
+      midiFailed: ['Could not queue MIDI Clock on this output', 'Не удалось отправить MIDI Clock в выбранный выход'],
+      felucca: ['FM‑1 with Felucca firmware: for USB sync, select USB in HOME → CLOCK → CLK on the instrument.', 'FM‑1 с прошивкой Felucca: для синхронизации по USB выберите USB на самом инструменте в HOME → CLOCK → CLK.'],
       sending: ['Clock sending · check sync on the instrument', 'Clock отправляется · проверьте синхронизацию на инструменте'],
       hardware: ['Turn off HALO monitoring when using direct monitoring on your interface.', 'Отключите мониторинг HALO при прямом мониторинге через аудиоинтерфейс.']
     };
@@ -119,10 +150,13 @@
       get('Status').textContent = t(stream && settings.monitor ? 'monitoring' : status);
       const transport = env.transport();
       get('Timing').textContent = transport.bpm + ' BPM · ' + transport.meter;
-      const midiStatus = clock.active() ? 'sending' : get('MidiStatus').dataset.error ||
+      const midiStatus = clock.failed() ? 'midiFailed' : clock.active() ? 'sending' : get('MidiStatus').dataset.error ||
         (selectedMidi ? 'midiReady' : midi && settings.midi ? 'midiLost' : '');
       get('MidiStatus').textContent = midiStatus ? t(midiStatus) : '';
-      for (const select of [get('Input'), get('Midi')]) select.options[0].text = t('none');
+      get('TransportStatus').textContent=selectedTransport?t(lastTransport==='start'?'midiStart':lastTransport==='stop'?'midiStop':'midiListening'):
+        midi&&settings.midiTransport?t('midiInputLost'):'';
+      get('MidiHint').textContent = /felucca/i.test(selectedMidi?.name || '') ? t('felucca') : '';
+      for (const select of [get('Input'), get('Midi'),get('MidiTransport')]) select.options[0].text = t('none');
       get('Level').setAttribute('aria-label', t('level'));
       if (!takes) return;
       const view = takes.view();
@@ -234,6 +268,12 @@
       options(get('Midi'), ports.map(port => [port.id, port.name || port.id]), settings.midi);
       selectedMidi = ports.find(port => port.id === get('Midi').value);
       clock.select(selectedMidi);
+      const inputs=[...midi.inputs.values()].filter(port=>port.state==='connected');
+      options(get('MidiTransport'),inputs.map(port=>[port.id,port.name||port.id]),settings.midiTransport);
+      const input=inputs.find(port=>port.id===get('MidiTransport').value);
+      if(selectedTransport!==input)lastTransport=null;
+      selectedTransport=input;
+      midiInput.select(input);
       render();
     }
     get('MidiAccess').onclick = async () => {
@@ -243,10 +283,7 @@
         if (!navigator.requestMIDIAccess) feedback.dataset.error = 'midiUnsupported';
         else if (!midi) {
           midi = await navigator.requestMIDIAccess({ sysex: false });
-          midi.onstatechange = event => {
-            if (event.port.type === 'output' && event.port.state !== 'connected') refreshMidi();
-            else if (event.port.type === 'output' && ![...get('Midi').options].some(o => o.value === event.port.id)) refreshMidi();
-          };
+          midi.onstatechange = refreshMidi;
           refreshMidi();
         }
       } catch (_) { feedback.dataset.error = 'midiDenied'; }
@@ -254,6 +291,7 @@
     };
     const validOption=control=>control.value.length<=512&&Array.from(control.options).some(option=>option.value===control.value);
     get('Midi').onchange = e => { if(!validOption(e.target))return;settings.midi = e.target.value; save(); refreshMidi(); };
+    get('MidiTransport').onchange = e => { if(!validOption(e.target))return;settings.midiTransport=e.target.value;save();refreshMidi(); };
     get('Input').onchange = e => { if(!validOption(e.target))return;settings.input = e.target.value; save(); };
     get('Unlock').onclick = unlock;
     get('Connect').onclick = connect;
@@ -376,10 +414,17 @@
         catch (_) { takes.failPlayback(); }
       },
       monitoring: () => !!stream && settings.monitor && takes.monitor() || takes.busy(),
+      orbit(){
+        const state=takes.snapshot();
+        const present=state?.mode==='recorded'?state.clips.length>0:!!stream;
+        return present||takes.previewing()?{muted:state?.mute===true}:null;
+      },
+      toggleOrbitMute(){takes.modify({mute:!takes.view().state.mute});},
       tick(ctx, time, bpm, step) {
         const active = clock.active();
+        const failed = clock.failed();
         clock.tick(ctx, time, bpm, step);
-        if (active !== clock.active()) render();
+        if (active !== clock.active() || failed !== clock.failed()) render();
       },
       stopMidi: () => clock.stop(),
       stop(time, ctx, natural = false) {
@@ -393,7 +438,7 @@
       }
     };
   }
-  const api = { install, midiClock };
+  const api = { install, midiClock, transportInput };
   if (typeof module !== 'undefined') module.exports = api;
   else root.HaloExternalLink = api;
 })(globalThis);

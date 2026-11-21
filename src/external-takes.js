@@ -265,8 +265,10 @@
           else if (current.scope === 'song' && distance < 0) interrupt('missed', at);
         }
       }
+      const nextPosition = current.scope.startsWith('phrase:')
+        ? (previous?.position + 1) % current.length : previous?.position + 1;
       if (take && !take.stopping && (take.clip.layout !== current.layout || take.clip.scope !== current.scope ||
-          take.clip.bpm !== current.bpm || (previous?.scope === current.scope && current.position !== previous.position + 1 &&
+          take.clip.bpm !== current.bpm || (previous?.scope === current.scope && current.position !== nextPosition &&
           at < (take.frame + take.planned) / take.clip.rate - take.clip.offset / 1000 - 1e-5))) interrupt('changedGrid', at);
       if (state.mode !== 'recorded') return;
       const clipAt = descriptor => matching(descriptor).find(clip => media.fits(clip, descriptor.layout, descriptor.bpm, state.fit) &&

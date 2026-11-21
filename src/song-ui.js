@@ -23,9 +23,9 @@
    if(externalButton){
     externalButton.id='externalToggle';externalButton.type='button';
     externalButton.setAttribute('aria-controls','externalPanel');
-    const icon=element('span','external-tab-icon'),caption=element('span','external-tab-caption');
-    icon.textContent='🔗';icon.setAttribute('aria-hidden','true');caption.textContent='10 LINK';
-    externalButton.append(icon,caption);
+    const icon=element('span','external-tab-icon');
+    icon.textContent='🔗';icon.setAttribute('aria-hidden','true');
+    externalButton.append(icon);
     tabs.insertBefore(externalButton,agentButton);
     dock.append(externalPanel);
    }
@@ -245,7 +245,7 @@
     currentPhraseId:()=>song?.sections[index]?.phrase??0,
     externalSong:()=>mode&&song?song:null,
     externalPosition(step){const total=song?S.barSteps(song).at(-1):0;const position=step+stepOffset;return song?.repeat&&total?position%total:position;},
-    restartExternal(){if(!song||!mode)return;index=0;stepOffset=0;lastSection=-1;lastScheduledStep=-1;queued=null;preview=false;ended=false;env.rewind();},
+    restartExternal(){if(!song||!mode)return;commit();index=0;stepOffset=0;lastSection=-1;lastScheduledStep=-1;queued=null;preview=true;ended=false;env.rewind();},
     visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,totalSongSteps=song.sections.reduce((sum,s,i)=>sum+S.phrase(song,i).bars*(S.phrase(song,i).timeSignature==='3/4'?12:16)*s.repeats,0),e=S.at(song,song.repeat&&totalSongSteps>0?position%totalSongSteps:position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
     if(!mode||!song){
      lastScheduledStep=step;

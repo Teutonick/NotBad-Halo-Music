@@ -233,7 +233,11 @@ test('eight-bar 3/4 recording uses shared boundaries and subtracts a negative of
   await takes.arm({ kind: 'phrase', count: 1, offset: -250 });
   assert.equal(takes.lead(), 1.62);
   assert.equal(commands.length, 0);
+  ctx.currentTime = 6.25;
+  takes.tick(engine, 6.495, { ...descriptor, position: 95 });
+  assert.equal(commands.length, 1);
   takes.tick(engine, 6.62, descriptor);
+  assert.equal(commands.length, 1, 'wrapping the phrase must not truncate an armed recording');
   const capture = commands[0];
   assert.equal(capture.start, 50960);
   assert.equal(capture.end - capture.start, 96 * 15 * 8000 / 120 + 48);

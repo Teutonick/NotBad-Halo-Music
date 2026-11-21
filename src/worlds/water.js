@@ -111,7 +111,7 @@
   const layout=frame.layout||movement.layout(frame),nodes=[];
   ctx.save();if(!gpu)fallback(ctx,w,h,cy,time,reduced);
   for(let i=tracks.length-1;i>=0;i--){
-   const t=tracks[i],lane=layout[i],p=stones.project(lane.position,frame,i),under=lane.position.y>cy,color=stones.palette[i];nodes[i]=p;
+   const t=tracks[i],lane=layout[i],p=stones.project(lane.position,frame,i),under=lane.position.y>cy,color=t.id==='link'?t.color:stones.palette[i];nodes[i]=p;
    ctx.strokeStyle=color;ctx.lineWidth=.7;
    // Sample actual paths, including rotated/lobed DRIFT scenes; submerge their lower segments.
    for(const submerged of [false,true]){
@@ -130,10 +130,10 @@
    if(!under){
     ctx.save();ctx.translate(p.x,cy+(cy-p.y)*.24);ctx.scale(1,.22);ctx.globalAlpha=.09;ctx.fillStyle=color;ctx.beginPath();ctx.ellipse(0,0,10/1.5*scale,7/1.5*scale,0,0,TAU);ctx.fill();ctx.restore();
    }
-   stones.stone(ctx,i,p,scale,pulses[i]||0,under,lane.angle);
+   stones.stone(ctx,i,p,scale,pulses[i]||0,under,lane.angle,color);
    stones.glint(ctx,lane,frame,pulses[i]||0);
    const event=lane.crossing;
-   if(playing&&!gpu&&event)splashes.fallback(ctx,event.x,cy,event.age,event.entering,Math.max(.6,scale)*(.7+i*.07),reduced,effectMode,event.scale);
+   if(playing&&(!gpu||i>=9)&&event)splashes.fallback(ctx,event.x,cy,event.age,event.entering,Math.max(.6,scale)*(.7+i*.07),reduced,effectMode,event.scale);
   }
   if(labels){
    ctx.globalAlpha=.42;ctx.fillStyle='#c7d8d7';ctx.font='9px sans-serif';ctx.textAlign='center';ctx.fillText('W A T E R',cx,cy-25);

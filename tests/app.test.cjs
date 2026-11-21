@@ -679,6 +679,14 @@ test('default PHRASE panel reserves space above transport on narrow and wide lay
   assert.ok(parseFloat(guide.style.top)>=312);assert.ok(parseFloat(guide.style.top)+82+14<=bottom.getBoundingClientRect().top);
   Object.assign(guide.style,{position:'fixed',top:'25px',left:'31px'});vm.runInContext('layoutUI()',context);
   assert.equal(guide.style.top,'25px');assert.equal(guide.style.left,'31px');
+  bottom.scrollTop=20;
+  bottom.querySelector=selector=>selector==='.song-tabs'
+    ?{getBoundingClientRect:()=>({height:137,bottom:bottom.getBoundingClientRect().top+185})}
+    :{getBoundingClientRect:()=>({height:24})};
+  Object.assign(guide.style,{position:''});
+  menu.getBoundingClientRect=()=>({bottom:490});
+  vm.runInContext('layoutUI()',context);
+  assert.ok(parseFloat(bottom.style.maxHeight)>=245);
  }
 });
 test('natural song end updates transport text at the scheduled audio boundary',()=>{

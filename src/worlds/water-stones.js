@@ -7,8 +7,8 @@
  const intensity=[{length:.16,width:2,drops:16},{length:.38,width:5,drops:30},{length:.70,width:10,drops:48}];
  const hash=n=>{const v=Math.sin(n*127.1+311.7)*43758.5453;return v-Math.floor(v)};
  function outline(ctx,i,size){ctx.beginPath();for(let k=0;k<=48;k++){const a=k/48*TAU,r=size*(1+.075*Math.sin(a*3+i*1.7)+.04*Math.cos(a*2+i));const x=Math.cos(a)*r*(1.08+(i%3)*.055),y=Math.sin(a)*r*(.68+(i%4)*.045);k?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath()}
- function stone(ctx,i,p,scale,pulse,under,angle){
-  const size=(8.6+pulse*1.1)/1.5*Math.max(.72,scale),color=palette[i];
+ function stone(ctx,i,p,scale,pulse,under,angle,color=palette[i]){
+  const size=(8.6+pulse*1.1)/1.5*Math.max(.72,scale);
   ctx.save();ctx.translate(p.x,p.y);ctx.rotate(Math.sin(angle*.5+i)*.20+i*.39);
   ctx.globalAlpha=under?.36:.98;ctx.shadowColor=under?'#193c4b':'#081c25';ctx.shadowBlur=under?2.5:1.3;ctx.shadowOffsetY=under?0:1.5;
   const g=ctx.createLinearGradient(-size*.4,-size,size*.4,size);g.addColorStop(0,'#e1e4da');g.addColorStop(.30,color);g.addColorStop(.76,color);g.addColorStop(1,under?'#294754':'#657773');ctx.fillStyle=g;outline(ctx,i,size);ctx.fill();ctx.shadowBlur=0;ctx.shadowOffsetY=0;
@@ -38,7 +38,7 @@
    if(profile===7)fall*=1.8;
    const raw={x:p.x-dy/n*spread,y:p.y+dx/n*spread+fall},q=project(raw,frame,i),under=raw.y>cy;
    const size=(.65+seed*1.5)*(effectMode===0?.7:effectMode===2?1.15:1)*Math.max(.65,scale);
-   ctx.globalAlpha=(1-f*.65)*(under?.38:.50)*(effectMode===0?.7:1);ctx.strokeStyle=under?'#a1c1cb':profile===0||profile>5?'#d6e6e4':palette[i];ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=.7+seed*.5;
+   ctx.globalAlpha=(1-f*.65)*(under?.38:.50)*(effectMode===0?.7:1);ctx.strokeStyle=under?'#a1c1cb':profile===0||profile>5?'#d6e6e4':(frame.tracks[i]?.id==='link'?frame.tracks[i].color:palette[i]);ctx.fillStyle=ctx.strokeStyle;ctx.lineWidth=.7+seed*.5;
    const rotation=Math.atan2(dy,dx)+Math.PI/2,flat=under?.32:.5;
    if(profile===0){
     for(let ring=0;ring<2;ring++){ctx.beginPath();ctx.ellipse(q.x,q.y,size*(1+ring*.5),size*flat*(1+ring*.5),rotation,.15,Math.PI*.8);ctx.stroke()}
