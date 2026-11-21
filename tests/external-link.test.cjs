@@ -2,6 +2,23 @@ const assert = require('node:assert/strict');
 const test = require('node:test');
 const { midiClock, transportInput } = require('../src/external-link');
 
+test('disconnecting MIDI routing clears queued output and detaches transport input',()=>{
+  const sent=[],received=[];
+  const output={state:'connected',send:([byte])=>sent.push(byte),clear:()=>sent.push('clear')},input={};
+  const ctx={currentTime:3,state:'running'},clock=midiClock(()=>2000);
+  const listener=transportInput(command=>received.push(command));
+  listener.select(input);clock.select(output);
+  clock.tick(ctx,3.125,120,0);
+  listener.select(undefined);clock.select(undefined);
+  assert.deepEqual(sent.slice(-2),['clear',0xfc]);
+  const count=sent.length;
+  clock.tick(ctx,3.25,120,1);input.onmidimessage?.({data:[0xfa]});
+  assert.equal(sent.length,count);assert.deepEqual(received,[]);
+  listener.select(input);clock.select(output);
+  clock.tick(ctx,3.375,120,2);input.onmidimessage({data:[0xfa]});
+  assert.equal(sent[count],0xfb);assert.deepEqual(received,['start']);
+});
+
 test('selected MIDI input accepts only Start and Stop and detaches on port changes',()=>{
   const commands=[],input=transportInput(command=>commands.push(command)),first={},second={};
   input.select(first);

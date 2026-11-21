@@ -60,7 +60,7 @@
     const media = navigator.mediaDevices;
     const clock = midiClock(() => performance.now());
     const key = 'halo-external-link-v1';
-    const settings = { input: '', midi: '', midiTransport: '', trim: 100, monitor: false, solo: false, count: 1, offset: 0, from: 1, to: 4, kind: 'phrase' };
+    const settings = { input: '', midi: '', midiTransport: '', midiDisabled: false, trim: 100, monitor: false, solo: false, count: 1, offset: 0, from: 1, to: 4, kind: 'phrase' };
     const bounds = { trim: [0, 150], count: [0, 4], offset: [-500, 500], from: [1, 128], to: [1, 128], volume: [0, 100] };
     const specs = Object.fromEntries(Object.entries(bounds).map(([name,[min,max]])=>[name,{min,max,step:1,dragStep:name==='offset'?5:1}]));
     let stream, source, trim, meter, gain, engine, midi, levelTimer, connectedInput, generation = 0, status = 'disconnected';
@@ -125,6 +125,8 @@
       midiListening: ['Listening for Start / Stop', 'Ожидание Start / Stop'],
       midiStart: ['MIDI Start received', 'Получена команда MIDI Start'],
       midiStop: ['MIDI Stop received', 'Получена команда MIDI Stop'],
+      midiDisabled: ['MIDI input and output disabled', 'Приём и передача MIDI отключены'],
+      midiDisable: ['Disable MIDI input and output', 'Отключить приём и передачу MIDI'],
       midiInputLost: ['Selected MIDI input is unavailable', 'Выбранный MIDI-вход недоступен'],
       midiFailed: ['Could not queue MIDI Clock on this output', 'Не удалось отправить MIDI Clock в выбранный выход'],
       felucca: ['FM‑1 with Felucca firmware: for USB sync, select USB in HOME → CLOCK → CLK on the instrument.', 'FM‑1 с прошивкой Felucca: для синхронизации по USB выберите USB на самом инструменте в HOME → CLOCK → CLK.'],
@@ -150,21 +152,26 @@
       get('Status').textContent = t(stream && settings.monitor ? 'monitoring' : status);
       const transport = env.transport();
       get('Timing').textContent = transport.bpm + ' BPM · ' + transport.meter;
-      const midiStatus = clock.failed() ? 'midiFailed' : clock.active() ? 'sending' : get('MidiStatus').dataset.error ||
+      const midiStatus = settings.midiDisabled ? 'midiDisabled' : clock.failed() ? 'midiFailed' : clock.active() ? 'sending' : get('MidiStatus').dataset.error ||
         (selectedMidi ? 'midiReady' : midi && settings.midi ? 'midiLost' : '');
       get('MidiStatus').textContent = midiStatus ? t(midiStatus) : '';
-      get('TransportStatus').textContent=selectedTransport?t(lastTransport==='start'?'midiStart':lastTransport==='stop'?'midiStop':'midiListening'):
+      get('TransportStatus').textContent=settings.midiDisabled?'':selectedTransport?t(lastTransport==='start'?'midiStart':lastTransport==='stop'?'midiStop':'midiListening'):
         midi&&settings.midiTransport?t('midiInputLost'):'';
       get('MidiHint').textContent = /felucca/i.test(selectedMidi?.name || '') ? t('felucca') : '';
       for (const select of [get('Input'), get('Midi'),get('MidiTransport')]) select.options[0].text = t('none');
       get('Level').setAttribute('aria-label', t('level'));
+      for (const [id,label,active] of [['Mute','mute',takes?.snapshot()?.mute],['Solo','solo',settings.solo],['MidiDisable','midiDisable',settings.midiDisabled]]) {
+        const button=get(id);
+        button.setAttribute('aria-pressed',String(!!active));
+        button.setAttribute('aria-label',t(label));
+        button.title=t(label);
+      }
       if (!takes) return;
       const view = takes.view();
       const { state, draft, pending, take, loading, selected } = view;
       if (pending || take) get('Status').textContent = t(take && !view.beats ? 'recording' : 'armed');
       else if (state.mode === 'recorded' && state.clips.length) get('Status').textContent = t('recorded');
       for (const [id, value] of Object.entries({ Mode: state.mode, Volume: state.volume })) get(id).value = value;
-      get('Mute').checked = state.mute;
       get('Fit').checked = state.fit;
       get('Range').hidden = settings.kind !== 'song';
       get('Record').disabled = !!(pending || take || loading);
@@ -189,7 +196,7 @@
       setGain(trim, settings.trim / 100);
       const state = takes?.view().state;
       setGain(gain, settings.monitor && takes?.monitor() && !state.mute ? state.volume / 100 : 0);
-      env.solo(settings.solo && (!!stream && settings.monitor && takes?.monitor() || state?.mode === 'recorded' && state.clips.length > 0));
+      env.solo(settings.solo);
     }
     function release(reason = 'disconnected') {
       generation++;
@@ -267,14 +274,17 @@
       const ports = [...midi.outputs.values()].filter(port => port.state === 'connected');
       options(get('Midi'), ports.map(port => [port.id, port.name || port.id]), settings.midi);
       selectedMidi = ports.find(port => port.id === get('Midi').value);
-      clock.select(selectedMidi);
       const inputs=[...midi.inputs.values()].filter(port=>port.state==='connected');
       options(get('MidiTransport'),inputs.map(port=>[port.id,port.name||port.id]),settings.midiTransport);
       const input=inputs.find(port=>port.id===get('MidiTransport').value);
       if(selectedTransport!==input)lastTransport=null;
       selectedTransport=input;
-      midiInput.select(input);
+      applyMidiRouting();
       render();
+    }
+    function applyMidiRouting() {
+      midiInput.select(settings.midiDisabled?undefined:selectedTransport);
+      clock.select(settings.midiDisabled?undefined:selectedMidi);
     }
     get('MidiAccess').onclick = async () => {
       const feedback = get('MidiStatus');
@@ -303,7 +313,7 @@
       try { return root.HaloControls.parse(control.value,specs[name]); }
       catch (_) { control.value=fallback;return null; }
     }
-    for (const name of ['monitor', 'trim', 'solo', 'count', 'offset', 'from', 'to', 'kind']) {
+    for (const name of ['monitor', 'trim', 'count', 'offset', 'from', 'to', 'kind']) {
       const control = get(name[0].toUpperCase() + name.slice(1));
       const checkbox = control.type === 'checkbox';
       if (checkbox) control.checked = settings[name];
@@ -356,7 +366,16 @@
       else render();
     };
     get('Fit').onchange = e => takes.modify({ fit: e.target.checked });
-    get('Mute').onchange = e => takes.modify({ mute: e.target.checked });
+    const toggleMute=()=>takes.modify({mute:!takes.view().state.mute});
+    get('Mute').onclick=toggleMute;
+    get('Solo').onclick=()=>{settings.solo=!settings.solo;save();mix();render();};
+    get('MidiDisable').onclick=()=>{
+      settings.midiDisabled=!settings.midiDisabled;
+      lastTransport=null;
+      applyMidiRouting();
+      save();
+      render();
+    };
     get('Volume').oninput = e => {
       const volume=numberValue(e.target,'volume',takes.view().state.volume);
       if(volume!==null)takes.modify({volume});
@@ -406,7 +425,7 @@
         env.toast(t(name));
       },
       connect(engine) {
-        try { takes.connect(engine); wakeMeter(); }
+        try { takes.connect(engine); mix(); wakeMeter(); }
         catch (_) { env.toast(t('playbackError')); }
       },
       recordTick(engine, time, position) {
@@ -419,7 +438,7 @@
         const present=state?.mode==='recorded'?state.clips.length>0:!!stream;
         return present||takes.previewing()?{muted:state?.mute===true}:null;
       },
-      toggleOrbitMute(){takes.modify({mute:!takes.view().state.mute});},
+      toggleOrbitMute:toggleMute,
       tick(ctx, time, bpm, step) {
         const active = clock.active();
         const failed = clock.failed();

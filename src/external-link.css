@@ -3,6 +3,17 @@
   letter-spacing: .12em;
   font-size: .82rem;
 }
+.external-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-left: auto;
+}
+.external-header-actions [aria-pressed="true"] {
+  background: #1b3b46;
+  border-color: #78bab6;
+  color: #cefff3;
+}
 .external-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));

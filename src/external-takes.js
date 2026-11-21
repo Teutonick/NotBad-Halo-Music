@@ -36,7 +36,7 @@
       if (!bus) return;
       const at = audio.ctx.currentTime;
       bus.gain.cancelScheduledValues(at);
-      bus.gain.setTargetAtTime(preview || !state.mute && state.mode === 'recorded' ? state.volume / 100 : 0, at, .012);
+      bus.gain.setTargetAtTime(!state.mute && (preview || state.mode === 'recorded') ? state.volume / 100 : 0, at, .012);
     }
     function restore(value, at) {
       interrupt('interrupted', at);

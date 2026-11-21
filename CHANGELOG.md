@@ -1,3 +1,7 @@
+## 2026-11-21 — HALO LINK header controls
+
+- Move MUTE and SOLO to the Track 10 header and add a bidirectional MIDI DISABLE toggle that retains ports and audio capture.
+
 ## 2026-11-21 — Dashboard navigation height
 
 - Fit the full navigation rail above the dashboard footer and use an icon-only Track 10 button.
