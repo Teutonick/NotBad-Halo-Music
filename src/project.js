@@ -4,6 +4,12 @@
  function number(value,min,max){if(typeof value!=='number'||!Number.isFinite(value)||value<min||value>max)throw Error('Invalid numeric value');return value}
  function bpm(text){if(typeof text!=='string'||text.length>7||!/^\d{2,3}(\.\d{1,2})?$/.test(text))throw Error('BPM must be 30–200');return number(Number(text),30,200)}
  function mixSettings(value={}){if(!value||typeof value!=='object'||Array.isArray(value))throw Error('Invalid mix settings');return {low:number(value.low??0,-9,9),mid:number(value.mid??0,-9,9),high:number(value.high??0,-9,9),width:number(value.width??35,0,100)}}
+ function videoLooper(value){
+  if(!value||value.version!==1||typeof value.enabled!=='boolean'||typeof value.sync!=='boolean'||![1,2,4,8].includes(value.bars))throw Error('Invalid video looper settings');
+  const start=number(value.in,0,21600),end=value.out===null?null:number(value.out,.25,21600);
+  if(start>21599.75||end!==null&&end<start+.25)throw Error('Invalid video fragment');
+  return {version:1,enabled:value.enabled,sync:value.sync,bars:value.bars,in:start,out:end,rate:number(value.rate,.25,4),volume:number(value.volume,0,100)};
+ }
  function liveLoop(value){
   if(!value||value.version!==1||!Array.isArray(value.layerIds)||value.layerIds.length>128)throw Error('Invalid Track 09');
   const layerIds=value.layerIds.map(id=>{if(!Number.isSafeInteger(id)||id<0)throw Error('Invalid audio reference');return id});
@@ -107,6 +113,7 @@
    }
    result.tracks.push(clean);
   }
+  if(data.videoLooper!==undefined)result.videoLooper=videoLooper(data.videoLooper);
   if(data.liveLoop!==undefined)result.liveLoop=liveLoop(data.liveLoop);
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;
  }
@@ -178,5 +185,5 @@
   if(root.HaloSong&&text.length<=root.HaloSong.MAX_BYTES){const value=JSON.parse(text);if(value.format==='halo-composition')return root.HaloSong.parse(text,api,sounds)}
   return parse(text,sounds);
  }
- const api={MAX_BYTES,MAX_TOKEN,liveLoop,shareHash,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
+ const api={MAX_BYTES,MAX_TOKEN,liveLoop,videoLooper,shareHash,bpm,validate,parse,capture,wav,mixSettings,encodeShare,decodeShare};if(typeof module!=='undefined'&&module.exports)module.exports=api;else root.HaloProject=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

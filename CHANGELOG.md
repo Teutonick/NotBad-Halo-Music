@@ -1,3 +1,9 @@
+## 2026-11-21 — Video looper
+
+- Loop a local MP4 or WebM beside the eight voices and Track 09. Trim and preview with sound, adjust video volume, and follow 1, 2, 4 or 8 transport bars or choose a manual speed.
+- Add a collapsible control panel and a draggable Show mode in AMBIENT, REACTOR and WATER. Project JSON and local autosave retain settings. The file stays on the device.
+- Include the existing WATER assets in the GitHub Pages package.
+
 ## 2026-10-27 — Complete world reference for MCP and File Bridge
 
 - Publish readable directions, live timbre counts and all 30 world profiles through WebMCP; derive the corresponding File Bridge musical reference from the same live libraries.

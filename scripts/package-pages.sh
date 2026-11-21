@@ -10,5 +10,5 @@ fi
 mkdir -p "$destination/assets"
 cp index.html favicon.svg .nojekyll LICENSE capabilities.json "$destination/"
 cp -R src docs examples "$destination/"
-cp -R assets/reactor "$destination/assets/"
+cp -R assets/reactor assets/water "$destination/assets/"
 cp assets/hearing.webp assets/filexa-terms.webp "$destination/assets/"

@@ -22,6 +22,8 @@ The instrument editor’s **Sounds from all worlds** checkbox optionally reveals
 
 **Agent reference:** MCP/File Bridge includes all 3 worlds, 96 timbres and 30 readable world profiles. After updating HALO, reload and choose **Update Files** for an existing File Bridge folder. Profiles guide the agent’s original composition.
 
+**VIDEO LOOPER.** Load a local MP4 or WebM in AMBIENT, REACTOR or WATER. Set IN/OUT, preview the fragment with its soundtrack, and play it with HALO at a manual speed or over 1/2/4/8 bars. Show mode floats the video over your current world. The project saves the settings. Select the local file again after importing or reloading.
+
 ### 01 / INTRO
 
 ## STOP MAKING TRACKS. START BUILDING UNIVERSES.

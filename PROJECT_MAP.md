@@ -1,5 +1,11 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+## Video looper — 2026-11-21
+
+One local MP4/WebM element runs beside the eight voices and Track 09 in all three worlds. `src/video-looper.js` reads the existing transport beat, meter, BPM and AudioContext time. Bar sync projects absolute transport phase into IN/OUT each update. Browser playback rate follows the bar duration, with bounded drift correction and a seek at each wrap. Audio uses one media source and gain into the same master chain. Decoder errors, browser rate limits and autoplay rejection are handled within the looper. Preview uses the same media and mixer path with a separate user-initiated position; the music scheduler retains ownership of musical events.
+
+Panel and draggable Show mode are available on desktop and phone layouts. Show mode uses the active world's accent and can remain visible in Visuals only. Version-1 project and composition JSON keep optional `videoLooper` settings at the root. Local autosave also keeps the panel, show selection and window position. The local object URL is released when the clip is replaced or a project is imported. A clip must be picked again after import or reload. The feature ships as local classic-script and CSS files and uses native codecs. The Pages package includes the existing WATER assets so all three worlds remain playable in the deployed artifact. The looper adds no media assets or external requests. Native decoding and timer throttling can cause a brief transition at a loop boundary. The following update corrects to the transport phase.
+
 ## Complete agent world reference — 2026-10-27
 
 The live WebMCP and File Bridge catalogs already include all 96 timbres across AMBIENT (30 procedural), REACTOR (32 recorded presets) and WATER (32 procedural + 2 recorded handpans). The generator update added musical rules, rather than new instruments or another world.

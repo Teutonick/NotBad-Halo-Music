@@ -209,3 +209,27 @@ Idle scans do not re-notify UI subscribers or clone unchanged pending scores.
 2026-10-18: The collapsed workspace toggle now displays an upward arrow; expanded mode retains the minimize line. A localized Report a bug link to the repository’s `/issues/new` form appears immediately left of Reset workspace, opening a separate tab with noopener/noreferrer. No issue is submitted automatically; no engine or Agent API operations changed.
 
 Context schema versions after consolidation: capabilities 2, instruments 3, music-rules 2, project-state 2; request schemaVersion remains 1.
+
+
+## Local video looper project metadata
+
+Version-1 `notbad-halo-project` / `halo-project` and `halo-composition` JSON accept an optional root field:
+
+```json
+{
+  "videoLooper": {
+    "version": 1,
+    "enabled": true,
+    "sync": true,
+    "bars": 2,
+    "in": 1.5,
+    "out": 5.0,
+    "rate": 1,
+    "volume": 35
+  }
+}
+```
+
+All members are required when the field is present. `enabled` and `sync` are booleans. `bars` is one of 1, 2, 4, 8. `in` and `out` use seconds (0–21600; finite end at least 0.25 s after IN). A null `out` uses the selected video's end. `rate` is the manual speed (0.25–4×). `volume` is percent (0–100). Projects omitting the field use disabled, bar sync, one bar, IN 0, OUT null, speed 1× and volume 35%. In a composition the field applies to the whole song. Phrase-level copies are removed during composition validation.
+
+This metadata describes local playback in the HALO UI. Project Save and Share can carry it. WebMCP state and revision track the musical project and omit video settings. File Bridge `halo-score` and the WebMCP patch field allowlists continue to describe musical edits. Selecting a file, decoding, playback control and the floating video window are interactive UI actions. Project metadata contains no filename, media bytes, blob URL or filesystem handle. The user selects the source after import or reload.
