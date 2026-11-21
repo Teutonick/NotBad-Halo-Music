@@ -111,7 +111,7 @@
     source=audio.ctx.createMediaElementSource(video);
     engine=audio;
     source.connect(gain);
-    gain.connect(audio.master);
+    gain.connect(audio.program || audio.master);
     audio.ctx.addEventListener('statechange',update);
     return true;
    }catch{

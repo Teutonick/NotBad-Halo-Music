@@ -20,7 +20,7 @@
    const agentPanel=document.createElement('div');agentPanel.className='agent-panel';agentPanel.hidden=true;dock.append(panel,loopPanel,agentPanel,tracks);
    function readMusicState(){
     const value=portable()||env.snapshot();
-    delete value.videoLooper;
+    delete value.videoLooper;delete value.externalLink;
     return value;
    }
    const agent=root.HaloAgent?.create({project:root.HaloProject,song:S,sounds:root.HaloSounds,composition:root.HaloComposition,samples:root.HaloSampleCatalog,defaults:env.defaults,visual:env.visual,writeVisual:env.writeVisual,async playback(on){if(on&&!env.isPlaying?.()&&root.navigator?.userActivation?.hasBeenActive===false)return {playing:false,reason:"AUDIO_GESTURE_REQUIRED"};if(on)await env.startPlayback();else await env.pausePlayback();return {playing:env.isPlaying?.()===true}},read:readMusicState,async write(value){const next=value.format==='halo-composition'?S.validate(value,root.HaloProject,root.HaloSounds):null;const selectedId=song?.sections[index]?.phrase;const nextIndex=next?Math.max(0,next.sections.findIndex(s=>s.phrase===selectedId)):0;await env.load(next?snapshotPhrase(nextIndex,next):value,undefined,{preserveAuto:true});song=next;index=nextIndex;preview=false;mode=!!next;lastSection=-1;queued=null;ended=false;stepOffset=0;phraseOffset=0;lastScheduledStep=-1;render();persist();}});
@@ -105,8 +105,8 @@
     handle.onpointerup=e=>{if(!drag||drag.handle!==handle)return;const {from,to,moved}=drag;clearDrag();if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);if(moved)return move(from,to).catch(fail)};
     handle.onpointercancel=clearDrag;handle.onlostpointercapture=clearDrag;
    }
-   async function build(){commit();song=S.validate(S.build(env.snapshot()),root.HaloProject,root.HaloSounds);await select(0,false)}
-   async function add(){commit();const p=env.snapshot();if(!song){song=S.validate({format:'halo-composition',version:1,tempo:p.tempo,...(p.timeSignature==='3/4'?{timeSignature:'3/4'}:{}),phrases:[{id:1,project:p}],sections:[{phrase:1,name:'phrase',repeats:1,fade:'none'}]},root.HaloProject,root.HaloSounds)}else{const next=S.copy(song),id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:p});next.sections.push({phrase:id,name:'phrase',repeats:1,fade:'none'});song=S.validate(next,root.HaloProject,root.HaloSounds)}await select(song.sections.length-1,false)}
+   async function build(){commit();const creating=!song;song=S.validate(S.build(env.snapshot()),root.HaloProject,root.HaloSounds);if(creating)env.adoptExternalPhrase?.(song.sections[0].phrase);await select(0,false)}
+   async function add(){commit();const p=env.snapshot();if(!song){song=S.validate({format:'halo-composition',version:1,tempo:p.tempo,...(p.timeSignature==='3/4'?{timeSignature:'3/4'}:{}),phrases:[{id:1,project:p}],sections:[{phrase:1,name:'phrase',repeats:1,fade:'none'}]},root.HaloProject,root.HaloSounds);env.adoptExternalPhrase?.(1)}else{const next=S.copy(song),id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:p});next.sections.push({phrase:id,name:'phrase',repeats:1,fade:'none'});song=S.validate(next,root.HaloProject,root.HaloSounds)}await select(song.sections.length-1,false)}
    async function duplicate(i,independent){commit();song=S.validate(S.duplicate(song,i,independent),root.HaloProject,root.HaloSounds);await select(i+1,false)}
    async function remove(i){
     if(song.sections.length===1)return;
@@ -180,16 +180,32 @@
    compositionButton.onclick=()=>{try{if(tab==='composition')return;commit();if(song){const pSel=S.phrase(song,index),spbSel=pSel.timeSignature==='3/4'?12:16,next=Math.max(0,lastScheduledStep+1,Math.ceil(env.playhead?.()??0)),length=pSel.bars*spbSel,local=((next+phraseOffset)%length+length)%length;stepOffset=sectionStart(index)+local-next;preview=true;lastSection=-1;ended=false;queued=null;}mode=true;tab='composition';render();persist()}catch(e){fail(e)}};
    agentButton.onclick=()=>{tab='agents';render();persist()};
    loopButton.onclick=()=>{try{if(tab==='live-loop')return;tab='live-loop';render();persist()}catch(e){fail(e)}};
-   function portableWithVideo(){
+   function portableWithAddons(){
     const next=portable();
     const settings=env.videoSettings?.();
     if(settings)next.videoLooper=settings;
+    const external=env.externalSettings?.();
+    if(external)next.externalLink=external;else delete next.externalLink;
     return S.validate(next,root.HaloProject,root.HaloSounds);
    }
    const save=$('saveProject').onclick,share=$('shareProject').onclick;
-   $('saveProject').onclick=()=>{try{if(!song)return save();env.download(new Blob([JSON.stringify(portableWithVideo(),null,2)],{type:'application/json'}),'halo-composition.json');persist()}catch(e){env.toast(e.message)}};
-   $('projectFile').onchange=async e=>{try{const file=e.target.files?.[0];if(!file)return;if(file.size>S.MAX_BYTES)throw Error('Composition exceeds size limit');const text=await file.text(),data=JSON.parse(text);if(data.format!=='halo-composition'){const p=root.HaloProject.parse(text,root.HaloSounds);await env.load(p,undefined,{importVideo:true});song=null;mode=false;tab='instruments';preview=false;render();persist();return}const next=S.parse(text,root.HaloProject,root.HaloSounds);await env.load({...snapshotPhrase(0,next),videoLooper:next.videoLooper},undefined,{importVideo:true});song=next;preview=false;index=0;mode=true;tab='composition';render();persist()}catch(e){env.toast(e.message)}};
-   $('shareProject').onclick=async()=>{if(!song)return share();try{const token=await root.HaloProject.encodeShare(portableWithVideo());const url=location.href.split('#')[0]+'#song='+token;if(url.length>24000)throw Error(tr('Ссылка слишком длинная; сохраните JSON','Link is too long; save JSON instead'));if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);else window.prompt(tr('Скопируйте ссылку','Copy link'),url);env.toast(tr('Ссылка на композицию скопирована','Composition link copied'))}catch(e){env.toast(e.message)}};
+   $('saveProject').onclick=()=>{try{if(!song)return save();env.warnExternalJSON?.();env.download(new Blob([JSON.stringify(portableWithAddons(),null,2)],{type:'application/json'}),'halo-composition.json');persist()}catch(e){env.toast(e.message)}};
+   async function loadPortable(data){
+    if(data.format!=='halo-composition'){
+     await env.load(data,undefined,{importVideo:true,importExternal:true});song=null;mode=false;tab='instruments';preview=false;
+    }else{
+     await env.load({...snapshotPhrase(0,data),videoLooper:data.videoLooper,externalLink:data.externalLink},undefined,{importVideo:true,importExternal:true});
+     song=data;index=0;mode=true;tab='composition';preview=false;
+    }
+    render();persist();
+   }
+   $('projectFile').onchange=async e=>{try{
+    const file=e.target.files?.[0];if(!file)return;
+    const parse=text=>JSON.parse(text).format==='halo-composition'?S.parse(text,root.HaloProject,root.HaloSounds):root.HaloProject.parse(text,root.HaloSounds);
+    if(file.name?.toLowerCase().endsWith('.halolink'))await loadPortable(await env.unpackExternal(file,parse));
+    else{if(file.size>S.MAX_BYTES)throw Error('Composition exceeds size limit');await loadPortable(parse(await file.text()));}
+   }catch(e){if(e.target.files?.[0]?.name?.toLowerCase().endsWith('.halolink'))env.externalPackageError?.();else env.toast(e.message)}};
+   $('shareProject').onclick=async()=>{if(!song)return share();try{const token=await root.HaloProject.encodeShare(portableWithAddons());const url=location.href.split('#')[0]+'#song='+token;if(url.length>24000)throw Error(tr('Ссылка слишком длинная; сохраните JSON','Link is too long; save JSON instead'));if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);else window.prompt(tr('Скопируйте ссылку','Copy link'),url);env.toast(tr('Ссылка на композицию скопирована','Composition link copied'))}catch(e){env.toast(e.message)}};
    function portable(){commit();if(!song)return null;const next=S.copy(song),common=settings();next.tempo=common.tempo;next.masterVolume=common.masterVolume;next.mix=common.mix;return next}
    document.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(persist,400)});
    document.addEventListener('click',e=>{if(tabs.contains(e.target)||panel.contains(e.target)||loopPanel.contains(e.target)||agentPanel.contains(e.target))return;clearTimeout(timer);timer=setTimeout(()=>{persist();render()},400)});
@@ -200,13 +216,19 @@
    }
    try{let text=localStorage.getItem(key);if(!text&&key!==baseKey){const legacy=localStorage.getItem(baseKey);if(legacy){const value=JSON.parse(legacy);if(value.song?.phrases?.[0]?.project?.setup===env.snapshot().setup)text=legacy;}}restoreWorldRecord(text);}catch(e){env.toast(tr('Не удалось восстановить композицию','Could not restore composition'))}
    if(song)env.load(snapshotPhrase(index)).catch(e=>env.toast(e.message));
-   async function checkSharedSong(){const hash=location.hash;try{const shared=root.HaloProject.shareHash(hash);if(!shared||shared.kind!=='song')return;const value=await root.HaloProject.decodeShare(shared.token,root.HaloSounds);if(location.hash!==hash)return;const next=S.validate(value,root.HaloProject,root.HaloSounds);await env.load({...snapshotPhrase(0,next),videoLooper:next.videoLooper},undefined,{importVideo:true});song=next;index=0;mode=true;tab='composition';preview=false;window.history?.replaceState(null,'',location.href.split('#')[0]);render();persist()}catch(e){env.toast(root.HaloI18n?.translate(e.message,env.language())||e.message)}}
+   async function checkSharedSong(){const hash=location.hash;try{const shared=root.HaloProject.shareHash(hash);if(!shared||shared.kind!=='song')return;const value=await root.HaloProject.decodeShare(shared.token,root.HaloSounds);if(location.hash!==hash)return;const next=S.validate(value,root.HaloProject,root.HaloSounds);await env.load({...snapshotPhrase(0,next),videoLooper:next.videoLooper,externalLink:next.externalLink},undefined,{importVideo:true,importExternal:true});song=next;index=0;mode=true;tab='composition';preview=false;window.history?.replaceState(null,'',location.href.split('#')[0]);render();persist()}catch(e){env.toast(root.HaloI18n?.translate(e.message,env.language())||e.message)}}
    window.addEventListener('hashchange',checkSharedSong);checkSharedSong();
    if(root.HaloLiveLoop){
     root.HaloLiveLoop.init({...env,changed(){persist();env.changed?.();}});
    }
    render();
-    return {saveWorld(){persist();},restoreWorld(world){key=worldKey(world);try{restoreWorldRecord(localStorage.getItem(key),world);}catch(e){env.toast(tr('Не удалось восстановить композицию','Could not restore composition'))}render();persist();},onPhraseRestart(){commit();phrasePlaySteps=0;phraseOffset=0;ended=false;lastScheduledStep=-1;if(mode&&song){stepOffset=sectionStart(index);lastSection=-1;queued=null;}},phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),spb=p.timeSignature==='3/4'?12:16,length=p.bars*spb;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,render,visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,totalSongSteps=song.sections.reduce((sum,s,i)=>sum+S.phrase(song,i).bars*(S.phrase(song,i).timeSignature==='3/4'?12:16)*s.repeats,0),e=S.at(song,song.repeat&&totalSongSteps>0?position%totalSongSteps:position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
+    return {saveWorld(){persist();},restoreWorld(world){key=worldKey(world);try{restoreWorldRecord(localStorage.getItem(key),world);}catch(e){env.toast(tr('Не удалось восстановить композицию','Could not restore composition'))}render();persist();},onPhraseRestart(){commit();phrasePlaySteps=0;phraseOffset=0;ended=false;lastScheduledStep=-1;if(mode&&song){stepOffset=sectionStart(index);lastSection=-1;queued=null;}},phraseStep(step){if(mode||!song)return step;const p=S.phrase(song,index),spb=p.timeSignature==='3/4'?12:16,length=p.bars*spb;return p.startStep+((step+phraseOffset-p.startStep)%length+length)%length},generated(){if(!song)return;const n=preview&&lastSection>=0?lastSection:index,next=S.copy(song);next.phrases.find(p=>p.id===next.sections[n].phrase).project=env.snapshot();song=S.validate(next,root.HaloProject,root.HaloSounds);index=n;queued=null;lastSection=-1;render();persist()},beforePlay(){phrasePlaySteps=0;if(mode&&song&&ended){ended=false;lastSection=-1;stepOffset=0;lastScheduledStep=-1;queued=null;env.rewind()}else{ended=false;if(mode&&song&&!preview){commit();stepOffset=sectionStart(index);}}},portable,portableWithAddons,render,
+    hasSong:()=>!!song,
+    currentPhraseId:()=>song?.sections[index]?.phrase??0,
+    externalSong:()=>mode&&song?song:null,
+    externalPosition(step){const total=song?S.barSteps(song).at(-1):0;const position=step+stepOffset;return song?.repeat&&total?position%total:position;},
+    restartExternal(){if(!song||!mode)return;index=0;stepOffset=0;lastSection=-1;lastScheduledStep=-1;queued=null;preview=false;ended=false;env.rewind();},
+    visualGain(step){if(!mode||!song)return 1;const position=Math.floor(step)+stepOffset,totalSongSteps=song.sections.reduce((sum,s,i)=>sum+S.phrase(song,i).bars*(S.phrase(song,i).timeSignature==='3/4'?12:16)*s.repeats,0),e=S.at(song,song.repeat&&totalSongSteps>0?position%totalSongSteps:position);if(!e)return .2;return .2+.8*e.gain*e.project.tracks.filter(t=>t.on).length/8},active:()=>mode&&!!song,isPhraseRepeat:()=>phraseRepeat,setPhraseRepeat(v){phraseRepeat=v!==false;updateRepeatButton();},isCompositionRepeat:()=>!!(song&&song.repeat),setCompositionRepeat(v){if(song){song.repeat=!!v;persist();updateRepeatButton();}},tick(time,step,audio){
     if(!mode||!song){
      lastScheduledStep=step;
      if(resetGain){audio.master?.gain.setTargetAtTime(settings().masterVolume/100,time,.05);resetGain=false;}
@@ -231,6 +253,7 @@
     const p=event.project;
     audio.master?.gain.setTargetAtTime(settings().masterVolume/100*event.gain,time,.05);
     if(event.index!==lastSection){if(lastSection>=0) {root.HaloLiveLoop?.beforePhraseChange?.(time,audio,song.tempo);const previous=song.phrases.find(p=>p.id===song.sections[lastSection].phrase);if(previous&&root.HaloLiveLoop)previous.project.liveLoop=root.HaloLiveLoop.capturePhrase();}root.HaloLiveLoop?.restorePhrase(p.liveLoop,time);env.setTracks(p);lastSection=event.index;index=event.index;showPhrase();Array.from(blocks.children).forEach(b=>b.setAttribute('aria-current',String(Number(b.dataset.section)===event.index)));env.tracks.forEach((t,i)=>audio.update(i,time));}
+    env.externalSongTick?.(song,position,event,time,audio);
     root.HaloLiveLoop?.tick(time,event.local,audio,song.tempo,p.bars,p.key);
     const spb=p.timeSignature==='3/4'?12:16;env.tracks.forEach((t,i)=>{const clock=t.generator>=3?event.absolute:event.local;if(!root.HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars,p.timeSignature))return;audio.play(i,root.HaloSounds.notesFor(t,i,Math.floor(event.local/spb),event.local%spb,p.seed,root.HaloComposition.offsets[p.key],p.bars,clock,t.generator===4?root.HaloComposition.modes[p.key]:'minor',p.timeSignature),time,root.HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,root.HaloSounds.soundFor(t));env.pulse(i,time)});return true;
    }};

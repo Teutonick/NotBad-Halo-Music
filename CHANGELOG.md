@@ -1,3 +1,9 @@
+## 2026-11-21 — HALO LINK Track 10
+
+- Add a collapsible bilingual Track 10 panel with audio input selection, metering, trim, monitoring, volume and mute.
+- Offer optional MIDI Clock and transport from the existing scheduler.
+- Record phrase and composition takes with AudioWorklet, store them in IndexedDB, and save portable project packages and mixed WAV files.
+
 ## 2026-11-21 — Video looper
 
 - Loop a local MP4 or WebM beside the eight voices and Track 09. Trim and preview with sound, adjust video volume, and follow 1, 2, 4 or 8 transport bars or choose a manual speed.

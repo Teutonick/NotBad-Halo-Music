@@ -65,7 +65,7 @@
     const incoming=await acquire();
     monitorSource=audio.ctx.createMediaStreamSource(incoming);monitorGain=audio.ctx.createGain();
     monitorGain.gain.setValueAtTime(0,audio.ctx.currentTime);monitorGain.gain.linearRampToValueAtTime(.5,audio.ctx.currentTime+.02);
-    monitorSource.connect(monitorGain);monitorGain.connect(audio.master||audio.ctx.destination);monitoring=true;
+    monitorSource.connect(monitorGain);monitorGain.connect(audio.program||audio.master||audio.ctx.destination);monitoring=true;
     say('Прослушивание входа · используйте наушники','Input monitoring · use headphones');return true;
    }catch(error){if(!lastError)report('monitor',error);release();if(config.kind==='instrument'&&!config.deviceId)say('Выберите конкретный вход аудиоинтерфейса: ДОСТУП К ВХОДАМ → УСТРОЙСТВО','Choose an interface input: ENABLE INPUTS → DEVICE');else say('Не удалось открыть выбранный аудиовход','Could not open the selected audio input');return false}
    finally{busy=false;changed()}

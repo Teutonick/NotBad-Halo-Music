@@ -114,6 +114,20 @@
         } catch (_) { resolve(false); }
       });
     },
+    async addPackageLayers(layers) {
+      const db = await this.open();
+      if (!db) return false;
+      try {
+        return await new Promise(resolve => {
+          const tx = db.transaction(STORE_LAYERS, 'readwrite');
+          for (const layer of layers) tx.objectStore(STORE_LAYERS).add({
+            ...layer, pcmL: layer.pcmL.buffer, pcmR: layer.pcmR.buffer
+          });
+          tx.oncomplete = () => resolve(true);
+          tx.onabort = () => resolve(false);
+        });
+      } finally { db.close(); }
+    },
     async deleteLayer(id) {
       const db = await this.open();
       if (!db) return false;
@@ -928,9 +942,9 @@
 
       if (panner) {
         trackGain.connect(panner);
-        if (audio.master) panner.connect(audio.master);
+        if (audio.master) panner.connect(audio.program || audio.master);
       } else if (audio.master) {
-        trackGain.connect(audio.master);
+        trackGain.connect(audio.program || audio.master);
       }
 
       if (audio.reverb) {
@@ -3231,10 +3245,10 @@
       if (panNode) {
         panNode.pan.value = settings.pan / 100;
         trackG.connect(panNode);
-        if (engine && engine.master) panNode.connect(engine.master);
+        if (engine && engine.master) panNode.connect(engine.program || engine.master);
         else panNode.connect(ctx.destination);
       } else if (engine && engine.master) {
-        trackG.connect(engine.master);
+        trackG.connect(engine.program || engine.master);
       } else {
         trackG.connect(ctx.destination);
       }
@@ -3510,6 +3524,20 @@
           triggerQuantizedLoopRestart();
         }
       }
+    },
+    async packageLayers(ids) {
+      await ready;
+      capturePhrase();
+      return ids.map(id => {
+        const layer = layerLibrary.get(id);
+        if (!layer) throw Error('Track 09 recording is missing');
+        return layer;
+      });
+    },
+    async importPackageLayers(layers) {
+      await ready;
+      if (!await IDB.addPackageLayers(layers)) throw Error('Could not store Track 09 audio');
+      layers.forEach(layer => layerLibrary.set(layer.id, layer));
     },
     getLayers() {
       return [...layers];

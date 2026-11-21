@@ -1,5 +1,9 @@
 # HALO External Agent API, WebMCP Site Tools and File Bridge
 
+## HALO LINK / Track 10
+
+Track 10 LIVE audio inputs, monitoring, and the optional Web MIDI output are user-controlled browser functions. Their preferences are local to the browser. User-saved version-1 project and composition JSON may include optional root `externalLink: {version: 1, mode, volume, mute, fit, clips}`. Clip references use `id` (local UUID), `scope` (`phrase:0` for standalone, `phrase:<id>` or `song` for composition), `layout` (musical grid identity), zero-based sixteenth-note `start`, `steps`, original `bpm` / `meter`, signed millisecond `offset`, PCM `frames` / `rate` and optional crossfade `tail` in frames. Compact JSON contains references only. The optional local package uses the `HALOLINK` magic, a little-endian uint32 JSON length, a UTF-8 manifest with `version`, `project` and ordered CRC-32 `checksums`, then one PCM16 stereo WAV per clip and the referenced Track 09 layers as checksummed planar Float32 PCM (ordered by the optional `track09` manifest). Import allocates local IDs after validation. WebMCP and File Bridge use the existing musical contract and do not expose device selection, capture controls, PCM, or these reference IDs.
+
 ## Complete agent world reference — 2026-10-27
 
 The live WebMCP and File Bridge catalogs already include all 96 timbres across AMBIENT (30 procedural), REACTOR (32 recorded presets) and WATER (32 procedural + 2 recorded handpans). The generator update added musical rules, rather than new instruments or another world.

@@ -686,7 +686,7 @@ test('natural song end updates transport text at the scheduled audio boundary',(
  const start=html.indexOf(' finish(time){'),end=html.indexOf(' retriggerPhrase',start);
  const callback=html.slice(start,end);assert.ok(start>0&&end>start);
  const nodes={play:{classList:{remove(){}}},transportTitle:{textContent:'YOUR UNIVERSE IS ALIVE'},transportDesc:{textContent:'playing'}};
- let timer;const context={videoLooper:null,playing:true,frozenBeat:12,scheduler:1,audio:{ctx:{currentTime:5}},$:id=>nodes[id],clearInterval(){},setTimeout(fn,ms){timer={fn,ms}}};
+ let timer;const context={videoLooper:null,externalLink:null,playing:true,frozenBeat:12,scheduler:1,audio:{ctx:{currentTime:5}},$:id=>nodes[id],clearInterval(){},setTimeout(fn,ms){timer={fn,ms}}};
  vm.createContext(context);vm.runInContext('const receiver={'+callback+'};receiver.finish(5.16)',context);
  assert.ok(Math.abs(timer.ms-160)<0.01);assert.equal(nodes.transportTitle.textContent,'YOUR UNIVERSE IS ALIVE');
  timer.fn();assert.equal(context.playing,false);assert.equal(nodes.transportTitle.textContent,'UNIVERSE PAUSED');assert.equal(nodes.transportDesc.textContent,'Tap to continue your soundscape');

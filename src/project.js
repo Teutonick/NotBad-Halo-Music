@@ -113,6 +113,7 @@
    }
    result.tracks.push(clean);
   }
+  if(data.externalLink!==undefined)result.externalLink=(root.HaloExternalMedia || (typeof module!=='undefined' && require('./external-media.js'))).validate(data.externalLink);
   if(data.videoLooper!==undefined)result.videoLooper=videoLooper(data.videoLooper);
   if(data.liveLoop!==undefined)result.liveLoop=liveLoop(data.liveLoop);
   result.tracks.sort((a,b)=>names.indexOf(a.name)-names.indexOf(b.name));return result;

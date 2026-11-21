@@ -1,5 +1,9 @@
 # PROJECT_MAP.md — NotBad Halo Music Constructor architecture and roadmap
 
+## HALO LINK — 2026-11-21
+
+Track 10 LIVE routes the selected local audio input through separate input trim, metering and an optional monitor gain into the HALO master in all three worlds. A separate Web MIDI selector sends standard transport and 24 PPQN Clock using the existing audio scheduler. The browser stores connection preferences on the same origin. AudioWorklet records stereo PCM for 4/8-bar phrases and selected composition ranges with count-in and signed offset. Kept takes remain in IndexedDB and are associated with phrase IDs or absolute composition ranges. Changes to the musical grid are checked before playback/export. Track 10 Solo uses a separate gain for the existing program mix. Compact project files store optional references; the local `.halolink` package carries the project and checksummed stereo WAV files. The offline renderer uses the same clip positioning and gain as realtime playback. The hardware acceptance procedure lives in [HALO LINK acceptance](docs/halo-link-acceptance.md).
+
 ## Video looper — 2026-11-21
 
 One local MP4/WebM element runs beside the eight voices and Track 09 in all three worlds. `src/video-looper.js` reads the existing transport beat, meter, BPM and AudioContext time. Bar sync projects absolute transport phase into IN/OUT each update. Browser playback rate follows the bar duration, with bounded drift correction and a seek at each wrap. Audio uses one media source and gain into the same master chain. Decoder errors, browser rate limits and autoplay rejection are handled within the looper. Preview uses the same media and mixer path with a separate user-initiated position; the music scheduler retains ownership of musical events.
