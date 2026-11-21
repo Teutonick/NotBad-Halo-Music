@@ -2,6 +2,25 @@
 (function(root){
  'use strict';
  const defaults=Object.freeze({version:1,enabled:false,sync:true,bars:1,in:0,out:null,rate:1,volume:35});
+ const validFile=file=>file instanceof Blob&&typeof file.name==='string'&&/\.(mp4|webm)$/i.test(file.name)&&file.size>0&&file.size<=1073741824;
+ function localStore(){
+  let connection;
+  function access(write,file){
+   if(!connection)connection=new Promise((resolve,reject)=>{
+    const request=root.indexedDB.open('halo-video-looper-v1',1);
+    request.onupgradeneeded=()=>request.result.createObjectStore('media');
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error);
+   }).catch(error=>{connection=null;throw error});
+   return connection.then(db=>new Promise((resolve,reject)=>{
+    const tx=db.transaction('media',write?'readwrite':'readonly'),store=tx.objectStore('media');
+    const request=write?(file?store.put(file,'clip'):store.delete('clip')):store.get('clip');
+    tx.oncomplete=()=>resolve(request.result);
+    tx.onabort=()=>reject(tx.error);
+   }));
+  }
+  return {read:()=>access(false),write:file=>access(true,file)};
+ }
  const wrap=(value,length)=>((value%length)+length)%length;
  function target(settings,clock,end){
   const length=end-settings.in,cycle=settings.bars*clock.beatsPerBar;
@@ -10,16 +29,26 @@
 
  function install(env){
   const $=id=>document.getElementById(id);
-  const panel=$('videoLooper'),toggle=$('videoLooperToggle'),frame=$('videoLooperFrame');
+  const panel=$('videoLooperPanel'),display=$('videoLooper'),frame=$('videoLooperFrame'),preview=$('videoLooperInline');
   const labels={
    title:['ВИДЕОЛУПЕР','VIDEO LOOPER'], file:['Выбрать MP4 / WebM','Choose MP4 / WebM'],
+   rightsTitle:['Права на видео · Copyright','Video & Copyright'],
+   rightsMessage:['HALO хранит видеофайл в этом браузере и не отправляет его на сервер.\n\nПожалуйста, подтвердите, что вы обладаете авторскими правами или необходимым разрешением на использование этого видео и его звуковой дорожки.','HALO stores the video in this browser and never uploads it to a server.\n\nPlease confirm that you own the copyright or have the necessary permission to use this video and its soundtrack.'],
+   confirm:['Подтверждаю','Confirm'], cancel:['Отмена','Cancel'],
+   remove:['Удалить видео','Remove video'],
+   replace:['Заменить видео','Replace video'],
+   saving:['Сохраняем видео в браузере…','Saving video in this browser…'],
+   restoring:['Восстанавливаем сохранённое видео…','Restoring saved video…'],
+   storeError:['Не удалось сохранить видео в браузере.','Could not save the video in this browser.'],
+   readError:['Не удалось восстановить видео из браузера. Выберите файл снова.','Could not restore the video from this browser. Select the file again.'],
+   removeError:['Не удалось удалить сохранённое видео из браузера.','Could not remove the stored video from this browser.'],
    timeline:['Позиция видео и границы фрагмента','Video position and fragment bounds'],
    in:['Начало (IN), с','Start (IN), s'], out:['Конец (OUT), с','End (OUT), s'],
    enabled:['Включить видеолупер','Enable video looper'], sync:['Привязка к тактам','Sync to bars'],
    bars:['Такты','Bars'], rate:['Ручная скорость ×','Manual speed ×'], volume:['Звук видео','Video volume'],
    play:['Играть','Play'], pause:['Пауза','Pause'], stop:['Стоп','Stop'],
    preview:['Предпросмотр','Preview'], show:['Режим показа','Show mode'], edit:['К настройкам','Back to controls'],
-   close:['Свернуть видеолупер','Collapse video looper'],
+   close:['Закрыть режим показа','Close show mode'],
    drag:['Переместить окно стрелками','Move window with arrow keys'],
    missing:['Выберите локальный файл','Choose a local file'], loading:['Открываем видео…','Opening video…'],
    invalid:['Выберите MP4 или WebM размером до 1 ГиБ.','Choose an MP4 or WebM file up to 1 GiB.'],
@@ -33,16 +62,38 @@
    previewing:['Предпросмотр со звуком','Preview with sound']
   };
   const tr=key=>labels[key][env.language()==='ru'?0:1];
-  const controls=Object.fromEntries(['Choose','File','Name','Timeline','In','Out','Enabled','Sync','Bars','Rate','Volume','Play','Pause','Stop','Preview','Show','Close','Metrics','Status'].map(key=>[key,$('videoLooper'+key)]));
+  const controls=Object.fromEntries(['Choose','File','Name','Remove','Timeline','In','Out','Enabled','Sync','Bars','Rate','Volume','Play','Pause','Stop','Preview','Show','Close','Metrics','Status'].map(key=>[key,$('videoLooper'+key)]));
+  const store=env.store??(root.indexedDB?localStore():null);
   let settings={...defaults},mode='armed',duration=0,url=null,video,engine=null,source=null,gain=null;
   let timer=null,attempt=null,problem='',ready=false,gate=false,manualTime=0,anchorTime=null,shown=false;
   let syncCycle=null,forceSeek=true,priming=false,cutoff=null,rangeClock=null,previewStarting=false;
+  const rightsKey='halo-video-copyright-confirmed';
+  let rightsConfirmed=false,choosing=false,fileRevision=0;
+  let mediaRevision=0,restoring=false,storageNotice='',hasStoredClip=false;
+  try{rightsConfirmed=localStorage.getItem(rightsKey)==='true'}catch{}
   const end=()=>Math.min(settings.out??duration,duration);
+  const floorTime=value=>Math.floor(value*100+1e-8)/100;
+  const ceilTime=value=>Math.ceil(value*100-1e-8)/100;
+  const numberSpecs={
+   In:()=>({min:0,max:Math.max(0,floorTime(end()-.25)),step:.01,dragStep:.1}),
+   Out:()=>({min:ceilTime(settings.in+.25),max:Math.max(ceilTime(settings.in+.25),floorTime(duration)),step:.01,dragStep:.1}),
+   Rate:{min:.25,max:4,step:.01,dragStep:.05},
+   Bars:{values:[1,2,4,8]},
+   Volume:{min:0,max:100,step:1},
+   Timeline:()=>({min:0,max:floorTime(duration),step:.01,dragStep:.1})
+  };
+  const controlAPI=root.HaloControls;
+  for(const [name,spec] of Object.entries(numberSpecs))controlAPI?.install(controls[name],spec);
+  function numberValue(name){
+   const spec=numberSpecs[name];
+   try{return controlAPI.parse(controls[name].value.replace(',','.'),typeof spec==='function'?spec():spec)}
+   catch{return null}
+  }
   const setText=(el,value)=>{if(el.textContent!==value)el.textContent=value};
   const format=(n,d=2)=>Number.isFinite(n)?n.toFixed(d):'—';
   function playbackStatus(clock){
    if(problem)return problem;
-   if(!ready)return url?'loading':'missing';
+   if(!ready)return url?'loading':restoring?'restoring':'missing';
    if(mode==='preview')return 'previewing';
    if(!settings.enabled)return 'disabled';
    if(mode==='paused'||mode==='stopped')return mode;
@@ -55,28 +106,34 @@
    controls.Enabled.checked=settings.enabled;
    controls.Sync.checked=settings.sync;
    updateValue(controls.Bars,settings.bars);
-   updateValue(controls.Rate,settings.rate);
+   updateValue(controls.Rate,Number(settings.rate.toFixed(2)));
    updateValue(controls.Volume,settings.volume);
    controls.Bars.disabled=!settings.sync;
    controls.Rate.disabled=settings.sync;
    for(const name of ['In','Out','Timeline','Play','Pause','Stop','Preview','Show'])controls[name].disabled=!loaded;
-   updateValue(controls.In,settings.in);
-   updateValue(controls.Out,settings.out??(loaded?duration:''));
+   updateValue(controls.In,floorTime(settings.in));
+   updateValue(controls.Out,loaded?floorTime(end()):'');
    const rate=settings.sync&&mode!=='preview'&&loaded?target(settings,clock,end()).rate:settings.rate;
-   setText(controls.Status,tr(playbackStatus(clock)));
+   controls.Remove.disabled=!url&&!restoring&&!hasStoredClip;
+   setText(controls.Choose,tr(url?'replace':'file'));
+   setText(controls.Status,[tr(playbackStatus(clock)),storageNotice&&tr(storageNotice)].filter(Boolean).join(' '));
    setText(controls.Metrics,`${loaded?format(end()-settings.in):'—'} ${env.language()==='ru'?'с':'s'} · ${format(rate)}× · ${clock.bpm} BPM · ${clock.beatsPerBar}/4`);
-   controls.Timeline.max=duration||1;
+   controls.Timeline.max=floorTime(duration)||1;
    controls.Timeline.style.setProperty('--video-in',(loaded?settings.in/duration*100:0)+'%');
    controls.Timeline.style.setProperty('--video-out',(loaded?end()/duration*100:100)+'%');
-   updateValue(controls.Timeline,video?.currentTime||0);
-   panel.classList.toggle('video-looper-show',shown&&loaded);
-   controls.Show.setAttribute('aria-pressed',String(shown&&loaded));
+   updateValue(controls.Timeline,floorTime(video?.currentTime||0));
+   const floating=env.selected()&&shown&&loaded;
+   const frameParent=floating?display:preview;
+   if(frame.parentNode!==frameParent)frameParent.append(frame);
+   display.hidden=!floating;
+   controls.Show.setAttribute('aria-pressed',String(floating));
    frame.hidden=!loaded;
   }
   function localize(){
-   toggle.textContent=tr('title');
-   for(const el of panel.querySelectorAll('[data-video-text]'))el.textContent=tr(el.dataset.videoText);
-   for(const el of panel.querySelectorAll('[data-video-label]'))el.setAttribute('aria-label',tr(el.dataset.videoLabel));
+   for(const container of [panel,display]){
+    for(const el of container.querySelectorAll('[data-video-text]'))el.textContent=tr(el.dataset.videoText);
+    for(const el of container.querySelectorAll('[data-video-label]'))el.setAttribute('aria-label',tr(el.dataset.videoLabel));
+   }
    setText(controls.Show,tr(shown?'edit':'show'));
    render();
   }
@@ -149,7 +206,7 @@
   }
   function update(){
    const clock=env.clock();
-   const active=ready&&(mode==='preview'?clock.audioRunning:mode==='armed'&&settings.enabled&&clock.running);
+   const active=env.selected()&&ready&&(mode==='preview'?clock.audioRunning:mode==='armed'&&settings.enabled&&clock.running);
    const canRetry=problem===''||problem==='range';
    if((priming||previewStarting&&mode==='preview')&&!active)return;
    priming=false;
@@ -252,27 +309,7 @@
    url=null;
    replaceMedia();
   }
-  function restore(value,clearFile=false){
-   mode='armed';
-   problem='';
-   manualTime=0;
-   anchorTime=null;
-   settings=value?{...value}:{...defaults};
-   resetPhase();
-   if(clearFile)unload();
-   update();
-  }
-  controls.Choose.onclick=()=>controls.File.click();
-  controls.File.onchange=()=>{
-   const file=controls.File.files[0];
-   controls.File.value='';
-   if(!file)return;
-   if(!/\.(mp4|webm)$/i.test(file.name)||!file.size||file.size>1073741824){
-    unload();
-    problem='invalid';
-    update();
-    return;
-   }
+  function loadFile(file){
    unload();
    url=URL.createObjectURL(file);
    setText(controls.Name,file.name);
@@ -283,6 +320,87 @@
    resetPhase();
    replaceMedia();
    update();
+  }
+  async function restoreLocal(){
+   if(mediaRevision||!store)return;
+   const revision=mediaRevision;
+   restoring=true;
+   render();
+   try{
+    const file=await store.read();
+    if(revision!==mediaRevision)return;
+    hasStoredClip=!!file;
+    if(validFile(file)&&rightsConfirmed)loadFile(file);
+   }catch{if(revision===mediaRevision)storageNotice='readError'}
+   finally{restoring=false;render()}
+  }
+  async function clearLocal(){
+   const revision=++mediaRevision;
+   fileRevision++;
+   storageNotice='';
+   unload();
+   problem='';
+   update();
+   try{await store?.write(null)}
+   catch(error){
+    if(revision===mediaRevision){hasStoredClip=true;storageNotice='removeError';render()}
+    throw error;
+   }
+   if(revision===mediaRevision){hasStoredClip=false;render()}
+  }
+  function restore(value,clearFile=false){
+   mode='armed';
+   problem='';
+   manualTime=0;
+   anchorTime=null;
+   settings=value?{...value}:{...defaults};
+   resetPhase();
+   if(clearFile)return clearLocal().catch(()=>{});
+   update();
+  }
+  controls.Choose.onclick=()=>controls.File.click();
+  controls.Remove.onclick=()=>{
+   settings={...defaults};
+   shown=false;
+   clearLocal().catch(()=>{});
+   localize();
+   env.changed();
+  };
+  controls.File.onchange=async()=>{
+   const file=controls.File.files[0];
+   controls.File.value='';
+   if(!file||!env.selected()||choosing)return;
+   if(!validFile(file)){
+    storageNotice='invalid';
+    render();
+    return;
+   }
+   if(!rightsConfirmed){
+    const revision=fileRevision;
+    choosing=true;
+    try{
+     const accepted=await env.confirm({
+      title:tr('rightsTitle'),message:tr('rightsMessage'),
+      confirmText:tr('confirm'),cancelText:tr('cancel')
+     });
+     if(!accepted||revision!==fileRevision||!env.selected())return;
+     rightsConfirmed=true;
+     try{localStorage.setItem(rightsKey,'true')}catch{}
+    }finally{choosing=false}
+   }
+   const revision=++mediaRevision;
+   storageNotice=store?'saving':'';
+   loadFile(file);
+   try{
+    if(!store)throw Error('Storage unavailable');
+    await store.write(file);
+    if(revision===mediaRevision){hasStoredClip=true;storageNotice='';render()}
+   }catch{
+    if(revision!==mediaRevision)return;
+    storageNotice='storeError';
+    try{await store?.write(null);if(revision===mediaRevision)hasStoredClip=false}catch{}
+    render();
+   }
   };
   function edit(name,value){
    settings[name]=value;
@@ -301,10 +419,14 @@
    manualTime=0;
    edit('sync',controls.Sync.checked);
   };
-  controls.Bars.onchange=()=>edit('bars',Number(controls.Bars.value));
+  controls.Bars.onchange=()=>{
+   const bars=numberValue('Bars');
+   if(bars===null){controls.Bars.value=settings.bars;return}
+   edit('bars',bars);
+  };
   controls.Rate.onchange=()=>{
-   const rate=controls.Rate.valueAsNumber;
-   if(!Number.isFinite(rate)||rate<.25||rate>4){controls.Rate.value=settings.rate;return}
+   const rate=numberValue('Rate');
+   if(rate===null){controls.Rate.value=Number(settings.rate.toFixed(2));return}
    const previous=settings.rate;
    if(!settings.sync){
     const now=env.clock().time;
@@ -315,26 +437,29 @@
    edit('rate',rate);
   };
   controls.Volume.oninput=()=>{
-   settings.volume=Number(controls.Volume.value);
+   const volume=numberValue('Volume');
+   if(volume===null){controls.Volume.value=settings.volume;return}
+   settings.volume=volume;
    if(gate){gate=false;audioGate(true,cutoff)}
    env.changed();
   };
   for(const name of ['In','Out']){
    controls[name].onchange=()=>{
-    const key=name.toLowerCase(),value=controls[name].valueAsNumber;
-    const valid=Number.isFinite(value)&&value>=0&&value<=duration&&
+    const key=name.toLowerCase(),value=numberValue(name);
+    const valid=ready&&value!==null&&value>=0&&value<=duration&&
       (key==='in'?value+.25<=end():value>=settings.in+.25);
-    controls[name].value=valid?value:settings[key]??duration;
+    controls[name].value=valid?value:floorTime(key==='in'?settings.in:end());
     if(!valid)return;
     if(mode!=='preview'&&video.paused)cue(key==='in'?value:settings.in);
     edit(key,value);
    };
   }
   controls.Timeline.oninput=()=>{
+   const position=numberValue('Timeline');
+   if(!ready||position===null)return;
    priming=false;
    mode='paused';
    update();
-   const position=Number(controls.Timeline.value);
    manualTime=wrap(position-settings.in,end()-settings.in)/settings.rate;
    cue(position);
   };
@@ -354,6 +479,7 @@
    cue();
   };
   controls.Preview.onclick=()=>{
+   if(!env.selected())return;
    if(mode!=='paused'){anchorTime=null;manualTime=0}
    mode='preview';
    problem='';
@@ -380,26 +506,23 @@
    }catch{problem='audioError'}
    update();
   };
-  function visibility(open){
-   panel.hidden=!open;
-   toggle.setAttribute('aria-expanded',String(open));
-   if(open){env.front();panel.querySelector('[data-drag]').focus()}
-   else toggle.focus();
-   render();
+  function show(value){
+   shown=value;
+   localize();
+   if(shown){env.front();display.querySelector('[data-drag]').focus()}
+   else if(controls.Show.getClientRects().length)controls.Show.focus();
    env.changed();
   }
-  toggle.onclick=()=>visibility(panel.hidden);
-  controls.Close.onclick=()=>visibility(false);
-  controls.Show.onclick=()=>{
-   shown=!shown;
-   localize();
-   env.front();
-   env.changed();
-  };
+  controls.Close.onclick=()=>show(false);
+  controls.Show.onclick=()=>show(!shown);
+  display.addEventListener('keydown',event=>{
+   if(event.key==='Escape'&&!document.body.classList.contains('visual-only')){
+    event.preventDefault();event.stopPropagation();show(false);
+   }
+  });
   panel.addEventListener('keydown',event=>{
    if(document.body.classList.contains('visual-only'))return;
-   if(event.key==='Escape'){event.preventDefault();event.stopPropagation();visibility(false)}
-   else if(event.code==='Space'&&event.target.matches('button,input,select'))event.stopPropagation();
+   if(event.code==='Space'&&event.target.matches('button,input,select'))event.stopPropagation();
   });
   document.addEventListener('visibilitychange',update);
   window.addEventListener('pageshow',update);
@@ -410,16 +533,28 @@
   });
   localize();
   return {
-   snapshot:()=>({...settings}), restore, update, localize,
-   keepsAudioRunning:()=>mode==='preview'&&!problem,
+   snapshot:()=>({...settings,selected:env.selected()}), restore, restoreLocal, clearLocal, update, localize,
+   selectionChanged(){
+    if(!env.selected()){
+     fileRevision++;
+     priming=false;
+     previewStarting=false;
+     mode='armed';
+     manualTime=0;
+     anchorTime=null;
+     resetPhase();
+    }
+    update();
+   },
+   keepsAudioRunning:()=>env.selected()&&mode==='preview'&&!problem,
    wake(){
-    if(!ready||mode!=='armed'||!settings.enabled||timer!==null)return;
+    if(!env.selected()||!ready||mode!=='armed'||!settings.enabled||timer!==null)return;
     const clock=env.clock();
     if(clock.running&&(problem===''||problem==='range'&&
        (clock.bpm!==rangeClock?.[0]||clock.beatsPerBar!==rangeClock?.[1])))update();
    },
    prepare(){
-    if(!ready||mode!=='armed'||!settings.enabled||!video.paused)return;
+    if(!env.selected()||!ready||mode!=='armed'||!settings.enabled||!video.paused)return;
     try{
      if(!attach(env.ensureAudio()))return;
      problem='';
@@ -427,11 +562,9 @@
      requestPlayback();
     }catch{priming=false;problem='audioError';}
    },
-   view:()=>({videoLooperOpen:!panel.hidden,videoLooperShow:shown}),
+   view:()=>({videoLooperShow:shown}),
    restoreView(ui){
     shown=ui.videoLooperShow===true;
-    panel.hidden=ui.videoLooperOpen!==true;
-    toggle.setAttribute('aria-expanded',String(!panel.hidden));
     localize();
    },
    beforeAudioClose(){

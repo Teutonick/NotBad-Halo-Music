@@ -8,7 +8,8 @@
   if(!value||value.version!==1||typeof value.enabled!=='boolean'||typeof value.sync!=='boolean'||![1,2,4,8].includes(value.bars))throw Error('Invalid video looper settings');
   const start=number(value.in,0,21600),end=value.out===null?null:number(value.out,.25,21600);
   if(start>21599.75||end!==null&&end<start+.25)throw Error('Invalid video fragment');
-  return {version:1,enabled:value.enabled,sync:value.sync,bars:value.bars,in:start,out:end,rate:number(value.rate,.25,4),volume:number(value.volume,0,100)};
+  if(value.selected!==undefined&&typeof value.selected!=='boolean')throw Error('Invalid video looper selection');
+  return {version:1,enabled:value.enabled,sync:value.sync,bars:value.bars,in:start,out:end,rate:number(value.rate,.25,4),volume:number(value.volume,0,100),...(value.selected===undefined?{}:{selected:value.selected})};
  }
  function liveLoop(value){
   if(!value||value.version!==1||!Array.isArray(value.layerIds)||value.layerIds.length>128)throw Error('Invalid Track 09');

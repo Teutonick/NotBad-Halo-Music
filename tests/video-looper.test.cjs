@@ -29,7 +29,7 @@ test('project, composition and autosave keep only versioned settings and load le
  }));
  const legacy=Project.capture(tracks,4,120,1,0,Sounds,Motion);
  assert.deepEqual(Project.parse(JSON.stringify(legacy),Sounds),legacy);
- const settings={...Video.defaults,enabled:true,sync:false,in:1.75,out:5,bars:8,volume:32,rate:1.5};
+ const settings={...Video.defaults,enabled:true,selected:true,sync:false,in:1.75,out:5,bars:8,volume:32,rate:1.5};
  const supplied={...settings,src:'https://example.invalid/video.mp4',fileName:'private.mp4',bytes:[1,2]};
  const withVideo=Project.parse(JSON.stringify({...legacy,videoLooper:supplied}),Sounds);
  assert.deepEqual(withVideo.videoLooper,settings);
@@ -47,11 +47,83 @@ test('project, composition and autosave keep only versioned settings and load le
 
 test('video settings reject unbounded or unusable values',()=>{
  for(const patch of [
-  {version:2},{enabled:1},{sync:'true'},{bars:3},{rate:0},{rate:4.01},{volume:101},
+  {version:2},{enabled:1},{selected:'true'},{sync:'true'},{bars:3},{rate:0},{rate:4.01},{volume:101},
   {in:-1},{in:Infinity},{in:21600},{in:5,out:5.24},{out:21601},{out:'5'}
  ]){
   assert.throws(()=>Project.videoLooper({...Video.defaults,...patch}));
  }
  assert.equal(Project.videoLooper({...Video.defaults,in:4.75,out:5}).out,5);
  assert.equal(Project.videoLooper({...Video.defaults,in:21599.75}).out,null);
+ assert.equal(Project.videoLooper(Video.defaults).selected,undefined);
+ assert.equal(Project.videoLooper({...Video.defaults,selected:false}).selected,false);
+});
+
+test('video import asks for rights once, restores the local clip, and supports replacement and removal',async()=>{
+ const nodes=new Map(),storage=new Map(),prompts=[];
+ const element=()=>({
+  hidden:false,value:'',textContent:'',paused:true,dataset:{},style:{setProperty(){}},
+  append(child){child.parentNode=this},querySelectorAll(){return []},
+  events:{},addEventListener(name,fn){this.events[name]=fn},dispatchEvent(event){this['on'+event.type]?.()},
+  setAttribute(){},removeAttribute(){},load(){},remove(){}
+ });
+ const original={document:global.document,window:global.window,localStorage:global.localStorage,HaloControls:global.HaloControls};
+ const file=Object.assign(new Blob(['test']),{name:'clip.webm'});
+ const replacement=Object.assign(new Blob(['test']),{name:'replacement.mp4'});
+ let accept=false,saved,media;
+ const install=()=>Video.install({
+  language:()=> 'ru',selected:()=>true,changed(){},
+  clock:()=>({bpm:72,beatsPerBar:4}),confirm:async options=>{prompts.push(options);return accept},
+  store:{read:async()=>saved,write:async file=>{saved=file}}
+ });
+ try{
+  global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,element());return nodes.get(id)},createElement(){return media={...element(),duration:12.346,videoWidth:100}},addEventListener(){}};
+  global.window={addEventListener(){}};
+  global.localStorage={getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)};
+  global.HaloControls=require('../src/controls.js');
+  const looper=install(),input=nodes.get('videoLooperFile'),name=nodes.get('videoLooperName');
+  input.files=[file];
+  await input.onchange();
+  assert.equal(name.textContent,'');
+  assert.equal(saved,undefined);
+  assert.equal(storage.size,0);
+  assert.match(prompts[0].title,/Права на видео/);
+  accept=true;
+  await input.onchange();
+  assert.equal(name.textContent,file.name);
+  assert.equal(prompts.length,2);
+  looper.beforeAudioClose();
+  const reloaded=install();
+  await reloaded.restoreLocal();
+  assert.equal(name.textContent,file.name);
+  assert.equal(prompts.length,2);
+  media.events.loadedmetadata();
+  assert.equal(nodes.get('videoLooperFrame').hidden,false);
+  const end=nodes.get('videoLooperOut');
+  for(const invalid of ['<svg/onload=alert(1)>','1e9','9999999999999','12.35']){
+   end.value=invalid;end.onchange();
+   assert.equal(reloaded.snapshot().out,null);
+   assert.equal(String(end.value),'12.34');
+  }
+  end.value='8,25';end.onchange();
+  assert.equal(reloaded.snapshot().out,8.25);
+  end.value='8.25';
+  const pointer={pointerId:1,button:0,pointerType:'mouse',clientX:0,clientY:0,preventDefault(){}};
+  end.events.pointerdown(pointer);
+  end.events.pointermove({...pointer,clientX:16});
+  end.events.pointerup(pointer);
+  assert.equal(reloaded.snapshot().out,8.45);
+  input.files=[replacement];
+  await input.onchange();
+  assert.equal(saved,replacement);
+  assert.equal(name.textContent,replacement.name);
+  nodes.get('videoLooperRemove').onclick();
+  assert.equal(saved,null);
+  assert.equal(name.textContent,'');
+  const empty=install();
+  await empty.restoreLocal();
+  assert.equal(name.textContent,'');
+  assert.equal(nodes.get('videoLooperRemove').disabled,true);
+ }finally{
+  Object.assign(global,original);
+ }
 });

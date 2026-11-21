@@ -224,6 +224,7 @@ Version-1 `notbad-halo-project` / `halo-project` and `halo-composition` JSON acc
   "videoLooper": {
     "version": 1,
     "enabled": true,
+    "selected": true,
     "sync": true,
     "bars": 2,
     "in": 1.5,
@@ -234,6 +235,6 @@ Version-1 `notbad-halo-project` / `halo-project` and `halo-composition` JSON acc
 }
 ```
 
-All members are required when the field is present. `enabled` and `sync` are booleans. `bars` is one of 1, 2, 4, 8. `in` and `out` use seconds (0–21600; finite end at least 0.25 s after IN). A null `out` uses the selected video's end. `rate` is the manual speed (0.25–4×). `volume` is percent (0–100). Projects omitting the field use disabled, bar sync, one bar, IN 0, OUT null, speed 1× and volume 35%. In a composition the field applies to the whole song. Phrase-level copies are removed during composition validation.
+All members except `selected` are required when the field is present. `enabled` and `sync` are booleans. Optional boolean `selected` selects the video mode of Track 09 when true. False or omitted selects the audio mode on import. The existing `liveLoop` audio settings and layer references are retained. The selected video mode suppresses audio-loop scheduling and inclusion in WAV/MP3 even if the video is disabled or has no file selected. `bars` is one of 1, 2, 4, 8. `in` and `out` use seconds (0–21600; finite end at least 0.25 s after IN). A null `out` uses the selected video's end. `rate` is the manual speed (0.25–4×). `volume` is percent (0–100). Projects omitting the field use disabled, bar sync, one bar, IN 0, OUT null, speed 1× and volume 35%. In a composition the field applies to the whole song. Phrase-level copies are removed during composition validation.
 
-This metadata describes local playback in the HALO UI. Project Save and Share can carry it. WebMCP state and revision track the musical project and omit video settings. File Bridge `halo-score` and the WebMCP patch field allowlists continue to describe musical edits. Selecting a file, decoding, playback control and the floating video window are interactive UI actions. Project metadata contains no filename, media bytes, blob URL or filesystem handle. The user selects the source after import or reload.
+This metadata describes local playback in the HALO UI. Project Save and Share can carry it. WebMCP state and revision track the musical project and omit video settings. File Bridge `halo-score` and the WebMCP patch field allowlists continue to describe musical edits. Selecting a file, decoding, playback control and the floating video window are interactive UI actions. Project metadata contains no filename, media bytes, blob URL or filesystem handle. The browser restores the current workspace clip from IndexedDB after reload. A portable project import clears the prior local clip. Source selection, replacement and removal remain local UI actions. The first video import requires local user confirmation of rights to the video and soundtrack. Confirmation stays in browser storage and is omitted from project and agent payloads.

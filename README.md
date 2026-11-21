@@ -4,13 +4,25 @@
 
 **Complex to look at. Simple to touch. Harmonious to hear.**
 
-[**▶ Enter HALO**](https://teutonick.github.io/NotBad-Halo-Music/) &nbsp; · &nbsp; [Русский](README.ru.md) &nbsp; · &nbsp; [Inside the engine](docs/engine-capabilities.md)
+[**▶ Enter HALO**](https://teutonick.github.io/NotBad-Halo-Music/) &nbsp; · &nbsp; [Run locally](#run-locally) &nbsp; · &nbsp; [Русский](README.ru.md) &nbsp; · &nbsp; [Inside the engine](docs/engine-capabilities.md)
 
 *A browser music constructor for curious ears, happy accidents, and one more loop.*
 
 </div>
 
 ---
+
+## Run locally
+
+You can open `index.html` directly in your browser. For audio input, recording, and MIDI, use the local server. No build step is required.
+
+On Windows, with Python 3 available as `python`, run this in PowerShell from the project folder:
+
+```powershell
+./scripts/preview.ps1
+```
+
+Open [http://127.0.0.1:8766/](http://127.0.0.1:8766/) and press **Play**. Stop the server with **Ctrl+C**.
 
 ### HALO LINK / Track 10
 
@@ -27,7 +39,7 @@ The instrument editor’s **Sounds from all worlds** checkbox optionally reveals
 
 **Agent reference:** MCP/File Bridge includes all 3 worlds, 96 timbres and 30 readable world profiles. After updating HALO, reload and choose **Update Files** for an existing File Bridge folder. Profiles guide the agent’s original composition.
 
-**VIDEO LOOPER.** Load a local MP4 or WebM in AMBIENT, REACTOR or WATER. Set IN/OUT, preview the fragment with its soundtrack, and play it with HALO at a manual speed or over 1/2/4/8 bars. Show mode floats the video over your current world. The project saves the settings. Select the local file again after importing or reloading.
+**VIDEO LOOPER.** Open Track 09 and choose VIDEO LOOPER beside LOOP, SLICE and PITCH. Load a local MP4 or WebM in any world. On first import, confirm your rights to the video and its soundtrack. Switching between audio and video stops the previous mode and keeps its media available for later. Set IN/OUT, preview the fragment with its soundtrack, and play it with HALO at a manual speed or over 1/2/4/8 bars. Show mode floats the video over your current world. The browser restores the current video after reload when storage is available. You can replace or remove it in Track 09. Portable projects carry settings only.
 
 ### 01 / INTRO
 

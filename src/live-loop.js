@@ -783,6 +783,31 @@
   }
 
   let compactMode=false,inputWindowOpen=false,inputWindowLanguage=null;
+  let videoSelected=false,modeRevision=0;
+  function selectVideo(value){
+    if(videoSelected===value)return;
+    videoSelected=value;
+    modeRevision++;
+    if(value){
+      stopPlayback();
+      if((recordingState==='recording'||recordingState==='overdubbing')&&activeAudio){
+        finishRecording(activeAudio,envRef?.settings?.().tempo||72);
+      }else if(recordingActive()){
+        cancelInputCapture();
+      }
+      inputController?.release();
+      setInputWindow(false,false,false);
+    }else{
+      playbackSettings=copySettings(settings);
+      playbackSlices=slices;
+      lastScheduledStep=-1;
+    }
+    updateMixerNodes();
+    const panel=typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null;
+    if(panel?.children.length)createUI(panel);
+    envRef?.videoModeChanged?.();
+    envRef?.changed?.();
+  }
   const latencyControls=new WeakSet();
   function syncCompact(container){
     container=container||(typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null);
@@ -792,13 +817,13 @@
     if(button){button.textContent='';button.setAttribute('aria-expanded',String(!compactMode));button.setAttribute('aria-label',tr(compactMode?'Развернуть настройки Track 09':'Минимизировать настройки Track 09',compactMode?'Expand Track 09 settings':'Minimize Track 09 settings'));button.title=button.getAttribute?.('aria-label')||'';}
   }
   function setCompact(value){compactMode=value===true;syncCompact();envRef?.changed?.();}
-  function setInputWindow(value,focus=false){
-    inputWindowOpen=value===true;
+  function setInputWindow(value,focus=false,save=true){
+    inputWindowOpen=!videoSelected&&value===true;
     const panel=typeof document!=='undefined'?document.getElementById('audioInputWindow'):null;
     if(panel){panel.hidden=!inputWindowOpen;if(inputWindowOpen){renderInputWindow();envRef?.frontWindow?.('audioInputWindow');if(focus)panel.querySelector?.('[data-drag]')?.focus?.();}}
     const button=typeof document!=='undefined'?document.getElementById('loopInputToggle'):null;
     if(button)button.setAttribute('aria-expanded',String(inputWindowOpen));
-    envRef?.changed?.();
+    if(save)envRef?.changed?.();
   }
   function renderInputWindow(){
     if(typeof document==='undefined')return;
@@ -838,7 +863,7 @@
       if(root.HaloControls?.install&&!latencyControls.has(latency)){root.HaloControls.install(latency,{min:0,max:200,step:1,dragStep:1});latencyControls.add(latency);}
     }
   }
-  function organizeUI(container){
+  function organizeUI(container, panel){
     const head=container.querySelector?.('.loop-head');if(!head)return;
     const primary=document.createElement('div'),quick=document.createElement('div'),advanced=document.createElement('div');
     primary.className='loop-primary';quick.className='loop-quick';advanced.className='loop-advanced';advanced.id='track09Advanced';
@@ -858,7 +883,7 @@
     // Remove empty action containers after moving their controls.
     for(const selector of ['.loop-actions','.loop-bars-group','.loop-aux-group'])for(const node of advanced.querySelectorAll?.(selector)||[])if(!node.querySelector('button,input,select'))node.remove();
     for(const label of container.querySelectorAll('.loop-slider-label')){const input=label.querySelector('input[type=range]');if(input){const caption=document.createElement('span');caption.className='loop-slider-caption';for(const node of Array.from(label.childNodes))if(node!==input)caption.append(node);label.prepend(caption);}}
-    syncCompact(container);
+    syncCompact(panel);
   }
 
   let inputController=null;
@@ -895,7 +920,7 @@
     const access=document.getElementById('loopInputAccess');if(access)access.disabled=state.busy||recordingActive();
   }
   async function listenInput(on){
-    if(!inputController)return false;
+    if(!inputController||videoSelected)return false;
     settings.monitor=await inputController.listen(on);persistSettings();updateInputUI();return settings.monitor;
   }
 
@@ -917,10 +942,11 @@
       for (const layer of list) layerLibrary.set(layer.id,layer);
       layers = phraseState === undefined ? (settings.layerIds ? settings.layerIds.map(id=>layerLibrary.get(id)).filter(Boolean) : list) : (phraseState?.layerIds || []).map(id=>layerLibrary.get(id)).filter(Boolean);
       if (layers.length) compositeBuffer=buildCompositeBuffer(compositeContext(),layers);
+    }).catch(() => {}).then(()=>{
       hydrated=true;
       const panel=typeof document!=='undefined'?document.getElementById('liveLoopPanel'):null;
       if(panel?.children?.length)createUI(panel);else renderUI();
-    }).catch(() => {});
+    });
   }
 
   function connectToAudio(audio) {
@@ -972,10 +998,10 @@
   }
 
   function updateMixerNodes(at) {
-    activeAudio?.setCoreMuted?.(settings.solo===true,at);
+    activeAudio?.setCoreMuted?.(!videoSelected&&settings.solo===true,at);
     if (!trackGain || !activeAudio || !activeAudio.ctx || activeAudio.ctx.state === 'closed') return;
     const now = at || activeAudio.ctx.currentTime;
-    const vol = settings.mute ? 0 : (settings.level / 100) * 1.5;
+    const vol = videoSelected || settings.mute ? 0 : (settings.level / 100) * 1.5;
     trackGain.gain.setTargetAtTime(vol, now, 0.04);
     if (panner) panner.pan.setTargetAtTime(settings.pan / 100, now, 0.05);
     if (reverbSend) reverbSend.gain.setTargetAtTime((settings.space / 100) * 0.8, now, 0.06);
@@ -1079,6 +1105,7 @@
   }
 
   function tick(time, absStep, audio, tempo, phraseBars = 4, key = envRef?.settings?.().key || 0, timeSignature = envRef?.settings?.().timeSignature || '4/4') {
+    if(videoSelected)return;
     samplerKey=key;
     const spb = timeSignature === '3/4' ? 12 : 16;
     const boundary = absStep % (phraseBars * spb) === 0;
@@ -1407,8 +1434,10 @@
   }
 
   async function armRecording(isOverdub, audio, tempo) {
+    if(videoSelected)return;
+    const revision=modeRevision;
     const rightsOk = await checkCopyrightConfirmation();
-    if (!rightsOk) return;
+    if (!rightsOk||revision!==modeRevision) return;
 
     if (!navigator.mediaDevices?.getUserMedia) {
       envRef?.toast(tr('Аудиовход требует HTTPS/localhost и поддержки браузера', 'Audio input requires HTTPS/localhost and browser support'));
@@ -1418,13 +1447,16 @@
     if(recordingActive())return;
     try{
       audio=audio||await envRef?.ensureAudio?.();
+      if(revision!==modeRevision)return;
       if(!audio?.ctx)throw Error(tr('Нажмите Play перед записью','Press Play before recording'));
       connectToAudio(audio);
       if(envRef?.isPlaying&&!envRef.isPlaying())await envRef?.startPlayback?.();
+      if(revision!==modeRevision)return;
       if(!audio.ctx.createScriptProcessor)throw Error(tr('Запись не поддерживается браузером','Recording is unsupported by this browser'));
     }catch(err){envRef?.toast(err.message);return}
     let stream;
-    try{stream=await inputController.acquire()}catch(err){envRef?.toast(tr('Аудиовход недоступен: ','Audio input unavailable: ')+err.message);return}
+    try{stream=await inputController.acquire()}catch(err){if(revision===modeRevision)envRef?.toast(tr('Аудиовход недоступен: ','Audio input unavailable: ')+err.message);return}
+    if(!stream||revision!==modeRevision)return;
     micStream = stream;
 
     const ctx = audio.ctx;
@@ -1563,9 +1595,10 @@
   }
 
   async function importAudioFile(file, audio, tempo) {
-    if (!file) return;
+    if (!file||videoSelected) return;
+    const revision=modeRevision;
     const rightsOk = await checkCopyrightConfirmation();
-    if (!rightsOk) return;
+    if (!rightsOk||revision!==modeRevision) return;
 
     if (file.size > MAX_FILE_SIZE) {
       envRef?.toast(tr('Файл превышает 50 МБ. Выберите файл меньшего размера.', 'File exceeds 50 MB limit. Please select a smaller file.'));
@@ -1578,6 +1611,7 @@
       const arrayBuffer = await file.arrayBuffer();
       const ctx = audio?.ctx || new (window.AudioContext || window.webkitAudioContext)();
       const decoded = await ctx.decodeAudioData(arrayBuffer);
+      if(revision!==modeRevision)return;
 
       if (decoded.duration > MAX_DURATION_SEC) {
         envRef?.toast(tr('Длительность ограничена 120 сек. Аудио обрезано.', 'Audio duration limited to 120s. Cropped to limit.'));
@@ -2004,6 +2038,16 @@
     if (env) envRef = env;
     if (!container && typeof document !== 'undefined') container = document.getElementById('liveLoopPanel');
     if (!container) return;
+    const videoPanel=document.getElementById('videoLooperPanel');
+    let editor=container.querySelector?.('.loop-mode-content');
+    if(!editor&&videoPanel){
+      editor=document.createElement('div');
+      editor.className='loop-mode-content';
+      videoPanel.hidden=true;
+      container.append(editor,videoPanel);
+    }
+    editor=editor||container;
+    if(videoPanel)videoPanel.hidden=!videoSelected;
     panelLanguage=envRef?.language?.()||'ru';
     const isSlice = (settings.mode === 'slice'), isPitch=settings.mode==='pitch',isSequenced=isSlice||isPitch;
     const sliceCount = settings.sliceCount || 8;
@@ -2014,7 +2058,7 @@
     const delayTime = settings.delayTime || '1/8';
 
     let stepsHtml = '';
-    if (isSequenced) {
+    if (isSequenced&&!videoSelected) {
       stepsHtml = `
         <div class="slice-seq-card">
           <div class="slice-seq-header">
@@ -2043,17 +2087,19 @@
       `;
     }
 
-    container.innerHTML = `
+    editor.innerHTML = `
       <div class="loop-head">
         <div class="loop-title-wrap">
           <span class="loop-mic-icon">🎙</span>
-          <strong>09 — ${isPitch?'PITCH':isSlice ? 'SLICE' : 'LIVE LOOP'}</strong>
-          <div class="loop-mode-switch" role="tablist">
-            <button type="button" class="loop-mode-btn ${!isSequenced ? 'active' : ''}" id="modeBtnLoop" title="${tr('Режим зацикленного воспроизведения и наложения', 'Continuous loop and overdub mode')}">◈ LOOP</button>
-            <button type="button" class="loop-mode-btn ${isSlice ? 'active' : ''}" id="modeBtnSlice" title="${tr('Режим нарезки сэмплов по транзиентам', 'Transient slice chopping and sequencing')}">✂ SLICE</button>
-            <button type="button" class="loop-mode-btn ${isPitch?'active':''}" id="modeBtnPitch" title="${tr('Один семпл: воспроизведение нотами без нарезки','One sample played as notes without slicing')}">♪ PITCH</button>
+          <strong>09 — ${videoSelected?tr('ЛУПЕР','LOOPER'):isPitch?'PITCH':isSlice ? 'SLICE' : 'LIVE LOOP'}</strong>
+          <div class="loop-mode-switch" role="group" aria-label="${tr('Режим лупера','Looper mode')}">
+            <button type="button" class="loop-mode-btn ${!videoSelected&&!isSequenced?'active':''}" aria-pressed="${!videoSelected&&!isSequenced}" id="modeBtnLoop" title="${tr('Режим зацикленного воспроизведения и наложения', 'Continuous loop and overdub mode')}">◈ LOOP</button>
+            <button type="button" class="loop-mode-btn ${!videoSelected&&isSlice?'active':''}" aria-pressed="${!videoSelected&&isSlice}" id="modeBtnSlice" title="${tr('Режим нарезки сэмплов по транзиентам', 'Transient slice chopping and sequencing')}">✂ SLICE</button>
+            <button type="button" class="loop-mode-btn ${!videoSelected&&isPitch?'active':''}" aria-pressed="${!videoSelected&&isPitch}" id="modeBtnPitch" title="${tr('Один семпл: воспроизведение нотами без нарезки','One sample played as notes without slicing')}">♪ PITCH</button>
+            ${videoPanel?`<button type="button" class="loop-mode-btn ${videoSelected?'active':''}" aria-pressed="${videoSelected}" aria-controls="videoLooperPanel" id="modeBtnVideo">${tr('ВИДЕОЛУПЕР','VIDEO LOOPER')}</button>`:''}
           </div>
         </div>
+        ${videoSelected?'':`
         <div class="loop-head-actions">
           <button type="button" class="loop-small-btn" id="loopInputToggle" aria-controls="audioInputWindow" aria-expanded="${inputWindowOpen}" title="${tr('Микрофон и аудиоустройства','Microphone and audio devices')}">${tr('АУДИОВХОД / МИКРОФОН','AUDIO INPUT / MIC')}</button>
           <button type="button" class="loop-small-btn" id="loopCompact" aria-controls="track09Advanced" aria-expanded="${!compactMode}" aria-label="${tr(compactMode?'Развернуть настройки Track 09':'Минимизировать настройки Track 09',compactMode?'Expand Track 09 settings':'Minimize Track 09 settings')}">${compactMode?'▣':'▁'}</button>
@@ -2063,8 +2109,10 @@
           </button>
           <div class="loop-status-pill" id="loopStatusBadge">ГОТОВ</div>
         </div>
+        `}
       </div>
 
+      ${videoSelected?'':`
       ${isPitch ? `
         <div class="pitch-setup">
           <label>${tr('ИСХОДНАЯ НОТА СЕМПЛА','SAMPLE ROOT NOTE')}
@@ -2344,15 +2392,18 @@
       <div class="loop-footer-notice">
         <small id="loopFooterText">${tr('Ваше аудио остаётся в этом браузере · Не передаётся на сервер', 'Your audio stays in this browser · Never uploaded to a server')}</small>
       </div>
+      `}
     `;
 
-    organizeUI(container);
+    if(!videoSelected)organizeUI(editor,container);
     bindUIEvents(container);
     const windowActions=document.getElementById('workspaceWindowActions'),windowButton=container.querySelector?.('#loopCompact');
     if(windowActions&&windowButton){windowButton.className='window-action track09-window-action';windowButton.textContent='';windowActions.prepend(windowButton);}
     renderInputWindow();
     updateInputUI();
-    if(initialized&&!hydrated)Array.from(container.querySelectorAll?.('button,input,select')||[]).forEach(control=>control.disabled=true);
+    if(initialized&&!hydrated&&!videoSelected)Array.from(editor.querySelectorAll?.('button,input,select')||[]).forEach(control=>{
+      if(!control.id?.startsWith('modeBtn'))control.disabled=true;
+    });
     renderWaveform();
     updateStatusBadge();
     updateStepIndicators();
@@ -2371,29 +2422,17 @@
     const rootNote=find('pitchRootNote'),octave=find('pitchOctave');
     if(rootNote)rootNote.onchange=e=>api.setSettings({rootNote:Number(e.target.value)});
     if(octave)octave.onchange=e=>api.setSettings({pitchOctave:Number(e.target.value)});
-    const pitchMode=find('modeBtnPitch');if(pitchMode)pitchMode.onclick=()=>{api.setMode('pitch');stopPlayback();createUI(container)};
-
-    const btnModeLoop = find('modeBtnLoop') || find('btnLoopModeLoop');
-    const btnModeSlice = find('modeBtnSlice') || find('btnLoopModeSlice');
-    if (btnModeLoop) btnModeLoop.onclick = () => {
-      if (settings.mode !== 'loop') {
-        settings.mode = 'loop';
-        persistSettings();
-        stopPlayback();
-        createUI(container);
-        envRef?.toast(tr('Режим LOOP: Непрерывное зацикливание', 'LOOP mode: Continuous audio loop'));
-      }
-    };
-    if (btnModeSlice) btnModeSlice.onclick = () => {
-      if (settings.mode !== 'slice') {
-        settings.mode = 'slice';
-        rebuildSlices();
-        persistSettings();
-        stopPlayback();
-        createUI(container);
-        envRef?.toast(tr('Режим SLICE: Нарезка по транзиентам', 'SLICE mode: Transient chop sequencer'));
-      }
-    };
+    for(const [id,mode] of [['modeBtnLoop','loop'],['modeBtnSlice','slice'],['modeBtnPitch','pitch']]){
+      const button=find(id);
+      if(button)button.onclick=()=>{
+        if(settings.mode===mode&&!videoSelected)return;
+        api.setMode(mode);
+        find(id)?.focus();
+      };
+    }
+    const videoMode=find('modeBtnVideo');
+    if(videoMode)videoMode.onclick=()=>{selectVideo(true);find('modeBtnVideo')?.focus();};
+    if(videoSelected)return;
 
     // Transport / Layer Buttons (Loop Mode)
     const btnRec = find('btnLoopRecord');
@@ -3430,7 +3469,9 @@
   const api = {
     init,
     getUIState:()=>({compact:compactMode,inputOpen:inputWindowOpen}),
-    setUIState(value){compactMode=value?.compact===true;inputWindowOpen=value?.inputOpen===true;syncCompact();if(typeof document!=='undefined'){const panel=document.getElementById('audioInputWindow');if(panel)panel.hidden=!inputWindowOpen;}},
+    setUIState(value){compactMode=value?.compact===true;setInputWindow(value?.inputOpen,false,false);syncCompact();},
+    selectVideo,
+    isVideoSelected:()=>videoSelected,
     setCompact,
     setInputWindow,
     renderInputWindow,
@@ -3478,7 +3519,7 @@
       }
     },
     hasAudio() {
-      return !!compositeBuffer && layers.length > 0;
+      return !videoSelected && !!compositeBuffer && layers.length > 0;
     },
     isMuted() {
       return !!settings.mute;
@@ -3580,8 +3621,9 @@
       if (['loop','slice','pitch'].includes(m)) {
         settings.mode = m;
         if (m === 'slice') rebuildSlices();
+        stopPlayback();
+        if(videoSelected)selectVideo(false);else createUI();
         persistSettings();
-        createUI();
       }
     },
     detectTransients,

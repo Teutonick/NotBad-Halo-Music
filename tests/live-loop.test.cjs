@@ -962,6 +962,34 @@ test('slice trim rebuilds all slices inside new boundaries and solo reaches live
  loop.renderPhraseOffline(ctx,{setCoreMuted:(v,t)=>calls.push([v,t])},4,72,undefined,2);assert.deepEqual(calls.at(-1),[false,2]);
 });
 
+test('video mode stops Track 09 audio and Solo while preserving its take and processing',()=>{
+ const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),starts=[],stops=[],solo=[];
+ ctx.createBufferSource=()=>({playbackRate:{value:1},connect(){},disconnect(){},start(t){starts.push(t)},stop(t){stops.push(t)}});
+ const audio={ctx,master:ctx.createGain(),setCoreMuted(value){solo.push(value)}};
+ loop.connectToAudio(audio);
+ loop.addLayer({id:322,duration:2,sampleRate:44100,pcmL:new Float32Array(88200)},ctx);
+ loop.setSettings({solo:true,bars:1});
+ loop.setInputWindow(true);
+ loop.onPlay(0,0);
+ loop.tick(0,0,audio,120);
+ assert.equal(starts.length,1);
+ const saved=JSON.stringify(loop.capturePhrase());
+ const stopped=stops.length;
+ loop.selectVideo(true);
+ assert.ok(stops.length>stopped);
+ assert.equal(solo.at(-1),false);
+ assert.equal(loop.hasAudio(),false);
+ assert.equal(loop.getUIState().inputOpen,false);
+ loop.tick(2,16,audio,120);
+ assert.equal(starts.length,1);
+ assert.equal(JSON.stringify(loop.capturePhrase()),saved);
+ loop.selectVideo(false);
+ assert.equal(loop.hasAudio(),true);
+ assert.equal(solo.at(-1),true);
+ loop.tick(4,32,audio,120);
+ assert.equal(starts.length,2);
+});
+
 
 test('PITCH duration survives rests beyond a sixteenth and responds to duration independently of step division',()=>{
  const env=createEnvironment(),loop=env.HaloLiveLoop,ctx=new env.AudioContext(),starts=[];env.HaloComposition=require('../src/composition.js');

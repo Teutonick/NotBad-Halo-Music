@@ -1,3 +1,14 @@
+## 2026-11-21 — Exclusive Track 09 video mode
+
+- Move video controls into Track 09 and add VIDEO LOOPER beside LOOP, SLICE and PITCH. Switching stops the previous media mode and retains audio takes and video settings. Show mode floats the preview.
+- Keep video controls within Track 09 when a long filename is loaded and wrap the timing fields as available width shrinks.
+- Ask for video and soundtrack rights on the first local video import.
+- Restore the workspace clip after reload and keep its picker available while audio data loads. Add video removal and use shared bounded numeric input and mouse scrubbing.
+
+## 2026-11-21 — Local preview instructions
+
+- Restore local launch instructions in the English and Russian READMEs.
+
 ## 2026-11-21 — HALO LINK Track 10
 
 - Add a collapsible bilingual Track 10 panel with audio input selection, metering, trim, monitoring, volume and mute.

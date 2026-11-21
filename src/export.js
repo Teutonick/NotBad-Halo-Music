@@ -30,7 +30,7 @@
   // One warm-up loop initializes envelopes/reverb; export the next exact loop.
   if(root.HaloLiveLoop){
    await root.HaloLiveLoop.ready();
-   if(project.liveLoop){root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,0,project.key);root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,seconds,project.key);}
+   if(project.liveLoop&&project.videoLooper?.selected!==true){root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,0,project.key);root.HaloLiveLoop.renderPhraseOffline(ctx,engine,project.bars,project.tempo,project.liveLoop,seconds,project.key);}
   }
   const external=await externalRenderer(ctx,project);
   for(let step=0;step<phraseSteps*2;step++){
@@ -52,7 +52,7 @@
    const event=HaloSong.at(song,step),p=event.project,time=step*60/song.tempo/4,spb=p.timeSignature==='3/4'?12:16;
    if(last!==event.index){tracks.forEach((t,i)=>{for(const k of Object.keys(t))delete t[k];Object.assign(t,p.tracks[i],{setup:p.setup,phraseBars:p.bars,timeSignature:p.timeSignature});if(!(t.generator>=3)||t.exact){t.manualSteps=[...t.steps];t.manualBars=p.bars}});HaloSounds.arrange(tracks);if(!engine)engine=HaloAudio.create(ctx,tracks,song.masterVolume,samples,song.mix,song.tempo);else tracks.forEach((t,i)=>engine.update(i,time));last=event.index}
    external?.(engine,time,step,'phrase:'+song.sections[event.index].phrase,event.local);
-   if(event.local===0&&root.HaloLiveLoop)root.HaloLiveLoop.renderPhraseOffline(ctx,engine,p.bars,song.tempo,p.liveLoop,time,p.key);
+   if(event.local===0&&root.HaloLiveLoop&&song.videoLooper?.selected!==true)root.HaloLiveLoop.renderPhraseOffline(ctx,engine,p.bars,song.tempo,p.liveLoop,time,p.key);
    engine.master?.gain.setTargetAtTime(song.masterVolume/100*event.gain,time,.05);
    tracks.forEach((t,i)=>{const clock=t.generator>=3?event.absolute:event.local;if(!HaloSounds.shouldTrigger(t,i,clock,p.seed,p.bars,p.timeSignature))return;engine.play(i,HaloSounds.notesFor(t,i,Math.floor(event.local/spb),event.local%spb,p.seed,HaloComposition.offsets[p.key],p.bars,clock,t.generator===4?HaloComposition.modes[p.key]:'minor',p.timeSignature),time,HaloSounds.velocityFor(t,i,clock,p.seed,p.bars)*event.gain,HaloSounds.soundFor(t))});
   }

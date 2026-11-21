@@ -18,6 +18,22 @@ test('monitor is explicit and idempotent; switching devices releases it and save
  f.input.configure({kind:'instrument',deviceId:'usb-test'});assert.equal(f.tracks[0].readyState,'ended');assert.equal(f.input.state().monitoring,false);
  const restored=create(f.env);assert.equal(restored.state().deviceId,'usb-test');assert.equal(restored.state().monitoring,false);assert.equal(f.calls.length,1);restored.dispose();
 });
+test('releasing input during a permission request prevents late monitoring',async()=>{
+ const f=fixture(),getUserMedia=f.env.media.getUserMedia;
+ let allow,requestStarted;
+ const started=new Promise(resolve=>{requestStarted=resolve});
+ f.env.media.getUserMedia=async constraints=>{
+  await new Promise(resolve=>{allow=resolve;requestStarted()});
+  return getUserMedia(constraints);
+ };
+ const monitoring=f.input.listen(true);
+ await started;
+ f.input.release();
+ allow();
+ assert.equal(await monitoring,false);
+ assert.equal(f.input.state().monitoring,false);
+ assert.equal(f.tracks[0].readyState,'ended');
+});
 test('permission denial returns to a silent idle state and device disconnect releases monitoring',async()=>{
  const denied=fixture({denied:true});assert.equal(await denied.input.listen(true),false);assert.equal(denied.input.state().monitoring,false);assert.ok(denied.messages.length);
  const f=fixture();await f.input.listen(true);f.tracks[0].events.ended();assert.equal(f.input.state().monitoring,false);assert.equal(f.tracks[0].readyState,'ended');f.input.dispose();assert.equal(f.listeners.devicechange,undefined);
