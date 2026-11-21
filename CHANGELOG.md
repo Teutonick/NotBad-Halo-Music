@@ -1,3 +1,7 @@
+## 2026-11-21 — HALO LINK dashboard tab
+
+- Move Track 10 to the dashboard sidebar and group audio input, MIDI Clock, recording and takes. Apply shared range validation and mouse scrubbing.
+
 ## 2026-11-21 — Exclusive Track 09 video mode
 
 - Move video controls into Track 09 and add VIDEO LOOPER beside LOOP, SLICE and PITCH. Switching stops the previous media mode and retains audio takes and video settings. Show mode floats the preview.

@@ -18,6 +18,17 @@
    const panel=document.createElement('div');panel.className='song-panel';panel.hidden=true;
    const loopPanel=document.createElement('div');loopPanel.className='live-loop-panel';loopPanel.id='liveLoopPanel';loopPanel.hidden=true;
    const agentPanel=document.createElement('div');agentPanel.className='agent-panel';agentPanel.hidden=true;dock.append(panel,loopPanel,agentPanel,tracks);
+   const externalPanel=env.externalPanel;
+   const externalButton=externalPanel?document.createElement('button'):null;
+   if(externalButton){
+    externalButton.id='externalToggle';externalButton.type='button';
+    externalButton.setAttribute('aria-controls','externalPanel');
+    const icon=element('span','external-tab-icon'),caption=element('span','external-tab-caption');
+    icon.textContent='🔗';icon.setAttribute('aria-hidden','true');caption.textContent='10 LINK';
+    externalButton.append(icon,caption);
+    tabs.insertBefore(externalButton,agentButton);
+    dock.append(externalPanel);
+   }
    function readMusicState(){
     const value=portable()||env.snapshot();
     delete value.videoLooper;delete value.externalLink;
@@ -129,6 +140,12 @@
     if(drag)return;showPhrase();
     const isInst=tab==='instruments',isComp=tab==='composition',isLoop=tab==='live-loop';
     tracks.hidden=!isInst;panel.hidden=!isComp;loopPanel.hidden=!isLoop;agentPanel.hidden=tab!=='agents';if(tab!=='agents')agentPanel._haloAgentUnsubscribe?.();if(tab==='agents'&&agent)root.HaloAgent.panel(agentPanel,agent,env.language);
+    if(externalPanel){
+     const active=tab==='external',wasHidden=externalPanel.hidden,label=tr('Трек 10 — LINK','Track 10 — LINK');
+     externalPanel.hidden=!active;
+     externalButton.setAttribute('aria-pressed',String(active));externalButton.setAttribute('aria-label',label);externalButton.title=label;
+     if(active&&wasHidden)env.externalOpened?.();
+    }
     bottom.classList.toggle('composition-view',isComp);
     bottom.classList.toggle('live-loop-view',isLoop);
     bottom.classList.toggle('agent-view',tab==='agents');
@@ -180,6 +197,7 @@
    compositionButton.onclick=()=>{try{if(tab==='composition')return;commit();if(song){const pSel=S.phrase(song,index),spbSel=pSel.timeSignature==='3/4'?12:16,next=Math.max(0,lastScheduledStep+1,Math.ceil(env.playhead?.()??0)),length=pSel.bars*spbSel,local=((next+phraseOffset)%length+length)%length;stepOffset=sectionStart(index)+local-next;preview=true;lastSection=-1;ended=false;queued=null;}mode=true;tab='composition';render();persist()}catch(e){fail(e)}};
    agentButton.onclick=()=>{tab='agents';render();persist()};
    loopButton.onclick=()=>{try{if(tab==='live-loop')return;tab='live-loop';render();persist()}catch(e){fail(e)}};
+   if(externalButton)externalButton.onclick=()=>{try{if(tab==='external')return;tab='external';render();persist()}catch(e){fail(e)}};
    function portableWithAddons(){
     const next=portable();
     const settings=env.videoSettings?.();
@@ -208,11 +226,11 @@
    $('shareProject').onclick=async()=>{if(!song)return share();try{const token=await root.HaloProject.encodeShare(portableWithAddons());const url=location.href.split('#')[0]+'#song='+token;if(url.length>24000)throw Error(tr('Ссылка слишком длинная; сохраните JSON','Link is too long; save JSON instead'));if(navigator.clipboard?.writeText)await navigator.clipboard.writeText(url);else window.prompt(tr('Скопируйте ссылку','Copy link'),url);env.toast(tr('Ссылка на композицию скопирована','Composition link copied'))}catch(e){env.toast(e.message)}};
    function portable(){commit();if(!song)return null;const next=S.copy(song),common=settings();next.tempo=common.tempo;next.masterVolume=common.masterVolume;next.mix=common.mix;return next}
    document.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(persist,400)});
-   document.addEventListener('click',e=>{if(tabs.contains(e.target)||panel.contains(e.target)||loopPanel.contains(e.target)||agentPanel.contains(e.target))return;clearTimeout(timer);timer=setTimeout(()=>{persist();render()},400)});
+   document.addEventListener('click',e=>{if(tabs.contains(e.target)||panel.contains(e.target)||loopPanel.contains(e.target)||agentPanel.contains(e.target)||externalPanel?.contains(e.target))return;clearTimeout(timer);timer=setTimeout(()=>{persist();render()},400)});
    window.addEventListener('pagehide',persist);
    function restoreWorldRecord(text,expected){
     song=null;index=0;mode=false;tab='instruments';preview=false;lastSection=-1;queued=null;ended=false;stepOffset=0;phraseOffset=0;lastScheduledStep=-1;phrasePlaySteps=0;resetGain=true;
-    if(text&&text.length<S.MAX_BYTES&&new TextEncoder().encode(text).length<S.MAX_BYTES){const data=JSON.parse(text);if(expected&&data.song?.phrases?.[0]?.project?.setup!==expected)return;song=data.song?S.validate(data.song,root.HaloProject,root.HaloSounds):null;index=song&&Number.isInteger(data.index)&&data.index>=0&&data.index<song.sections.length?data.index:0;mode=data.mode===true;tab=data.tab==='agents'?'agents':data.tab==='live-loop'?'live-loop':(mode?'composition':'instruments');}
+    if(text&&text.length<S.MAX_BYTES&&new TextEncoder().encode(text).length<S.MAX_BYTES){const data=JSON.parse(text);if(expected&&data.song?.phrases?.[0]?.project?.setup!==expected)return;song=data.song?S.validate(data.song,root.HaloProject,root.HaloSounds):null;index=song&&Number.isInteger(data.index)&&data.index>=0&&data.index<song.sections.length?data.index:0;mode=data.mode===true;tab=(['agents','live-loop'].includes(data.tab)||data.tab==='external'&&externalPanel)?data.tab:(mode?'composition':'instruments');}
    }
    try{let text=localStorage.getItem(key);if(!text&&key!==baseKey){const legacy=localStorage.getItem(baseKey);if(legacy){const value=JSON.parse(legacy);if(value.song?.phrases?.[0]?.project?.setup===env.snapshot().setup)text=legacy;}}restoreWorldRecord(text);}catch(e){env.toast(tr('Не удалось восстановить композицию','Could not restore composition'))}
    if(song)env.load(snapshotPhrase(index)).catch(e=>env.toast(e.message));

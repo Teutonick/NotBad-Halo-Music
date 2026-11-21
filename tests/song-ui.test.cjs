@@ -1,6 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
 const Song=require('../src/song.js'),P=require('../src/project.js'),S=require('../src/sounds.js'),M=require('../src/motion.js');
-function app(loop,agentTest=false){
+function app(loop,agentTest=false,withExternal=false){
  const nodes=new Map(),events={},storage=new Map(),messages=[];let dropTarget=null;
  function node(tag){const classes=new Set();const n={tagName:(tag||'div').toUpperCase(),parent:null,children:[],dataset:{},style:{setProperty(){}},classList:{add:x=>classes.add(x),remove:x=>classes.delete(x),toggle(x,on){if(on)classes.add(x);else classes.delete(x)},has:x=>classes.has(x)},append(...x){x.forEach(c=>{if(c&&typeof c==='object')c.parent=n});this.children.push(...x)},insertBefore(x){if(x&&typeof x==='object')x.parent=n;this.children.push(x)},replaceChildren(){this.children=[]},setAttribute(k,v){this[k]=v},contains(x){return this===x||this.children.some(c=>c.contains(x))},getBoundingClientRect:()=>({left:0,right:900}),setPointerCapture(){},hasPointerCapture(){return true},releasePointerCapture(){},closest(sel){let cur=this;while(cur){if(sel==='[data-section]'&&cur.dataset?.section!==undefined)return cur;if((sel==='button'||sel.includes('button'))&&cur.tagName==='BUTTON')return cur;if((sel==='input'||sel.includes('input'))&&cur.tagName==='INPUT')return cur;cur=cur.parent}return null}};return n}
  const get=id=>{if(!nodes.has(id))nodes.set(id,node());return nodes.get(id)};
@@ -8,6 +8,7 @@ function app(loop,agentTest=false){
  const tracks=Object.keys(S.banks).map(name=>({name,sound:S.banks[name].sounds[0].id,on:true,level:65,density:70,character:50,duration:50,space:55,pattern:[0,4,8,12]}));
  let current=P.capture(tracks,4,81,2,0,S,M),reset=false;
  const env={language:()=> 'en',snapshot:()=>{const p=Song.copy(current);if(loop)p.liveLoop=loop.capturePhrase();return p},load:async p=>{current=Song.copy(p);loop?.restorePhrase(p.liveLoop)},toast:s=>messages.push(s),download(){},tracks:[],pulse(){},setTracks(){},finish(){},rewind(){},resetting:()=>reset};
+ if(withExternal){env.externalPanel=get('externalPanel');env.externalPanel.hidden=true;env.externalOpened=()=>messages.push('Track 10 opened');}
  const sandbox={document:doc,HaloLiveLoop:loop,HaloSong:Song,HaloComposition:require('../src/composition.js'),HaloProject:P,HaloSounds:S,TextEncoder,Blob,setTimeout:()=>1,clearTimeout(){},localStorage:{getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)},location:{hash:'',href:'https://example.com/halo/'},navigator:{}};
  if(agentTest){sandbox.HaloAgent={...require('../src/agent.js'),create(env){const api=require('../src/agent.js').create(env);sandbox.testAgent=api;return api}};sandbox.navigator.userActivation={hasBeenActive:false};}
  sandbox.window=sandbox;sandbox.addEventListener=(k,f)=>events[k]=f;vm.createContext(sandbox);vm.runInContext(fs.readFileSync('src/song-ui.js','utf8'),sandbox);const ui=sandbox.HaloSongUI.install(env);
@@ -15,6 +16,17 @@ function app(loop,agentTest=false){
  const descendants=n=>n.children.flatMap(c=>[c,...descendants(c)]);
  return {sandbox,ui,env,blocks,target:i=>dropTarget=blocks.children[i],click:async(label,i)=>{const parent=i===undefined?get('bottom'):blocks.children[i],b=descendants(parent).find(x=>x['aria-label']===label)||descendants(parent).find(x=>x['aria-label']?.startsWith(label));assert.ok(b,'Missing action '+label);await b.onclick()},select:async i=>blocks.children[i].onclick(),move:async(i,dir)=>blocks.children[i].children[0].onkeydown({altKey:true,key:dir,preventDefault(){}}),instruments:async()=>dock.children[0].children[0].onclick(),composition:async()=>dock.children[0].children[1].onclick(),saved:()=>JSON.parse(storage.get('halo-composition-v1')),current:()=>current,events,messages,name:(i,value)=>{const input=blocks.children[i].children.find(c=>c.className==='song-name-input');input.value=value;input.onkeydown({key:'Enter',stopPropagation(){},preventDefault(){}})},reset:()=>reset=true};
 }
+test('Track 10 opens inside the dashboard and retains its tab selection',async()=>{
+ const a=app(undefined,false,true);
+ await a.click('Track 10 — LINK');
+ assert.equal(a.env.externalPanel.hidden,false);
+ assert.equal(a.env.externalPanel.parent.id,'workstationPages');
+ assert.equal(a.saved().tab,'external');
+ assert.deepEqual(a.messages,['Track 10 opened']);
+ await a.instruments();
+ assert.equal(a.env.externalPanel.hidden,true);
+ assert.equal(a.saved().tab,'instruments');
+});
 test('UI assembly keeps intro sparse; repeat and variation preserve reference semantics',async()=>{
  const a=app();await a.click('Build composition');assert.ok(a.current().tracks.filter(t=>t.on).length<8);assert.equal(a.saved().song.sections.length,8);
  await a.select(2);await a.click('Repeat phrase',2);let saved=a.saved();assert.equal(saved.song.sections[2].phrase,saved.song.sections[3].phrase);

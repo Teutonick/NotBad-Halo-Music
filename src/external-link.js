@@ -42,9 +42,13 @@
     const clock = midiClock(() => performance.now());
     const key = 'halo-external-link-v1';
     const settings = { input: '', midi: '', trim: 100, monitor: false, solo: false, count: 1, offset: 0, from: 1, to: 4, kind: 'phrase' };
+    const bounds = { trim: [0, 150], count: [0, 4], offset: [-500, 500], from: [1, 128], to: [1, 128], volume: [0, 100] };
+    const specs = Object.fromEntries(Object.entries(bounds).map(([name,[min,max]])=>[name,{min,max,step:1,dragStep:name==='offset'?5:1}]));
     let stream, source, trim, meter, gain, engine, midi, levelTimer, connectedInput, generation = 0, status = 'disconnected';
     let takes, selectedMidi;
     const copy = {
+      audioSection: ['Audio input', 'Аудиовход'], midiSection: ['MIDI Clock', 'MIDI Clock'],
+      captureSection: ['Recording', 'Запись'], takesSection: ['Takes and export', 'Дубли и экспорт'],
       mode: ['Source', 'Источник'], live: ['Live input', 'Живой вход'], recorded: ['Recorded', 'Записи'],
       kind: ['Recording area', 'Область записи'], phrase: ['Phrase (4 or 8 bars)', 'Фраза (4 или 8 тактов)'],
       song: ['Composition', 'Композиция'], from: ['From bar', 'С такта'], to: ['Through bar', 'По такт'],
@@ -78,7 +82,7 @@
       deleted: ['Take deleted', 'Дубль удалён'],
       solo: ['Solo', 'Соло'], jsonWarning: ['JSON excludes Track 10 audio. Use Save project with audio for a portable copy.', 'JSON не содержит звук дорожки 10. Для переносимой копии сохраните проект с аудио.'],
       packageError: ['Could not save or open the Track 10 package.', 'Не удалось сохранить или открыть пакет дорожки 10.'],
-      title: ['10 · EXTERNAL', '10 · ВНЕШНИЙ ЗВУК'], close: ['Collapse', 'Свернуть'],
+      title: ['10 · HALO LINK', '10 · HALO LINK'],
       unlock: ['Allow audio access', 'Разрешить доступ к аудио'], input: ['Audio input', 'Аудиовход'],
       none: ['Select a device', 'Выберите устройство'], monitor: ['Monitor', 'Мониторинг'],
       mute: ['Mute', 'Без звука'], volume: ['Track volume', 'Громкость дорожки'],
@@ -103,7 +107,6 @@
         const candidate = saved?.[name];
         if (typeof candidate !== typeof value) continue;
         if (typeof value === 'string' && candidate.length > 512) continue;
-        const bounds = { trim: [0, 150], count: [0, 4], offset: [-500, 500], from: [1, 128], to: [1, 128] };
         if (typeof value === 'number' && (!Number.isInteger(candidate) || candidate < bounds[name][0] || candidate > bounds[name][1])) continue;
         if (name === 'kind' && !['song', 'phrase'].includes(candidate)) continue;
         settings[name] = candidate;
@@ -113,8 +116,6 @@
     function render() {
       const panel = get('Panel');
       for (const node of panel.querySelectorAll('[data-link]')) node.textContent = t(node.dataset.link);
-      get('Toggle').setAttribute('aria-label', 'HALO LINK · ' + t('title'));
-      get('Toggle').classList.toggle('active', !!stream);
       get('Status').textContent = t(stream && settings.monitor ? 'monitoring' : status);
       const transport = env.transport();
       get('Timing').textContent = transport.bpm + ' BPM · ' + transport.meter;
@@ -122,7 +123,6 @@
         (selectedMidi ? 'midiReady' : midi && settings.midi ? 'midiLost' : '');
       get('MidiStatus').textContent = midiStatus ? t(midiStatus) : '';
       for (const select of [get('Input'), get('Midi')]) select.options[0].text = t('none');
-      get('Close').setAttribute('aria-label', t('close'));
       get('Level').setAttribute('aria-label', t('level'));
       if (!takes) return;
       const view = takes.view();
@@ -252,11 +252,19 @@
       } catch (_) { feedback.dataset.error = 'midiDenied'; }
       render();
     };
-    get('Midi').onchange = e => { settings.midi = e.target.value; save(); refreshMidi(); };
-    get('Input').onchange = e => { settings.input = e.target.value; save(); };
+    const validOption=control=>control.value.length<=512&&Array.from(control.options).some(option=>option.value===control.value);
+    get('Midi').onchange = e => { if(!validOption(e.target))return;settings.midi = e.target.value; save(); refreshMidi(); };
+    get('Input').onchange = e => { if(!validOption(e.target))return;settings.input = e.target.value; save(); };
     get('Unlock').onclick = unlock;
     get('Connect').onclick = connect;
     get('Disconnect').onclick = () => release();
+    for (const [name,spec] of Object.entries(specs)) {
+      root.HaloControls.install(get(name[0].toUpperCase()+name.slice(1)),spec);
+    }
+    function numberValue(control,name,fallback) {
+      try { return root.HaloControls.parse(control.value,specs[name]); }
+      catch (_) { control.value=fallback;return null; }
+    }
     for (const name of ['monitor', 'trim', 'solo', 'count', 'offset', 'from', 'to', 'kind']) {
       const control = get(name[0].toUpperCase() + name.slice(1));
       const checkbox = control.type === 'checkbox';
@@ -265,27 +273,20 @@
       control.onchange = control.type === 'range' ? null : update;
       if (control.type === 'range') control.oninput = update;
       function update() {
-        const value = Number(control.value);
-        settings[name] = checkbox ? control.checked : name === 'kind' ? control.value :
-          Math.round(Math.max(Number(control.min), Math.min(Number(control.max), value)));
+        const value=checkbox?control.checked:name==='kind'?
+          (['song','phrase'].includes(control.value)?control.value:null):numberValue(control,name,settings[name]);
+        if(value===null){control.value=settings[name];return;}
+        settings[name] = value;
         if (!checkbox) control.value = settings[name];
         save();
         mix();
         render();
       }
     }
-    function show(open) {
-      get('Panel').hidden = !open;
-      get('Toggle').setAttribute('aria-expanded', String(open));
-      if (open) {
-        env.front();
-        render();
-        refreshInputs().catch(() => {});
-      }
-      else get('Toggle').focus();
+    function open() {
+      render();
+      refreshInputs().catch(() => {});
     }
-    get('Toggle').onclick = () => show(get('Panel').hidden);
-    get('Close').onclick = () => show(false);
     media?.addEventListener?.('devicechange', () => refreshInputs().catch(() => {}));
     takes = root.HaloExternalTakes.install({
       ...env, render() { mix(); render(); }
@@ -293,7 +294,7 @@
     const inputSettings = () => ({ ...settings });
     get('Whole').onclick = () => {
       const total = env.describe()?.barSteps?.length - 1;
-      if (!Number.isInteger(total) || total < 1) { env.toast(t('needSong')); return; }
+      if (!Number.isInteger(total) || total < 1 || total > bounds.to[1]) { env.toast(t('needSong')); return; }
       settings.from = 1;
       settings.to = total;
       get('From').value = 1;
@@ -312,10 +313,16 @@
       const { selected } = takes.view();
       if (selected && await env.confirm(t('confirmDelete'))) await takes.remove(selected);
     };
-    get('Mode').onchange = e => takes.modify({ mode: e.target.value });
+    get('Mode').onchange = e => {
+      if(['live','recorded'].includes(e.target.value))takes.modify({ mode: e.target.value });
+      else render();
+    };
     get('Fit').onchange = e => takes.modify({ fit: e.target.checked });
     get('Mute').onchange = e => takes.modify({ mute: e.target.checked });
-    get('Volume').oninput = e => takes.modify({ volume: Number(e.target.value) });
+    get('Volume').oninput = e => {
+      const volume=numberValue(e.target,'volume',takes.view().state.volume);
+      if(volume!==null)takes.modify({volume});
+    };
     get('SaveClip').onclick = async () => {
       const view = takes.view(), clip = view.state.clips.find(item => item.id === view.selected);
       if (!clip) return;
@@ -342,7 +349,7 @@
           timeline && env.running() ? Math.max(1, timeline.position / 4 + 1 + elapsed).toFixed(2) + ' ♩' : '';
         if (!(take || pending)) get('Stop').disabled = !takes.previewing();
       }
-      get('Toggle').style.setProperty('--external-level', Math.min(1, level * 2));
+      get('Toggle')?.style.setProperty('--external-level', Math.min(1, level * 2));
     }
     function wakeMeter() {
       if (levelTimer) return;
@@ -353,7 +360,7 @@
     }
     render();
     return {
-      render, release, takes, warnJson: () => { if (takes.snapshot()?.clips.length) env.toast(t('jsonWarning')); },
+      render, open, release, takes, warnJson: () => { if (takes.snapshot()?.clips.length) env.toast(t('jsonWarning')); },
       packageError: () => env.toast(t('packageError')),
       exportError(error) {
         const name = error.message === 'Track 10 musical grid changed' ? 'changedGrid' :
