@@ -289,11 +289,13 @@
     if(settings.in+.25>duration){settings.in=0;settings.out=null}
     else if(settings.out!==null&&settings.out>duration)settings.out=null;
     ready=true;
+    env.tourRefresh?.();
     cue();
     update();
     render();
     env.changed();
    });
+   media.addEventListener('playing',()=>{if(video===media&&env.selected()&&!priming)env.tourVideoPlayed?.()});
    for(const event of ['playing','seeked','waiting','ended'])media.addEventListener(event,()=>{if(video===media)update()});
    media.addEventListener('error',()=>{
     if(video!==media)return;

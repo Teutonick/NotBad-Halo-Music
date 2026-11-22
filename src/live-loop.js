@@ -1580,6 +1580,7 @@
     renderWaveform();
     renderUI();
 
+    envRef?.tourMark?.('audio');
     envRef?.toast(tr(
       `Записано ${settings.bars} такта · Зациклено`,
       `Recorded ${settings.bars} bars · Looping`
@@ -1657,6 +1658,7 @@
       renderWaveform();
       renderUI();
 
+      envRef?.tourMark?.('audio');
       envRef?.toast(tr('Файл успешно импортирован на 9-й трек', 'Audio file imported to Track 09'));
     } catch (err) {
       envRef?.toast(tr('Ошибка импорта аудио: ', 'Import failed: ') + err.message);
@@ -2519,6 +2521,7 @@
         persistSettings();
         createUI(container);
         renderWaveform();
+        if (slices.length > 1) envRef?.tourMark?.('slice');
         envRef?.toast(tr(`Нарезка: ${c} слайсов`, `Slices: ${c} chops`));
       };
     });
@@ -3596,6 +3599,23 @@
       return pendingQuantizedRestart;
     },
     addLayer,
+    loadTutorialLoop(audio, tempo) {
+      if (layers.length || recordingActive()) return;
+      const {sampleRate} = audio.ctx;
+      const secondsPerBeat = 60 / tempo;
+      const pcm = new Float32Array(Math.round(sampleRate * secondsPerBeat * 4));
+      for (let i = 0; i < pcm.length; i++) {
+        const beat = i / sampleRate / secondsPerBeat;
+        const t = (beat % 1) * secondsPerBeat;
+        const frequency = [110, 165, 131, 147][Math.floor(beat)];
+        const envelope = Math.min(t / .008, 1) * Math.max(0, 1 - t / (secondsPerBeat * .65)) ** 2;
+        pcm[i] = .24 * envelope * Math.sin(2 * Math.PI * frequency * t);
+      }
+      const id = Date.now();
+      addLayer({id, timestamp:id, duration:pcm.length/sampleRate, bars:1, sampleRate,
+        pcmL:pcm, pcmR:pcm, gain:1, name:tr('Учебный луп','Tutorial loop')}, audio.ctx);
+      api.setMode('slice');
+    },
     undo: undoLastLayer,
     updateSettings(newSettings) {
       api.setSettings(newSettings);

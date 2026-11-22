@@ -1,0 +1,67 @@
+.first-track[hidden],
+.first-track button[hidden] {
+  display: none;
+}
+
+.first-track {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  margin: 0 0 8px;
+  padding: 8px 12px;
+  border: 1px solid #457b7d;
+  border-radius: 12px;
+  background: #10232c;
+  color: #e2f5f4;
+  font: 13px/1.4 system-ui, sans-serif;
+}
+
+.first-track-copy {
+  flex: 1 1 250px;
+}
+
+.first-track p {
+  margin: 2px 0 0;
+}
+
+.first-track-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.first-track button,
+#firstTrackRestart {
+  min-height: 36px;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #bce3e0;
+  font: inherit;
+  cursor: pointer;
+}
+
+.first-track button:hover,
+.first-track button:focus-visible,
+#firstTrackPrimary,
+#firstTrackDemo,
+#firstTrackRestart {
+  border-color: #589c99;
+  background: #1b424a;
+  color: #f0fffd;
+}
+
+.guide-title-wrap {
+  flex-wrap: wrap;
+}
+
+.first-track-target {
+  outline: 2px solid #81e3d3 !important;
+  outline-offset: -2px;
+}

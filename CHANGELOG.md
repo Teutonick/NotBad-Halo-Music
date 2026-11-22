@@ -1,3 +1,7 @@
+## 2026-11-22 — First track tutorial
+
+- Offer skippable RU/EN workspace hints after accepting the terms, with a guide shortcut and a procedural slicing example.
+
 ## 2026-11-21 — HALO LINK header controls
 
 - Move MUTE and SOLO to the Track 10 header and add a bidirectional MIDI DISABLE toggle that retains ports and audio capture.

@@ -15,6 +15,7 @@
    const dock=document.createElement('div');dock.className='song-dock';dock.id='workstationPages';bottom.insertBefore(dock,tracks);
    const tabs=document.createElement('div');tabs.className='song-tabs';
    const instrumentsButton=document.createElement('button'),compositionButton=document.createElement('button'),loopButton=document.createElement('button'),agentButton=document.createElement('button');tabs.append(instrumentsButton,compositionButton,loopButton,agentButton);dock.append(tabs);
+   instrumentsButton.id='tourInstruments';compositionButton.id='tourComposition';loopButton.id='tourTrack09';
    const panel=document.createElement('div');panel.className='song-panel';panel.hidden=true;
    const loopPanel=document.createElement('div');loopPanel.className='live-loop-panel';loopPanel.id='liveLoopPanel';loopPanel.hidden=true;
    const agentPanel=document.createElement('div');agentPanel.className='agent-panel';agentPanel.hidden=true;dock.append(panel,loopPanel,agentPanel,tracks);
@@ -116,8 +117,8 @@
     handle.onpointerup=e=>{if(!drag||drag.handle!==handle)return;const {from,to,moved}=drag;clearDrag();if(handle.hasPointerCapture(e.pointerId))handle.releasePointerCapture(e.pointerId);if(moved)return move(from,to).catch(fail)};
     handle.onpointercancel=clearDrag;handle.onlostpointercapture=clearDrag;
    }
-   async function build(){commit();const creating=!song;song=S.validate(S.build(env.snapshot()),root.HaloProject,root.HaloSounds);if(creating)env.adoptExternalPhrase?.(song.sections[0].phrase);await select(0,false)}
-   async function add(){commit();const p=env.snapshot();if(!song){song=S.validate({format:'halo-composition',version:1,tempo:p.tempo,...(p.timeSignature==='3/4'?{timeSignature:'3/4'}:{}),phrases:[{id:1,project:p}],sections:[{phrase:1,name:'phrase',repeats:1,fade:'none'}]},root.HaloProject,root.HaloSounds);env.adoptExternalPhrase?.(1)}else{const next=S.copy(song),id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:p});next.sections.push({phrase:id,name:'phrase',repeats:1,fade:'none'});song=S.validate(next,root.HaloProject,root.HaloSounds)}await select(song.sections.length-1,false)}
+   async function build(){commit();const creating=!song;song=S.validate(S.build(env.snapshot()),root.HaloProject,root.HaloSounds);if(creating)env.adoptExternalPhrase?.(song.sections[0].phrase);await select(0,false);env.tourMark?.('song')}
+   async function add(){commit();const p=env.snapshot();if(!song){song=S.validate({format:'halo-composition',version:1,tempo:p.tempo,...(p.timeSignature==='3/4'?{timeSignature:'3/4'}:{}),phrases:[{id:1,project:p}],sections:[{phrase:1,name:'phrase',repeats:1,fade:'none'}]},root.HaloProject,root.HaloSounds);env.adoptExternalPhrase?.(1)}else{const next=S.copy(song),id=Math.max(...next.phrases.map(p=>p.id))+1;next.phrases.push({id,project:p});next.sections.push({phrase:id,name:'phrase',repeats:1,fade:'none'});song=S.validate(next,root.HaloProject,root.HaloSounds)}await select(song.sections.length-1,false);env.tourMark?.('song')}
    async function duplicate(i,independent){commit();song=S.validate(S.duplicate(song,i,independent),root.HaloProject,root.HaloSounds);await select(i+1,false)}
    async function remove(i){
     if(song.sections.length===1)return;
@@ -207,7 +208,7 @@
     return S.validate(next,root.HaloProject,root.HaloSounds);
    }
    const save=$('saveProject').onclick,share=$('shareProject').onclick;
-   $('saveProject').onclick=()=>{try{if(!song)return save();env.warnExternalJSON?.();env.download(new Blob([JSON.stringify(portableWithAddons(),null,2)],{type:'application/json'}),'halo-composition.json');persist()}catch(e){env.toast(e.message)}};
+   $('saveProject').onclick=()=>{try{if(!song)return save();env.warnExternalJSON?.();env.download(new Blob([JSON.stringify(portableWithAddons(),null,2)],{type:'application/json'}),'halo-composition.json');persist();env.tourMark?.('save')}catch(e){env.toast(e.message)}};
    async function loadPortable(data){
     if(data.format!=='halo-composition'){
      await env.load(data,undefined,{importVideo:true,importExternal:true});song=null;mode=false;tab='instruments';preview=false;

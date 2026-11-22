@@ -281,6 +281,7 @@
       selectedTransport=input;
       applyMidiRouting();
       render();
+      env.tourRefresh?.();
     }
     function applyMidiRouting() {
       midiInput.select(settings.midiDisabled?undefined:selectedTransport);
@@ -300,8 +301,8 @@
       render();
     };
     const validOption=control=>control.value.length<=512&&Array.from(control.options).some(option=>option.value===control.value);
-    get('Midi').onchange = e => { if(!validOption(e.target))return;settings.midi = e.target.value; save(); refreshMidi(); };
-    get('MidiTransport').onchange = e => { if(!validOption(e.target))return;settings.midiTransport=e.target.value;save();refreshMidi(); };
+    get('Midi').onchange = e => { if(!validOption(e.target))return;settings.midi = e.target.value; save(); refreshMidi(); if(selectedMidi&&!settings.midiDisabled)env.tourMidiConnected?.(); };
+    get('MidiTransport').onchange = e => { if(!validOption(e.target))return;settings.midiTransport=e.target.value;save();refreshMidi();if(selectedTransport&&!settings.midiDisabled)env.tourMidiConnected?.(); };
     get('Input').onchange = e => { if(!validOption(e.target))return;settings.input = e.target.value; save(); };
     get('Unlock').onclick = unlock;
     get('Connect').onclick = connect;
